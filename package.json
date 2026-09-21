@@ -1,0 +1,24 @@
+{
+  "name": "trekviewer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy:surge": "tsc && vite build && npx surge dist --domain trekviewer.surge.sh",
+    "deploy:gh-pages": "tsc && vite build && npx gh-pages -d dist",
+    "package:apk": "bash scripts/package-quest-apk.sh"
+  },
+  "dependencies": {
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}

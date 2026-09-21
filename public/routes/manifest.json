@@ -1,0 +1,66 @@
+[
+  {
+    "id": "rainier-emmons",
+    "name": "Mount Rainier via Emmons Glacier",
+    "file": "/routes/MountRanierViaEmmons.gpx.gpx",
+    "region": "Mount Rainier National Park, WA",
+    "difficulty": "Glaciated Alpine",
+    "description": "Ascent of Mount Rainier (14,411 ft / 4,392 m) via the Emmons-Winthrop Glacier route."
+  },
+  {
+    "id": "baker-2026",
+    "name": "Mount Baker (July 2026)",
+    "file": "/routes/MountBakerJuly2026.gpx.gpx",
+    "region": "North Cascades, WA",
+    "difficulty": "Glaciated Alpine",
+    "description": "High alpine glacier ascent of Mount Baker (10,781 ft / 3,286 m)."
+  },
+  {
+    "id": "adams-2026",
+    "name": "Mount Adams (July 2026)",
+    "file": "/routes/MountAdamsJuly2026.gpx.gpx",
+    "region": "South Cascades, WA",
+    "difficulty": "Strenuous Snow Climb",
+    "description": "Massive volcanic climb of Mount Adams (12,280 ft / 3,743 m) via the South Spur."
+  },
+  {
+    "id": "hood-2026",
+    "name": "Mount Hood (June 2026)",
+    "file": "/routes/MountHoodJune2026.gpx.gpx",
+    "region": "Mount Hood Wilderness, OR",
+    "difficulty": "Steep Alpine Snow / Ice",
+    "description": "Iconic technical ascent of Mount Hood (11,249 ft / 3,429 m) via Pearly Gates / Old Chute."
+  },
+  {
+    "id": "glacier-peak-2026",
+    "name": "Glacier Peak Traverse (July 2026)",
+    "file": "/routes/glacier-peak-july-2026-reconstructed.gpx",
+    "region": "Glacier Peak Wilderness, WA",
+    "difficulty": "Remote Wilderness Expedition",
+    "description": "Epic multi-day wilderness trek & glacier ascent of Washington's most remote volcano (10,541 ft)."
+  },
+  {
+    "id": "olympus-bailey-2026",
+    "name": "Olympus & Bailey Range Traverse (2026)",
+    "file": "/routes/Olympus and Bailey Range Traverse 2026.gpx",
+    "region": "Olympic National Park, WA",
+    "difficulty": "Multi-Day Alpine Traverse",
+    "description": "Legendary rugged wilderness traverse across the Bailey Range and Mount Olympus."
+  },
+  {
+    "id": "enchantments-dragontail",
+    "name": "Enchantments & Dragontail Peak",
+    "file": "/routes/EnchantsmentsAndDragontail.gpx",
+    "region": "Alpine Lakes Wilderness, WA",
+    "difficulty": "Granite Scramble & High Lakes",
+    "description": "Spectacular granite basins, turquoise alpine lakes, and summit of Dragontail Peak (8,840 ft)."
+  },
+  {
+    "id": "defiance-putrid-pete",
+    "name": "Putrid Pete's Peak, Web Mtn & Mt Defiance",
+    "file": "/routes/PutridPeteWebMountDefiance.gpx",
+    "region": "Snoqualmie Pass / I-90 Corridor, WA",
+    "difficulty": "Steep Ridge Scramble",
+    "description": "High-vert ridge run connecting Putrid Pete's Peak (P3), Web Mountain, and Mount Defiance."
+  }
+]
