@@ -27,7 +27,7 @@ assert(rainierTrack.elevationGain > 2800, 'Rainier Emmons climb gain > 2,800m');
 assert(rainierTrack.totalDistance > 15000, 'Total roundtrip distance > 15 km');
 
 // 2. Enchantments & Dragontail Peak
-const enchantPath = path.resolve('routes/EnchantsmentsAndDragontail.gpx');
+const enchantPath = path.resolve('routes/EnchantmentsAndDragontail.gpx');
 const enchantXML = fs.readFileSync(enchantPath, 'utf8');
 const enchantTrack = GPXParser.parse(enchantXML);
 

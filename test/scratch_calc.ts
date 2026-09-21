@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { haversineDistance } from '../src/gpx/Coordinates.ts';
 
-const xml = fs.readFileSync('routes/EnchantsmentsAndDragontail.gpx', 'utf8');
+const xml = fs.readFileSync('routes/EnchantmentsAndDragontail.gpx', 'utf8');
 
 const trkptRegex = /<trkpt\s+[^>]*lat=["\x27]([^"\x27]+)["\x27][^>]*lon=["\x27]([^"\x27]+)["\x27][^>]*>([\s\S]*?)<\/trkpt>/gi;
 let match;
