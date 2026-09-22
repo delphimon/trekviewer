@@ -47,6 +47,9 @@ export class DesktopOverlay {
   private qualityBadge!: HTMLElement;
   private attributionFooter!: HTMLElement;
 
+  private vrSupported: boolean = true;
+  private arSupported: boolean = true;
+
   private cachedChartCanvas: HTMLCanvasElement | null = null;
 
   constructor(container: HTMLElement, callbacks: OverlayCallbacks, session?: TrekSession) {
@@ -69,20 +72,39 @@ export class DesktopOverlay {
   private checkXRSupport(): void {
     if (typeof navigator !== 'undefined' && 'xr' in navigator && (navigator as any).xr?.isSessionSupported) {
       (navigator as any).xr.isSessionSupported('immersive-vr').then((supported: boolean) => {
-        const btnVR = document.getElementById('btnEnterVR');
+        this.vrSupported = !!supported;
+        const btnVR = document.getElementById('btnEnterVR') as HTMLButtonElement | null;
         if (btnVR && !supported) {
           btnVR.setAttribute('title', 'WebXR Immersive VR not supported on this device/browser');
           btnVR.classList.add('btn-disabled');
+          btnVR.disabled = true;
         }
       }).catch(() => {});
 
       (navigator as any).xr.isSessionSupported('immersive-ar').then((supported: boolean) => {
-        const btnAR = document.getElementById('btnEnterAR');
+        this.arSupported = !!supported;
+        const btnAR = document.getElementById('btnEnterAR') as HTMLButtonElement | null;
         if (btnAR && !supported) {
           btnAR.setAttribute('title', 'WebXR Passthrough MR not supported on this device/browser');
           btnAR.classList.add('btn-disabled');
+          btnAR.disabled = true;
         }
       }).catch(() => {});
+    } else {
+      this.vrSupported = false;
+      this.arSupported = false;
+      const btnVR = document.getElementById('btnEnterVR') as HTMLButtonElement | null;
+      const btnAR = document.getElementById('btnEnterAR') as HTMLButtonElement | null;
+      if (btnVR) {
+        btnVR.setAttribute('title', 'WebXR not supported in this browser');
+        btnVR.classList.add('btn-disabled');
+        btnVR.disabled = true;
+      }
+      if (btnAR) {
+        btnAR.setAttribute('title', 'WebXR not supported in this browser');
+        btnAR.classList.add('btn-disabled');
+        btnAR.disabled = true;
+      }
     }
   }
 
@@ -125,6 +147,32 @@ export class DesktopOverlay {
         const spd = parseFloat(btn.getAttribute('data-speed') || '20');
         btn.classList.toggle('btn-active', Math.abs(spd - s.playbackSpeed) < 0.1);
       });
+    }
+
+    const isReady = s.loadingPhase === 'ready' && !!s.track;
+    const btnVR = document.getElementById('btnEnterVR') as HTMLButtonElement | null;
+    const btnAR = document.getElementById('btnEnterAR') as HTMLButtonElement | null;
+    if (btnVR && this.vrSupported) {
+      if (isReady) {
+        btnVR.classList.remove('btn-disabled');
+        btnVR.disabled = false;
+        btnVR.setAttribute('title', 'Enter Immersive VR mode');
+      } else {
+        btnVR.classList.add('btn-disabled');
+        btnVR.disabled = true;
+        btnVR.setAttribute('title', 'Preparing terrain…');
+      }
+    }
+    if (btnAR && this.arSupported) {
+      if (isReady) {
+        btnAR.classList.remove('btn-disabled');
+        btnAR.disabled = false;
+        btnAR.setAttribute('title', 'Enter Passthrough MR mode');
+      } else {
+        btnAR.classList.add('btn-disabled');
+        btnAR.disabled = true;
+        btnAR.setAttribute('title', 'Preparing terrain…');
+      }
     }
 
     if (s.loadingMessage) {
@@ -388,10 +436,10 @@ export class DesktopOverlay {
           </div>
 
           <div class="xr-buttons">
-            <button id="btnEnterVR" class="btn btn-primary xr-btn">
+            <button id="btnEnterVR" class="btn btn-primary xr-btn btn-disabled" disabled title="Preparing terrain…">
               🥽 Enter VR
             </button>
-            <button id="btnEnterAR" class="btn btn-accent xr-btn">
+            <button id="btnEnterAR" class="btn btn-accent xr-btn btn-disabled" disabled title="Preparing terrain…">
               👓 Passthrough (MR)
             </button>
           </div>

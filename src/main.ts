@@ -4,10 +4,12 @@ import type { RouteManifestItem, ViewMode, TextureStyle, TrailColorMode, GPXWayp
 import { TrekSession } from './core/TrekSession.ts';
 import { RouteLoader } from './core/RouteLoader.ts';
 import { LoadedTrek } from './core/LoadedTrek.ts';
-import { SceneManager } from './core/SceneManager.ts';
+import { SceneManager, type XRAnchorPose } from './core/SceneManager.ts';
 import { XRManager } from './core/XRManager.ts';
 import { SpatialHUD } from './ui/SpatialHUD.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay.ts';
+
+type XRAnchorState = 'not-presenting' | 'waiting-for-pose' | 'anchored';
 
 export function resolveAssetUrl(path: string): string {
   if (/^(https?:|blob:|data:)/i.test(path)) return path;
@@ -29,6 +31,9 @@ class TrekViewerApp {
   private manifest: RouteManifestItem[] = [];
   private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
   private lastTimestamp: number = performance.now();
+  private xrAnchorState: XRAnchorState = 'not-presenting';
+  private dioramaTransformVersion = 0;
+  private isDebugMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
 
   constructor() {
     const canvasContainer = document.getElementById('canvas-container')!;
@@ -57,6 +62,9 @@ class TrekViewerApp {
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
+      this.xrAnchorState = 'waiting-for-pose';
+      this.xrManager.resetInteractionState();
+
       const session = this.sceneManager.renderer.xr.getSession();
       if (session) {
         // Request 72Hz framerate on Meta Quest 3 to drastically reduce heat and conserve battery
@@ -75,6 +83,11 @@ class TrekViewerApp {
       this.controls.enabled = true;
       this.sceneManager.setPassthrough(false);
       this.sceneManager.setXREnergyMode(false);
+      this.xrAnchorState = 'not-presenting';
+      this.xrManager.resetInteractionState();
+      this.sceneManager.setupDesktopDiorama();
+      this.dioramaTransformVersion++;
+      this.dockHUD(this.currentHUDDockSide);
     });
 
     // 5. WebXR Manager
@@ -215,7 +228,25 @@ class TrekViewerApp {
 
     // Add HUD to scene and dock
     this.sceneManager.scene.add(this.spatialHUD.group);
-    this.dockHUD(this.currentHUDDockSide);
+    if (this.sceneManager.renderer.xr.isPresenting && this.xrAnchorState === 'anchored') {
+      const xrCam = this.sceneManager.renderer.xr.getCamera();
+      const headPos = xrCam.position;
+      if (headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z)) {
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+        fwd.y = 0;
+        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
+        else fwd.normalize();
+        this.anchorTabletopHUD({
+          headPosition: headPos.clone(),
+          horizontalForward: fwd.clone(),
+          yaw: Math.atan2(fwd.x, fwd.z),
+        }, this.currentHUDDockSide);
+      } else {
+        this.dockHUD(this.currentHUDDockSide);
+      }
+    } else {
+      this.dockHUD(this.currentHUDDockSide);
+    }
 
     // Register SpatialHUD with XRManager for laser raycasting and clicks
     this.xrManager.setSpatialHUD(this.spatialHUD);
@@ -259,6 +290,56 @@ class TrekViewerApp {
     active.flyoverController.setProgress(progress);
   }
 
+  public getActiveViewCamera(): THREE.Camera {
+    return this.sceneManager.renderer.xr.isPresenting
+      ? this.sceneManager.renderer.xr.getCamera()
+      : this.sceneManager.camera;
+  }
+
+  private anchorTabletop(pose: XRAnchorPose, reason: string): void {
+    if (this.session.getState().viewMode !== 'diorama') return;
+    this.sceneManager.anchorDioramaAtPose(pose);
+    this.anchorTabletopHUD(pose, this.currentHUDDockSide);
+    this.dioramaTransformVersion++;
+    if (this.isDebugMode) {
+      console.log(`[XR Tabletop Anchored] reason=${reason} version=${this.dioramaTransformVersion}`, {
+        head: pose.headPosition.toArray(),
+        dioramaPos: this.sceneManager.dioramaRoot.position.toArray(),
+        dioramaRot: this.sceneManager.dioramaRoot.rotation.toArray(),
+      });
+    }
+  }
+
+  private anchorTabletopHUD(pose: XRAnchorPose, side: 'left' | 'right' | 'center'): void {
+    if (!this.spatialHUD) return;
+    this.spatialHUD.setDockSide(side);
+    const headPos = pose.headPosition;
+    const fwd = pose.horizontalForward;
+    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+
+    if (side === 'left') {
+      const target = headPos.clone()
+        .addScaledVector(fwd, 0.70)
+        .addScaledVector(right, -0.72)
+        .add(new THREE.Vector3(0, -0.05, 0));
+      this.spatialHUD.group.position.copy(target);
+      this.spatialHUD.group.lookAt(headPos.x, this.spatialHUD.group.position.y, headPos.z);
+    } else if (side === 'right') {
+      const target = headPos.clone()
+        .addScaledVector(fwd, 0.70)
+        .addScaledVector(right, 0.72)
+        .add(new THREE.Vector3(0, -0.05, 0));
+      this.spatialHUD.group.position.copy(target);
+      this.spatialHUD.group.lookAt(headPos.x, this.spatialHUD.group.position.y, headPos.z);
+    } else {
+      const target = headPos.clone()
+        .addScaledVector(fwd, 1.12)
+        .add(new THREE.Vector3(0, 0.18, 0));
+      this.spatialHUD.group.position.copy(target);
+      this.spatialHUD.group.lookAt(headPos.x, headPos.y, headPos.z);
+    }
+  }
+
   private dockHUD(side: 'left' | 'right' | 'center'): void {
     this.currentHUDDockSide = side;
     if (!this.spatialHUD) return;
@@ -268,46 +349,29 @@ class TrekViewerApp {
     const viewMode = this.session.getState().viewMode;
 
     if (viewMode === 'first-person') {
-      const xrCam = isXR ? this.sceneManager.renderer.xr.getCamera() : this.sceneManager.camera;
-      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(xrCam.quaternion);
-      this.spatialHUD.group.position.copy(xrCam.position).add(forward);
-      this.spatialHUD.group.quaternion.copy(xrCam.quaternion);
+      const activeCam = this.getActiveViewCamera();
+      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(activeCam.quaternion);
+      this.spatialHUD.group.position.copy(activeCam.position).add(forward);
+      this.spatialHUD.group.quaternion.copy(activeCam.quaternion);
       return;
     }
 
     if (isXR) {
       const xrCam = this.sceneManager.renderer.xr.getCamera();
       const headPos = xrCam.position;
-      const hasValidHead = headPos.y > 0.4;
+      const hasValidHead = headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z);
 
       if (hasValidHead) {
         const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
         fwd.y = 0;
         if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
         else fwd.normalize();
-        const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
 
-        if (side === 'left') {
-          const target = headPos.clone()
-            .addScaledVector(fwd, 0.70)
-            .addScaledVector(right, -0.72)
-            .add(new THREE.Vector3(0, -0.05, 0));
-          this.spatialHUD.group.position.copy(target);
-          this.spatialHUD.group.lookAt(headPos.x, this.spatialHUD.group.position.y, headPos.z);
-        } else if (side === 'right') {
-          const target = headPos.clone()
-            .addScaledVector(fwd, 0.70)
-            .addScaledVector(right, 0.72)
-            .add(new THREE.Vector3(0, -0.05, 0));
-          this.spatialHUD.group.position.copy(target);
-          this.spatialHUD.group.lookAt(headPos.x, this.spatialHUD.group.position.y, headPos.z);
-        } else {
-          const target = headPos.clone()
-            .addScaledVector(fwd, 1.12)
-            .add(new THREE.Vector3(0, 0.18, 0));
-          this.spatialHUD.group.position.copy(target);
-          this.spatialHUD.group.lookAt(headPos.x, headPos.y, headPos.z);
-        }
+        this.anchorTabletopHUD({
+          headPosition: headPos.clone(),
+          horizontalForward: fwd.clone(),
+          yaw: Math.atan2(fwd.x, fwd.z),
+        }, side);
       } else {
         // Standard WebXR room coordinates (user at origin facing -Z)
         if (side === 'left') {
@@ -436,9 +500,31 @@ class TrekViewerApp {
       const maxDim = Math.max(active.track.bounds.widthMeters, active.track.bounds.depthMeters);
       this.sceneManager.setViewMode(this.session.getState().viewMode, maxDim);
     }
-    // Re-anchor diorama and HUD right in front of user within arm's reach
-    this.sceneManager.resetToArmLength();
-    this.dockHUD(this.currentHUDDockSide);
+    const isXR = this.sceneManager.renderer.xr.isPresenting;
+    if (isXR) {
+      const xrCam = this.sceneManager.renderer.xr.getCamera();
+      const headPos = xrCam.position;
+      const hasValidHead = headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z);
+      if (hasValidHead) {
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+        fwd.y = 0;
+        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
+        else fwd.normalize();
+        this.anchorTabletop({
+          headPosition: headPos.clone(),
+          horizontalForward: fwd.clone(),
+          yaw: Math.atan2(fwd.x, fwd.z),
+        }, 'user-reset');
+      } else {
+        this.sceneManager.anchorDioramaDefault();
+        this.dioramaTransformVersion++;
+        this.dockHUD(this.currentHUDDockSide);
+      }
+    } else {
+      this.sceneManager.setupDesktopDiorama();
+      this.dioramaTransformVersion++;
+      this.dockHUD(this.currentHUDDockSide);
+    }
   }
 
   private focusOnHiker(): void {
@@ -461,6 +547,13 @@ class TrekViewerApp {
   private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
     if (!('xr' in navigator)) {
       alert('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!');
+      return;
+    }
+
+    const state = this.session.getState();
+    if (!this.routeLoader.getActiveTrek() || state.loadingPhase !== 'ready') {
+      console.warn('Cannot enter WebXR: route is still loading or not ready.');
+      this.overlay.showStatus('Please wait for route terrain to finish preparing before entering XR.', false);
       return;
     }
 
@@ -499,6 +592,27 @@ class TrekViewerApp {
     const delta = Math.min((now - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = now;
 
+    // 0. Deterministic One-Time XR Tabletop Anchoring
+    if (this.sceneManager.renderer.xr.isPresenting && this.xrAnchorState === 'waiting-for-pose') {
+      const xrCam = this.sceneManager.renderer.xr.getCamera();
+      const headPos = xrCam.position;
+      if (headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z)) {
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+        fwd.y = 0;
+        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
+        else fwd.normalize();
+
+        const anchorPose: XRAnchorPose = {
+          headPosition: headPos.clone(),
+          horizontalForward: fwd.clone(),
+          yaw: Math.atan2(fwd.x, fwd.z),
+        };
+
+        this.anchorTabletop(anchorPose, 'initial-xr-anchor');
+        this.xrAnchorState = 'anchored';
+      }
+    }
+
     // 1. Update WebXR inputs with frame delta (frame-rate independent locomotion, pan, zoom)
     this.xrManager.update(delta);
 
@@ -510,25 +624,29 @@ class TrekViewerApp {
     // 3. Update Flyover / Animation playback & Adaptive Imagery LOD
     const active = this.routeLoader.getActiveTrek();
     if (active) {
+      const activeCam = this.getActiveViewCamera();
       active.flyoverController.update(
         delta,
-        this.sceneManager.camera,
+        activeCam,
         this.sceneManager.dioramaRoot,
         this.sceneManager.renderer.xr.isPresenting
       );
-      active.lodManager?.update(
-        this.sceneManager.camera,
-        this.sceneManager.dioramaRoot,
-        this.session.getState().viewMode,
-        delta
-      );
+      if (!this.sceneManager.renderer.xr.isPresenting) {
+        active.lodManager?.update(
+          this.sceneManager.camera,
+          this.sceneManager.dioramaRoot,
+          this.session.getState().viewMode,
+          delta
+        );
+      }
     }
 
     // 4. In First-Person mode, keep HUD floating comfortably in front of user
     if (this.session.getState().viewMode === 'first-person' && this.spatialHUD) {
-      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(this.sceneManager.camera.quaternion);
-      this.spatialHUD.group.position.copy(this.sceneManager.camera.position).add(forward);
-      this.spatialHUD.group.quaternion.copy(this.sceneManager.camera.quaternion);
+      const activeCam = this.getActiveViewCamera();
+      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(activeCam.quaternion);
+      this.spatialHUD.group.position.copy(activeCam.position).add(forward);
+      this.spatialHUD.group.quaternion.copy(activeCam.quaternion);
     }
 
     // 5. Render Scene

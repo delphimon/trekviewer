@@ -254,6 +254,11 @@ export class XRManager {
 
       controller.addEventListener('connected', (event: any) => {
         state.inputSource = event.data;
+        if (event.data?.gamepad?.buttons) {
+          for (let b = 0; b < event.data.gamepad.buttons.length && b < state.prevButtons.length; b++) {
+            state.prevButtons[b] = event.data.gamepad.buttons[b].pressed;
+          }
+        }
       });
 
       controller.addEventListener('disconnected', () => {

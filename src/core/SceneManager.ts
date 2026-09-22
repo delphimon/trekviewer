@@ -3,6 +3,12 @@ import type { ViewMode } from '../gpx/TrackTypes.ts';
 import { isPointOnDiorama, type DioramaVolume } from './GestureMath.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 
+export interface XRAnchorPose {
+  headPosition: THREE.Vector3;
+  horizontalForward: THREE.Vector3;
+  yaw: number;
+}
+
 export class SceneManager {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
@@ -112,7 +118,7 @@ export class SceneManager {
       // Terrain has realistic USGS photographic shaded relief; dynamic PCF shadows only add heat
       this.renderer.shadowMap.enabled = false;
       this.sunLight.castShadow = false;
-      this.renderer.xr.setFramebufferScaleFactor(1.0);
+      // Do not dynamically alter framebuffer scale during an active session
     } else {
       this.renderer.shadowMap.enabled = true;
       this.sunLight.castShadow = true;
@@ -144,15 +150,45 @@ export class SceneManager {
         minY: -110,
         maxY: Math.max(extentMeters * 0.5, 500),
       };
-
-      // Place tabletop diorama within comfortable arm's reach of the user
-      this.resetToArmLength();
+      // Note: setViewMode only configures scale/volume policy; does not implicitly move world
     } else {
       // 1:1 Real-world meters scale for First-Person immersion
       this.dioramaRoot.scale.set(1, 1, 1);
       this.dioramaRoot.position.set(0, 0, 0);
       this.dioramaRoot.rotation.set(0, 0, 0);
     }
+  }
+
+  /**
+   * Anchors the tabletop diorama relative to a measured XR headset pose snapshot.
+   */
+  public anchorDioramaAtPose(pose: XRAnchorPose): void {
+    if (this.currentViewMode !== 'diorama') return;
+    const targetX = pose.headPosition.x + pose.horizontalForward.x * 0.80;
+    const targetZ = pose.headPosition.z + pose.horizontalForward.z * 0.80;
+    const targetY = Math.max(0.60, pose.headPosition.y - 0.32);
+    this.dioramaRoot.position.set(targetX, targetY, targetZ);
+    this.dioramaRoot.rotation.set(0, pose.yaw - Math.PI, 0);
+  }
+
+  /**
+   * Fallback WebXR local-floor table anchor when head pose is not yet available.
+   */
+  public anchorDioramaDefault(): void {
+    if (this.currentViewMode !== 'diorama') return;
+    this.dioramaRoot.position.set(0, 0.85, -0.80);
+    this.dioramaRoot.rotation.set(0, 0, 0);
+  }
+
+  /**
+   * Configures diorama and camera for desktop screen inspection.
+   */
+  public setupDesktopDiorama(): void {
+    if (this.currentViewMode !== 'diorama') return;
+    this.dioramaRoot.position.set(0, -0.15, -0.55);
+    this.dioramaRoot.rotation.set(0, 0, 0);
+    this.camera.position.set(0, 0.65, 0.95);
+    this.camera.lookAt(0, -0.1, -0.55);
   }
 
   public resetToArmLength(): void {
@@ -162,7 +198,7 @@ export class SceneManager {
       if (isXR) {
         const xrCam = this.renderer.xr.getCamera();
         const headPos = xrCam.position;
-        const hasValidHead = headPos.y > 0.4;
+        const hasValidHead = headPos.y > 0.4 && isFinite(headPos.x) && isFinite(headPos.y) && isFinite(headPos.z);
 
         if (hasValidHead) {
           const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
@@ -173,24 +209,16 @@ export class SceneManager {
             fwd.normalize();
           }
 
-          const targetX = headPos.x + fwd.x * 0.80;
-          const targetZ = headPos.z + fwd.z * 0.80;
-          const targetY = Math.max(0.60, headPos.y - 0.32);
-          const yaw = Math.atan2(fwd.x, fwd.z);
-
-          this.dioramaRoot.position.set(targetX, targetY, targetZ);
-          this.dioramaRoot.rotation.set(0, yaw - Math.PI, 0);
+          this.anchorDioramaAtPose({
+            headPosition: headPos.clone(),
+            horizontalForward: fwd.clone(),
+            yaw: Math.atan2(fwd.x, fwd.z),
+          });
         } else {
-          // Standard WebXR local-floor table anchor: 0.80m forward, 0.85m height
-          this.dioramaRoot.position.set(0, 0.85, -0.80);
-          this.dioramaRoot.rotation.set(0, 0, 0);
+          this.anchorDioramaDefault();
         }
       } else {
-        // Desktop inspection mode
-        this.dioramaRoot.position.set(0, -0.15, -0.55);
-        this.dioramaRoot.rotation.set(0, 0, 0);
-        this.camera.position.set(0, 0.65, 0.95);
-        this.camera.lookAt(0, -0.1, -0.55);
+        this.setupDesktopDiorama();
       }
     } else {
       this.dioramaRoot.position.set(0, 0, 0);
