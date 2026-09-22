@@ -4,6 +4,7 @@ import { geoToLocalMeters } from '../gpx/Coordinates.ts';
 
 export interface RouteTelemetry {
   position: THREE.Vector3;
+  groundPosition: THREE.Vector3;
   tangent: THREE.Vector3;
   currentPoint: GPXPoint;
   segmentIndex: number;
@@ -12,8 +13,12 @@ export interface RouteTelemetry {
 export interface SegmentGeometry {
   segment: TrackSegment;
   localVectors: THREE.Vector3[];
+  groundVectors: THREE.Vector3[];
+  firstPersonVectors: THREE.Vector3[];
   visualVectors: THREE.Vector3[];
   curve: THREE.CatmullRomCurve3;
+  groundCurve: THREE.CatmullRomCurve3;
+  firstPersonCurve: THREE.CatmullRomCurve3;
 }
 
 /**
@@ -81,15 +86,21 @@ export class RouteGeometry {
     // Process each track segment independently to prevent connecting lines across gaps
     for (const seg of track.segments) {
       const localVectors: THREE.Vector3[] = [];
+      const groundVectors: THREE.Vector3[] = [];
+      const firstPersonVectors: THREE.Vector3[] = [];
 
       for (const p of seg.points) {
         const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, baseElevation);
-        let baseY = loc.y;
+        let groundY = loc.y;
         if (elevationSampler) {
           const terrainY = elevationSampler(loc.x, loc.z);
-          baseY = Math.max(loc.y, terrainY);
+          if (!isNaN(terrainY) && Number.isFinite(terrainY)) {
+            groundY = terrainY;
+          }
         }
-        localVectors.push(new THREE.Vector3(loc.x, baseY + dioramaElevationOffset, loc.z));
+        groundVectors.push(new THREE.Vector3(loc.x, groundY, loc.z));
+        localVectors.push(new THREE.Vector3(loc.x, groundY + dioramaElevationOffset, loc.z));
+        firstPersonVectors.push(new THREE.Vector3(loc.x, groundY + 0.08, loc.z));
       }
 
       if (localVectors.length < 2) continue;
@@ -101,22 +112,45 @@ export class RouteGeometry {
 
       // Conservative Catmull-Rom tension (0.15) to prevent cutting corners on alpine hairpins
       const curve = new THREE.CatmullRomCurve3(splinePoints, false, 'catmullrom', 0.15);
+      const groundCurve = new THREE.CatmullRomCurve3(groundVectors, false, 'catmullrom', 0.15);
+      const firstPersonCurve = new THREE.CatmullRomCurve3(firstPersonVectors, false, 'catmullrom', 0.15);
 
       this.segments.push({
         segment: seg,
         localVectors,
+        groundVectors,
+        firstPersonVectors,
         visualVectors: splinePoints,
         curve,
+        groundCurve,
+        firstPersonCurve,
       });
     }
 
     // Fallback if no segments were constructed
     if (this.segments.length === 0 && track.points.length >= 2) {
-      const fallbackLocal = track.points.map((p) => {
+      const fallbackLocal: THREE.Vector3[] = [];
+      const fallbackGround: THREE.Vector3[] = [];
+      const fallbackFP: THREE.Vector3[] = [];
+
+      for (const p of track.points) {
         const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, baseElevation);
-        return new THREE.Vector3(loc.x, loc.y + dioramaElevationOffset, loc.z);
-      });
+        let groundY = loc.y;
+        if (elevationSampler) {
+          const terrainY = elevationSampler(loc.x, loc.z);
+          if (!isNaN(terrainY) && Number.isFinite(terrainY)) {
+            groundY = terrainY;
+          }
+        }
+        fallbackGround.push(new THREE.Vector3(loc.x, groundY, loc.z));
+        fallbackLocal.push(new THREE.Vector3(loc.x, groundY + dioramaElevationOffset, loc.z));
+        fallbackFP.push(new THREE.Vector3(loc.x, groundY + 0.08, loc.z));
+      }
+
       const curve = new THREE.CatmullRomCurve3(fallbackLocal, false, 'catmullrom', 0.15);
+      const groundCurve = new THREE.CatmullRomCurve3(fallbackGround, false, 'catmullrom', 0.15);
+      const firstPersonCurve = new THREE.CatmullRomCurve3(fallbackFP, false, 'catmullrom', 0.15);
+
       this.segments.push({
         segment: {
           points: track.points,
@@ -127,8 +161,12 @@ export class RouteGeometry {
           endIndex: track.points.length - 1,
         },
         localVectors: fallbackLocal,
+        groundVectors: fallbackGround,
+        firstPersonVectors: fallbackFP,
         visualVectors: fallbackLocal,
         curve,
+        groundCurve,
+        firstPersonCurve,
       });
     }
   }
@@ -136,15 +174,15 @@ export class RouteGeometry {
   /**
    * Distance-based route interpolation:
    * Maps target distance in meters to exact 3D position and interpolated telemetry
-   * using binary search on the cumulative distance table.
+   * using binary search strictly bounded within the segment containing targetDist.
    */
   public getTelemetryAtDistance(distanceMeters: number): RouteTelemetry {
     const targetDist = Math.max(0, Math.min(this.totalDistance, distanceMeters));
-    const points = this.track.points;
 
-    if (points.length === 0) {
+    if (this.track.points.length === 0 || this.segments.length === 0) {
       return {
         position: new THREE.Vector3(),
+        groundPosition: new THREE.Vector3(),
         tangent: new THREE.Vector3(0, 0, -1),
         currentPoint: {
           lat: 0,
@@ -159,26 +197,51 @@ export class RouteGeometry {
       };
     }
 
-    // Binary search on analytical track points
-    let low = 0;
-    let high = points.length - 1;
-    while (low <= high) {
-      const mid = (low + high) >> 1;
-      if (points[mid].distanceFromStart < targetDist) {
-        low = mid + 1;
-      } else {
-        high = mid - 1;
+    // 1. Locate the exact segment that contains targetDist
+    let activeSegIdx = 0;
+    for (let i = 0; i < this.segments.length; i++) {
+      const seg = this.segments[i].segment;
+      const segStart = seg.points[0]?.distanceFromStart ?? 0;
+      const segEnd = seg.points[seg.points.length - 1]?.distanceFromStart ?? segStart;
+      if (targetDist >= segStart && targetDist <= segEnd) {
+        activeSegIdx = i;
+        break;
+      }
+      if (targetDist < segStart) {
+        activeSegIdx = Math.max(0, i - 1);
+        break;
+      }
+      if (i === this.segments.length - 1) {
+        activeSegIdx = i;
       }
     }
 
-    const idx0 = Math.max(0, Math.min(points.length - 2, low - 1));
-    const p0 = points[idx0];
-    const p1 = points[idx0 + 1];
+    const segGeom = this.segments[activeSegIdx];
+    const segPoints = segGeom.segment.points;
+
+    // 2. Binary search strictly WITHIN active segment to prevent cross-segment interpolation
+    let idx0 = 0;
+    if (segPoints.length > 1) {
+      let low = 0;
+      let high = segPoints.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (segPoints[mid].distanceFromStart < targetDist) {
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      idx0 = Math.max(0, Math.min(segPoints.length - 2, low - 1));
+    }
+
+    const p0 = segPoints[idx0];
+    const p1 = segPoints[Math.min(idx0 + 1, segPoints.length - 1)];
 
     const dSpan = p1.distanceFromStart - p0.distanceFromStart;
-    const alpha = dSpan > 0.001 ? (targetDist - p0.distanceFromStart) / dSpan : 0;
+    const alpha = dSpan > 0.001 ? Math.max(0, Math.min(1, (targetDist - p0.distanceFromStart) / dSpan)) : 0;
 
-    // Interpolate analytical point telemetry
+    // Interpolate analytical point telemetry strictly within segment
     const ele = p0.ele + alpha * (p1.ele - p0.ele);
     const lat = p0.lat + alpha * (p1.lat - p0.lat);
     const lon = p0.lon + alpha * (p1.lon - p0.lon);
@@ -200,31 +263,35 @@ export class RouteGeometry {
       grade,
       hr: p0.hr,
       cad: p0.cad,
-      index: idx0,
-      segmentIndex: p0.segmentIndex,
+      index: p0.index,
+      segmentIndex: p0.segmentIndex ?? activeSegIdx,
     };
 
-    // Locate segment and curve for smooth visual representation
-    const segIdx = p0.segmentIndex ?? 0;
-    const segGeom = this.segments[Math.min(segIdx, this.segments.length - 1)];
-
     let position = new THREE.Vector3();
+    let groundPosition = new THREE.Vector3();
     let tangent = new THREE.Vector3(0, 0, -1);
 
-    if (segGeom && segGeom.segment.distance > 0) {
-      const segDist = Math.max(0, targetDist - segGeom.segment.points[0].distanceFromStart);
-      const segT = Math.min(1, Math.max(0, segDist / segGeom.segment.distance));
+    if (segGeom && segGeom.segment.distance > 0 && segPoints.length > 1) {
+      const segStart = segPoints[0].distanceFromStart;
+      const segEnd = segPoints[segPoints.length - 1].distanceFromStart;
+      const segSpan = Math.max(segEnd - segStart, 1e-4);
+      const segDist = Math.max(0, Math.min(segSpan, targetDist - segStart));
+      const segT = Math.min(1, Math.max(0, segDist / segSpan));
+
       position = segGeom.curve.getPointAt(segT);
       tangent = segGeom.curve.getTangentAt(segT);
+      groundPosition = segGeom.groundCurve ? segGeom.groundCurve.getPointAt(segT) : position.clone();
     } else if (segGeom && segGeom.localVectors.length > 0) {
       position = segGeom.localVectors[0].clone();
+      groundPosition = segGeom.groundVectors[0]?.clone() ?? position.clone();
     }
 
     return {
       position,
+      groundPosition,
       tangent,
       currentPoint,
-      segmentIndex: segIdx,
+      segmentIndex: activeSegIdx,
     };
   }
 

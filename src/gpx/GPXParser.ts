@@ -303,7 +303,7 @@ export class GPXParser {
     };
 
     // 3. Derive semantic landmarks from GPS data
-    const landmarks = this.deriveLandmarks(points, bounds);
+    const landmarks = this.deriveLandmarks(points, bounds, waypoints);
 
     return {
       name: trackName,
@@ -404,8 +404,12 @@ export class GPXParser {
 
       // Step B: Linear interpolation between valid neighbors
       let lastValidIdx = -1;
+      let firstValidIdx = -1;
       for (let i = 0; i < seg.length; i++) {
         if (seg[i].ele !== undefined) {
+          if (firstValidIdx === -1) {
+            firstValidIdx = i;
+          }
           if (lastValidIdx !== -1 && i - lastValidIdx > 1) {
             const startEle = seg[lastValidIdx].ele!;
             const endEle = seg[i].ele!;
@@ -419,13 +423,16 @@ export class GPXParser {
         }
       }
 
-      // If leading points are missing elevation
-      if (lastValidIdx !== -1) {
-        const firstValidEle = seg[lastValidIdx].ele!;
-        for (let i = 0; i < seg.length; i++) {
-          if (seg[i].ele === undefined) {
-            seg[i].ele = firstValidEle;
-          }
+      // Handle leading points missing elevation
+      if (firstValidIdx !== -1) {
+        const firstValidEle = seg[firstValidIdx].ele!;
+        for (let i = 0; i < firstValidIdx; i++) {
+          seg[i].ele = firstValidEle;
+        }
+        // Handle trailing points missing elevation
+        const lastValidEle = seg[lastValidIdx].ele!;
+        for (let i = lastValidIdx + 1; i < seg.length; i++) {
+          seg[i].ele = lastValidEle;
         }
       } else {
         // Entire segment had NO elevation at all: default to 1000m fallback
@@ -437,26 +444,40 @@ export class GPXParser {
   }
 
   /**
-   * Derives semantic landmarks from GPS data (Start, Finish, High Point, Low Point, Significant Stops).
+   * Derives semantic landmarks from GPS data (Start, Finish, High Point, Low Point, Long Stop, Day N Start).
+   * Merges with existing explicit waypoints if within 25 meters.
    */
-  private static deriveLandmarks(points: GPXPoint[], bounds: GeoBounds): GPXWaypoint[] {
+  private static deriveLandmarks(
+    points: GPXPoint[],
+    bounds: GeoBounds,
+    explicitWaypoints: GPXWaypoint[] = []
+  ): GPXWaypoint[] {
     if (points.length < 2) return [];
     const landmarks: GPXWaypoint[] = [];
 
+    const isNearExplicit = (lat: number, lon: number, thresholdMeters = 25): GPXWaypoint | undefined => {
+      return explicitWaypoints.find((w) => haversineDistance(w.lat, w.lon, lat, lon) <= thresholdMeters);
+    };
+
     // 1. Trailhead / Start
     const start = points[0];
-    landmarks.push({
-      lat: start.lat,
-      lon: start.lon,
-      ele: start.ele,
-      name: 'Trailhead / Start',
-      desc: `Beginning of route at ${Math.round(start.ele)} m (${Math.round(start.ele * 3.28084)} ft)`,
-      sym: 'Trailhead',
-      type: 'start',
-      isDerivedLandmark: true,
-    });
+    const nearStart = isNearExplicit(start.lat, start.lon);
+    if (!nearStart) {
+      landmarks.push({
+        lat: start.lat,
+        lon: start.lon,
+        ele: start.ele,
+        name: 'Start',
+        desc: `Beginning of route at ${Math.round(start.ele)} m (${Math.round(start.ele * 3.28084)} ft)`,
+        sym: 'Trailhead',
+        type: 'start',
+        isDerivedLandmark: true,
+      });
+    } else if (!nearStart.type) {
+      nearStart.type = 'start';
+    }
 
-    // 2. High Point / Summit
+    // 2. High Point
     let maxPt = points[0];
     let minPt = points[0];
     for (const pt of points) {
@@ -465,30 +486,38 @@ export class GPXParser {
     }
 
     if (maxPt !== start && maxPt !== points[points.length - 1]) {
-      landmarks.push({
-        lat: maxPt.lat,
-        lon: maxPt.lon,
-        ele: maxPt.ele,
-        name: `Summit / High Point (${Math.round(maxPt.ele)}m)`,
-        desc: `Maximum route elevation: ${Math.round(maxPt.ele)} m (${Math.round(maxPt.ele * 3.28084)} ft)`,
-        sym: 'Summit',
-        type: 'summit',
-        isDerivedLandmark: true,
-      });
+      const nearSummit = isNearExplicit(maxPt.lat, maxPt.lon);
+      if (!nearSummit) {
+        landmarks.push({
+          lat: maxPt.lat,
+          lon: maxPt.lon,
+          ele: maxPt.ele,
+          name: 'High Point',
+          desc: `Maximum route elevation: ${Math.round(maxPt.ele)} m (${Math.round(maxPt.ele * 3.28084)} ft)`,
+          sym: 'Summit',
+          type: 'summit',
+          isDerivedLandmark: true,
+        });
+      } else {
+        if (!nearSummit.type) nearSummit.type = 'summit';
+      }
     }
 
     // 3. Lowest Point
     if (minPt !== start && minPt !== points[points.length - 1] && minPt !== maxPt) {
-      landmarks.push({
-        lat: minPt.lat,
-        lon: minPt.lon,
-        ele: minPt.ele,
-        name: `Low Point (${Math.round(minPt.ele)}m)`,
-        desc: `Minimum route elevation: ${Math.round(minPt.ele)} m (${Math.round(minPt.ele * 3.28084)} ft)`,
-        sym: 'Valley',
-        type: 'low_point',
-        isDerivedLandmark: true,
-      });
+      const nearLow = isNearExplicit(minPt.lat, minPt.lon);
+      if (!nearLow) {
+        landmarks.push({
+          lat: minPt.lat,
+          lon: minPt.lon,
+          ele: minPt.ele,
+          name: 'Low Point',
+          desc: `Minimum route elevation: ${Math.round(minPt.ele)} m (${Math.round(minPt.ele * 3.28084)} ft)`,
+          sym: 'Valley',
+          type: 'low_point',
+          isDerivedLandmark: true,
+        });
+      }
     }
 
     // 4. Significant Stops (> 20 min dwell) & Day Boundaries
@@ -518,7 +547,7 @@ export class GPXParser {
         }
       }
 
-      // Significant stop (> 20 min elapsed with < 20m distance)
+      // Significant stop (> 20 min elapsed with < 30m distance)
       if (cur.time && prev.time) {
         const dtSec = (cur.time.getTime() - prev.time.getTime()) / 1000;
         const dDist = cur.distanceFromStart - prev.distanceFromStart;
@@ -527,8 +556,8 @@ export class GPXParser {
             lat: cur.lat,
             lon: cur.lon,
             ele: cur.ele,
-            name: `Rest Stop (${Math.round(dtSec / 60)}m)`,
-            desc: `Extended rest stop at ${Math.round(cur.ele)} m`,
+            name: 'Long Stop',
+            desc: `Extended rest stop (${Math.round(dtSec / 60)} min) at ${Math.round(cur.ele)} m`,
             sym: 'Shelter',
             type: 'stop',
             isDerivedLandmark: true,
@@ -539,16 +568,21 @@ export class GPXParser {
 
     // 5. Finish
     const finish = points[points.length - 1];
-    landmarks.push({
-      lat: finish.lat,
-      lon: finish.lon,
-      ele: finish.ele,
-      name: 'Finish',
-      desc: `End of route (${(finish.distanceFromStart / 1000).toFixed(1)} km)`,
-      sym: 'Flag',
-      type: 'finish',
-      isDerivedLandmark: true,
-    });
+    const nearFinish = isNearExplicit(finish.lat, finish.lon);
+    if (!nearFinish) {
+      landmarks.push({
+        lat: finish.lat,
+        lon: finish.lon,
+        ele: finish.ele,
+        name: 'Finish',
+        desc: `End of route (${(finish.distanceFromStart / 1000).toFixed(1)} km)`,
+        sym: 'Flag',
+        type: 'finish',
+        isDerivedLandmark: true,
+      });
+    } else if (!nearFinish.type) {
+      nearFinish.type = 'finish';
+    }
 
     return landmarks;
   }

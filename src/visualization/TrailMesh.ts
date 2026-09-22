@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/TrackTypes.ts';
 import { RouteGeometry } from './RouteGeometry.ts';
+import { haversineDistance } from '../gpx/Coordinates.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export interface TrailResult {
@@ -10,6 +11,7 @@ export interface TrailResult {
   routeGeometry: RouteGeometry;
   hikerMarker: THREE.Group;
   startBeacon: THREE.Group;
+  finishBeacon: THREE.Group;
   summitBeacon: THREE.Group;
   updateHikerPosition: (progress: number) => { currentPoint: GPXPoint; position: THREE.Vector3 };
   setColorMode: (mode: TrailColorMode) => void;
@@ -50,8 +52,8 @@ export class TrailMesh {
     // 1. Build Multi-Segment Flat Ribbon Geometry (prevents cross-segment lines)
     const dioramaGeo = this.buildMultiSegmentRibbon(routeGeometry, ribbonHalfWidth, totalSegments);
 
-    // 2. 1:1 Immersion Low-Profile Path Geometry
-    const firstPersonGeo = new THREE.TubeGeometry(primaryCurve, totalSegments, 0.08, 6, false);
+    // 2. 1:1 Immersion Low-Profile Path Geometry (multi-segment, zero cross-segment bridging)
+    const firstPersonGeo = this.buildMultiSegmentFirstPerson(routeGeometry, totalSegments, primaryCurve);
 
     // Color application helper
     const applyColorsToGeo = (geo: THREE.BufferGeometry, mode: TrailColorMode) => {
@@ -82,6 +84,7 @@ export class TrailMesh {
 
     let currentColorMode: TrailColorMode = 'grade';
     applyColorsToGeo(dioramaGeo, currentColorMode);
+    applyColorsToGeo(firstPersonGeo, currentColorMode);
 
     // Diorama Material
     const dioramaMat = new THREE.MeshBasicMaterial({
@@ -113,20 +116,36 @@ export class TrailMesh {
 
     // Summit / Finish Beacon
     const lastTele = routeGeometry.getTelemetryAtDistance(routeGeometry.totalDistance);
-    const summitBeacon = this.createPin(lastTele.position, 0xf59e0b, 'SUMMIT', scaleFactor);
-    group.add(summitBeacon);
+    const lastPoint = track.points[track.points.length - 1];
+    const isSummitFinish = lastPoint && track.waypoints.some((wp) => {
+      if (wp.type === 'summit' || wp.sym?.toLowerCase().includes('summit')) {
+        return haversineDistance(wp.lat, wp.lon, lastPoint.lat, lastPoint.lon) <= 100;
+      }
+      return false;
+    });
+    const finishLabel = isSummitFinish ? 'SUMMIT' : 'FINISH';
+    const finishBeacon = this.createPin(lastTele.position, 0xf59e0b, finishLabel, scaleFactor);
+    group.add(finishBeacon);
+    const summitBeacon = finishBeacon;
 
     // Radiant Hiker Marker
     const hikerMarker = this.createHikerMarker(scaleFactor);
     hikerMarker.position.copy(firstTele.position);
     group.add(hikerMarker);
 
+    let currentExaggeration = 1.0;
+    let currentHikerGroundY = firstTele.groundPosition.y;
+
     // Distance-interpolated position update
     const updateHikerPosition = (
       progress: number
     ): { currentPoint: GPXPoint; position: THREE.Vector3 } => {
       const telemetry = routeGeometry.getTelemetryAtProgress(progress);
-      hikerMarker.position.copy(telemetry.position);
+      currentHikerGroundY = telemetry.groundPosition.y;
+
+      // Position with vertical exaggeration
+      const yPos = currentHikerGroundY * currentExaggeration + dioramaElevationOffset;
+      hikerMarker.position.set(telemetry.position.x, yPos, telemetry.position.z);
 
       // Keep hiker beacon upright to gravity while aligning yaw with heading
       const yaw = Math.atan2(telemetry.tangent.x, telemetry.tangent.z);
@@ -134,7 +153,7 @@ export class TrailMesh {
 
       return {
         currentPoint: telemetry.currentPoint,
-        position: telemetry.position,
+        position: hikerMarker.position,
       };
     };
 
@@ -156,15 +175,29 @@ export class TrailMesh {
       }
     };
 
-    // Keep unscaled ribbon Y positions for vertical exaggeration
+    // Keep unscaled ribbon Y positions for vertical exaggeration fallback
     const unscaledPositions = (dioramaGeo.attributes.position.array as Float32Array).slice();
+    const baseGroundY = (dioramaGeo.userData?.baseGroundY as Float32Array) || null;
 
     const setVerticalExaggeration = (factor: number) => {
+      currentExaggeration = factor;
       const posArray = dioramaGeo.attributes.position.array as Float32Array;
-      for (let i = 1; i < posArray.length; i += 3) {
-        posArray[i] = unscaledPositions[i] * factor;
+
+      if (baseGroundY) {
+        for (let i = 0; i < baseGroundY.length; i++) {
+          posArray[i * 3 + 1] = baseGroundY[i] * factor + dioramaElevationOffset;
+        }
+      } else {
+        for (let i = 1; i < posArray.length; i += 3) {
+          posArray[i] = unscaledPositions[i] * factor;
+        }
       }
       dioramaGeo.attributes.position.needsUpdate = true;
+
+      // Strictly align start beacon, finish beacon, and hiker marker
+      startBeacon.position.y = firstTele.groundPosition.y * factor + dioramaElevationOffset;
+      finishBeacon.position.y = lastTele.groundPosition.y * factor + dioramaElevationOffset;
+      hikerMarker.position.y = currentHikerGroundY * factor + dioramaElevationOffset;
     };
 
     const dispose = () => {
@@ -182,6 +215,7 @@ export class TrailMesh {
       routeGeometry,
       hikerMarker,
       startBeacon,
+      finishBeacon,
       summitBeacon,
       updateHikerPosition,
       setColorMode,
@@ -200,16 +234,19 @@ export class TrailMesh {
     const allPositions: number[] = [];
     const allNormals: number[] = [];
     const allIndices: number[] = [];
+    const baseGroundY: number[] = [];
 
     let vertexOffset = 0;
 
     for (const segGeom of routeGeometry.segments) {
       const segCurve = segGeom.curve;
+      const segGroundCurve = segGeom.groundCurve;
       const segPointsCount = Math.max(8, Math.round((segGeom.segment.distance / routeGeometry.totalDistance) * totalSegments));
 
       for (let i = 0; i <= segPointsCount; i++) {
         const t = i / segPointsCount;
         const pt = segCurve.getPointAt(t);
+        const groundPt = segGroundCurve ? segGroundCurve.getPointAt(t) : pt;
         const tangent = segCurve.getTangentAt(t);
 
         let perpX = -tangent.z;
@@ -226,10 +263,12 @@ export class TrailMesh {
         // Left vertex
         allPositions.push(pt.x - perpX * halfWidth, pt.y, pt.z - perpZ * halfWidth);
         allNormals.push(0, 1, 0);
+        baseGroundY.push(groundPt.y);
 
         // Right vertex
         allPositions.push(pt.x + perpX * halfWidth, pt.y, pt.z + perpZ * halfWidth);
         allNormals.push(0, 1, 0);
+        baseGroundY.push(groundPt.y);
 
         if (i < segPointsCount) {
           const v0 = vertexOffset + i * 2;
@@ -248,7 +287,71 @@ export class TrailMesh {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
     geo.setIndex(allIndices);
+    geo.userData = {
+      baseGroundY: new Float32Array(baseGroundY),
+    };
     return geo;
+  }
+
+  private static buildMultiSegmentFirstPerson(
+    routeGeometry: RouteGeometry,
+    totalSegments: number,
+    fallbackCurve: THREE.CatmullRomCurve3
+  ): THREE.BufferGeometry {
+    if (routeGeometry.segments.length === 0) {
+      return new THREE.TubeGeometry(fallbackCurve, totalSegments, 0.08, 6, false);
+    }
+
+    const tubes: THREE.BufferGeometry[] = [];
+    for (const segGeom of routeGeometry.segments) {
+      const segCurve = segGeom.firstPersonCurve || segGeom.groundCurve || segGeom.curve;
+      const segSegments = Math.max(8, Math.round((segGeom.segment.distance / routeGeometry.totalDistance) * totalSegments));
+      const tube = new THREE.TubeGeometry(segCurve, segSegments, 0.08, 6, false);
+      tubes.push(tube);
+    }
+
+    return this.mergeTubeGeometries(tubes);
+  }
+
+  private static mergeTubeGeometries(tubes: THREE.BufferGeometry[]): THREE.BufferGeometry {
+    if (tubes.length === 0) return new THREE.BufferGeometry();
+    if (tubes.length === 1) return tubes[0];
+
+    let totalVerts = 0;
+    let totalIndices = 0;
+    for (const t of tubes) {
+      totalVerts += t.attributes.position.count;
+      if (t.index) totalIndices += t.index.count;
+    }
+
+    const positions = new Float32Array(totalVerts * 3);
+    const normals = new Float32Array(totalVerts * 3);
+    const indices = new Uint32Array(totalIndices);
+
+    let vOffset = 0;
+    let iOffset = 0;
+    for (const t of tubes) {
+      const pos = t.attributes.position.array;
+      positions.set(pos, vOffset * 3);
+      if (t.attributes.normal) {
+        normals.set(t.attributes.normal.array, vOffset * 3);
+      }
+      if (t.index) {
+        const idx = t.index.array;
+        for (let k = 0; k < idx.length; k++) {
+          indices[iOffset + k] = idx[k] + vOffset;
+        }
+        iOffset += idx.length;
+      }
+      vOffset += t.attributes.position.count;
+      t.dispose();
+    }
+
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    merged.setIndex(new THREE.BufferAttribute(indices, 1));
+    return merged;
   }
 
   private static getColorForPoint(
