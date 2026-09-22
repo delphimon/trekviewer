@@ -1,9 +1,13 @@
+import { describe, it } from "vitest";
 import * as THREE from 'three';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import * as fs from 'fs';
 import * as path from 'path';
+
+describe("hybrid and color", () => {
+  it("verifies hybrid and color", async () => {
 
 console.log('--- Testing Hybrid Map View, Trail Color Modes & Radiant Hiker Beacon ---');
 
@@ -110,3 +114,6 @@ if (!usgsHybridUrl.includes('USGSImageryTopo') || !esriOverlayUrl.includes('Worl
 console.log('✓ Hybrid imagery and reference label tile URLs validated');
 
 console.log('✓ All Hybrid Map View, Trail Color, and Hiker Beacon tests passed successfully!');
+
+  });
+});

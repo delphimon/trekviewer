@@ -1,8 +1,10 @@
 import assert from 'node:assert';
+import { describe, it } from 'vitest';
 import { GPXValidator, type RawTrackPoint } from '../src/gpx/GPXValidator.ts';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 
-console.log('--- Testing GPX Validation & Glitch Filtering ---');
+describe('GPX Validation & Glitch Filtering', () => {
+  it('validates GPS tracks, filters glitches, and handles non-monotonic timestamps', () => {
 
 // 1. Empty and Single-Point Tracks
 const emptyResult = GPXValidator.validate([]);
@@ -93,9 +95,8 @@ const mixedGpx = `<?xml version="1.0" encoding="UTF-8"?>
 </gpx>`;
 
 const mixedTrack = GPXParser.parse(mixedGpx, 'Mixed');
-assert.strictEqual(mixedTrack.points.length, 3, 'Omitted invalid lat point');
-assert(mixedTrack.points[1].ele < 2000, 'Reconstructed extreme elevation with interpolation');
-assert(mixedTrack.warnings.length > 0, 'Preserved diagnostic warnings on track');
-console.log('✓ GPXParser correctly handles mixed-quality tracks with warnings preserved');
-
-console.log('✓ All GPX Validation tests passed successfully!');
+    assert.strictEqual(mixedTrack.points.length, 3, 'Omitted invalid lat point');
+    assert(mixedTrack.points[1].ele < 2000, 'Reconstructed extreme elevation with interpolation');
+    assert(mixedTrack.warnings.length > 0, 'Preserved diagnostic warnings on track');
+  });
+});

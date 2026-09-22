@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import assert from 'node:assert';
+import { describe, it } from 'vitest';
 import { ALL_HAND_JOINTS, BONE_CONNECTIONS } from '../src/core/XRManager.ts';
 import {
   evaluatePinchState,
@@ -10,12 +11,8 @@ import {
   type DioramaVolume,
 } from '../src/core/GestureMath.ts';
 
-console.log('--- Testing Hand Tracking & 6DOF Manipulation Gestures ---');
-
-// =========================================================================
-// 1. Pinch Detection & Hysteresis Logic Test
-// =========================================================================
-console.log('Testing pinch detection and hysteresis thresholds...');
+describe('Hand Tracking & 6DOF Manipulation Gestures', () => {
+  it('evaluates gestures, isolation, and 6DOF manipulation', () => {
 
 let isPinching = false;
 
@@ -637,9 +634,8 @@ console.log('Testing per-hand grab isolation and multi-touch behavior...');
   // 10C: Right hand releases pinch
   handRight.isPinching = false;
   grabs = evaluateGrabs([handLeft, handRight]);
-  assert.deepStrictEqual(grabs, ['hand_left'], 'Releasing one hand smoothly returns to single-handed manipulation');
-  console.log('✓ Releasing one hand transitions smoothly back to single hand');
-}
-
-console.log('✓ All Hand Gestures, 6DOF Manipulation, Skeleton & Input Isolation tests passed successfully!');
-
+    assert.deepStrictEqual(grabs, ['hand_left'], 'Releasing one hand smoothly returns to single-handed manipulation');
+    console.log('✓ Releasing one hand transitions smoothly back to single hand');
+  }
+  });
+});

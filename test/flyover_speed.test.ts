@@ -1,30 +1,26 @@
 import * as fs from 'fs';
+import { describe, it } from 'vitest';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 
-console.log('--- Testing GPS Speed-Inferred Playback Simulation ---');
+describe('GPS Speed-Inferred Playback Simulation', () => {
+  it('correctly parses track playback times and simulates flyover steps', () => {
+    const xml = fs.readFileSync('./public/routes/MountRanierViaEmmons.gpx.gpx', 'utf8');
+    const track = GPXParser.parse(xml, 'Mount Rainier via Emmons');
 
-const xml = fs.readFileSync('./public/routes/MountRanierViaEmmons.gpx.gpx', 'utf8');
-const track = GPXParser.parse(xml, 'Mount Rainier via Emmons');
+    if (track.totalPlaybackSeconds <= 0) {
+      throw new Error('totalPlaybackSeconds must be positive');
+    }
 
-console.log('Track parsed:');
-console.log('- Total distance:', (track.totalDistance / 1000).toFixed(2), 'km');
-console.log('- Total raw moving time:', (track.movingTime / 3600).toFixed(2), 'hours');
-console.log('- Total playback time (compressed pauses):', (track.totalPlaybackSeconds / 3600).toFixed(2), 'hours');
+    const trailResult = TrailMesh.create(track);
+    const flyover = new FlyoverController(trailResult, track);
 
-if (track.totalPlaybackSeconds <= 0) {
-  throw new Error('totalPlaybackSeconds must be positive');
-}
-
-const trailResult = TrailMesh.create(track);
-const flyover = new FlyoverController(trailResult, track);
-
-// Verify initial state
-flyover.setProgress(0);
-if (flyover.getProgress() !== 0 || flyover.getPlaybackTime() !== 0) {
-  throw new Error('Initial state mismatch');
-}
+    // Verify initial state
+    flyover.setProgress(0);
+    if (flyover.getProgress() !== 0 || flyover.getPlaybackTime() !== 0) {
+      throw new Error('Initial state mismatch');
+    }
 
 // Test speed variation between flat section vs steep climb
 // Find flat section vs steep section in track.points
@@ -56,8 +52,8 @@ flyover.play();
 flyover.update(1.0); // 1 real second
 const pAfter1s = flyover.getProgress();
 console.log('Progress after 1s playback:', pAfter1s.toFixed(5));
-if (pAfter1s <= 0) {
-  throw new Error('Playback did not advance');
-}
-
-console.log('✓ GPS Speed-inferred playback tests passed!');
+    if (pAfter1s <= 0) {
+      throw new Error('Playback did not advance');
+    }
+  });
+});

@@ -76,12 +76,15 @@ const mockGrid: ElevationGrid = {
   isRealDEM: true,
 };
 
-// 1. Sampling inside fully valid Tile 0
-const coordTile0 = tileToLatLon(tileXMin + 0.5, tileYMin + 0.5, zoom);
-const sampleTile0 = ElevationTileService.sampleElevation(mockGrid, coordTile0.lat, coordTile0.lon);
-console.log(`Sample in valid Tile 0: elevation=${sampleTile0.elevation}, isValid=${sampleTile0.isValid}`);
-assert.strictEqual(sampleTile0.isValid, true);
-assert(Math.abs(sampleTile0.elevation - 2000.0) < 0.1);
+import { describe, it } from 'vitest';
+
+describe('DEM Missing-Tile & Partial Tile Failure Handling', () => {
+  it('evaluates DEM tile validity, NaN isolation, and crater guards', () => {
+    // 1. Sampling inside fully valid Tile 0
+    const coordTile0 = tileToLatLon(tileXMin + 0.5, tileYMin + 0.5, zoom);
+    const sampleTile0 = ElevationTileService.sampleElevation(mockGrid, coordTile0.lat, coordTile0.lon);
+    assert.strictEqual(sampleTile0.isValid, true);
+    assert(Math.abs(sampleTile0.elevation - 2000.0) < 0.1);
 console.log('✓ Valid DEM tile correctly sampled');
 
 // 2. Sampling inside failed/missing Tile 1
@@ -107,10 +110,9 @@ assert(!isNaN(sampleBlack.elevation), 'Black pixel guard must not corrupt surrou
 assert(Math.abs(sampleBlack.elevation - 1800.0) < 0.1);
 console.log('✓ Black pixel guard successfully isolates invalid pixel without cratering surrounding terrain');
 
-// 4. Out of bounds coordinates (outside grid)
-const oobSample = ElevationTileService.sampleElevation(mockGrid, 0, 0);
-assert.strictEqual(oobSample.isValid, false);
-assert(isNaN(oobSample.elevation));
-console.log('✓ Out of bounds coordinates cleanly rejected with isValid=false');
-
-console.log('✓ All DEM Missing-Tile & Partial Failure tests passed successfully!');
+  // 4. Out of bounds coordinates (outside grid)
+  const oobSample = ElevationTileService.sampleElevation(mockGrid, 0, 0);
+  assert.strictEqual(oobSample.isValid, false);
+  assert(isNaN(oobSample.elevation));
+  });
+});

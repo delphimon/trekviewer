@@ -69,48 +69,39 @@ const mockSceneManager = {
 
 const loader = new RouteLoader(session, mockSceneManager);
 
-async function runTests() {
-  // 1. Initial Load of Route A
-  console.log('Loading Route Alpha...');
-  const trekA = await loader.loadRouteFromXml(gpxXmlA, 'Route Alpha', 'alpha');
-  assert(trekA !== null, 'Route Alpha should load successfully');
-  assert.strictEqual(session.getState().routeName, 'Route Alpha');
-  assert.strictEqual(loader.getActiveTrek(), trekA);
-  assert.strictEqual(mockSceneManager.dioramaRoot.children.length, 1);
-  console.log('✓ Initial route loaded cleanly');
+import { describe, it } from 'vitest';
 
-  // 2. Rapid Route Switching / Preemption (A in-flight cancelled by B)
-  console.log('Triggering rapid route preemption (Alpha -> Beta)...');
-  const promiseA = loader.loadRouteFromXml(gpxXmlA, 'Route Alpha (Retry)', 'alpha_retry');
-  // Immediately start loading Route B before A finishes
-  const promiseB = loader.loadRouteFromXml(gpxXmlB, 'Route Beta', 'beta');
+describe('RouteLoader Lifecycle & Cancellation Management', () => {
+  it('handles initial load, rapid preemption, and manual cancellation', async () => {
+    // 1. Initial Load of Route A
+    const trekA = await loader.loadRouteFromXml(gpxXmlA, 'Route Alpha', 'alpha');
+    assert(trekA !== null, 'Route Alpha should load successfully');
+    assert.strictEqual(session.getState().routeName, 'Route Alpha');
+    assert.strictEqual(loader.getActiveTrek(), trekA);
+    assert.strictEqual(mockSceneManager.dioramaRoot.children.length, 1);
 
-  const [resultA, resultB] = await Promise.all([promiseA, promiseB]);
+    // 2. Rapid Route Switching / Preemption (A in-flight cancelled by B)
+    const promiseA = loader.loadRouteFromXml(gpxXmlA, 'Route Alpha (Retry)', 'alpha_retry');
+    const promiseB = loader.loadRouteFromXml(gpxXmlB, 'Route Beta', 'beta');
 
-  assert.strictEqual(resultA, null, 'Stale/cancelled Route Alpha must return null');
-  assert(resultB !== null, 'Preempting Route Beta must load successfully');
-  assert.strictEqual(loader.getActiveTrek(), resultB);
-  assert.strictEqual(session.getState().routeName, 'Route Beta');
-  assert.strictEqual(mockSceneManager.dioramaRoot.children.length, 1);
-  assert.strictEqual(mockSceneManager.dioramaRoot.children[0], resultB.group);
-  console.log('✓ Preempted load returned null and did not overwrite the active scene');
+    const [resultA, resultB] = await Promise.all([promiseA, promiseB]);
 
-  // 3. Manual Cancellation
-  console.log('Testing manual cancellation of in-flight load...');
-  const promiseC = loader.loadRouteFromXml(gpxXmlA, 'Route Alpha Cancelled', 'alpha_cancel');
-  loader.cancelCurrentLoad();
-  const resultC = await promiseC;
+    assert.strictEqual(resultA, null, 'Stale/cancelled Route Alpha must return null');
+    assert(resultB !== null, 'Preempting Route Beta must load successfully');
+    assert.strictEqual(loader.getActiveTrek(), resultB);
+    assert.strictEqual(session.getState().routeName, 'Route Beta');
+    assert.strictEqual(mockSceneManager.dioramaRoot.children.length, 1);
+    assert.strictEqual(mockSceneManager.dioramaRoot.children[0], resultB!.group);
 
-  assert.strictEqual(resultC, null, 'Cancelled load must return null');
-  assert.strictEqual(loader.getActiveTrek(), resultB, 'Active trek should remain Route Beta');
-  console.log('✓ Manual cancellation cleanly aborted in-flight load');
+    // 3. Manual Cancellation
+    const promiseC = loader.loadRouteFromXml(gpxXmlA, 'Route Alpha Cancelled', 'alpha_cancel');
+    loader.cancelCurrentLoad();
+    const resultC = await promiseC;
 
-  // Clean up
-  resultB.dispose();
-  console.log('✓ All RouteLoader Lifecycle & Cancellation tests passed successfully!');
-}
+    assert.strictEqual(resultC, null, 'Cancelled load must return null');
+    assert.strictEqual(loader.getActiveTrek(), resultB, 'Active trek should remain Route Beta');
 
-runTests().catch((e) => {
-  console.error(e);
-  process.exit(1);
+    // Clean up
+    resultB!.dispose();
+  });
 });

@@ -1,8 +1,12 @@
+import { describe, it } from "vitest";
 import * as THREE from 'three';
 import assert from 'node:assert';
 import { simplifyPointsRDP, RouteGeometry } from '../src/visualization/RouteGeometry.ts';
 import { TextureBudget } from '../src/terrain/TextureBudget.ts';
 import type { TrackStats, GPXPoint } from '../src/gpx/TrackTypes.ts';
+
+describe("track geometry fidelity", () => {
+  it("verifies track geometry fidelity", async () => {
 
 console.log('--- Testing Track Geometry Fidelity & Adaptive Resolution ---');
 
@@ -106,7 +110,10 @@ const mockTrack: TrackStats = {
   elevationLoss: 0,
   minElevation: 1500,
   maxElevation: 4392,
+  movingTime: 4500,
   totalPlaybackSeconds: 60,
+  avgSpeed: 4.0,
+  maxSpeed: 5.5,
   bounds: {
     minLat: 46.85,
     maxLat: 46.87,
@@ -136,7 +143,7 @@ assert.strictEqual(tele0.currentPoint.distanceFromStart, 0);
 // ele should interpolate halfway between 1500 and 2500 = 2000
 const tele1000 = routeGeom.getTelemetryAtDistance(1000);
 assert(Math.abs(tele1000.currentPoint.ele - 2000) < 0.1, `Expected ele 2000, got ${tele1000.currentPoint.ele}`);
-assert(Math.abs(tele1000.currentPoint.grade - 0.10) < 0.01, 'Grade should interpolate accurately');
+assert(Math.abs((tele1000.currentPoint.grade ?? 0) - 0.10) < 0.01, 'Grade should interpolate accurately');
 
 // At distance 3500m (halfway between pt1 at 2000m and pt2 at 5000m):
 // alpha = (3500 - 2000) / (5000 - 2000) = 0.5
@@ -169,3 +176,6 @@ assert.strictEqual(expeditionRes.segX, 96);
 
 console.log('✓ Adaptive terrain resolution scales conservatively within Quest GPU budget');
 console.log('✓ All Track Geometry Fidelity & Adaptive Resolution tests passed successfully!');
+
+  });
+});

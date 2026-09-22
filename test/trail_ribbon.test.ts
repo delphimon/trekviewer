@@ -1,8 +1,12 @@
+import { describe, it } from "vitest";
 import * as THREE from 'three';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import * as fs from 'fs';
 import * as path from 'path';
+
+describe("trail ribbon", () => {
+  it("verifies trail ribbon", async () => {
 
 console.log('--- Testing 2D Trail Ribbon & Alpine Hiker Beacon ---');
 
@@ -80,3 +84,6 @@ if (Math.abs(hiker.position.x - updateResult.position.x) > 0.001) {
 console.log('✓ Hiker position tracking along trail curve verified!');
 
 console.log('✓ All 2D Trail Ribbon & Alpine Hiker Beacon tests passed!');
+
+  });
+});

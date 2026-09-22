@@ -1,8 +1,12 @@
+import { describe, it } from "vitest";
 import assert from 'node:assert';
 import * as THREE from 'three';
 import { disposeObject3D } from '../src/core/ResourceLifecycle.ts';
 import { LoadedTrek } from '../src/core/LoadedTrek.ts';
 import type { TrackStats } from '../src/gpx/TrackTypes.ts';
+
+describe("resource disposal", () => {
+  it("verifies resource disposal", async () => {
 
 console.log('--- Testing GPU Resource Lifecycle & Complete Tree Disposal ---');
 
@@ -95,14 +99,15 @@ const mockTrack: TrackStats = {
   elevationLoss: 0,
   minElevation: 100,
   maxElevation: 110,
-  totalDurationSeconds: 100,
+  movingTime: 100,
   totalPlaybackSeconds: 60,
+  avgSpeed: 3.6,
+  maxSpeed: 5.0,
   bounds: {
     minLat: 0, maxLat: 1, minLon: 0, maxLon: 1,
     minEle: 100, maxEle: 110, centerLat: 0.5, centerLon: 0.5,
-    widthMeters: 100, depthMeters: 100, heightMeters: 10,
+    widthMeters: 100, depthMeters: 100, elevationSpan: 10,
   },
-  elevationProfile: [],
   waypoints: [],
   landmarks: [],
   segments: [],
@@ -160,3 +165,6 @@ assert.strictEqual(trek.group.children.length, 0, 'Trek container group must be 
 
 console.log('✓ LoadedTrek.dispose() atomically disposed all sub-controllers and meshes');
 console.log('✓ All GPU Resource Lifecycle tests passed successfully!');
+
+  });
+});

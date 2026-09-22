@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "for t in test/*.test.ts; do node \"$t\"; done",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "deploy:surge": "tsc && vite build && npx surge dist --domain trekviewer.surge.sh",
     "deploy:gh-pages": "tsc && vite build && npx gh-pages -d dist",
@@ -17,9 +19,11 @@
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.2",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
   }
 }

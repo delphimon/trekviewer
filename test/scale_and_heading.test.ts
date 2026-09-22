@@ -1,3 +1,4 @@
+import { describe, it } from "vitest";
 import * as THREE from 'three';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
@@ -5,6 +6,9 @@ import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import * as fs from 'fs';
 import * as path from 'path';
+
+describe("scale and heading", () => {
+  it("verifies scale and heading", async () => {
 
 console.log('--- Testing Scale-Adaptive Route, 1:1 Forward Angle & Topo Tile URLs ---');
 
@@ -105,3 +109,6 @@ if (!usgsUrl.includes('USGSTopo') || !esriUrl.includes('World_Topo_Map') || !otm
 console.log('✓ High-res Topographic tile URLs and Web Mercator bounds verified!');
 
 console.log('✓ All scale, heading, and topo map tests passed!');
+
+  });
+});

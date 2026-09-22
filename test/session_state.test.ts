@@ -1,6 +1,10 @@
+import { describe, it } from "vitest";
 import assert from 'node:assert';
 import { TrekSession } from '../src/core/TrekSession.ts';
 import type { TrackStats, GPXPoint, GPXWaypoint } from '../src/gpx/TrackTypes.ts';
+
+describe("session state", () => {
+  it("verifies session state", async () => {
 
 console.log('--- Testing TrekSession Authoritative State Store ---');
 
@@ -71,15 +75,16 @@ const mockTrack: TrackStats = {
   elevationLoss: 0,
   minElevation: 1500,
   maxElevation: 4392,
-  totalDurationSeconds: 7200,
+  movingTime: 7200,
   totalPlaybackSeconds: 3600,
+  avgSpeed: 5.0,
+  maxSpeed: 8.5,
   bounds: {
     minLat: 46.85, maxLat: 46.87, minLon: -121.77, maxLon: -121.75,
     minEle: 1500, maxEle: 4392,
     centerLat: 46.86, centerLon: -121.76,
-    widthMeters: 5000, depthMeters: 5000, heightMeters: 2892,
+    widthMeters: 5000, depthMeters: 5000, elevationSpan: 2892,
   },
-  elevationProfile: [],
   waypoints: [],
   landmarks: [],
   segments: [],
@@ -122,3 +127,6 @@ session.setPlayback(false);
 assert.strictEqual(callCount, preCount, 'Unsubscribed listener should not receive updates');
 
 console.log('✓ All TrekSession state store tests passed!');
+
+  });
+});

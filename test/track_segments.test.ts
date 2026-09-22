@@ -1,7 +1,11 @@
+import { describe, it } from "vitest";
 import assert from 'node:assert';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { RouteGeometry } from '../src/visualization/RouteGeometry.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
+
+describe("track segments", () => {
+  it("verifies track segments", async () => {
 
 console.log('--- Testing Multi-Segment GPX Track Support (<trkseg>) ---');
 
@@ -82,3 +86,6 @@ for (let i = 0; i < posAttr.count; i++) {
 trailResult.dispose();
 console.log('✓ Multi-segment trail ribbon constructed and disposed without phantom bridges');
 console.log('✓ All Track Segment tests passed successfully!');
+
+  });
+});

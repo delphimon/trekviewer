@@ -1,5 +1,9 @@
+import { describe, it } from "vitest";
 import assert from 'node:assert';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
+
+describe("missing elevation", () => {
+  it("verifies missing elevation", async () => {
 
 console.log('--- Testing Missing Elevation Normalization & Fallbacks ---');
 
@@ -94,3 +98,6 @@ assert.strictEqual(trackDEM.points[1].ele, 3500.0);
 console.log('✓ DEM elevation sampler successfully resolved absent elevation coordinates');
 
 console.log('✓ All missing elevation tests passed successfully!');
+
+  });
+});

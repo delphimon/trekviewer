@@ -1,8 +1,12 @@
+import { describe, it } from "vitest";
 import * as THREE from 'three';
 import assert from 'node:assert';
 import { DioramaBase } from '../src/visualization/DioramaBase.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import type { TrackStats, GPXPoint, GPXWaypoint } from '../src/gpx/TrackTypes.ts';
+
+describe("vertical exaggeration alignment", () => {
+  it("verifies vertical exaggeration alignment", async () => {
 
 console.log('--- Testing Vertical Exaggeration Alignment (Terrain, Trail & Waypoints) ---');
 
@@ -38,7 +42,10 @@ const mockTrack: TrackStats = {
   elevationLoss: 0,
   minElevation: startEle,
   maxElevation: summitEle,
+  movingTime: 3600,
   totalPlaybackSeconds: 60,
+  avgSpeed: 4.5,
+  maxSpeed: 6.0,
   bounds: {
     minLat: 46.85,
     maxLat: 46.87,
@@ -93,7 +100,7 @@ for (const factor of testFactors) {
   DioramaBase.setVerticalExaggeration(baseGroup, factor);
 
   // Verify waypoint marker height matches factor * baseY + 8
-  const expectedY = baseSummitY * factor + 8;
+  const expectedY: number = (baseSummitY as number) * factor + 8;
   assert(
     Math.abs(summitMarker.position.y - expectedY) < 1e-4,
     `At ${factor}x, summit marker Y should be ${expectedY.toFixed(2)}, got ${summitMarker.position.y.toFixed(2)}`
@@ -111,3 +118,6 @@ for (const factor of testFactors) {
 
 trailResult.dispose();
 console.log('✓ All Vertical Exaggeration Alignment tests passed successfully!');
+
+  });
+});

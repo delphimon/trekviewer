@@ -1,6 +1,8 @@
 import assert from 'node:assert';
+import { describe, it } from 'vitest';
 
-console.log('--- Testing Frame-Rate Independence Across 60, 72, 90, 120 FPS ---');
+describe('Frame-Rate Independence Across FPS', () => {
+  it('verifies locomotion, pan, rotation, and exponential zoom invariance', () => {
 
 // Simulated parameters matching XRManager
 const baseSpeedMps = 18.0;
@@ -100,8 +102,7 @@ while (totalJitterTime < 1.0) {
   jitterScale = jitterScale * Math.pow(0.25, stickY_zoom * dt);
 }
 
-assert(Math.abs(jitterWalkMeters - 18.0) < 1e-6);
-assert(Math.abs(jitterScale - r72.scale) < 1e-6);
-console.log('✓ Jittering/fluctuating frame rate yields identical distance and scale');
-
-console.log('✓ All Frame-Rate Independence tests passed successfully!');
+    assert(Math.abs(jitterWalkMeters - 18.0) < 1e-6);
+    assert(Math.abs(jitterScale - r72.scale) < 1e-6);
+  });
+});
