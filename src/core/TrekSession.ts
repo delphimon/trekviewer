@@ -87,6 +87,15 @@ export class TrekSession {
 
   public setState(partial: Partial<TrekSessionState>): void {
     const prev = this.state;
+    let hasChanged = false;
+    for (const key of Object.keys(partial) as (keyof TrekSessionState)[]) {
+      if (partial[key] !== prev[key]) {
+        hasChanged = true;
+        break;
+      }
+    }
+    if (!hasChanged) return;
+
     this.state = { ...prev, ...partial };
     this.notify(prev);
   }
@@ -97,36 +106,35 @@ export class TrekSession {
     }
   }
 
-  public setTrack(
-    track: TrackStats | null,
-    routeId?: string,
-    source: 'manifest' | 'upload' = 'manifest'
-  ): void {
-    if (!track) {
-      this.setState({
-        track: null,
-        activeRouteId: null,
-        routeName: 'No Trek Selected',
-        routeSource: null,
-        progress: 0,
-        currentDistance: 0,
-        currentElevation: 0,
-        currentPoint: null,
-        warnings: [],
-      });
-      return;
+  public static getAttributionForStyle(style: TextureStyle): string {
+    switch (style) {
+      case 'satellite':
+        return 'Satellite imagery: Esri World Imagery • Elevation: AWS Open Data / USGS';
+      case 'hybrid':
+        return 'Imagery: Esri World Imagery & Labels • Elevation: AWS Open Data / USGS';
+      case 'topo':
+        return 'Topographic map: USGS National Map / OpenTopoMap • Elevation: USGS 3DEP';
+      case 'elevation-ramp':
+      default:
+        return 'Procedural Topographic Map • Elevation: AWS Open Data';
     }
+  }
 
-    const firstPt = track.points[0];
+  public setTrack(
+    track: TrackStats,
+    routeId?: string,
+    source?: 'manifest' | 'upload'
+  ): void {
     this.setState({
       track,
-      activeRouteId: routeId ?? track.name,
+      activeRouteId: routeId ?? this.state.activeRouteId,
       routeName: track.name,
-      routeSource: source,
+      routeSource: source ?? this.state.routeSource,
       progress: 0,
       currentDistance: 0,
-      currentElevation: firstPt?.ele ?? track.minElevation,
-      currentPoint: firstPt ?? null,
+      currentElevation: track.points[0]?.ele || track.minElevation,
+      currentPoint: track.points[0] || null,
+      selectedWaypoint: null,
       warnings: track.warnings ?? [],
     });
   }
@@ -170,7 +178,10 @@ export class TrekSession {
 
   public setTextureStyle(textureStyle: TextureStyle): void {
     if (this.state.textureStyle !== textureStyle) {
-      this.setState({ textureStyle });
+      this.setState({
+        textureStyle,
+        attribution: TrekSession.getAttributionForStyle(textureStyle),
+      });
     }
   }
 

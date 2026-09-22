@@ -35,6 +35,13 @@ export class SpatialHUD {
   public grabMesh: THREE.Mesh;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private staticCanvas: HTMLCanvasElement;
+  private staticCtx: CanvasRenderingContext2D;
+  private staticDirty: boolean = true;
+  private isDisposed: boolean = false;
+  private lastProgressDrawTime: number = 0;
+  private progressDrawScheduled: boolean = false;
+
   private texture: THREE.CanvasTexture;
   private track: TrackStats;
   private callbacks: SpatialHUDCallbacks;
@@ -71,10 +78,15 @@ export class SpatialHUD {
     this.group.name = 'SpatialHUDGroup';
 
     // Canvas resolution: 1024 x 680
-    this.canvas = document.createElement('canvas');
+    this.canvas = typeof document !== 'undefined' ? document.createElement('canvas') : ({} as HTMLCanvasElement);
     this.canvas.width = 1024;
     this.canvas.height = 680;
-    this.ctx = this.canvas.getContext('2d')!;
+    this.ctx = (typeof this.canvas.getContext === 'function' ? this.canvas.getContext('2d') : null) as CanvasRenderingContext2D;
+
+    this.staticCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : ({} as HTMLCanvasElement);
+    this.staticCanvas.width = 1024;
+    this.staticCanvas.height = 680;
+    this.staticCtx = (typeof this.staticCanvas.getContext === 'function' ? this.staticCanvas.getContext('2d') : null) as CanvasRenderingContext2D;
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.minFilter = THREE.LinearFilter;
@@ -120,8 +132,24 @@ export class SpatialHUD {
       this.currentTerrainQuality = s.terrainQuality;
       this.attribution = s.attribution || this.attribution;
       this.selectedWaypoint = s.selectedWaypoint;
+      this.statusMessage = s.loadingMessage || null;
+      this.statusProgress = s.loadingProgress || 0;
 
       this.unsubscribeSession = this.session.subscribe((newState) => {
+        if (this.isDisposed) return;
+        const newLoadingMsg = newState.loadingMessage || null;
+        const staticChanged =
+          this.isPlaying !== newState.isPlaying ||
+          this.currentSpeed !== newState.playbackSpeed ||
+          this.currentViewMode !== newState.viewMode ||
+          this.currentTextureStyle !== newState.textureStyle ||
+          this.currentTrailColorMode !== newState.trailColorMode ||
+          this.currentExaggeration !== newState.verticalExaggeration ||
+          this.currentTerrainQuality !== newState.terrainQuality ||
+          this.attribution !== (newState.attribution || this.attribution) ||
+          this.selectedWaypoint !== newState.selectedWaypoint ||
+          this.statusMessage !== newLoadingMsg;
+
         this.currentProgress = newState.progress;
         this.currentElevation = newState.currentElevation;
         this.isPlaying = newState.isPlaying;
@@ -133,20 +161,41 @@ export class SpatialHUD {
         this.currentTerrainQuality = newState.terrainQuality;
         if (newState.attribution) this.attribution = newState.attribution;
         this.selectedWaypoint = newState.selectedWaypoint;
-        if (newState.loadingMessage) {
-          this.statusMessage = newState.loadingMessage;
+        if (newLoadingMsg) {
+          this.statusMessage = newLoadingMsg;
           this.statusProgress = newState.loadingProgress ?? 0;
         } else {
           this.statusMessage = null;
         }
-        this.drawHUD();
+
+        if (staticChanged) {
+          this.staticDirty = true;
+          this.drawHUD(true);
+        } else {
+          // Throttled progress update (target ~11Hz)
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          if (now - this.lastProgressDrawTime >= 90) {
+            this.lastProgressDrawTime = now;
+            this.drawHUD(false);
+          } else if (!this.progressDrawScheduled) {
+            this.progressDrawScheduled = true;
+            const wait = Math.max(10, 90 - (now - this.lastProgressDrawTime));
+            setTimeout(() => {
+              this.progressDrawScheduled = false;
+              if (!this.isDisposed) {
+                this.lastProgressDrawTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                this.drawHUD(false);
+              }
+            }, wait);
+          }
+        }
       });
     } else {
       this.currentElevation = track.points[0]?.ele ?? track.minElevation;
     }
 
     this.setupInteractiveAreas();
-    this.drawHUD();
+    this.drawHUD(true);
   }
 
   public isHoveringDragHandle(): boolean {
@@ -166,7 +215,8 @@ export class SpatialHUD {
     } else {
       this.statusProgress = 0;
     }
-    this.drawHUD();
+    this.staticDirty = true;
+    this.drawHUD(true);
 
     if (
       message.includes('active') ||
@@ -187,7 +237,8 @@ export class SpatialHUD {
     }
     this.statusMessage = null;
     this.statusProgress = 0;
-    this.drawHUD();
+    this.staticDirty = true;
+    this.drawHUD(true);
   }
 
   private cycleDock(): void {
@@ -199,13 +250,15 @@ export class SpatialHUD {
       this.currentDockSide = 'left';
     }
     this.callbacks.onDockHUD?.(this.currentDockSide);
-    this.drawHUD();
+    this.staticDirty = true;
+    this.drawHUD(true);
   }
 
   public setDockSide(side: 'left' | 'right' | 'center'): void {
     if (this.currentDockSide === side) return;
     this.currentDockSide = side;
-    this.drawHUD();
+    this.staticDirty = true;
+    this.drawHUD(true);
   }
 
   private setupInteractiveAreas(): void {
@@ -298,7 +351,8 @@ export class SpatialHUD {
         action: () => {
           this.currentSpeed = 1.0;
           this.callbacks.onSetSpeed(1.0);
-          this.drawHUD();
+          this.staticDirty = true;
+          this.drawHUD(true);
         },
       },
       {
@@ -310,7 +364,8 @@ export class SpatialHUD {
         action: () => {
           this.currentSpeed = 5.0;
           this.callbacks.onSetSpeed(5.0);
-          this.drawHUD();
+          this.staticDirty = true;
+          this.drawHUD(true);
         },
       },
       {
@@ -322,7 +377,8 @@ export class SpatialHUD {
         action: () => {
           this.currentSpeed = 20.0;
           this.callbacks.onSetSpeed(20.0);
-          this.drawHUD();
+          this.staticDirty = true;
+          this.drawHUD(true);
         },
       },
       {
@@ -334,7 +390,8 @@ export class SpatialHUD {
         action: () => {
           this.currentSpeed = 60.0;
           this.callbacks.onSetSpeed(60.0);
-          this.drawHUD();
+          this.staticDirty = true;
+          this.drawHUD(true);
         },
       },
       {
@@ -401,6 +458,15 @@ export class SpatialHUD {
     exaggeration?: number,
     terrainQuality?: TerrainQuality
   ): void {
+    const staticChanged =
+      this.isPlaying !== isPlaying ||
+      this.currentViewMode !== viewMode ||
+      this.currentTextureStyle !== textureStyle ||
+      (speed !== undefined && this.currentSpeed !== speed) ||
+      (trailColorMode !== undefined && this.currentTrailColorMode !== trailColorMode) ||
+      (exaggeration !== undefined && this.currentExaggeration !== exaggeration) ||
+      (terrainQuality !== undefined && this.currentTerrainQuality !== terrainQuality);
+
     this.currentProgress = progress;
     this.currentElevation = currentEle;
     this.isPlaying = isPlaying;
@@ -410,7 +476,11 @@ export class SpatialHUD {
     if (trailColorMode !== undefined) this.currentTrailColorMode = trailColorMode;
     if (exaggeration !== undefined) this.currentExaggeration = exaggeration;
     if (terrainQuality !== undefined) this.currentTerrainQuality = terrainQuality;
-    this.drawHUD();
+
+    if (staticChanged) {
+      this.staticDirty = true;
+    }
+    this.drawHUD(staticChanged);
   }
 
   private cycleWaypoint(delta: number): void {
@@ -423,7 +493,8 @@ export class SpatialHUD {
     const wp = allWaypoints[nextIdx];
     this.selectedWaypoint = wp;
     this.callbacks.onSelectWaypoint?.(wp);
-    this.drawHUD();
+    this.staticDirty = true;
+    this.drawHUD(true);
   }
 
   private jumpToCurrentWaypoint(): void {
@@ -432,7 +503,8 @@ export class SpatialHUD {
     const wp = this.selectedWaypoint || allWaypoints[0];
     this.selectedWaypoint = wp;
     this.callbacks.onSelectWaypoint?.(wp);
-    this.drawHUD();
+    this.staticDirty = true;
+    this.drawHUD(true);
   }
 
   private uvToCanvas(uv: THREE.Vector2): { x: number; y: number } {
@@ -464,7 +536,8 @@ export class SpatialHUD {
 
     if (foundId !== this.hoveredAreaId) {
       this.hoveredAreaId = foundId;
-      this.drawHUD();
+      this.staticDirty = true;
+      this.drawHUD(true);
     }
   }
 
@@ -472,7 +545,8 @@ export class SpatialHUD {
     if (this.hoveredAreaId !== null) {
       this.hoveredAreaId = null;
       this.isDraggingScrubber = false;
-      this.drawHUD();
+      this.staticDirty = true;
+      this.drawHUD(true);
     }
   }
 
@@ -487,7 +561,8 @@ export class SpatialHUD {
         pt.y <= area.y + area.h
       ) {
         area.action();
-        this.drawHUD();
+        this.staticDirty = true;
+        this.drawHUD(true);
         return true;
       }
     }
@@ -516,10 +591,11 @@ export class SpatialHUD {
     this.isDraggingScrubber = false;
   }
 
-  private drawHUD(): void {
-    const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+  private drawStaticHUD(): void {
+    if (!this.staticCtx) return;
+    const ctx = this.staticCtx;
+    const w = this.staticCanvas.width;
+    const h = this.staticCanvas.height;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -601,7 +677,7 @@ export class SpatialHUD {
     ctx.font = 'bold 19px sans-serif';
     ctx.fillText('🚪 Exit MR / VR', 808, 59);
 
-    // 3. Stats Grid (Authoritative: uses true current point elevation!)
+    // 3. Stats Grid (Distance, Elev Gain, Summit Elev, and Current Elev label)
     const distKm = (this.track.totalDistance / 1000).toFixed(1);
     const distMi = (this.track.totalDistance * 0.000621371).toFixed(1);
     const gainM = Math.round(this.track.elevationGain);
@@ -613,11 +689,7 @@ export class SpatialHUD {
       { label: 'DISTANCE', val: `${distMi} mi`, sub: `${distKm} km` },
       { label: 'ELEV GAIN', val: `+${gainFt.toLocaleString()} ft`, sub: `+${gainM.toLocaleString()} m` },
       { label: 'SUMMIT ELEV', val: `${peakFt.toLocaleString()} ft`, sub: `${peakM.toLocaleString()} m` },
-      {
-        label: 'CURRENT ELEV',
-        val: `${Math.round(this.currentElevation * 3.28084).toLocaleString()} ft`,
-        sub: `${Math.round(this.currentElevation)} m`,
-      },
+      { label: 'CURRENT ELEV', val: null, sub: null },
     ];
 
     const colW = (w - 70) / 4;
@@ -627,13 +699,16 @@ export class SpatialHUD {
       ctx.font = 'bold 13px sans-serif';
       ctx.fillText(s.label, colX + 10, 126);
 
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 23px sans-serif';
-      ctx.fillText(s.val, colX + 10, 154);
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '13px sans-serif';
-      ctx.fillText(s.sub, colX + 10, 176);
+      if (s.val) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 23px sans-serif';
+        ctx.fillText(s.val, colX + 10, 154);
+      }
+      if (s.sub) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '13px sans-serif';
+        ctx.fillText(s.sub, colX + 10, 176);
+      }
     });
 
     // 4. Elevation Profile Chart Box
@@ -757,58 +832,6 @@ export class SpatialHUD {
           }
         }
       }
-
-      // Scrubber line
-      const scrubX = chartX + 18 + this.currentProgress * (chartW - 36);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(scrubX, chartY + 10);
-      ctx.lineTo(scrubX, chartY + chartH - 24);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Scrubber dot marker
-      const currNorm = (this.currentElevation - minE) / spanE;
-      const scrubY = chartY + chartH - 24 - currNorm * (chartH - 48);
-
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
-      ctx.beginPath();
-      ctx.arc(scrubX, scrubY, 16, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(scrubX, scrubY, 10, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(scrubX, scrubY, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Tooltip
-      const curDistMi = (this.track.totalDistance * this.currentProgress * 0.000621371).toFixed(1);
-      const curEleFt = Math.round(this.currentElevation * 3.28084);
-      const tipText = `${curEleFt.toLocaleString()} ft • ${curDistMi} mi`;
-
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-      ctx.beginPath();
-      ctx.roundRect(scrubX - 70, scrubY - 36, 140, 26, 6);
-      ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(tipText, scrubX, scrubY - 18);
-      ctx.textAlign = 'left';
     }
 
     // 5. Row 1: Flyover Controls & Speeds (y = 410)
@@ -992,10 +1015,102 @@ export class SpatialHUD {
       }
     }
 
+    this.staticDirty = false;
+  }
+
+  private drawHUD(forceStatic = false): void {
+    if (this.isDisposed || !this.ctx || !this.staticCtx) return;
+
+    if (forceStatic || this.staticDirty) {
+      this.drawStaticHUD();
+    }
+
+    const ctx = this.ctx;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(this.staticCanvas, 0, 0);
+
+    // 1. Dynamic Current Elevation Stat (Column 3)
+    const colW = (w - 70) / 4;
+    const colX = 35 + 3 * colW;
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 23px sans-serif';
+    ctx.fillText(`${Math.round(this.currentElevation * 3.28084).toLocaleString()} ft`, colX + 10, 154);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px sans-serif';
+    ctx.fillText(`${Math.round(this.currentElevation)} m`, colX + 10, 176);
+
+    // 2. Dynamic Scrubber & Tooltip on Elevation Profile
+    const chartX = 35;
+    const chartY = 195;
+    const chartW = w - 70;
+    const chartH = 190;
+
+    const minE = this.track.minElevation;
+    const maxE = this.track.maxElevation;
+    const spanE = Math.max(maxE - minE, 10);
+
+    const scrubX = chartX + 18 + this.currentProgress * (chartW - 36);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(scrubX, chartY + 10);
+    ctx.lineTo(scrubX, chartY + chartH - 24);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Scrubber dot marker
+    const currNorm = (this.currentElevation - minE) / spanE;
+    const scrubY = chartY + chartH - 24 - Math.max(0, Math.min(1, currNorm)) * (chartH - 48);
+
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.beginPath();
+    ctx.arc(scrubX, scrubY, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(scrubX, scrubY, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(scrubX, scrubY, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tooltip
+    const curDistMi = (this.track.totalDistance * this.currentProgress * 0.000621371).toFixed(1);
+    const curEleFt = Math.round(this.currentElevation * 3.28084);
+    const tipText = `${curEleFt.toLocaleString()} ft • ${curDistMi} mi`;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(scrubX - 70, scrubY - 36, 140, 26, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(tipText, scrubX, scrubY - 18);
+    ctx.textAlign = 'left';
+
     this.texture.needsUpdate = true;
   }
 
   public dispose(): void {
+    if (this.isDisposed) return;
+    this.isDisposed = true;
+
     if (this.unsubscribeSession) {
       this.unsubscribeSession();
       this.unsubscribeSession = undefined;
@@ -1004,9 +1119,17 @@ export class SpatialHUD {
       clearTimeout(this.statusTimeout);
       this.statusTimeout = null;
     }
+    this.progressDrawScheduled = false;
+
     this.texture.dispose();
-    this.canvas.width = 1;
-    this.canvas.height = 1;
+    if (this.canvas) {
+      this.canvas.width = 1;
+      this.canvas.height = 1;
+    }
+    if (this.staticCanvas) {
+      this.staticCanvas.width = 1;
+      this.staticCanvas.height = 1;
+    }
     disposeObject3D(this.group);
   }
 }

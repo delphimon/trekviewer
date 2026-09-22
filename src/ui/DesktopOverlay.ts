@@ -47,12 +47,15 @@ export class DesktopOverlay {
   private qualityBadge!: HTMLElement;
   private attributionFooter!: HTMLElement;
 
+  private cachedChartCanvas: HTMLCanvasElement | null = null;
+
   constructor(container: HTMLElement, callbacks: OverlayCallbacks, session?: TrekSession) {
     this.container = container;
     this.callbacks = callbacks;
     this.session = session;
     this.createDOM();
     this.setupEventListeners();
+    this.checkXRSupport();
 
     if (this.session) {
       const s = this.session.getState();
@@ -60,6 +63,26 @@ export class DesktopOverlay {
       this.unsubscribeSession = this.session.subscribe((newState) => {
         this.syncFromState(newState);
       });
+    }
+  }
+
+  private checkXRSupport(): void {
+    if (typeof navigator !== 'undefined' && 'xr' in navigator && (navigator as any).xr?.isSessionSupported) {
+      (navigator as any).xr.isSessionSupported('immersive-vr').then((supported: boolean) => {
+        const btnVR = document.getElementById('btnEnterVR');
+        if (btnVR && !supported) {
+          btnVR.setAttribute('title', 'WebXR Immersive VR not supported on this device/browser');
+          btnVR.classList.add('btn-disabled');
+        }
+      }).catch(() => {});
+
+      (navigator as any).xr.isSessionSupported('immersive-ar').then((supported: boolean) => {
+        const btnAR = document.getElementById('btnEnterAR');
+        if (btnAR && !supported) {
+          btnAR.setAttribute('title', 'WebXR Passthrough MR not supported on this device/browser');
+          btnAR.classList.add('btn-disabled');
+        }
+      }).catch(() => {});
     }
   }
 
@@ -76,6 +99,32 @@ export class DesktopOverlay {
 
     if (s.track && s.track !== this.currentTrack) {
       this.updateTrack(s.track);
+    }
+
+    if (s.progress !== undefined && s.currentElevation !== undefined) {
+      this.updateScrubber(s.progress, s.currentElevation);
+    }
+
+    if (s.activeRouteId) {
+      const select = document.getElementById('routeSelect') as HTMLSelectElement;
+      if (select && select.value !== s.activeRouteId) {
+        select.value = s.activeRouteId;
+      }
+    }
+
+    if (s.viewMode && s.viewMode !== this.viewMode) {
+      this.viewMode = s.viewMode;
+      const viewBtn = document.getElementById('btnViewToggle');
+      if (viewBtn) {
+        viewBtn.innerHTML = s.viewMode === 'diorama' ? '🚶 Walk Trail (1:1)' : '🏔 Tabletop Diorama';
+      }
+    }
+
+    if (s.playbackSpeed !== undefined) {
+      document.querySelectorAll('.speed-btn').forEach((btn) => {
+        const spd = parseFloat(btn.getAttribute('data-speed') || '20');
+        btn.classList.toggle('btn-active', Math.abs(spd - s.playbackSpeed) < 0.1);
+      });
     }
 
     if (s.loadingMessage) {
@@ -190,6 +239,7 @@ export class DesktopOverlay {
       }
     }
 
+    this.renderCachedElevationChart(track);
     this.drawElevationChart();
     this.updateScrubber(0, track.points[0]?.ele || track.minElevation);
   }
@@ -247,9 +297,14 @@ export class DesktopOverlay {
     }
   }
 
-  private drawElevationChart(): void {
-    if (!this.currentTrack) return;
-    const canvas = this.canvasChart;
+  private renderCachedElevationChart(track: TrackStats): void {
+    if (!this.cachedChartCanvas && typeof document !== 'undefined') {
+      this.cachedChartCanvas = document.createElement('canvas');
+      this.cachedChartCanvas.width = this.canvasChart.width;
+      this.cachedChartCanvas.height = this.canvasChart.height;
+    }
+    if (!this.cachedChartCanvas) return;
+    const canvas = this.cachedChartCanvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -257,11 +312,11 @@ export class DesktopOverlay {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    const samples = GPXParser.sampleElevationProfile(this.currentTrack.points, 180);
+    const samples = GPXParser.sampleElevationProfile(track.points, 180);
     if (samples.length < 2) return;
 
-    const minE = this.currentTrack.minElevation;
-    const maxE = this.currentTrack.maxElevation;
+    const minE = track.minElevation;
+    const maxE = track.maxElevation;
     const spanE = Math.max(maxE - minE, 10);
 
     ctx.beginPath();
@@ -286,6 +341,21 @@ export class DesktopOverlay {
     ctx.closePath();
     ctx.fillStyle = grad;
     ctx.fill();
+  }
+
+  private drawElevationChart(): void {
+    if (!this.currentTrack) return;
+    const canvas = this.canvasChart;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (this.cachedChartCanvas) {
+      ctx.drawImage(this.cachedChartCanvas, 0, 0);
+    }
 
     const scrubX = this.currentProgress * w;
     ctx.strokeStyle = '#ffffff';
