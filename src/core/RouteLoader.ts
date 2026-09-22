@@ -5,6 +5,7 @@ import { ElevationTileService } from '../terrain/ElevationTiles.ts';
 import { TrailMesh, type TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
+import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
 import { LoadedTrek } from './LoadedTrek.ts';
 import type { TrekSession } from './TrekSession.ts';
 import type { SceneManager } from './SceneManager.ts';
@@ -179,8 +180,21 @@ export class RouteLoader {
       );
       flyover.setViewMode(this.session.getState().viewMode);
 
-      // 6. Bundle into LoadedTrek
-      newTrek = new LoadedTrek(track, terrain, trail, base, flyover);
+      // 6. Setup Adaptive View-Dependent Imagery LOD Manager
+      const lodManager = new ImageryLODManager({
+        bounds: track.bounds,
+        terrainBaseElevation: terrain.terrainBaseElevation,
+        centerLat: track.bounds.centerLat,
+        centerLon: track.bounds.centerLon,
+        elevationSampler: terrain.elevationSampler,
+        baseZoom: 13,
+        initialExaggeration,
+        initialStyle,
+        isXR,
+      });
+
+      // 7. Bundle into LoadedTrek
+      newTrek = new LoadedTrek(track, terrain, trail, base, flyover, lodManager);
 
       // Verify this is still the active transaction before committing to the live scene
       if (this.currentContext?.generationId !== context.generationId || context.isAborted()) {
@@ -189,7 +203,7 @@ export class RouteLoader {
         return null;
       }
 
-      // 7. Atomic scene replacement:
+      // 8. Atomic scene replacement:
       // Clear dioramaRoot and attach the new trek's group
       while (this.sceneManager.dioramaRoot.children.length > 0) {
         this.sceneManager.dioramaRoot.remove(this.sceneManager.dioramaRoot.children[0]);

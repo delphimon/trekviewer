@@ -1,11 +1,23 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
+import { TextureBudget } from './TextureBudget.ts';
 
 export class TileImageCache {
   private static cache: Map<string, HTMLImageElement> = new Map();
   private static maxEntries: number = 400;
+  private static currentMemoryBytes: number = 0;
+  // Default: 96MB on Quest (384 standard 256x256 RGBA tiles), 192MB on desktop (768 tiles)
+  private static maxMemoryBytes: number = (typeof navigator !== 'undefined' && TextureBudget.isQuestHeadset())
+    ? 96 * 1024 * 1024
+    : 192 * 1024 * 1024;
 
   public static getTileKey(providerId: string, zoom: number, x: number, y: number): string {
     return `${providerId}:${zoom}:${x}:${y}`;
+  }
+
+  private static estimateImageBytes(img: HTMLImageElement): number {
+    const w = img.naturalWidth || img.width || 256;
+    const h = img.naturalHeight || img.height || 256;
+    return w * h * 4;
   }
 
   public static get(key: string): HTMLImageElement | undefined {
@@ -19,18 +31,31 @@ export class TileImageCache {
   }
 
   public static set(key: string, img: HTMLImageElement): void {
-    if (this.cache.has(key)) {
+    const existing = this.cache.get(key);
+    if (existing) {
+      this.currentMemoryBytes -= this.estimateImageBytes(existing);
       this.cache.delete(key);
-    } else if (this.cache.size >= this.maxEntries) {
-      // Evict oldest entry
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) {
-        const oldImg = this.cache.get(oldestKey);
-        if (oldImg) oldImg.src = '';
-        this.cache.delete(oldestKey);
-      }
     }
+
+    const itemBytes = this.estimateImageBytes(img);
+
+    // Evict oldest entries while over capacity (by entry count or byte budget)
+    while (
+      (this.cache.size >= this.maxEntries || (this.currentMemoryBytes + itemBytes > this.maxMemoryBytes)) &&
+      this.cache.size > 0
+    ) {
+      const oldestKey = this.cache.keys().next().value;
+      if (!oldestKey) break;
+      const oldImg = this.cache.get(oldestKey);
+      if (oldImg) {
+        this.currentMemoryBytes -= this.estimateImageBytes(oldImg);
+        oldImg.src = '';
+      }
+      this.cache.delete(oldestKey);
+    }
+
     this.cache.set(key, img);
+    this.currentMemoryBytes += itemBytes;
   }
 
   public static has(key: string): boolean {
@@ -42,10 +67,47 @@ export class TileImageCache {
       img.src = '';
     }
     this.cache.clear();
+    this.currentMemoryBytes = 0;
   }
 
   public static size(): number {
     return this.cache.size;
+  }
+
+  public static getMemoryBytes(): number {
+    return this.currentMemoryBytes;
+  }
+
+  public static getMaxMemoryBytes(): number {
+    return this.maxMemoryBytes;
+  }
+
+  public static setMaxEntries(entries: number): void {
+    this.maxEntries = Math.max(1, entries);
+    while (this.cache.size > this.maxEntries) {
+      const oldestKey = this.cache.keys().next().value;
+      if (!oldestKey) break;
+      const oldImg = this.cache.get(oldestKey);
+      if (oldImg) {
+        this.currentMemoryBytes -= this.estimateImageBytes(oldImg);
+        oldImg.src = '';
+      }
+      this.cache.delete(oldestKey);
+    }
+  }
+
+  public static setMaxMemoryBytes(bytes: number): void {
+    this.maxMemoryBytes = Math.max(256 * 1024, bytes);
+    while (this.currentMemoryBytes > this.maxMemoryBytes && this.cache.size > 0) {
+      const oldestKey = this.cache.keys().next().value;
+      if (!oldestKey) break;
+      const oldImg = this.cache.get(oldestKey);
+      if (oldImg) {
+        this.currentMemoryBytes -= this.estimateImageBytes(oldImg);
+        oldImg.src = '';
+      }
+      this.cache.delete(oldestKey);
+    }
   }
 
   /**

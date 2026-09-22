@@ -393,7 +393,7 @@ class TrekViewerApp {
     this.session.setTextureStyle(style);
     const active = this.routeLoader.getActiveTrek();
     if (active) {
-      await active.terrainResult.setTextureStyle(style);
+      active.setTextureStyle(style);
     }
   }
 
@@ -498,7 +498,7 @@ class TrekViewerApp {
       this.controls.update();
     }
 
-    // 3. Update Flyover / Animation playback
+    // 3. Update Flyover / Animation playback & Adaptive Imagery LOD
     const active = this.routeLoader.getActiveTrek();
     if (active) {
       active.flyoverController.update(
@@ -506,6 +506,12 @@ class TrekViewerApp {
         this.sceneManager.camera,
         this.sceneManager.dioramaRoot,
         this.sceneManager.renderer.xr.isPresenting
+      );
+      active.lodManager?.update(
+        this.sceneManager.camera,
+        this.sceneManager.dioramaRoot,
+        this.session.getState().viewMode,
+        delta
       );
     }
 
