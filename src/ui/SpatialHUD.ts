@@ -203,6 +203,7 @@ export class SpatialHUD {
   }
 
   public setDockSide(side: 'left' | 'right' | 'center'): void {
+    if (this.currentDockSide === side) return;
     this.currentDockSide = side;
     this.drawHUD();
   }

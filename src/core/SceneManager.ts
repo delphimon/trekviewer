@@ -160,26 +160,31 @@ export class SceneManager {
       const isXR = this.renderer.xr.isPresenting;
 
       if (isXR) {
-        const camPos = this.camera.position;
-        // Direction user is facing in horizontal plane
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-        fwd.y = 0;
-        if (fwd.lengthSq() < 0.001) {
-          fwd.set(0, 0, -1);
+        const xrCam = this.renderer.xr.getCamera();
+        const headPos = xrCam.position;
+        const hasValidHead = headPos.y > 0.4;
+
+        if (hasValidHead) {
+          const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+          fwd.y = 0;
+          if (fwd.lengthSq() < 0.001) {
+            fwd.set(0, 0, -1);
+          } else {
+            fwd.normalize();
+          }
+
+          const targetX = headPos.x + fwd.x * 0.80;
+          const targetZ = headPos.z + fwd.z * 0.80;
+          const targetY = Math.max(0.60, headPos.y - 0.32);
+          const yaw = Math.atan2(fwd.x, fwd.z);
+
+          this.dioramaRoot.position.set(targetX, targetY, targetZ);
+          this.dioramaRoot.rotation.set(0, yaw - Math.PI, 0);
         } else {
-          fwd.normalize();
+          // Standard WebXR local-floor table anchor: 0.80m forward, 0.85m height
+          this.dioramaRoot.position.set(0, 0.85, -0.80);
+          this.dioramaRoot.rotation.set(0, 0, 0);
         }
-
-        // Arm's length distance: 0.80m in front of eyes (near edge at ~0.38m), 0.28m below eye level
-        const targetPos = camPos.clone()
-          .addScaledVector(fwd, 0.80)
-          .add(new THREE.Vector3(0, -0.28, 0));
-
-        this.dioramaRoot.position.copy(targetPos);
-
-        // Face user, zero roll and pitch
-        const yaw = Math.atan2(fwd.x, fwd.z);
-        this.dioramaRoot.rotation.set(0, yaw - Math.PI, 0);
       } else {
         // Desktop inspection mode
         this.dioramaRoot.position.set(0, -0.15, -0.55);
