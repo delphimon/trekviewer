@@ -57,8 +57,8 @@ describe('SpatialHUD throttling and offscreen canvas', () => {
       const mockTrack: TrackStats = {
         name: 'Rainier Test Route',
         points: [
-          { lat: 46.85, lon: -121.75, ele: 1500, time: new Date(), distanceFromStart: 0, grade: 0.05, speed: 1.2 },
-          { lat: 46.86, lon: -121.76, ele: 4392, time: new Date(), distanceFromStart: 10000, grade: 0.15, speed: 0.8 },
+          { lat: 46.85, lon: -121.75, ele: 1500, time: new Date(), distanceFromStart: 0, grade: 0.05, speed: 1.2, elapsedSeconds: 0, playbackSeconds: 0, index: 0 },
+          { lat: 46.86, lon: -121.76, ele: 4392, time: new Date(), distanceFromStart: 10000, grade: 0.15, speed: 0.8, elapsedSeconds: 100, playbackSeconds: 100, index: 1 },
         ],
         totalDistance: 10000,
         elevationGain: 2892,

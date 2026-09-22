@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GPXParser } from '../gpx/GPXParser.ts';
-import { TerrainGenerator } from '../terrain/TerrainGenerator.ts';
+import { TerrainGenerator, type TerrainResult } from '../terrain/TerrainGenerator.ts';
 import { ElevationTileService } from '../terrain/ElevationTiles.ts';
-import { TrailMesh } from '../visualization/TrailMesh.ts';
+import { TrailMesh, type TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { LoadedTrek } from './LoadedTrek.ts';
@@ -77,6 +77,12 @@ export class RouteLoader {
   ): Promise<LoadedTrek | null> {
     const context = existingContext ?? this.createContext(routeId, fallbackName);
 
+    let terrain: TerrainResult | null = null;
+    let trail: TrailResult | null = null;
+    let base: THREE.Group | null = null;
+    let newTrek: LoadedTrek | null = null;
+    let committed = false;
+
     try {
       // 1. Parse & Validate GPX
       this.session.setLoadingStatus('parsing', 'Parsing GPX survey track...', 0.1);
@@ -91,8 +97,9 @@ export class RouteLoader {
       // 2. Generate 3D Terrain off-scene
       const isXR = this.sceneManager.renderer.xr.isPresenting;
       const initialExaggeration = this.session.getState().verticalExaggeration;
+      const initialStyle = this.session.getState().textureStyle;
 
-      const terrain = await TerrainGenerator.generate(
+      terrain = await TerrainGenerator.generate(
         track,
         (msg, progress) => {
           if (!context.isAborted()) {
@@ -108,14 +115,20 @@ export class RouteLoader {
 
       if (context.isAborted()) {
         terrain.dispose();
+        terrain = null;
         return null;
+      }
+
+      // If user had a non-default texture style selected, preserve it
+      if (initialStyle !== 'satellite') {
+        terrain.setTextureStyle(initialStyle).catch(() => {});
       }
 
       // If any points originally lacked elevation, refine track using real DEM grid
       const hadMissingEle = raw.rawSegments.some((seg) => seg.some((p) => p.rawEle === undefined));
       if (hadMissingEle && terrain.demGrid) {
         const demSampler = (lat: number, lon: number) => {
-          const s = ElevationTileService.sampleElevation(terrain.demGrid!, lat, lon);
+          const s = ElevationTileService.sampleElevation(terrain!.demGrid!, lat, lon);
           return s.isValid ? s.elevation : undefined;
         };
         track = GPXParser.finalizeWithDEM(raw, demSampler);
@@ -123,18 +136,23 @@ export class RouteLoader {
 
       // 3. Generate 3D Trail Mesh off-scene
       this.session.setLoadingStatus('terrain', 'Building trail geometry...', 0.85);
-      const trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
+      trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
       trail.setColorMode(this.session.getState().trailColorMode);
       trail.setViewMode(this.session.getState().viewMode);
+      if (initialExaggeration !== 1.0) {
+        trail.setVerticalExaggeration(initialExaggeration);
+      }
 
       if (context.isAborted()) {
         terrain.dispose();
+        terrain = null;
         trail.dispose();
+        trail = null;
         return null;
       }
 
       // 4. Generate Diorama Base Pedestal
-      const base = DioramaBase.create(
+      base = DioramaBase.create(
         track.bounds,
         -80,
         track.waypoints.concat(track.landmarks),
@@ -145,8 +163,11 @@ export class RouteLoader {
 
       if (context.isAborted()) {
         terrain.dispose();
+        terrain = null;
         trail.dispose();
+        trail = null;
         disposeObject3D(base);
+        base = null;
         return null;
       }
 
@@ -159,11 +180,12 @@ export class RouteLoader {
       flyover.setViewMode(this.session.getState().viewMode);
 
       // 6. Bundle into LoadedTrek
-      const newTrek = new LoadedTrek(track, terrain, trail, base, flyover);
+      newTrek = new LoadedTrek(track, terrain, trail, base, flyover);
 
       // Verify this is still the active transaction before committing to the live scene
       if (this.currentContext?.generationId !== context.generationId || context.isAborted()) {
         newTrek.dispose();
+        newTrek = null;
         return null;
       }
 
@@ -174,6 +196,7 @@ export class RouteLoader {
       }
 
       this.sceneManager.dioramaRoot.add(newTrek.group);
+      committed = true;
 
       // Dispose previous trek's resources now that new trek is active
       const oldTrek = this.activeTrek;
@@ -208,6 +231,15 @@ export class RouteLoader {
 
       return newTrek;
     } catch (e: any) {
+      if (!committed) {
+        if (newTrek) {
+          (newTrek as LoadedTrek).dispose();
+        } else {
+          terrain?.dispose();
+          trail?.dispose();
+          if (base) disposeObject3D(base);
+        }
+      }
       if (context.isAborted()) {
         return null;
       }

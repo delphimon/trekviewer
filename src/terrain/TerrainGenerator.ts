@@ -264,11 +264,15 @@ export class TerrainGenerator {
     let highResTopoTexture: THREE.CanvasTexture | null = null;
     let hybridTexture: THREE.CanvasTexture | null = null;
 
+    let currentActiveStyle: TextureStyle = 'satellite';
+    let textureRequestGeneration: number = 0;
+    let isDisposed: boolean = false;
+
     // Background streaming of satellite imagery
     TextureProvider.fetchSatelliteTexture(
       tileGrid,
       (tex, loaded, total) => {
-        if (signal?.aborted) return;
+        if (isDisposed || signal?.aborted || currentActiveStyle !== 'satellite') return;
         if (!satelliteTexture) {
           satelliteTexture = tex;
           terrainMat.map = tex;
@@ -279,68 +283,92 @@ export class TerrainGenerator {
       signal,
       isXR
     ).then((satTex) => {
-      if (signal?.aborted || !satTex) return;
+      if (isDisposed || signal?.aborted || !satTex) return;
       satelliteTexture = satTex;
-      terrainMat.map = satTex;
-      terrainMat.needsUpdate = true;
-      onProgress?.('Satellite imagery ready.', 1.0);
+      if (currentActiveStyle === 'satellite') {
+        terrainMat.map = satTex;
+        terrainMat.needsUpdate = true;
+        onProgress?.('Satellite imagery ready.', 1.0);
+      }
     }).catch(() => {
       // Procedural topo remains active
     });
 
     const setTextureStyle = async (style: TextureStyle): Promise<void> => {
+      if (isDisposed) return;
+      currentActiveStyle = style;
+      const gen = ++textureRequestGeneration;
+
       if (style === 'satellite') {
         if (!satelliteTexture) {
           onProgress?.('Fetching high-resolution satellite imagery...', null);
-          satelliteTexture = await TextureProvider.fetchSatelliteTexture(
+          const tex = await TextureProvider.fetchSatelliteTexture(
             tileGrid,
-            (tex) => {
-              terrainMat.map = tex;
+            (partialTex) => {
+              if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== 'satellite') return;
+              terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
             },
             signal,
             isXR
           );
+          if (!isDisposed && !signal?.aborted && tex) {
+            satelliteTexture = tex;
+          }
         }
-        if (satelliteTexture) {
-          terrainMat.map = satelliteTexture;
-          terrainMat.needsUpdate = true;
+        if (!isDisposed && !signal?.aborted && gen === textureRequestGeneration && currentActiveStyle === 'satellite') {
+          if (satelliteTexture) {
+            terrainMat.map = satelliteTexture;
+            terrainMat.needsUpdate = true;
+          }
         }
       } else if (style === 'hybrid') {
         if (!hybridTexture) {
           onProgress?.('Fetching hybrid satellite & label imagery...', null);
-          hybridTexture = await TextureProvider.fetchHybridTexture(
+          const tex = await TextureProvider.fetchHybridTexture(
             tileGrid,
-            (tex) => {
-              terrainMat.map = tex;
+            (partialTex) => {
+              if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== 'hybrid') return;
+              terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
             },
             signal,
             isXR
           );
+          if (!isDisposed && !signal?.aborted && tex) {
+            hybridTexture = tex;
+          }
         }
-        if (hybridTexture) {
-          terrainMat.map = hybridTexture;
-          terrainMat.needsUpdate = true;
-        } else if (satelliteTexture) {
-          terrainMat.map = satelliteTexture;
-          terrainMat.needsUpdate = true;
+        if (!isDisposed && !signal?.aborted && gen === textureRequestGeneration && currentActiveStyle === 'hybrid') {
+          if (hybridTexture) {
+            terrainMat.map = hybridTexture;
+            terrainMat.needsUpdate = true;
+          } else if (satelliteTexture) {
+            terrainMat.map = satelliteTexture;
+            terrainMat.needsUpdate = true;
+          }
         }
       } else {
         if (!highResTopoTexture) {
           onProgress?.('Fetching USGS topographic map tiles...', null);
-          highResTopoTexture = await TextureProvider.fetchTopoTexture(
+          const tex = await TextureProvider.fetchTopoTexture(
             tileGrid,
-            (tex) => {
-              terrainMat.map = tex;
+            (partialTex) => {
+              if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== style) return;
+              terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
             },
             signal,
             isXR
           );
+          if (!isDisposed && !signal?.aborted && tex) {
+            highResTopoTexture = tex;
+          }
         }
-        terrainMat.map = highResTopoTexture || topoTexture;
-        terrainMat.needsUpdate = true;
+        if (!isDisposed && !signal?.aborted && gen === textureRequestGeneration && currentActiveStyle === style) {
+          terrainMat.map = highResTopoTexture || topoTexture;
+          terrainMat.needsUpdate = true;
+        }
       }
     };
 
@@ -359,6 +387,9 @@ export class TerrainGenerator {
     };
 
     const dispose = () => {
+      if (isDisposed) return;
+      isDisposed = true;
+      textureRequestGeneration++;
       disposeObject3D(group);
       satelliteTexture?.dispose();
       hybridTexture?.dispose();
