@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
+import { isPointOnDiorama, type DioramaVolume } from './GestureMath.ts';
+import { disposeObject3D } from './ResourceLifecycle.ts';
 
 export class SceneManager {
   public scene: THREE.Scene;
@@ -10,11 +12,19 @@ export class SceneManager {
   public hemiLight: THREE.HemisphereLight;
   public skyMesh: THREE.Mesh;
 
+  public dioramaVolume: DioramaVolume = {
+    halfWidthM: 3000,
+    halfDepthM: 3000,
+    minY: -110,
+    maxY: 3000,
+  };
+
   private isPassthroughActive: boolean = false;
   private currentViewMode: ViewMode = 'diorama';
   private targetScale: number = 1.0;
   private targetPosition: THREE.Vector3 = new THREE.Vector3();
   private targetRotationY: number = 0;
+  private onWindowResizeBound: () => void;
 
   constructor(container: HTMLElement) {
     // 1. Scene
@@ -77,7 +87,8 @@ export class SceneManager {
     this.scene.fog = new THREE.FogExp2(0x93c5fd, 0.00004);
 
     // Handle Window Resize
-    window.addEventListener('resize', this.onWindowResize.bind(this));
+    this.onWindowResizeBound = this.onWindowResize.bind(this);
+    window.addEventListener('resize', this.onWindowResizeBound);
   }
 
   public setPassthrough(active: boolean): void {
@@ -108,26 +119,75 @@ export class SceneManager {
     }
   }
 
+  public setDioramaVolume(volume: DioramaVolume): void {
+    this.dioramaVolume = volume;
+  }
+
+  public isPointOnDiorama(pointWorldPos: THREE.Vector3, marginMeters: number = 0.08): boolean {
+    return isPointOnDiorama(pointWorldPos, this.dioramaRoot, this.dioramaVolume, marginMeters);
+  }
+
   public setViewMode(mode: ViewMode, extentMeters: number): void {
     this.currentViewMode = mode;
 
     if (mode === 'diorama') {
-      // Scale down so entire mountain fits on an 0.8m - 1.0m table
+      // Scale down so entire mountain fits comfortably within reach (~0.85m footprint)
       const targetTableSize = 0.85; // meters in VR
       const scale = targetTableSize / Math.max(extentMeters, 1000);
       this.dioramaRoot.scale.set(scale, scale, scale);
-      // Place tabletop in front of user in VR
-      this.dioramaRoot.position.set(0, -0.2, -1.1);
-      this.dioramaRoot.rotation.set(0, 0, 0);
 
-      // Reset desktop camera for diorama inspection
-      if (!this.renderer.xr.isPresenting) {
-        this.camera.position.set(0, 0.8, 1.3);
-        this.camera.lookAt(0, 0, 0);
-      }
+      const margin = 0.25;
+      const widthM = Math.max(extentMeters * (1 + margin * 2), 1500);
+      this.dioramaVolume = {
+        halfWidthM: widthM / 2,
+        halfDepthM: widthM / 2,
+        minY: -110,
+        maxY: Math.max(extentMeters * 0.5, 500),
+      };
+
+      // Place tabletop diorama within comfortable arm's reach of the user
+      this.resetToArmLength();
     } else {
       // 1:1 Real-world meters scale for First-Person immersion
       this.dioramaRoot.scale.set(1, 1, 1);
+      this.dioramaRoot.position.set(0, 0, 0);
+      this.dioramaRoot.rotation.set(0, 0, 0);
+    }
+  }
+
+  public resetToArmLength(): void {
+    if (this.currentViewMode === 'diorama') {
+      const isXR = this.renderer.xr.isPresenting;
+
+      if (isXR) {
+        const camPos = this.camera.position;
+        // Direction user is facing in horizontal plane
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+        fwd.y = 0;
+        if (fwd.lengthSq() < 0.001) {
+          fwd.set(0, 0, -1);
+        } else {
+          fwd.normalize();
+        }
+
+        // Arm's length distance: 0.80m in front of eyes (near edge at ~0.38m), 0.28m below eye level
+        const targetPos = camPos.clone()
+          .addScaledVector(fwd, 0.80)
+          .add(new THREE.Vector3(0, -0.28, 0));
+
+        this.dioramaRoot.position.copy(targetPos);
+
+        // Face user, zero roll and pitch
+        const yaw = Math.atan2(fwd.x, fwd.z);
+        this.dioramaRoot.rotation.set(0, yaw - Math.PI, 0);
+      } else {
+        // Desktop inspection mode
+        this.dioramaRoot.position.set(0, -0.15, -0.55);
+        this.dioramaRoot.rotation.set(0, 0, 0);
+        this.camera.position.set(0, 0.65, 0.95);
+        this.camera.lookAt(0, -0.1, -0.55);
+      }
+    } else {
       this.dioramaRoot.position.set(0, 0, 0);
       this.dioramaRoot.rotation.set(0, 0, 0);
     }
@@ -167,5 +227,26 @@ export class SceneManager {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  /**
+   * Diagnostic instrumentation exposing Three.js GPU memory and render counts.
+   */
+  public getMemoryInfo(): { memory: THREE.WebGLInfo['memory']; render: THREE.WebGLInfo['render'] } {
+    return {
+      memory: { ...this.renderer.info.memory },
+      render: { ...this.renderer.info.render },
+    };
+  }
+
+  /**
+   * Complete teardown of Three.js scene, renderer, event listeners, and GPU resources.
+   */
+  public dispose(): void {
+    window.removeEventListener('resize', this.onWindowResizeBound);
+    disposeObject3D(this.skyMesh);
+    disposeObject3D(this.dioramaRoot);
+    this.sunLight.shadow.map?.dispose();
+    this.renderer.dispose();
   }
 }

@@ -1,12 +1,15 @@
 import * as THREE from 'three';
-import type { TrackStats, ViewMode, TextureStyle, TrailColorMode } from '../gpx/TrackTypes.ts';
+import type { TrackStats, ViewMode, TextureStyle, TrailColorMode, GPXWaypoint } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
+import type { TrekSession, TerrainQuality } from '../core/TrekSession.ts';
+import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export interface SpatialHUDCallbacks {
   onTogglePlay: () => void;
   onToggleViewMode: () => void;
   onToggleTexture: () => void;
   onToggleTrailColor?: () => void;
+  onCycleExaggeration?: () => void;
   onReset: () => void;
   onExitMR: () => void;
   onScrub: (progress: number) => void;
@@ -14,6 +17,7 @@ export interface SpatialHUDCallbacks {
   onStepSeconds: (seconds: number) => void;
   onFocusHiker: () => void;
   onDockHUD?: (side: 'left' | 'right' | 'center') => void;
+  onSelectWaypoint?: (wp: GPXWaypoint) => void;
 }
 
 interface InteractiveArea {
@@ -34,15 +38,21 @@ export class SpatialHUD {
   private texture: THREE.CanvasTexture;
   private track: TrackStats;
   private callbacks: SpatialHUDCallbacks;
+  private session?: TrekSession;
+  private unsubscribeSession?: () => void;
 
   private currentProgress: number = 0;
   private currentElevation: number = 0;
   private isPlaying: boolean = false;
-  private currentSpeed: number = 1.0;
+  private currentSpeed: number = 20.0;
   private currentViewMode: ViewMode = 'diorama';
   private currentTextureStyle: TextureStyle = 'satellite';
   private currentTrailColorMode: TrailColorMode = 'grade';
+  private currentExaggeration: number = 1.0;
+  private currentTerrainQuality: TerrainQuality = 'dem';
   private currentDockSide: 'left' | 'right' | 'center' = 'left';
+  private attribution: string = 'Map data: Esri, USGS, AWS Open Data';
+  private selectedWaypoint: GPXWaypoint | null = null;
 
   private statusMessage: string | null = null;
   private statusProgress: number = 0;
@@ -50,10 +60,13 @@ export class SpatialHUD {
   private hoveredAreaId: string | null = null;
   private interactiveAreas: InteractiveArea[] = [];
   private isDraggingScrubber: boolean = false;
+  private statusTimeout: number | null = null;
 
-  constructor(track: TrackStats, callbacks: SpatialHUDCallbacks) {
+  constructor(track: TrackStats, callbacks: SpatialHUDCallbacks, session?: TrekSession) {
     this.track = track;
     this.callbacks = callbacks;
+    this.session = session;
+
     this.group = new THREE.Group();
     this.group.name = 'SpatialHUDGroup';
 
@@ -78,7 +91,7 @@ export class SpatialHUD {
     this.mesh.name = 'SpatialHUDMesh';
     this.group.add(this.mesh);
 
-    // 3D Physical Grab Handle above HUD panel for free room positioning
+    // 3D Grab Handle
     const grabGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.42, 16);
     grabGeo.rotateZ(Math.PI / 2);
     const grabMat = new THREE.MeshStandardMaterial({
@@ -93,8 +106,45 @@ export class SpatialHUD {
     this.grabMesh.name = 'SpatialHUDGrabHandle';
     this.group.add(this.grabMesh);
 
-    // Initial state
-    this.currentElevation = track.points[0]?.ele || track.minElevation;
+    // Initial state from track or session
+    if (this.session) {
+      const s = this.session.getState();
+      this.currentProgress = s.progress;
+      this.currentElevation = s.currentElevation || (track.points[0]?.ele ?? track.minElevation);
+      this.isPlaying = s.isPlaying;
+      this.currentSpeed = s.playbackSpeed;
+      this.currentViewMode = s.viewMode;
+      this.currentTextureStyle = s.textureStyle;
+      this.currentTrailColorMode = s.trailColorMode;
+      this.currentExaggeration = s.verticalExaggeration;
+      this.currentTerrainQuality = s.terrainQuality;
+      this.attribution = s.attribution || this.attribution;
+      this.selectedWaypoint = s.selectedWaypoint;
+
+      this.unsubscribeSession = this.session.subscribe((newState) => {
+        this.currentProgress = newState.progress;
+        this.currentElevation = newState.currentElevation;
+        this.isPlaying = newState.isPlaying;
+        this.currentSpeed = newState.playbackSpeed;
+        this.currentViewMode = newState.viewMode;
+        this.currentTextureStyle = newState.textureStyle;
+        this.currentTrailColorMode = newState.trailColorMode;
+        this.currentExaggeration = newState.verticalExaggeration;
+        this.currentTerrainQuality = newState.terrainQuality;
+        if (newState.attribution) this.attribution = newState.attribution;
+        this.selectedWaypoint = newState.selectedWaypoint;
+        if (newState.loadingMessage) {
+          this.statusMessage = newState.loadingMessage;
+          this.statusProgress = newState.loadingProgress ?? 0;
+        } else {
+          this.statusMessage = null;
+        }
+        this.drawHUD();
+      });
+    } else {
+      this.currentElevation = track.points[0]?.ele ?? track.minElevation;
+    }
+
     this.setupInteractiveAreas();
     this.drawHUD();
   }
@@ -102,8 +152,6 @@ export class SpatialHUD {
   public isHoveringDragHandle(): boolean {
     return this.hoveredAreaId === 'hud-drag';
   }
-
-  private statusTimeout: number | null = null;
 
   public showStatus(message: string): void {
     if (this.statusTimeout) {
@@ -120,7 +168,6 @@ export class SpatialHUD {
     }
     this.drawHUD();
 
-    // Automatically dismiss completed / active status messages after 2.5s
     if (
       message.includes('active') ||
       message.includes('Loaded:') ||
@@ -162,7 +209,7 @@ export class SpatialHUD {
 
   private setupInteractiveAreas(): void {
     this.interactiveAreas = [
-      // Drag handle on top of HUD canvas
+      // Drag handle
       {
         id: 'hud-drag',
         x: 360,
@@ -171,7 +218,7 @@ export class SpatialHUD {
         h: 36,
         action: () => {},
       },
-      // Quick Dock side button (Left / Center / Right)
+      // Quick Dock side button
       {
         id: 'hud-dock',
         x: 650,
@@ -180,7 +227,7 @@ export class SpatialHUD {
         h: 54,
         action: () => this.cycleDock(),
       },
-      // Exit MR / VR button (top right)
+      // Exit MR button
       {
         id: 'exit-mr',
         x: 780,
@@ -190,8 +237,33 @@ export class SpatialHUD {
         action: () => this.callbacks.onExitMR(),
       },
 
+      // Waypoint Quick-Jump Controls (inside chart header)
+      {
+        id: 'btn-wp-prev',
+        x: 55,
+        y: 204,
+        w: 36,
+        h: 32,
+        action: () => this.cycleWaypoint(-1),
+      },
+      {
+        id: 'btn-wp-curr',
+        x: 93,
+        y: 204,
+        w: 320,
+        h: 32,
+        action: () => this.jumpToCurrentWaypoint(),
+      },
+      {
+        id: 'btn-wp-next',
+        x: 415,
+        y: 204,
+        w: 36,
+        h: 32,
+        action: () => this.cycleWaypoint(1),
+      },
+
       // Row 1: Flyover Transport & Speeds (y = 410)
-      // Play / Pause button
       {
         id: 'btn-play',
         x: 35,
@@ -200,7 +272,6 @@ export class SpatialHUD {
         h: 58,
         action: () => this.callbacks.onTogglePlay(),
       },
-      // Step -10s
       {
         id: 'btn-step-back',
         x: 225,
@@ -209,7 +280,6 @@ export class SpatialHUD {
         h: 58,
         action: () => this.callbacks.onStepSeconds(-10),
       },
-      // Step +10s
       {
         id: 'btn-step-fwd',
         x: 330,
@@ -218,23 +288,9 @@ export class SpatialHUD {
         h: 58,
         action: () => this.callbacks.onStepSeconds(10),
       },
-      // Speed 0.5x
-      {
-        id: 'spd-0.5',
-        x: 445,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 0.5;
-          this.callbacks.onSetSpeed(0.5);
-          this.drawHUD();
-        },
-      },
-      // Speed 1x
       {
         id: 'spd-1',
-        x: 535,
+        x: 445,
         y: 410,
         w: 80,
         h: 58,
@@ -244,23 +300,9 @@ export class SpatialHUD {
           this.drawHUD();
         },
       },
-      // Speed 2x
-      {
-        id: 'spd-2',
-        x: 625,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 2.0;
-          this.callbacks.onSetSpeed(2.0);
-          this.drawHUD();
-        },
-      },
-      // Speed 5x
       {
         id: 'spd-5',
-        x: 715,
+        x: 535,
         y: 410,
         w: 80,
         h: 58,
@@ -270,7 +312,30 @@ export class SpatialHUD {
           this.drawHUD();
         },
       },
-      // Reset button
+      {
+        id: 'spd-20',
+        x: 625,
+        y: 410,
+        w: 80,
+        h: 58,
+        action: () => {
+          this.currentSpeed = 20.0;
+          this.callbacks.onSetSpeed(20.0);
+          this.drawHUD();
+        },
+      },
+      {
+        id: 'spd-60',
+        x: 715,
+        y: 410,
+        w: 80,
+        h: 58,
+        action: () => {
+          this.currentSpeed = 60.0;
+          this.callbacks.onSetSpeed(60.0);
+          this.drawHUD();
+        },
+      },
       {
         id: 'btn-reset',
         x: 810,
@@ -280,42 +345,46 @@ export class SpatialHUD {
         action: () => this.callbacks.onReset(),
       },
 
-      // Row 2: View Modes, Focus, Map Style & Trail Colors (y = 485)
-      // View Mode Toggle (Tabletop ⇄ 1:1 Trail)
+      // Row 2: View Modes, Focus, Map Style, Trail Colors, Exaggeration (y = 485)
       {
         id: 'btn-view',
         x: 35,
         y: 485,
-        w: 225,
+        w: 180,
         h: 58,
         action: () => this.callbacks.onToggleViewMode(),
       },
-      // Focus on Hiker
       {
         id: 'btn-focus',
-        x: 275,
+        x: 225,
         y: 485,
-        w: 225,
+        w: 180,
         h: 58,
         action: () => this.callbacks.onFocusHiker(),
       },
-      // Map Style (Satellite ⇄ Hybrid ⇄ Topo)
       {
         id: 'btn-texture',
-        x: 515,
+        x: 415,
         y: 485,
-        w: 235,
+        w: 190,
         h: 58,
         action: () => this.callbacks.onToggleTexture(),
       },
-      // Trail Color Mode (Grade ⇄ Speed ⇄ Elevation)
       {
         id: 'btn-color',
-        x: 765,
+        x: 615,
         y: 485,
-        w: 225,
+        w: 185,
         h: 58,
         action: () => this.callbacks.onToggleTrailColor?.(),
+      },
+      {
+        id: 'btn-exaggeration',
+        x: 810,
+        y: 485,
+        w: 180,
+        h: 58,
+        action: () => this.callbacks.onCycleExaggeration?.(),
       },
     ];
   }
@@ -327,7 +396,9 @@ export class SpatialHUD {
     viewMode: ViewMode,
     textureStyle: TextureStyle,
     speed?: number,
-    trailColorMode?: TrailColorMode
+    trailColorMode?: TrailColorMode,
+    exaggeration?: number,
+    terrainQuality?: TerrainQuality
   ): void {
     this.currentProgress = progress;
     this.currentElevation = currentEle;
@@ -336,6 +407,30 @@ export class SpatialHUD {
     this.currentTextureStyle = textureStyle;
     if (speed !== undefined) this.currentSpeed = speed;
     if (trailColorMode !== undefined) this.currentTrailColorMode = trailColorMode;
+    if (exaggeration !== undefined) this.currentExaggeration = exaggeration;
+    if (terrainQuality !== undefined) this.currentTerrainQuality = terrainQuality;
+    this.drawHUD();
+  }
+
+  private cycleWaypoint(delta: number): void {
+    const allWaypoints = this.track.waypoints.concat(this.track.landmarks);
+    if (allWaypoints.length === 0) return;
+    const curIdx = this.selectedWaypoint
+      ? allWaypoints.findIndex((w) => w.name === this.selectedWaypoint!.name)
+      : -1;
+    const nextIdx = (curIdx + delta + allWaypoints.length) % allWaypoints.length;
+    const wp = allWaypoints[nextIdx];
+    this.selectedWaypoint = wp;
+    this.callbacks.onSelectWaypoint?.(wp);
+    this.drawHUD();
+  }
+
+  private jumpToCurrentWaypoint(): void {
+    const allWaypoints = this.track.waypoints.concat(this.track.landmarks);
+    if (allWaypoints.length === 0) return;
+    const wp = this.selectedWaypoint || allWaypoints[0];
+    this.selectedWaypoint = wp;
+    this.callbacks.onSelectWaypoint?.(wp);
     this.drawHUD();
   }
 
@@ -362,7 +457,6 @@ export class SpatialHUD {
       }
     }
 
-    // Check chart hover
     if (!foundId && pt.x >= 35 && pt.x <= 989 && pt.y >= 195 && pt.y <= 385) {
       foundId = 'chart-scrub';
     }
@@ -397,10 +491,9 @@ export class SpatialHUD {
       }
     }
 
-    // Click on elevation profile chart
     if (pt.x >= 35 && pt.x <= 989 && pt.y >= 190 && pt.y <= 395) {
-      const chartWidth = 989 - 35 - 30;
-      const progress = Math.min(Math.max((pt.x - 50) / chartWidth, 0), 1);
+      const chartWidth = 989 - 35 - 36;
+      const progress = Math.min(Math.max((pt.x - 53) / chartWidth, 0), 1);
       this.isDraggingScrubber = true;
       this.callbacks.onScrub(progress);
       return true;
@@ -412,8 +505,8 @@ export class SpatialHUD {
   public onPointerDrag(uv: THREE.Vector2): void {
     const pt = this.uvToCanvas(uv);
     if (pt.y >= 170 && pt.y <= 405) {
-      const chartWidth = 989 - 35 - 30;
-      const progress = Math.min(Math.max((pt.x - 50) / chartWidth, 0), 1);
+      const chartWidth = 989 - 35 - 36;
+      const progress = Math.min(Math.max((pt.x - 53) / chartWidth, 0), 1);
       this.callbacks.onScrub(progress);
     }
   }
@@ -443,14 +536,26 @@ export class SpatialHUD {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     let title = this.track.name;
-    if (title.length > 26) title = title.substring(0, 24) + '...';
+    if (title.length > 24) title = title.substring(0, 22) + '...';
     ctx.fillText(title, 40, 56);
 
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '600 16px sans-serif';
-    ctx.fillText('⛰️ Meta Quest 3 • 3D Trek Explorer', 40, 84);
+    // Subtle terrain quality and attribution badge
+    const qualityLabel =
+      this.currentTerrainQuality === 'dem'
+        ? 'DEM: Authoritative USGS/SRTM'
+        : this.currentTerrainQuality === 'partial-dem'
+        ? 'DEM: Mixed / Partial'
+        : 'DEM: Approximate Synthetic';
 
-    // Top Drag Handle Bar on HUD
+    ctx.fillStyle = this.currentTerrainQuality === 'dem' ? '#10b981' : '#f59e0b';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(`⛰️ ${qualityLabel}`, 40, 84);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(`•  ${this.attribution}`, 260, 84);
+
+    // Top Drag Handle Bar
     const isDragHover = this.hoveredAreaId === 'hud-drag';
     ctx.fillStyle = isDragHover ? 'rgba(56, 189, 248, 0.35)' : 'rgba(56, 189, 248, 0.15)';
     ctx.beginPath();
@@ -466,7 +571,7 @@ export class SpatialHUD {
     ctx.fillText('⠿ GRAB / DRAG TO MOVE HUD', 512, 28);
     ctx.textAlign = 'left';
 
-    // Dock Button (Left / Center / Right)
+    // Dock Button
     const dockHover = this.hoveredAreaId === 'hud-dock';
     ctx.fillStyle = dockHover ? '#0284c7' : 'rgba(30, 41, 59, 0.85)';
     ctx.beginPath();
@@ -481,7 +586,7 @@ export class SpatialHUD {
     const dockLabel = this.currentDockSide === 'left' ? '📍 Dock L' : this.currentDockSide === 'center' ? '📍 Dock C' : '📍 Dock R';
     ctx.fillText(dockLabel, 664, 58);
 
-    // 2. Exit MR Button (Top Right)
+    // 2. Exit MR Button
     const exitHover = this.hoveredAreaId === 'exit-mr';
     ctx.fillStyle = exitHover ? '#e11d48' : 'rgba(225, 29, 72, 0.9)';
     ctx.beginPath();
@@ -495,7 +600,7 @@ export class SpatialHUD {
     ctx.font = 'bold 19px sans-serif';
     ctx.fillText('🚪 Exit MR / VR', 808, 59);
 
-    // 3. Stats Grid
+    // 3. Stats Grid (Authoritative: uses true current point elevation!)
     const distKm = (this.track.totalDistance / 1000).toFixed(1);
     const distMi = (this.track.totalDistance * 0.000621371).toFixed(1);
     const gainM = Math.round(this.track.elevationGain);
@@ -575,6 +680,83 @@ export class SpatialHUD {
       ctx.closePath();
       ctx.fill();
 
+      // Waypoint Quick-Jump Controls & Markers
+      const allWaypoints = this.track.waypoints.concat(this.track.landmarks);
+      if (allWaypoints.length > 0) {
+        const currentWp = this.selectedWaypoint || allWaypoints[0];
+        const wpBarX = 55;
+        const wpBarY = 204;
+        const wpBarW = 396;
+        const wpBarH = 30;
+
+        const isWpHover = this.hoveredAreaId === 'btn-wp-curr';
+        ctx.fillStyle = isWpHover ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.75)';
+        ctx.beginPath();
+        ctx.roundRect(wpBarX, wpBarY, wpBarW, wpBarH, 8);
+        ctx.fill();
+        ctx.strokeStyle = isWpHover ? '#38bdf8' : 'rgba(56, 189, 248, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Prev Arrow
+        const prevHover = this.hoveredAreaId === 'btn-wp-prev';
+        ctx.fillStyle = prevHover ? '#ffffff' : '#38bdf8';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('◀', wpBarX + 18, wpBarY + 20);
+
+        // Next Arrow
+        const nextHover = this.hoveredAreaId === 'btn-wp-next';
+        ctx.fillStyle = nextHover ? '#ffffff' : '#38bdf8';
+        ctx.fillText('▶', wpBarX + wpBarW - 18, wpBarY + 20);
+
+        // Center Waypoint Details
+        const wpIcon = currentWp.type === 'summit' ? '⛰️' : currentWp.type === 'start' ? '🟢' : currentWp.type === 'finish' ? '🏁' : '📍';
+        const eleStr = currentWp.ele !== undefined ? `${Math.round(currentWp.ele * 3.28084).toLocaleString()} ft` : '';
+        let wpTitle = `${wpIcon} ${currentWp.name} ${eleStr ? `(${eleStr})` : ''} • Jump`;
+        if (wpTitle.length > 34) wpTitle = wpTitle.substring(0, 32) + '...';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(wpTitle, wpBarX + wpBarW / 2, wpBarY + 20);
+        ctx.textAlign = 'left';
+
+        // Render Waypoint Markers on Elevation Profile Curve
+        for (const wp of allWaypoints) {
+          let closestDist = 0;
+          let minSq = Infinity;
+          for (const pt of this.track.points) {
+            const dSq = (pt.lat - wp.lat) ** 2 + (pt.lon - wp.lon) ** 2;
+            if (dSq < minSq) {
+              minSq = dSq;
+              closestDist = pt.distanceFromStart;
+            }
+          }
+          const wpProgress = this.track.totalDistance > 0 ? closestDist / this.track.totalDistance : 0;
+          const wpX = chartX + 18 + wpProgress * (chartW - 36);
+          const wpNorm = ((wp.ele ?? this.track.minElevation) - minE) / spanE;
+          const wpY = chartY + chartH - 24 - Math.max(0, Math.min(1, wpNorm)) * (chartH - 48);
+
+          const isSelected = this.selectedWaypoint?.name === wp.name;
+          const col = wp.type === 'summit' ? '#f59e0b' : wp.type === 'start' ? '#10b981' : '#38bdf8';
+
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(wpX, wpY, isSelected ? 8 : 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = isSelected ? 2.5 : 1.2;
+          ctx.stroke();
+
+          if (isSelected) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(wp.name, wpX, wpY - 12);
+            ctx.textAlign = 'left';
+          }
+        }
+      }
+
       // Scrubber line
       const scrubX = chartX + 18 + this.currentProgress * (chartW - 36);
       ctx.strokeStyle = '#ffffff';
@@ -586,17 +768,15 @@ export class SpatialHUD {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Scrubber handle dot (Prominent multi-ring beacon marker)
+      // Scrubber dot marker
       const currNorm = (this.currentElevation - minE) / spanE;
       const scrubY = chartY + chartH - 24 - currNorm * (chartH - 48);
 
-      // Outer radiant cyan halo ring
       ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
       ctx.beginPath();
       ctx.arc(scrubX, scrubY, 16, 0, Math.PI * 2);
       ctx.fill();
 
-      // Inner glowing amber jewel
       ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
       ctx.arc(scrubX, scrubY, 10, 0, Math.PI * 2);
@@ -605,28 +785,15 @@ export class SpatialHUD {
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // Pure white center core pin
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(scrubX, scrubY, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Tooltip above handle
+      // Tooltip
       const curDistMi = (this.track.totalDistance * this.currentProgress * 0.000621371).toFixed(1);
       const curEleFt = Math.round(this.currentElevation * 3.28084);
-      const ptIdx = Math.min(
-        Math.floor(this.currentProgress * (this.track.points.length - 1)),
-        this.track.points.length - 1
-      );
-      const pt = this.track.points[ptIdx];
-      let tipDetail = '';
-      if (this.currentTrailColorMode === 'grade' && pt?.grade !== undefined) {
-        tipDetail = ` • ${Math.round(Math.abs(pt.grade))}% slope`;
-      } else if (this.currentTrailColorMode === 'speed') {
-        const spdMph = pt?.speed ? (pt.speed * 2.23694).toFixed(1) : (this.track.avgSpeed * 0.621371).toFixed(1);
-        tipDetail = ` • ${spdMph} mph`;
-      }
-      const tipText = `${curEleFt.toLocaleString()} ft • ${curDistMi} mi${tipDetail}`;
+      const tipText = `${curEleFt.toLocaleString()} ft • ${curDistMi} mi`;
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
       ctx.beginPath();
@@ -643,8 +810,7 @@ export class SpatialHUD {
       ctx.textAlign = 'left';
     }
 
-    // 5. Row 1: Flyover Transport & Speeds (y = 410)
-    // Play / Pause Button
+    // 5. Row 1: Flyover Controls & Speeds (y = 410)
     const playHover = this.hoveredAreaId === 'btn-play';
     ctx.fillStyle = this.isPlaying
       ? playHover ? '#0284c7' : '#0369a1'
@@ -660,7 +826,7 @@ export class SpatialHUD {
     ctx.font = 'bold 19px sans-serif';
     ctx.fillText(this.isPlaying ? '⏸ Pause' : '▶ Play Flyover', 50, 447);
 
-    // Step -10s Button
+    // Step -10s
     const stepBackHover = this.hoveredAreaId === 'btn-step-back';
     ctx.fillStyle = stepBackHover ? '#475569' : '#334155';
     ctx.beginPath();
@@ -670,7 +836,7 @@ export class SpatialHUD {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillText('⏪ -10s', 242, 446);
 
-    // Step +10s Button
+    // Step +10s
     const stepFwdHover = this.hoveredAreaId === 'btn-step-fwd';
     ctx.fillStyle = stepFwdHover ? '#475569' : '#334155';
     ctx.beginPath();
@@ -680,12 +846,12 @@ export class SpatialHUD {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillText('+10s ⏩', 345, 446);
 
-    // Speeds: 0.5x, 1x, 2x, 5x
-    const speeds = [0.5, 1.0, 2.0, 5.0];
+    // Speeds: 1x, 5x, 20x, 60x
+    const speeds = [1.0, 5.0, 20.0, 60.0];
     const speedXs = [445, 535, 625, 715];
     speeds.forEach((spd, idx) => {
       const sx = speedXs[idx];
-      const isSelected = Math.abs(this.currentSpeed - spd) < 0.05;
+      const isSelected = Math.abs(this.currentSpeed - spd) < 0.1;
       const hover = this.hoveredAreaId === `spd-${spd}`;
 
       ctx.fillStyle = isSelected
@@ -715,80 +881,93 @@ export class SpatialHUD {
     ctx.font = 'bold 18px sans-serif';
     ctx.fillText('⏮ Trailhead', 840, 446);
 
-    // 6. Row 2: View Modes, Focus, Map Style & Trail Colors (y = 485)
-    // 1. View Mode Toggle
+    // 6. Row 2: View Modes, Focus, Map Style, Trail Colors & Vertical Exaggeration (y = 485)
+    // View Mode
     const viewHover = this.hoveredAreaId === 'btn-view';
     ctx.fillStyle = this.currentViewMode === 'diorama'
       ? viewHover ? '#7c3aed' : '#6d28d9'
       : viewHover ? '#2563eb' : '#1d4ed8';
     ctx.beginPath();
-    ctx.roundRect(35, 485, 225, 58, 12);
+    ctx.roundRect(35, 485, 180, 58, 12);
     ctx.fill();
     ctx.strokeStyle = viewHover ? '#ffffff' : 'rgba(255,255,255,0.2)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 17px sans-serif';
+    ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(this.currentViewMode === 'diorama' ? '🚶 1:1 Trail' : '🏔 Diorama', 35 + 112, 521);
+    ctx.fillText(this.currentViewMode === 'diorama' ? '🚶 1:1 Trail' : '🏔 Diorama', 35 + 90, 521);
 
-    // 2. Focus on Hiker
+    // Focus
     const focusHover = this.hoveredAreaId === 'btn-focus';
     ctx.fillStyle = focusHover ? '#0284c7' : '#0f766e';
     ctx.beginPath();
-    ctx.roundRect(275, 485, 225, 58, 12);
+    ctx.roundRect(225, 485, 180, 58, 12);
     ctx.fill();
     ctx.strokeStyle = focusHover ? '#ffffff' : 'rgba(255,255,255,0.2)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 17px sans-serif';
-    ctx.fillText('🎯 Center Hiker', 275 + 112, 521);
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('🎯 Center Hiker', 225 + 90, 521);
 
-    // 3. Map Style (Aerial ⇄ Hybrid ⇄ Topo)
+    // Map Style
     const texHover = this.hoveredAreaId === 'btn-texture';
     ctx.fillStyle = texHover ? '#d97706' : '#b45309';
     ctx.beginPath();
-    ctx.roundRect(515, 485, 235, 58, 12);
+    ctx.roundRect(415, 485, 190, 58, 12);
     ctx.fill();
     ctx.strokeStyle = texHover ? '#ffffff' : 'rgba(255,255,255,0.2)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 15px sans-serif';
     const texLabel = this.currentTextureStyle === 'satellite'
       ? '🛰 Aerial View'
       : this.currentTextureStyle === 'hybrid'
-      ? '🏷 Hybrid (Labels)'
+      ? '🏷 Hybrid'
       : '🗺 Topo Map';
-    ctx.fillText(texLabel, 515 + 117, 521);
+    ctx.fillText(texLabel, 415 + 95, 521);
 
-    // 4. Trail Color Style (Grade ⇄ Speed ⇄ Elev)
+    // Trail Color
     const colHover = this.hoveredAreaId === 'btn-color';
     ctx.fillStyle = colHover ? '#059669' : '#047857';
     ctx.beginPath();
-    ctx.roundRect(765, 485, 225, 58, 12);
+    ctx.roundRect(615, 485, 185, 58, 12);
     ctx.fill();
     ctx.strokeStyle = colHover ? '#ffffff' : 'rgba(255,255,255,0.2)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 15px sans-serif';
     const colLabel = this.currentTrailColorMode === 'grade'
       ? '⛰ Steepness'
       : this.currentTrailColorMode === 'speed'
-      ? '🏃 Pace / Speed'
+      ? '🏃 Pace'
       : '📈 Altitude';
-    ctx.fillText(colLabel, 765 + 112, 521);
+    ctx.fillText(colLabel, 615 + 92, 521);
+
+    // Vertical Exaggeration
+    const exagHover = this.hoveredAreaId === 'btn-exaggeration';
+    ctx.fillStyle = exagHover ? '#475569' : '#334155';
+    ctx.beginPath();
+    ctx.roundRect(810, 485, 180, 58, 12);
+    ctx.fill();
+    ctx.strokeStyle = exagHover ? '#ffffff' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText(`⛰ Vert: ${this.currentExaggeration.toFixed(1)}x`, 810 + 90, 521);
     ctx.textAlign = 'left';
 
-    // 7. Footer Controller & Hand Gestures Guide
+    // 7. Footer
     ctx.fillStyle = '#94a3b8';
     ctx.font = '13px sans-serif';
     ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 575);
     ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 595);
 
-    // 8. Bottom Non-Intrusive Status & Progress Pill (never blocks header or controls)
+    // 8. Status notification pill
     if (this.statusMessage) {
       const pillY = 614;
       const pillH = 38;
@@ -813,5 +992,20 @@ export class SpatialHUD {
     }
 
     this.texture.needsUpdate = true;
+  }
+
+  public dispose(): void {
+    if (this.unsubscribeSession) {
+      this.unsubscribeSession();
+      this.unsubscribeSession = undefined;
+    }
+    if (this.statusTimeout) {
+      clearTimeout(this.statusTimeout);
+      this.statusTimeout = null;
+    }
+    this.texture.dispose();
+    this.canvas.width = 1;
+    this.canvas.height = 1;
+    disposeObject3D(this.group);
   }
 }

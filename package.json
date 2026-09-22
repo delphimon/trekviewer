@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "for t in test/*.test.ts; do node \"$t\"; done",
     "preview": "vite preview",
     "deploy:surge": "tsc && vite build && npx surge dist --domain trekviewer.surge.sh",
     "deploy:gh-pages": "tsc && vite build && npx gh-pages -d dist",

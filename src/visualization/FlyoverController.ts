@@ -14,17 +14,18 @@ export class FlyoverController {
   private trailResult: TrailResult;
   private track: TrackStats;
   private progress: number = 0; // 0.0 to 1.0
-  private playbackTime: number = 0; // simulated elapsed seconds along the trek
+  private playbackTime: number = 0; // simulated elapsed seconds
   private totalPlaybackSeconds: number = 60.0;
   private isPlaying: boolean = false;
-  private playbackSpeed: number = 1.0; // 1.0 = base nominal duration
+  private playbackSpeed: number = 20.0; // Default matches desktop UI active speed button
   private baseDurationSeconds: number = 60.0;
   private viewMode: ViewMode = 'diorama';
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
 
-  constructor(trailResult: TrailResult, track: TrackStats) {
+  constructor(trailResult: TrailResult, track: TrackStats, initialSpeed: number = 20.0) {
     this.trailResult = trailResult;
     this.track = track;
+    this.playbackSpeed = initialSpeed;
     this.totalPlaybackSeconds = Math.max(track.totalPlaybackSeconds || 60, 10);
   }
 
@@ -91,7 +92,7 @@ export class FlyoverController {
   }
 
   /**
-   * Steps forward/backward by a duration scaled to the trek's total time.
+   * Steps forward/backward by seconds scaled to the trek duration and playback speed.
    */
   public stepSeconds(seconds: number): void {
     const timeDelta = seconds * (this.totalPlaybackSeconds / this.baseDurationSeconds) * this.playbackSpeed;
@@ -112,7 +113,8 @@ export class FlyoverController {
   }
 
   public getCurrentWorldPosition(): THREE.Vector3 {
-    return this.trailResult.curve.getPointAt(this.progress);
+    const tele = this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress);
+    return tele.position;
   }
 
   public update(
@@ -122,7 +124,6 @@ export class FlyoverController {
     isWebXRPresenting: boolean = false
   ): void {
     if (this.isPlaying) {
-      // Advance simulated GPS playback time proportionally to actual speed & duration
       const simRate = (this.totalPlaybackSeconds / this.baseDurationSeconds) * this.playbackSpeed;
       this.playbackTime += deltaSeconds * simRate;
 
@@ -139,17 +140,17 @@ export class FlyoverController {
 
     // 1:1 First-Person Trail Mode
     if (this.viewMode === 'first-person') {
-      const pos = this.trailResult.curve.getPointAt(this.progress);
-      const tangent = this.trailResult.curve.getTangentAt(this.progress);
+      const tele = this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress);
+      const pos = tele.position;
+      const tangent = tele.tangent;
 
       if (isWebXRPresenting && dioramaRoot) {
-        // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)
-        // Rotate so trail heading points forward (-Z) towards direction of travel in room space
+        // In WebXR: Align current trail point directly at floor level origin (0, 0, 0)
+        // Rotate so trail heading faces forward along -Z in room space
         const trailHeading = Math.atan2(tangent.x, -tangent.z);
         const rotY = -trailHeading + Math.PI;
         dioramaRoot.rotation.set(0, rotY, 0);
 
-        // Apply rotated offset to place current trail point at origin
         const offset = new THREE.Vector3(-pos.x, -pos.y, -pos.z);
         offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
         dioramaRoot.position.copy(offset);
@@ -163,9 +164,6 @@ export class FlyoverController {
     }
   }
 
-  /**
-   * Converts simulated GPS playback time (seconds) to distance fraction [0..1] along the route.
-   */
   private timeToProgress(time: number): number {
     const points = this.track.points;
     if (points.length < 2) return 0;
@@ -173,7 +171,6 @@ export class FlyoverController {
     if (time <= 0) return 0;
     if (time >= this.totalPlaybackSeconds) return 1;
 
-    // Binary search for interval
     let low = 0;
     let high = points.length - 1;
     while (low <= high) {
@@ -196,9 +193,6 @@ export class FlyoverController {
     return Math.max(0, Math.min(1, dist / Math.max(this.track.totalDistance, 1)));
   }
 
-  /**
-   * Converts distance fraction [0..1] to simulated GPS playback time.
-   */
   private progressToTime(progress: number): number {
     const points = this.track.points;
     if (points.length < 2) return 0;
@@ -237,5 +231,10 @@ export class FlyoverController {
         speed: this.playbackSpeed,
       });
     }
+  }
+
+  public dispose(): void {
+    this.isPlaying = false;
+    this.onUpdateCallback = undefined;
   }
 }

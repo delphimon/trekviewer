@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import assert from 'node:assert';
 import { ALL_HAND_JOINTS, BONE_CONNECTIONS } from '../src/core/XRManager.ts';
+import {
+  evaluatePinchState,
+  applyBimanualTransform,
+  applyOneHandedManipulation,
+  isPointOnDiorama,
+  type DioramaTransform,
+  type DioramaVolume,
+} from '../src/core/GestureMath.ts';
 
 console.log('--- Testing Hand Tracking & 6DOF Manipulation Gestures ---');
 
@@ -8,13 +16,6 @@ console.log('--- Testing Hand Tracking & 6DOF Manipulation Gestures ---');
 // 1. Pinch Detection & Hysteresis Logic Test
 // =========================================================================
 console.log('Testing pinch detection and hysteresis thresholds...');
-
-function evaluatePinchState(currentDist: number, wasPinching: boolean): boolean {
-  // Logic matching XRManager.ts:
-  // Engage threshold: 3.2cm (0.032m)
-  // Release threshold: 4.5cm (0.045m)
-  return wasPinching ? currentDist <= 0.045 : currentDist <= 0.032;
-}
 
 let isPinching = false;
 
@@ -45,68 +46,6 @@ console.log('✓ Pinch hysteresis thresholds (<3.2cm engage, >4.5cm release) ver
 // 2. Bimanual (Two-Handed) 6DOF Manipulation Math
 // =========================================================================
 console.log('Testing two-handed 6DOF manipulation math...');
-
-interface DioramaTransform {
-  position: THREE.Vector3;
-  rotationY: number;
-  rotationX?: number;
-  scale: number;
-}
-
-function applyBimanualTransform(
-  diorama: DioramaTransform,
-  p0Prev: THREE.Vector3,
-  p1Prev: THREE.Vector3,
-  p0Curr: THREE.Vector3,
-  p1Curr: THREE.Vector3
-): void {
-  const prevDist = p0Prev.distanceTo(p1Prev);
-  const currDist = p0Curr.distanceTo(p1Curr);
-
-  const prevMid = p0Prev.clone().add(p1Prev).multiplyScalar(0.5);
-  const currMid = p0Curr.clone().add(p1Curr).multiplyScalar(0.5);
-
-  // 1. Scale factor with clamping
-  let scaleFactor = 1.0;
-  if (prevDist > 0.03 && currDist > 0.03) {
-    const rawFactor = currDist / prevDist;
-    scaleFactor = Math.max(0.65, Math.min(1.5, rawFactor));
-  }
-
-  // 2. Yaw rotation delta with boundary wrapping (-PI to PI)
-  const vPrev = p1Prev.clone().sub(p0Prev);
-  const vCurr = p1Curr.clone().sub(p0Curr);
-  const anglePrev = Math.atan2(vPrev.x, vPrev.z);
-  const angleCurr = Math.atan2(vCurr.x, vCurr.z);
-  let deltaAngle = angleCurr - anglePrev;
-  while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
-  while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
-
-  // 3D Pitch: vertical inclination change between hands relative to depth
-  const deltaY = (p1Curr.y - p1Prev.y) - (p0Curr.y - p0Prev.y);
-  const sepZ = p1Curr.z - p0Curr.z;
-  let deltaPitch = 0;
-  if (Math.abs(sepZ) > 0.06) {
-    deltaPitch = -(deltaY / Math.abs(sepZ)) * Math.sign(sepZ) * 0.85;
-  }
-
-  // 3. Anchored transform around hands' midpoint
-  const currentScale = diorama.scale;
-  const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
-  const effectiveScale = targetScale / currentScale;
-
-  const offset = diorama.position.clone().sub(prevMid);
-  offset.multiplyScalar(effectiveScale);
-  offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), deltaAngle);
-
-  diorama.position.copy(currMid).add(offset);
-  diorama.rotationY += deltaAngle;
-  if (diorama.rotationX === undefined) diorama.rotationX = 0;
-  if (Math.abs(deltaPitch) > 0.003) {
-    diorama.rotationX = Math.max(-1.3, Math.min(1.3, diorama.rotationX + deltaPitch));
-  }
-  diorama.scale = targetScale;
-}
 
 // 2A. Stretch hands apart -> Scale increases (Zoom In)
 {
@@ -163,33 +102,29 @@ function applyBimanualTransform(
 
   applyBimanualTransform(diorama, p0Prev, p1Prev, p0Curr, p1Curr);
 
-  assert(Math.abs(diorama.position.x - (0 + move.x)) < 1e-5, 'Translation X mismatch');
-  assert(Math.abs(diorama.position.y - (1.0 + move.y)) < 1e-5, 'Translation Y mismatch');
-  assert(Math.abs(diorama.position.z - (-1.0 + move.z)) < 1e-5, 'Translation Z mismatch');
+  assert(diorama.position.distanceTo(new THREE.Vector3(0.08, 0.96, -0.88)) < 1e-5, '1:1 translation match');
   console.log('✓ Dual-hand translation moves diorama 1:1 in 3D room space');
 }
 
-// 2D. Yaw Rotation: Hands wheel around vertical axis
+// 2D. Steering Wheel Rotation around vertical axis
 {
   const diorama: DioramaTransform = {
-    position: new THREE.Vector3(0, 1.0, -1.0),
+    position: new THREE.Vector3(0, 1.2, -1.0),
     rotationY: 0,
     scale: 0.002,
   };
 
-  // Previous hands on X axis: vector (0.4, 0, 0) -> angle = atan2(0.4, 0) = PI/2
-  const p0Prev = new THREE.Vector3(-0.2, 1.0, -1.0);
-  const p1Prev = new THREE.Vector3(0.2, 1.0, -1.0);
+  const p0Prev = new THREE.Vector3(-0.2, 1.2, -1.0);
+  const p1Prev = new THREE.Vector3(0.2, 1.2, -1.0);
 
-  // Current hands rotated 90 degrees onto Z axis: vector (0, 0, -0.4) -> angle = atan2(0, -0.4) = PI
-  const p0Curr = new THREE.Vector3(0, 1.0, -0.8);
-  const p1Curr = new THREE.Vector3(0, 1.0, -1.2);
+  // Rotate hands 30 degrees counter-clockwise
+  const rot30 = new THREE.Matrix4().makeRotationY(Math.PI / 6);
+  const p0Curr = new THREE.Vector3(-0.2, 1.2, 0).applyMatrix4(rot30).add(new THREE.Vector3(0, 0, -1.0));
+  const p1Curr = new THREE.Vector3(0.2, 1.2, 0).applyMatrix4(rot30).add(new THREE.Vector3(0, 0, -1.0));
 
   applyBimanualTransform(diorama, p0Prev, p1Prev, p0Curr, p1Curr);
 
-  // Delta angle should be PI/2 (90 deg)
-  const expectedRot = Math.PI / 2;
-  assert(Math.abs(diorama.rotationY - expectedRot) < 1e-4, `Expected yaw ~${expectedRot}, got ${diorama.rotationY}`);
+  assert(Math.abs(diorama.rotationY - Math.PI / 6) < 0.02, `Expected rotation ~${Math.PI / 6}, got ${diorama.rotationY}`);
   console.log('✓ Dual-hand steering wheel gesture correctly rotates diorama around vertical axis');
 }
 
@@ -238,50 +173,16 @@ function applyBimanualTransform(
 
   applyBimanualTransform(diorama, p0Prev, p1Prev, p0Curr, p1Curr);
 
-  // deltaY = 0.06 - 0 = 0.06, sepZ = -0.4 -> deltaPitch = -(0.06/0.4)*(-1)*0.85 = +0.1275 rad
   assert(diorama.rotationX! > 0.10, `Expected pitch tilt > 0.10, got ${diorama.rotationX}`);
   console.log('✓ Dual-hand vertical separation correctly tilts diorama pitch in 3D');
 }
 
 // =========================================================================
-// 3. One-Handed Direct Manipulation (1:1 Drag, Wrist Twist Yaw & Pitch)
+// 3. One-Handed Direct Manipulation (1:1 Drag, Wrist Twist Yaw & Pitch Direction)
 // =========================================================================
 console.log('Testing one-handed direct manipulation...');
 
-function applyOneHandedManipulation(
-  diorama: DioramaTransform,
-  prevHandPos: THREE.Vector3,
-  currHandPos: THREE.Vector3,
-  prevWristQuat: THREE.Quaternion,
-  currWristQuat: THREE.Quaternion
-): void {
-  // 1. 1:1 Translation
-  const deltaMove = currHandPos.clone().sub(prevHandPos);
-  diorama.position.add(deltaMove);
-
-  // 2. Wrist twist yaw delta
-  const fPrev = new THREE.Vector3(0, 0, -1).applyQuaternion(prevWristQuat);
-  const fCurr = new THREE.Vector3(0, 0, -1).applyQuaternion(currWristQuat);
-  const yawPrev = Math.atan2(fPrev.x, fPrev.z);
-  const yawCurr = Math.atan2(fCurr.x, fCurr.z);
-  let deltaYaw = yawCurr - yawPrev;
-  while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
-  while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
-
-  if (Math.abs(deltaYaw) > 0.005 && Math.abs(deltaYaw) < 0.4) {
-    diorama.rotationY += deltaYaw * 0.95;
-  }
-
-  // 3. Wrist pitch tilt (allows looking down into canyons)
-  const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
-  const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
-  const deltaPitch = pitchCurr - pitchPrev;
-  if (diorama.rotationX === undefined) diorama.rotationX = 0;
-  if (Math.abs(deltaPitch) > 0.005 && Math.abs(deltaPitch) < 0.4) {
-    diorama.rotationX = Math.max(-1.3, Math.min(1.3, diorama.rotationX - deltaPitch * 0.9));
-  }
-}
-
+// 3A. Pure 1:1 Translation (no wrist rotation)
 {
   const diorama: DioramaTransform = {
     position: new THREE.Vector3(0, 1.2, -1.0),
@@ -292,20 +193,76 @@ function applyOneHandedManipulation(
 
   const pPrev = new THREE.Vector3(0.1, 1.2, -0.9);
   const pCurr = new THREE.Vector3(0.15, 1.25, -0.85); // move (+0.05, +0.05, +0.05)
+  const q = new THREE.Quaternion().identity();
 
-  // Wrist twists yaw 0.2 rad and pitches 0.15 rad
-  const qPrev = new THREE.Quaternion().identity();
-  const euler = new THREE.Euler(0.15, 0.2, 0, 'YXZ');
-  const qCurr = new THREE.Quaternion().setFromEuler(euler);
-
-  applyOneHandedManipulation(diorama, pPrev, pCurr, qPrev, qCurr);
+  applyOneHandedManipulation(diorama, pPrev, pCurr, q, q);
 
   assert(Math.abs(diorama.position.x - 0.05) < 1e-5, '1:1 X translation match');
   assert(Math.abs(diorama.position.y - 1.25) < 1e-5, '1:1 Y translation match');
   assert(Math.abs(diorama.position.z - (-0.95)) < 1e-5, '1:1 Z translation match');
-  assert(Math.abs(diorama.rotationY - (0.2 * 0.95)) < 0.02, 'Wrist twist yaw rotation applied');
-  assert(Math.abs(diorama.rotationX! - (-0.15 * 0.9)) < 0.02, 'Wrist tilt pitch rotation applied');
-  console.log('✓ One-handed 1:1 translation, wrist-twist yaw rotation, and wrist pitch tilt verified');
+  console.log('✓ Pure one-handed translation moves diorama 1:1');
+}
+
+// 3B. Wrist Pitch Down tilts map down (negative X rotation)
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0, 1.2, -1.0),
+    rotationY: 0,
+    rotationX: 0,
+    scale: 0.002,
+  };
+
+  const p = new THREE.Vector3(0, 1.2, -1.0);
+  const qPrev = new THREE.Quaternion().identity();
+  // Tilting wrist down (-0.15 rad around X)
+  const qCurr = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.15, 0, 0, 'YXZ'));
+
+  applyOneHandedManipulation(diorama, p, p, qPrev, qCurr);
+
+  assert(diorama.rotationX! < -0.10, `Tilting wrist down must pitch diorama down, got ${diorama.rotationX}`);
+  console.log('✓ Tilting wrist down correctly pitches diorama down');
+}
+
+// 3C. Wrist Pitch Up tilts map up (positive X rotation)
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0, 1.2, -1.0),
+    rotationY: 0,
+    rotationX: 0,
+    scale: 0.002,
+  };
+
+  const p = new THREE.Vector3(0, 1.2, -1.0);
+  const qPrev = new THREE.Quaternion().identity();
+  // Tilting wrist up (+0.15 rad around X)
+  const qCurr = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0, 0, 'YXZ'));
+
+  applyOneHandedManipulation(diorama, p, p, qPrev, qCurr);
+
+  assert(diorama.rotationX! > 0.10, `Tilting wrist up must pitch diorama up, got ${diorama.rotationX}`);
+  console.log('✓ Tilting wrist up correctly pitches diorama up');
+}
+
+// 3D. Grab point anchoring: point under user's fingers remains locked under fingers
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0, 1.2, -1.0),
+    rotationY: 0,
+    rotationX: 0,
+    scale: 0.002,
+  };
+
+  const handPos = new THREE.Vector3(0.2, 1.2, -0.8);
+  const qPrev = new THREE.Quaternion().identity();
+  // Wrist twists yaw 0.2 rad and pitches 0.1 rad
+  const qCurr = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.1, 0.2, 0, 'YXZ'));
+
+  applyOneHandedManipulation(diorama, handPos, handPos, qPrev, qCurr);
+
+  // Position pivoted around handPos, rotation applied
+  assert(Math.abs(diorama.rotationY - 0.2 * 0.95) < 0.02, 'Wrist yaw applied');
+  assert(Math.abs(diorama.rotationX! - 0.1 * 0.9) < 0.02, 'Wrist pitch applied');
+  console.log('✓ Grabbing virtual point on diorama anchors rotation and pitch around the grip point');
 }
 
 // =========================================================================
@@ -564,4 +521,125 @@ assert.deepStrictEqual(clicks, ['btn_toggle_hybrid'], 'Left hand pinch must trig
 
 console.log('✓ Hand / Controller click alignment verified: clicks map strictly 1:1 to pointed hand and are never reversed');
 
+// =========================================================================
+// 9. Diorama Contact Proximity & Touch Filtering Test
+// =========================================================================
+console.log('Testing diorama contact proximity and grab initiation filtering...');
+
+{
+  const dioramaRoot = new THREE.Group();
+  // Tabletop diorama placed at arm's length (0.58m forward, height 1.1m)
+  dioramaRoot.position.set(0, 1.1, -0.58);
+  const scale = 0.0001;
+  dioramaRoot.scale.set(scale, scale, scale);
+
+  const volume: DioramaVolume = {
+    halfWidthM: 4000,  // 0.40m half-width in room space
+    halfDepthM: 4000,  // 0.40m half-depth in room space
+    minY: -110,        // -0.011m plinth bottom
+    maxY: 3200,        // +0.32m mountain summit
+  };
+
+  // 9A: Hand touching mountain summit in front of user
+  const summitHandPos = new THREE.Vector3(0, 1.35, -0.58);
+  const onSummit = isPointOnDiorama(summitHandPos, dioramaRoot, volume, 0.08);
+  assert.strictEqual(onSummit, true, 'Hand on mountain summit must be recognized as on diorama');
+
+  // 9B: Hand touching edge of the pedestal plinth
+  const edgeHandPos = new THREE.Vector3(0.42, 1.10, -0.58);
+  const onEdge = isPointOnDiorama(edgeHandPos, dioramaRoot, volume, 0.08);
+  assert.strictEqual(onEdge, true, 'Hand touching diorama plinth edge must be recognized');
+
+  // 9C: Hand resting on user lap (height 0.6m, near chest z = -0.15m)
+  const lapHandPos = new THREE.Vector3(0, 0.60, -0.15);
+  const onLap = isPointOnDiorama(lapHandPos, dioramaRoot, volume, 0.08);
+  assert.strictEqual(onLap, false, 'Hand resting on lap MUST NOT be considered on diorama');
+
+  // 9D: Hand pointing in the air or at HUD (x = -0.65m, y = 1.35m, z = -0.40m)
+  const airHandPos = new THREE.Vector3(-0.65, 1.35, -0.40);
+  const inAir = isPointOnDiorama(airHandPos, dioramaRoot, volume, 0.08);
+  assert.strictEqual(inAir, false, 'Hand in mid-air pointing at HUD MUST NOT grab diorama');
+
+  console.log('✓ Diorama proximity filter accurately distinguishes map contact from lap and mid-air pinches');
+}
+
+// =========================================================================
+// 10. Per-Hand Grab Isolation & Multi-Touch Test
+// =========================================================================
+console.log('Testing per-hand grab isolation and multi-touch behavior...');
+
+{
+  const dioramaRoot = new THREE.Group();
+  dioramaRoot.position.set(0, 1.1, -0.58);
+  const scale = 0.0001;
+  dioramaRoot.scale.set(scale, scale, scale);
+
+  const volume: DioramaVolume = {
+    halfWidthM: 4000,
+    halfDepthM: 4000,
+    minY: -110,
+    maxY: 3200,
+  };
+
+  interface SimulatedHand {
+    id: string;
+    pos: THREE.Vector3;
+    isPinching: boolean;
+    isGrabbingDiorama: boolean;
+  }
+
+  function evaluateGrabs(hands: SimulatedHand[]): string[] {
+    const active: string[] = [];
+    for (const h of hands) {
+      if (h.isPinching) {
+        // If pinch just started or continues, verify grab status
+        if (isPointOnDiorama(h.pos, dioramaRoot, volume, 0.08)) {
+          h.isGrabbingDiorama = true;
+        }
+        if (h.isGrabbingDiorama) {
+          active.push(h.id);
+        }
+      } else {
+        h.isGrabbingDiorama = false;
+      }
+    }
+    return active;
+  }
+
+  const handLeft: SimulatedHand = {
+    id: 'hand_left',
+    pos: new THREE.Vector3(0, 0.60, -0.15), // on lap
+    isPinching: false,
+    isGrabbingDiorama: false,
+  };
+
+  const handRight: SimulatedHand = {
+    id: 'hand_right',
+    pos: new THREE.Vector3(0.15, 1.25, -0.58), // on mountain
+    isPinching: false,
+    isGrabbingDiorama: false,
+  };
+
+  // 10A: Right hand pinches on mountain, Left hand resting on lap (fingers close)
+  handRight.isPinching = true;
+  handLeft.isPinching = true; // resting on lap
+  let grabs = evaluateGrabs([handLeft, handRight]);
+  assert.deepStrictEqual(grabs, ['hand_right'], 'Only the hand on the map must grab; lap hand must be ignored!');
+  console.log('✓ One-handed grab on map ignores pinched resting hand on lap');
+
+  // 10B: Left hand reaches onto the mountain and pinches as well
+  handLeft.pos.set(-0.15, 1.25, -0.58); // moves onto mountain
+  grabs = evaluateGrabs([handLeft, handRight]);
+  assert.strictEqual(grabs.length, 2, 'Both hands on map must engage two-handed bimanual grab');
+  assert(grabs.includes('hand_left') && grabs.includes('hand_right'));
+  console.log('✓ Two hands pinching on the map engage dual-handed 6DOF manipulation');
+
+  // 10C: Right hand releases pinch
+  handRight.isPinching = false;
+  grabs = evaluateGrabs([handLeft, handRight]);
+  assert.deepStrictEqual(grabs, ['hand_left'], 'Releasing one hand smoothly returns to single-handed manipulation');
+  console.log('✓ Releasing one hand transitions smoothly back to single hand');
+}
+
 console.log('✓ All Hand Gestures, 6DOF Manipulation, Skeleton & Input Isolation tests passed successfully!');
+

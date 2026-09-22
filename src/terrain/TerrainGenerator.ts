@@ -1,37 +1,49 @@
 import * as THREE from 'three';
-import { GeoBounds, TrackStats, TextureStyle } from '../gpx/TrackTypes';
-import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates';
-import { ElevationGrid, ElevationTileService } from './ElevationTiles';
-import { TextureProvider } from './TextureProvider';
+import type { GeoBounds, TrackStats, TextureStyle } from '../gpx/TrackTypes.ts';
+import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
+import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
+import { TextureProvider } from './TextureProvider.ts';
+import { TextureBudget } from './TextureBudget.ts';
+import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import type { TerrainQuality } from '../core/TrekSession.ts';
 
 export interface TerrainResult {
   group: THREE.Group;
   terrainMesh: THREE.Mesh;
   skirtMesh: THREE.Mesh;
   bounds: GeoBounds;
+  terrainBaseElevation: number;
+  terrainQuality: TerrainQuality;
   elevationSampler: (x: number, z: number) => number;
   setTextureStyle: (style: TextureStyle) => Promise<void>;
+  setVerticalExaggeration: (factor: number) => void;
+  dispose: () => void;
 }
 
 export class TerrainGenerator {
   /**
    * Generates a complete 3D real-world terrain model with side diorama skirts.
+   * Preserves authentic DEM topography without clamping valleys below track minimum
+   * or distorting mountain shapes.
    */
   public static async generate(
     track: TrackStats,
-    onProgress?: (msg: string) => void
+    onProgress?: (msg: string, progress?: number | null) => void,
+    signal?: AbortSignal,
+    initialExaggeration: number = 1.0,
+    isXR: boolean = false
   ): Promise<TerrainResult> {
-    onProgress?.('Fetching real-world 3D elevation data...');
+    onProgress?.('Fetching real-world 3D elevation data...', 0.1);
 
     const bounds = track.bounds;
     const centerLat = bounds.centerLat;
     const centerLon = bounds.centerLon;
-    const baseElevation = bounds.minEle;
 
     // Geometry dimensions (with 25% margin around the trek)
     const margin = 0.25;
     const widthM = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
     const depthM = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
+    const maxExtent = Math.max(widthM, depthM);
 
     // Compute geographic bounds of the entire 3D plane mesh
     const nwGeo = localMetersToGeo(-widthM / 2, -depthM / 2, centerLat, centerLon);
@@ -53,41 +65,61 @@ export class TerrainGenerator {
     // Shared tile grid covering the entire 3D mesh
     const tileGrid = TextureProvider.getTileGridForBounds(terrainGeoBounds, 0.05);
 
-    // Fetch real DEM elevation tiles covering this extent with live progress updates
+    // Fetch real DEM elevation tiles with cancellation support
     const demGrid = await ElevationTileService.fetchElevationGrid(
       terrainGeoBounds,
       0.05,
       (loaded, total) => {
-        const pct = Math.round((loaded / total) * 50);
-        onProgress?.(`Downloading 3D elevation tiles (${pct}% - ${loaded}/${total})...`);
-      }
+        const pct = Math.round((loaded / total) * 45);
+        onProgress?.(`Downloading 3D elevation tiles (${loaded}/${total})...`, 0.1 + pct / 100);
+      },
+      signal
     );
-    if (demGrid) {
-      onProgress?.('Real-world DEM elevation tiles loaded.');
-    } else {
-      onProgress?.('Synthesizing high-precision alpine topography from GPS survey...');
+
+    if (signal?.aborted) {
+      throw new Error('Terrain generation aborted');
     }
 
-    // Vertex resolution (128x128 provides crisp alpine ridges while maintaining 90+ FPS on Quest 3)
-    const segX = 128;
-    const segZ = 128;
+    // Determine terrain quality and base elevation
+    let terrainQuality: TerrainQuality = 'dem';
+    let terrainBaseElevation = bounds.minEle;
+
+    if (demGrid) {
+      const validRatio = demGrid.tileValidity.reduce((sum, v) => sum + v, 0) / demGrid.tileValidity.length;
+      if (validRatio < 0.3) {
+        terrainQuality = 'synthetic';
+      } else if (validRatio < 0.99) {
+        terrainQuality = 'partial-dem';
+      } else {
+        terrainQuality = 'dem';
+      }
+
+      // Base elevation is independent from the lowest track elevation (preserves valleys below track)
+      terrainBaseElevation = Math.min(demGrid.minElevation, bounds.minEle) - 30;
+      onProgress?.(terrainQuality === 'dem' ? 'Real-world DEM elevation loaded.' : 'Partial DEM elevation loaded (blending with survey).', 0.55);
+    } else {
+      terrainQuality = 'synthetic';
+      terrainBaseElevation = bounds.minEle - 30;
+      onProgress?.('Synthesizing alpine topography from GPS survey...', 0.55);
+    }
+
+    // Adaptive resolution based on terrain physical extent and device
+    const { segX, segZ } = TextureBudget.getTerrainMeshResolution(maxExtent, isXR);
 
     const planeGeo = new THREE.PlaneGeometry(widthM, depthM, segX, segZ);
-    // Rotate so plane lies on X-Z plane with +Y pointing UP
     planeGeo.rotateX(-Math.PI / 2);
 
     const posAttr = planeGeo.attributes.position;
     const uvAttr = planeGeo.attributes.uv;
     const vertexCount = posAttr.count;
 
-    // Fast lookup spatial index for track points to blend ground truth
+    // Spatial hash for synthetic fallback when DEM is missing or tile failed
     const trackLocalPoints = track.points.map((p) => {
-      const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, baseElevation);
+      const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, terrainBaseElevation);
       return { x: loc.x, y: loc.y, z: loc.z, ele: p.ele };
     });
 
-    // Spatial hash grid (cell size 150m) for O(1) nearest-point queries (eliminates 18M loops)
-    const CELL_SIZE = 150;
+    const CELL_SIZE = 200;
     const gridBuckets = new Map<string, { x: number; y: number; z: number; ele: number }[]>();
     for (let i = 0; i < trackLocalPoints.length; i += 2) {
       const pt = trackLocalPoints[i];
@@ -129,54 +161,51 @@ export class TerrainGenerator {
     const sampleHeightAt = (localX: number, localZ: number): number => {
       const geo = localMetersToGeo(localX, localZ, centerLat, centerLon);
 
-      let ele = 0;
       if (demGrid) {
-        ele = ElevationTileService.sampleElevation(demGrid, geo.lat, geo.lon);
+        const sample = ElevationTileService.sampleElevation(demGrid, geo.lat, geo.lon);
+        if (sample.isValid && !isNaN(sample.elevation)) {
+          // Unclamped true DEM elevation relative to base
+          return sample.elevation - terrainBaseElevation;
+        }
       }
 
-      if (!demGrid || ele === 0) {
-        const near = findNearestTrailElevation(localX, localZ, 800);
-        const distToTrail = near.dist;
-        const trailEle = near.ele ?? track.minElevation;
+      // Fallback synthetic mountain shape guided by track survey
+      const near = findNearestTrailElevation(localX, localZ, 1200);
+      const trailEle = near.ele ?? track.minElevation;
+      const ridgeFalloff = Math.max(0, 1 - near.dist / (widthM * 0.45));
+      const valleySlope = Math.pow(ridgeFalloff, 1.4);
 
-        const ridgeFalloff = Math.max(0, 1 - distToTrail / (widthM * 0.45));
-        const valleySlope = Math.pow(ridgeFalloff, 1.4);
+      const freq1 = 0.0015;
+      const freq2 = 0.005;
+      const crags =
+        Math.sin(localX * freq1) * Math.cos(localZ * freq1) * 60 +
+        Math.sin(localX * freq2 + localZ * freq2) * 20;
 
-        const freq1 = 0.0015;
-        const freq2 = 0.005;
-        const crags =
-          (Math.sin(localX * freq1) * Math.cos(localZ * freq1) * 70) +
-          (Math.sin(localX * freq2 + localZ * freq2) * 25);
-
-        ele = track.minElevation + (trailEle - track.minElevation) * valleySlope + crags * valleySlope;
-      }
-
-      // Exact ground-truth blending near the trail (O(1) lookup)
-      const nearSnap = findNearestTrailElevation(localX, localZ, 80);
-      if (nearSnap.ele !== null && nearSnap.dist < 80) {
-        const blend = 1 - nearSnap.dist / 80;
-        ele = ele * (1 - blend * 0.7) + nearSnap.ele * (blend * 0.7);
-      }
-
-      return Math.max(ele - baseElevation, 0);
+      const ele = track.minElevation + (trailEle - track.minElevation) * valleySlope + crags * valleySlope;
+      return Math.max(ele - terrainBaseElevation, 0);
     };
 
-    // Apply heights and exact Web Mercator UVs to vertex positions with non-blocking async chunking
+    // Array storing unscaled height for vertical exaggeration
+    const unscaledHeights = new Float32Array(vertexCount);
+
+    // Apply heights and UVs with async chunking
+    let currentExaggeration = initialExaggeration;
     const chunkSize = 4096;
     for (let i = 0; i < vertexCount; i += chunkSize) {
+      if (signal?.aborted) throw new Error('Aborted');
       const end = Math.min(i + chunkSize, vertexCount);
       for (let j = i; j < end; j++) {
         const vx = posAttr.getX(j);
         const vz = posAttr.getZ(j);
-        const heightY = sampleHeightAt(vx, vz);
-        posAttr.setY(j, heightY);
+        const h = sampleHeightAt(vx, vz);
+        unscaledHeights[j] = h;
+        posAttr.setY(j, h * currentExaggeration);
 
         const geo = localMetersToGeo(vx, vz, centerLat, centerLon);
         const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, tileGrid);
         uvAttr.setXY(j, uv.u, uv.v);
       }
-      const pct = Math.round((end / vertexCount) * 100);
-      onProgress?.(`Building 3D mountain mesh (${pct}%)...`);
+      onProgress?.('Building 3D mountain mesh...', 0.6 + (end / vertexCount) * 0.2);
       await new Promise((r) => setTimeout(r, 0));
     }
 
@@ -184,25 +213,23 @@ export class TerrainGenerator {
     uvAttr.needsUpdate = true;
     planeGeo.computeVertexNormals();
 
-    onProgress?.('Generating topographic & satellite textures...');
-
-    // Generate Topo Texture aligned to the exact same tile grid
+    // Procedural Fallback Topo Texture for instant interactivity
+    onProgress?.('Generating topographic texture...', 0.85);
     const topoTexture = TextureProvider.generateTopoTexture(
       bounds,
       tileGrid,
       (lat: number, lon: number) => {
         if (demGrid) {
-          const ele = ElevationTileService.sampleElevation(demGrid, lat, lon);
-          if (ele > 0) return ele;
+          const sample = ElevationTileService.sampleElevation(demGrid, lat, lon);
+          if (sample.isValid) return sample.elevation;
         }
         const loc = geoToLocalMeters(lat, lon, 0, centerLat, centerLon, 0);
-        return sampleHeightAt(loc.x, loc.z) + baseElevation;
+        return sampleHeightAt(loc.x, loc.z) + terrainBaseElevation;
       },
       1024,
       1024
     );
 
-    // Initial Material
     const terrainMat = new THREE.MeshStandardMaterial({
       map: topoTexture,
       roughness: 0.85,
@@ -214,10 +241,11 @@ export class TerrainGenerator {
     terrainMesh.castShadow = true;
     terrainMesh.receiveShadow = true;
 
-    // Build Diorama Side Skirt Walls (4 vertical walls down to base pedestal)
-    const skirtGeo = this.createDioramaSkirts(planeGeo, segX, segZ, -80);
+    // Diorama Skirts dropping down to pedestal
+    const skirtBaseY = -80;
+    let skirtGeo = this.createDioramaSkirts(planeGeo, segX, segZ, skirtBaseY);
     const skirtMat = new THREE.MeshStandardMaterial({
-      color: 0x181a1f, // Deep architectural obsidian / basalt stone
+      color: 0x181a1f,
       roughness: 0.9,
       metalness: 0.2,
       side: THREE.DoubleSide,
@@ -230,80 +258,111 @@ export class TerrainGenerator {
     group.add(terrainMesh);
     group.add(skirtMesh);
 
-    // Background asynchronous satellite texture fetch with progressive updates
+    // Satellite texture cache references
     let satelliteTexture: THREE.CanvasTexture | null = null;
-    TextureProvider.fetchSatelliteTexture(tileGrid, (tex, loaded, total) => {
-      if (!satelliteTexture) {
-        satelliteTexture = tex;
-        terrainMat.map = tex;
-        terrainMat.needsUpdate = true;
-      }
-      onProgress?.(`Streaming high-res satellite imagery (${Math.round((loaded / total) * 100)}%)...`);
-    }).then((satTex) => {
-      if (satTex) {
-        satelliteTexture = satTex;
-        terrainMat.map = satTex;
-        terrainMat.needsUpdate = true;
-        onProgress?.('High-resolution satellite imagery active.');
-      }
-    });
-
     let highResTopoTexture: THREE.CanvasTexture | null = null;
     let hybridTexture: THREE.CanvasTexture | null = null;
+
+    // Background streaming of satellite imagery
+    TextureProvider.fetchSatelliteTexture(
+      tileGrid,
+      (tex, loaded, total) => {
+        if (signal?.aborted) return;
+        if (!satelliteTexture) {
+          satelliteTexture = tex;
+          terrainMat.map = tex;
+          terrainMat.needsUpdate = true;
+        }
+        onProgress?.('Terrain ready — refining imagery…', loaded / total);
+      },
+      signal,
+      isXR
+    ).then((satTex) => {
+      if (signal?.aborted || !satTex) return;
+      satelliteTexture = satTex;
+      terrainMat.map = satTex;
+      terrainMat.needsUpdate = true;
+      onProgress?.('Satellite imagery ready.', 1.0);
+    }).catch(() => {
+      // Procedural topo remains active
+    });
 
     const setTextureStyle = async (style: TextureStyle): Promise<void> => {
       if (style === 'satellite') {
         if (!satelliteTexture) {
-          onProgress?.('Fetching high-resolution satellite imagery...');
-          satelliteTexture = await TextureProvider.fetchSatelliteTexture(tileGrid, (tex, loaded, total) => {
-            terrainMat.map = tex;
-            terrainMat.needsUpdate = true;
-            onProgress?.(`Streaming satellite imagery (${Math.round((loaded / total) * 100)}%)...`);
-          });
+          onProgress?.('Fetching high-resolution satellite imagery...', null);
+          satelliteTexture = await TextureProvider.fetchSatelliteTexture(
+            tileGrid,
+            (tex) => {
+              terrainMat.map = tex;
+              terrainMat.needsUpdate = true;
+            },
+            signal,
+            isXR
+          );
         }
         if (satelliteTexture) {
           terrainMat.map = satelliteTexture;
           terrainMat.needsUpdate = true;
-          onProgress?.('High-resolution satellite imagery active.');
         }
       } else if (style === 'hybrid') {
-        // Satellite Imagery overlaid with transparent Topographic Labels (peaks, trails, campsites)
         if (!hybridTexture) {
-          onProgress?.('Fetching hybrid satellite imagery with topographic labels...');
-          hybridTexture = await TextureProvider.fetchHybridTexture(tileGrid, (tex, loaded, total) => {
-            terrainMat.map = tex;
-            terrainMat.needsUpdate = true;
-            onProgress?.(`Streaming hybrid satellite & labels (${Math.round((loaded / total) * 100)}%)...`);
-          });
+          onProgress?.('Fetching hybrid satellite & label imagery...', null);
+          hybridTexture = await TextureProvider.fetchHybridTexture(
+            tileGrid,
+            (tex) => {
+              terrainMat.map = tex;
+              terrainMat.needsUpdate = true;
+            },
+            signal,
+            isXR
+          );
         }
         if (hybridTexture) {
           terrainMat.map = hybridTexture;
           terrainMat.needsUpdate = true;
-          onProgress?.('Hybrid view active (satellite imagery with peaks, trails & landmarks).');
         } else if (satelliteTexture) {
           terrainMat.map = satelliteTexture;
           terrainMat.needsUpdate = true;
         }
       } else {
-        // High-resolution authentic USGS / OpenTopoMap quadrangle tiles
         if (!highResTopoTexture) {
-          onProgress?.('Fetching high-resolution USGS topographic quadrangle tiles...');
-          highResTopoTexture = await TextureProvider.fetchTopoTexture(tileGrid, (tex, loaded, total) => {
-            terrainMat.map = tex;
-            terrainMat.needsUpdate = true;
-            onProgress?.(`Streaming USGS Topo map (${Math.round((loaded / total) * 100)}%)...`);
-          });
-          if (highResTopoTexture) {
-            onProgress?.('USGS topographic map active (peaks, trails & campsites).');
-          }
+          onProgress?.('Fetching USGS topographic map tiles...', null);
+          highResTopoTexture = await TextureProvider.fetchTopoTexture(
+            tileGrid,
+            (tex) => {
+              terrainMat.map = tex;
+              terrainMat.needsUpdate = true;
+            },
+            signal,
+            isXR
+          );
         }
-        if (highResTopoTexture) {
-          terrainMat.map = highResTopoTexture;
-        } else {
-          terrainMat.map = topoTexture; // procedural fallback
-        }
+        terrainMat.map = highResTopoTexture || topoTexture;
         terrainMat.needsUpdate = true;
       }
+    };
+
+    const setVerticalExaggeration = (factor: number) => {
+      currentExaggeration = Math.max(1.0, Math.min(3.0, factor));
+      for (let i = 0; i < vertexCount; i++) {
+        posAttr.setY(i, unscaledHeights[i] * currentExaggeration);
+      }
+      posAttr.needsUpdate = true;
+      planeGeo.computeVertexNormals();
+
+      // Recreate skirt geometry for new exaggeration
+      skirtMesh.geometry.dispose();
+      skirtGeo = TerrainGenerator.createDioramaSkirts(planeGeo, segX, segZ, skirtBaseY);
+      skirtMesh.geometry = skirtGeo;
+    };
+
+    const dispose = () => {
+      disposeObject3D(group);
+      satelliteTexture?.dispose();
+      hybridTexture?.dispose();
+      highResTopoTexture?.dispose();
+      topoTexture.dispose();
     };
 
     return {
@@ -311,14 +370,15 @@ export class TerrainGenerator {
       terrainMesh,
       skirtMesh,
       bounds,
+      terrainBaseElevation,
+      terrainQuality,
       elevationSampler: sampleHeightAt,
       setTextureStyle,
+      setVerticalExaggeration,
+      dispose,
     };
   }
 
-  /**
-   * Constructs solid diorama skirt walls dropping from perimeter vertices to a base height.
-   */
   private static createDioramaSkirts(
     planeGeo: THREE.PlaneGeometry,
     segX: number,
@@ -330,25 +390,16 @@ export class TerrainGenerator {
     const skirtNormals: number[] = [];
     const skirtIndices: number[] = [];
 
-    // Perimeter loops: North edge, East edge, South edge, West edge
     const perimeterIndices: number[] = [];
 
-    // North edge (z = -depth/2, from x = min to max)
-    for (let x = 0; x <= segX; x++) {
-      perimeterIndices.push(x);
-    }
-    // East edge (x = max, from z = min to max)
-    for (let z = 1; z <= segZ; z++) {
-      perimeterIndices.push(z * (segX + 1) + segX);
-    }
-    // South edge (z = max, from x = max to min)
-    for (let x = segX - 1; x >= 0; x--) {
-      perimeterIndices.push(segZ * (segX + 1) + x);
-    }
-    // West edge (x = min, from z = max to min)
-    for (let z = segZ - 1; z >= 1; z--) {
-      perimeterIndices.push(z * (segX + 1));
-    }
+    // North edge
+    for (let x = 0; x <= segX; x++) perimeterIndices.push(x);
+    // East edge
+    for (let z = 1; z <= segZ; z++) perimeterIndices.push(z * (segX + 1) + segX);
+    // South edge
+    for (let x = segX - 1; x >= 0; x--) perimeterIndices.push(segZ * (segX + 1) + x);
+    // West edge
+    for (let z = segZ - 1; z >= 1; z--) perimeterIndices.push(z * (segX + 1));
 
     let vertexOffset = 0;
     for (let i = 0; i < perimeterIndices.length; i++) {
@@ -363,13 +414,11 @@ export class TerrainGenerator {
       const y1 = pos.getY(nextIdx);
       const z1 = pos.getZ(nextIdx);
 
-      // 4 vertices per quad: Top-left, Top-right, Bottom-right, Bottom-left
       skirtPositions.push(x0, y0, z0);
       skirtPositions.push(x1, y1, z1);
       skirtPositions.push(x1, baseY, z1);
       skirtPositions.push(x0, baseY, z0);
 
-      // Normal perpendicular to the wall edge
       const dx = x1 - x0;
       const dz = z1 - z0;
       const nx = -dz;
@@ -382,7 +431,6 @@ export class TerrainGenerator {
         skirtNormals.push(unx, 0, unz);
       }
 
-      // Two triangles for quad
       skirtIndices.push(
         vertexOffset,
         vertexOffset + 1,

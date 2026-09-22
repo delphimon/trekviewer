@@ -1,34 +1,27 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode } from './gpx/TrackTypes';
-import { GPXParser } from './gpx/GPXParser';
-import { SceneManager } from './core/SceneManager';
-import { XRManager } from './core/XRManager';
-import { TerrainGenerator, TerrainResult } from './terrain/TerrainGenerator';
-import { TrailMesh, TrailResult } from './visualization/TrailMesh';
-import { DioramaBase } from './visualization/DioramaBase';
-import { FlyoverController } from './visualization/FlyoverController';
-import { SpatialHUD } from './ui/SpatialHUD';
-import { DesktopOverlay } from './ui/DesktopOverlay';
+import type { RouteManifestItem, ViewMode, TextureStyle, TrailColorMode, GPXWaypoint } from './gpx/TrackTypes.ts';
+import { TrekSession } from './core/TrekSession.ts';
+import { RouteLoader } from './core/RouteLoader.ts';
+import { LoadedTrek } from './core/LoadedTrek.ts';
+import { SceneManager } from './core/SceneManager.ts';
+import { XRManager } from './core/XRManager.ts';
+import { SpatialHUD } from './ui/SpatialHUD.ts';
+import { DesktopOverlay } from './ui/DesktopOverlay.ts';
 
 class TrekViewerApp {
+  private session: TrekSession;
   private sceneManager: SceneManager;
+  private routeLoader: RouteLoader;
   private xrManager: XRManager;
   private overlay: DesktopOverlay;
   private controls: OrbitControls;
 
-  // Active Trek State
-  private currentTrack: TrackStats | null = null;
-  private terrainResult: TerrainResult | null = null;
-  private trailResult: TrailResult | null = null;
-  private flyoverController: FlyoverController | null = null;
   private spatialHUD: SpatialHUD | null = null;
-  private currentViewMode: ViewMode = 'diorama';
-  private currentTextureStyle: TextureStyle = 'satellite';
-  private currentTrailColorMode: TrailColorMode = 'solid';
   private manifest: RouteManifestItem[] = [];
-
+  private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
   private lastTimestamp: number = performance.now();
+  private needsXRRecenter: boolean = false;
 
   constructor() {
     const canvasContainer = document.getElementById('canvas-container')!;
@@ -36,10 +29,16 @@ class TrekViewerApp {
 
     this.lastTimestamp = performance.now();
 
-    // 1. Scene Manager
+    // 1. Authoritative Session Store
+    this.session = new TrekSession();
+
+    // 2. Scene Manager
     this.sceneManager = new SceneManager(canvasContainer);
 
-    // 2. Desktop OrbitControls
+    // 3. Route Loader with Transactional Lifecycle Management
+    this.routeLoader = new RouteLoader(this.session, this.sceneManager);
+
+    // 4. Desktop OrbitControls
     this.controls = new OrbitControls(this.sceneManager.camera, this.sceneManager.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
@@ -51,6 +50,8 @@ class TrekViewerApp {
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
+      // Mark for recentering on the first active animation frame with real headset local-floor pose
+      this.needsXRRecenter = true;
       const session = this.sceneManager.renderer.xr.getSession();
       if (session) {
         // Request 72Hz framerate on Meta Quest 3 to drastically reduce heat and conserve battery
@@ -71,7 +72,7 @@ class TrekViewerApp {
       this.sceneManager.setXREnergyMode(false);
     });
 
-    // 3. WebXR Manager
+    // 5. WebXR Manager
     this.xrManager = new XRManager(this.sceneManager);
     this.xrManager.setCallbacks({
       onToggleViewMode: () => this.toggleViewMode(),
@@ -79,32 +80,53 @@ class TrekViewerApp {
       onReset: () => this.resetPosition(),
       onExitMR: () => this.exitMR(),
       onFocusHiker: () => this.focusOnHiker(),
+      onSelectWaypoint: (name) => {
+        const active = this.routeLoader.getActiveTrek();
+        if (!active) return;
+        const allWps = active.track.waypoints.concat(active.track.landmarks);
+        const wp = allWps.find((w) => w.name === name);
+        if (wp) {
+          this.jumpToWaypoint(wp);
+        }
+      },
       onScrubDistance: (meters) => {
-        if (this.flyoverController) {
-          this.flyoverController.pause();
-          this.overlay.setPlaying(false);
-          this.flyoverController.stepDistanceMeters(meters);
+        const active = this.routeLoader.getActiveTrek();
+        if (active) {
+          active.flyoverController.pause();
+          this.session.setPlayback(false);
+          active.flyoverController.stepDistanceMeters(meters);
         }
       },
     });
 
-    // 4. Desktop & Quest 2D Overlay
-    this.overlay = new DesktopOverlay(uiContainer, {
-      onSelectRoute: (route) => this.loadRouteByFile(route.file, route.name),
-      onUploadGPX: (content, fileName) => this.loadTrackFromXML(content, fileName),
-      onEnterXR: (mode) => this.enterXR(mode),
-      onToggleViewMode: (mode) => this.setViewMode(mode),
-      onTogglePlay: () => this.togglePlay(),
-      onSetSpeed: (speed) => this.flyoverController?.setSpeed(speed),
-      onScrub: (progress) => this.flyoverController?.setProgress(progress),
-      onSetTextureStyle: (style) => this.setTextureStyle(style),
-      onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
-    });
+    // 6. Desktop & Quest 2D Overlay
+    this.overlay = new DesktopOverlay(
+      uiContainer,
+      {
+        onSelectRoute: (route) => this.loadRouteByFile(route.file, route.name, route.id),
+        onUploadGPX: (content, fileName) => this.loadTrackFromXML(content, fileName),
+        onEnterXR: (mode) => this.enterXR(mode),
+        onToggleViewMode: (mode) => this.setViewMode(mode),
+        onTogglePlay: () => this.togglePlay(),
+        onSetSpeed: (speed) => {
+          this.session.setSpeed(speed);
+          this.routeLoader.getActiveTrek()?.flyoverController.setSpeed(speed);
+        },
+        onScrub: (progress) => {
+          this.routeLoader.getActiveTrek()?.flyoverController.setProgress(progress);
+        },
+        onSetTextureStyle: (style) => this.setTextureStyle(style),
+        onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
+        onSetVerticalExaggeration: (factor) => this.setVerticalExaggeration(factor),
+        onSelectWaypoint: (wp) => this.jumpToWaypoint(wp),
+      },
+      this.session
+    );
 
-    // 5. Load Manifest and Initial Track
+    // 7. Load Manifest and Initial Track
     this.initRoutes();
 
-    // 6. Start WebXR Animation Loop
+    // 8. Start WebXR Animation Loop
     this.sceneManager.renderer.setAnimationLoop(this.animate.bind(this));
   }
 
@@ -117,141 +139,119 @@ class TrekViewerApp {
         // Load default iconic trek: Mount Rainier via Emmons Glacier
         const initial = this.manifest.find((m) => m.id === 'rainier-emmons') || this.manifest[0];
         if (initial) {
-          await this.loadRouteByFile(initial.file, initial.name);
+          await this.loadRouteByFile(initial.file, initial.name, initial.id);
         }
       } else {
         throw new Error('Could not load routes manifest.');
       }
     } catch (e) {
       console.warn('Failed to load route manifest, attempting direct Rainier load:', e);
-      await this.loadRouteByFile('/routes/MountRanierViaEmmons.gpx.gpx', 'Mount Rainier via Emmons');
+      await this.loadRouteByFile('/routes/MountRanierViaEmmons.gpx.gpx', 'Mount Rainier via Emmons', 'rainier-emmons');
     }
   }
 
-  private async loadRouteByFile(url: string, fallbackName: string): Promise<void> {
-    this.overlay.showStatus(`Loading trek: ${fallbackName}...`);
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
-      const xml = await resp.text();
-      await this.loadTrackFromXML(xml, fallbackName);
-    } catch (e) {
-      console.error(e);
-      this.overlay.showStatus(`Failed to load trek from ${url}`, true);
+  private async loadRouteByFile(url: string, fallbackName: string, routeId?: string): Promise<void> {
+    const trek = await this.routeLoader.loadRouteFromUrl(url, fallbackName, routeId ?? url);
+    if (trek) {
+      this.onTrekLoaded(trek);
     }
   }
 
   public async loadTrackFromXML(xml: string, fallbackName?: string): Promise<void> {
-    try {
-      this.overlay.showStatus('Parsing GPX survey track...');
-      const track = GPXParser.parse(xml, fallbackName);
-      this.currentTrack = track;
-
-      // Clear existing models from dioramaRoot
-      while (this.sceneManager.dioramaRoot.children.length > 0) {
-        const child = this.sceneManager.dioramaRoot.children[0];
-        this.sceneManager.dioramaRoot.remove(child);
-      }
-
-      // Generate 3D Terrain
-      const terrain = await TerrainGenerator.generate(track, (msg) => {
-        this.overlay.showStatus(msg);
-        this.spatialHUD?.showStatus(msg);
-      });
-      this.terrainResult = terrain;
-      this.spatialHUD?.clearStatus();
-
-      // Generate 3D Trail Mesh
-      const trail = TrailMesh.create(track, terrain.elevationSampler);
-      trail.setColorMode(this.currentTrailColorMode);
-      this.trailResult = trail;
-
-      // Generate Diorama Base Pedestal
-      const base = DioramaBase.create(track.bounds, -80, track.waypoints);
-
-      // Assemble Diorama Group
-      this.sceneManager.dioramaRoot.add(terrain.group);
-      this.sceneManager.dioramaRoot.add(trail.group);
-      this.sceneManager.dioramaRoot.add(base);
-
-      // Setup Flyover Controller
-      this.flyoverController = new FlyoverController(trail, track);
-      this.flyoverController.setUpdateCallback((state) => {
-        this.overlay.updateScrubber(state.progress, state.currentPoint.ele);
-        this.spatialHUD?.updateState(
-          state.progress,
-          state.currentPoint.ele,
-          state.isPlaying,
-          this.currentViewMode,
-          this.currentTextureStyle,
-          undefined,
-          this.currentTrailColorMode
-        );
-      });
-
-      // Remove old Spatial HUD from scene if exists
-      if (this.spatialHUD) {
-        this.sceneManager.scene.remove(this.spatialHUD.group);
-      }
-
-      // Setup 3D Spatial HUD in VR
-      this.spatialHUD = new SpatialHUD(track, {
-        onTogglePlay: () => this.togglePlay(),
-        onToggleViewMode: () => this.toggleViewMode(),
-        onToggleTexture: () => {
-          const next: TextureStyle =
-            this.currentTextureStyle === 'satellite'
-              ? 'hybrid'
-              : this.currentTextureStyle === 'hybrid'
-              ? 'topo'
-              : 'satellite';
-          this.setTextureStyle(next);
-        },
-        onToggleTrailColor: () => {
-          const next: TrailColorMode =
-            this.currentTrailColorMode === 'solid'
-              ? 'grade'
-              : this.currentTrailColorMode === 'grade'
-              ? 'speed'
-              : this.currentTrailColorMode === 'speed'
-              ? 'elevation'
-              : 'solid';
-          this.setTrailColorMode(next);
-        },
-        onReset: () => this.resetPosition(),
-        onExitMR: () => this.exitMR(),
-        onScrub: (progress) => this.flyoverController?.setProgress(progress),
-        onSetSpeed: (speed) => this.flyoverController?.setSpeed(speed),
-        onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
-        onFocusHiker: () => this.focusOnHiker(),
-        onDockHUD: (side) => this.dockHUD(side),
-      });
-
-      // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
-      this.sceneManager.scene.add(this.spatialHUD.group);
-      this.dockHUD('left');
-
-      // Register SpatialHUD with XRManager for laser raycasting and clicks
-      this.xrManager.setSpatialHUD(this.spatialHUD);
-
-      // Configure View Mode
-      const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
-      this.sceneManager.setViewMode(this.currentViewMode, maxDim);
-      this.trailResult.setViewMode(this.currentViewMode);
-      this.xrManager.setViewMode(this.currentViewMode);
-
-      // Update 2D Overlay
-      this.overlay.updateTrack(track);
-      const distMi = (track.totalDistance * 0.000621371).toFixed(1);
-      const gainFt = Math.round(track.elevationGain * 3.28084);
-      this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
-    } catch (e: any) {
-      console.error(e);
-      this.overlay.showStatus(`Error parsing GPX: ${e.message}`, true);
+    const trek = await this.routeLoader.loadRouteFromXml(xml, fallbackName, 'upload', 'upload');
+    if (trek) {
+      this.onTrekLoaded(trek);
     }
   }
 
-  private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
+  private onTrekLoaded(trek: LoadedTrek): void {
+    // Setup Flyover Controller callbacks to sync session state
+    trek.flyoverController.setUpdateCallback((state) => {
+      this.session.setProgress(
+        state.progress,
+        state.currentPoint.ele,
+        state.currentPoint.distanceFromStart,
+        state.currentPoint
+      );
+      this.session.setPlayback(state.isPlaying);
+    });
+
+    // Remove and dispose old SpatialHUD if exists
+    if (this.spatialHUD) {
+      this.sceneManager.scene.remove(this.spatialHUD.group);
+      this.spatialHUD.dispose();
+      this.spatialHUD = null;
+    }
+
+    // Setup 3D Spatial HUD in VR
+    this.spatialHUD = new SpatialHUD(
+      trek.track,
+      {
+        onTogglePlay: () => this.togglePlay(),
+        onToggleViewMode: () => this.toggleViewMode(),
+        onToggleTexture: () => this.cycleTexture(),
+        onToggleTrailColor: () => this.cycleTrailColor(),
+        onCycleExaggeration: () => this.cycleExaggeration(),
+        onReset: () => this.resetPosition(),
+        onExitMR: () => this.exitMR(),
+        onScrub: (progress) => trek.flyoverController.setProgress(progress),
+        onSetSpeed: (speed) => {
+          this.session.setSpeed(speed);
+          trek.flyoverController.setSpeed(speed);
+        },
+        onStepSeconds: (secs) => trek.flyoverController.stepSeconds(secs),
+        onFocusHiker: () => this.focusOnHiker(),
+        onDockHUD: (side) => this.dockHUD(side),
+        onSelectWaypoint: (wp) => this.jumpToWaypoint(wp),
+      },
+      this.session
+    );
+
+    // Add HUD to scene and dock
+    this.sceneManager.scene.add(this.spatialHUD.group);
+    this.dockHUD(this.currentHUDDockSide);
+
+    // Register SpatialHUD with XRManager for laser raycasting and clicks
+    this.xrManager.setSpatialHUD(this.spatialHUD);
+
+    // Sync session state to trek components
+    const state = this.session.getState();
+    trek.trailResult.setColorMode(state.trailColorMode);
+    trek.trailResult.setViewMode(state.viewMode);
+    trek.flyoverController.setViewMode(state.viewMode);
+    trek.flyoverController.setSpeed(state.playbackSpeed);
+    trek.setVerticalExaggeration(state.verticalExaggeration);
+
+    const maxDim = Math.max(trek.track.bounds.widthMeters, trek.track.bounds.depthMeters);
+    this.sceneManager.setViewMode(state.viewMode, maxDim);
+    this.xrManager.setViewMode(state.viewMode);
+  }
+
+  private jumpToWaypoint(wp: GPXWaypoint): void {
+    this.session.selectWaypoint(wp);
+    const active = this.routeLoader.getActiveTrek();
+    if (!active) return;
+    const track = active.track;
+    if (!track || track.points.length === 0) return;
+
+    // Find closest route track point to waypoint
+    let bestIdx = 0;
+    let bestDistSq = Infinity;
+    for (let i = 0; i < track.points.length; i++) {
+      const p = track.points[i];
+      const dLat = p.lat - wp.lat;
+      const dLon = p.lon - wp.lon;
+      const dSq = dLat * dLat + dLon * dLon;
+      if (dSq < bestDistSq) {
+        bestDistSq = dSq;
+        bestIdx = i;
+      }
+    }
+
+    const targetPoint = track.points[bestIdx];
+    const progress = track.totalDistance > 0 ? targetPoint.distanceFromStart / track.totalDistance : 0;
+    active.flyoverController.setProgress(progress);
+  }
 
   private dockHUD(side: 'left' | 'right' | 'center'): void {
     this.currentHUDDockSide = side;
@@ -259,66 +259,133 @@ class TrekViewerApp {
     this.spatialHUD.setDockSide(side);
 
     const camPos = this.sceneManager.camera.position;
+    const viewMode = this.session.getState().viewMode;
 
-    if (this.currentViewMode === 'first-person') {
-      this.spatialHUD.group.position.set(0, 1.25, -1.2);
-      this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+    if (viewMode === 'first-person') {
+      const forward = new THREE.Vector3(0, -0.15, -0.65).applyQuaternion(this.sceneManager.camera.quaternion);
+      this.spatialHUD.group.position.copy(camPos).add(forward);
+      this.spatialHUD.group.quaternion.copy(this.sceneManager.camera.quaternion);
       return;
     }
 
-    if (side === 'left') {
-      // Docked comfortably to the left of the mountain
-      this.spatialHUD.group.position.set(-0.70, 0.95, -0.70);
-    } else if (side === 'right') {
-      // Docked to the right of the mountain
-      this.spatialHUD.group.position.set(0.70, 0.95, -0.70);
-    } else {
-      // Centered
-      this.spatialHUD.group.position.set(0, 0.95, -0.90);
-    }
+    // In Diorama mode, compute horizontal forward and right vectors from camera
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.sceneManager.camera.quaternion);
+    fwd.y = 0;
+    if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
+    else fwd.normalize();
 
-    // Level orientation facing user: pure vertical yaw, zero crooked tilt/roll
-    this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+
+    // Place HUD ergonomically on the side of the 0.85m diorama without obscuring the terrain
+    if (side === 'left') {
+      // Docked comfortably to the left of the diorama (angled inward toward user, zero terrain overlap)
+      const target = camPos.clone()
+        .addScaledVector(fwd, 0.72)
+        .addScaledVector(right, -0.75)
+        .add(new THREE.Vector3(0, -0.05, 0));
+      this.spatialHUD.group.position.copy(target);
+      this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+    } else if (side === 'right') {
+      // Docked to the right of the diorama (angled inward toward user, zero terrain overlap)
+      const target = camPos.clone()
+        .addScaledVector(fwd, 0.72)
+        .addScaledVector(right, 0.75)
+        .add(new THREE.Vector3(0, -0.05, 0));
+      this.spatialHUD.group.position.copy(target);
+      this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+    } else {
+      // Centered as an elevated backdrop panel floating cleanly behind and above the mountain summit
+      const target = camPos.clone()
+        .addScaledVector(fwd, 1.08)
+        .add(new THREE.Vector3(0, 0.16, 0));
+      this.spatialHUD.group.position.copy(target);
+      this.spatialHUD.group.lookAt(camPos);
+    }
   }
 
   private togglePlay(): void {
-    if (!this.flyoverController) return;
-    const isPlaying = this.flyoverController.togglePlay();
-    this.overlay.setPlaying(isPlaying);
-    if (this.currentTrack && this.spatialHUD) {
-      this.spatialHUD.updateState(
-        this.flyoverController.getProgress(),
-        this.currentTrack.minElevation,
-        isPlaying,
-        this.currentViewMode,
-        this.currentTextureStyle
-      );
-    }
+    const active = this.routeLoader.getActiveTrek();
+    if (!active) return;
+    const isPlaying = active.flyoverController.togglePlay();
+    this.session.setPlayback(isPlaying);
+  }
+
+  private cycleTexture(): void {
+    const current = this.session.getState().textureStyle;
+    const next: TextureStyle =
+      current === 'satellite' ? 'hybrid' : current === 'hybrid' ? 'topo' : 'satellite';
+    this.setTextureStyle(next);
+  }
+
+  private cycleTrailColor(): void {
+    const current = this.session.getState().trailColorMode;
+    const next: TrailColorMode =
+      current === 'solid'
+        ? 'grade'
+        : current === 'grade'
+        ? 'speed'
+        : current === 'speed'
+        ? 'elevation'
+        : 'solid';
+    this.setTrailColorMode(next);
+  }
+
+  private cycleExaggeration(): void {
+    const current = this.session.getState().verticalExaggeration;
+    const next = current >= 2.9 ? 1.0 : current >= 1.9 ? 3.0 : 2.0;
+    this.setVerticalExaggeration(next);
   }
 
   private setViewMode(mode: ViewMode): void {
-    this.currentViewMode = mode;
-    this.flyoverController?.setViewMode(mode);
-    this.trailResult?.setViewMode(mode);
+    this.session.setViewMode(mode);
+    const active = this.routeLoader.getActiveTrek();
+    if (active) {
+      active.flyoverController.setViewMode(mode);
+      active.trailResult.setViewMode(mode);
+      const maxDim = Math.max(active.track.bounds.widthMeters, active.track.bounds.depthMeters);
+      this.sceneManager.setViewMode(mode, maxDim);
+    }
     this.xrManager.setViewMode(mode);
 
-    if (this.currentTrack) {
-      const maxDim = Math.max(this.currentTrack.bounds.widthMeters, this.currentTrack.bounds.depthMeters);
-      this.sceneManager.setViewMode(mode, maxDim);
-
-      if (mode === 'diorama') {
-        this.controls.enabled = !this.sceneManager.renderer.xr.isPresenting;
-        // Position HUD docked to preferred side
-        this.dockHUD(this.currentHUDDockSide);
-      } else {
-        // In 1:1 First-Person mode, disable orbit controls
-        this.controls.enabled = false;
-        // Position HUD comfortably at eye/chest level in front of user
-        if (this.spatialHUD) {
-          this.spatialHUD.group.position.set(0, 1.25, -1.2);
-          this.spatialHUD.group.rotation.set(-0.15, 0, 0);
-        }
+    if (mode === 'diorama') {
+      this.controls.enabled = !this.sceneManager.renderer.xr.isPresenting;
+      this.dockHUD(this.currentHUDDockSide);
+    } else {
+      this.controls.enabled = false;
+      if (this.spatialHUD) {
+        this.spatialHUD.group.position.set(0, 1.25, -1.2);
+        this.spatialHUD.group.rotation.set(-0.15, 0, 0);
       }
+    }
+  }
+
+  private toggleViewMode(): void {
+    const current = this.session.getState().viewMode;
+    const nextMode: ViewMode = current === 'diorama' ? 'first-person' : 'diorama';
+    this.setViewMode(nextMode);
+  }
+
+  private async setTextureStyle(style: TextureStyle): Promise<void> {
+    this.session.setTextureStyle(style);
+    const active = this.routeLoader.getActiveTrek();
+    if (active) {
+      await active.terrainResult.setTextureStyle(style);
+    }
+  }
+
+  private setTrailColorMode(mode: TrailColorMode): void {
+    this.session.setTrailColorMode(mode);
+    const active = this.routeLoader.getActiveTrek();
+    if (active) {
+      active.trailResult.setColorMode(mode);
+    }
+  }
+
+  private setVerticalExaggeration(factor: number): void {
+    this.session.setVerticalExaggeration(factor);
+    const active = this.routeLoader.getActiveTrek();
+    if (active) {
+      active.setVerticalExaggeration(factor);
     }
   }
 
@@ -330,67 +397,30 @@ class TrekViewerApp {
   }
 
   private resetPosition(): void {
-    this.flyoverController?.setProgress(0);
-    if (this.currentTrack) {
-      const maxDim = Math.max(this.currentTrack.bounds.widthMeters, this.currentTrack.bounds.depthMeters);
-      this.sceneManager.setViewMode(this.currentViewMode, maxDim);
+    const active = this.routeLoader.getActiveTrek();
+    if (active) {
+      active.flyoverController.setProgress(0);
+      const maxDim = Math.max(active.track.bounds.widthMeters, active.track.bounds.depthMeters);
+      this.sceneManager.setViewMode(this.session.getState().viewMode, maxDim);
     }
+    // Re-anchor diorama and HUD right in front of user within arm's reach
+    this.sceneManager.resetToArmLength();
+    this.dockHUD(this.currentHUDDockSide);
   }
 
   private focusOnHiker(): void {
-    if (!this.flyoverController || !this.currentTrack) return;
-    const hikerPos = this.flyoverController.getCurrentWorldPosition();
+    const active = this.routeLoader.getActiveTrek();
+    if (!active) return;
+    const hikerPos = active.flyoverController.getCurrentWorldPosition();
 
-    if (this.currentViewMode === 'diorama') {
+    if (this.session.getState().viewMode === 'diorama') {
       const scale = this.sceneManager.dioramaRoot.scale.x;
       const rotY = this.sceneManager.dioramaRoot.rotation.y;
       const rotated = hikerPos.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
-      // Center dioramaRoot so that hiker position is placed comfortably in front of user
       this.sceneManager.dioramaRoot.position.set(
         -rotated.x * scale,
         -0.2 - rotated.y * scale,
         -1.0 - rotated.z * scale
-      );
-    }
-  }
-
-  private toggleViewMode(): void {
-    const nextMode: ViewMode = this.currentViewMode === 'diorama' ? 'first-person' : 'diorama';
-    this.setViewMode(nextMode);
-  }
-
-  private async setTextureStyle(style: TextureStyle): Promise<void> {
-    this.currentTextureStyle = style;
-    this.overlay.setTextureStyle(style);
-    if (this.spatialHUD && this.flyoverController && this.currentTrack) {
-      this.spatialHUD.updateState(
-        this.flyoverController.getProgress(),
-        this.currentTrack.minElevation,
-        this.flyoverController.getIsPlaying(),
-        this.currentViewMode,
-        this.currentTextureStyle,
-        undefined,
-        this.currentTrailColorMode
-      );
-    }
-    if (this.terrainResult) {
-      await this.terrainResult.setTextureStyle(style);
-    }
-  }
-
-  private setTrailColorMode(mode: TrailColorMode): void {
-    this.currentTrailColorMode = mode;
-    this.overlay.setTrailColorMode(mode);
-    this.trailResult?.setColorMode(mode);
-    if (this.spatialHUD && this.flyoverController && this.currentTrack) {
-      this.spatialHUD.updateState(
-        this.flyoverController.getProgress(),
-        this.currentTrack.minElevation,
-        this.flyoverController.getIsPlaying(),
-        this.currentViewMode,
-        this.currentTextureStyle,
-        undefined,
-        this.currentTrailColorMode
       );
     }
   }
@@ -404,7 +434,6 @@ class TrekViewerApp {
     try {
       const isSupported = await (navigator as any).xr.isSessionSupported(mode);
       if (!isSupported) {
-        // Fallback to immersive-vr if immersive-ar isn't directly advertised
         const vrSupported = await (navigator as any).xr.isSessionSupported('immersive-vr');
         if (!vrSupported) {
           alert(`WebXR ${mode} is not supported on this device.`);
@@ -437,17 +466,28 @@ class TrekViewerApp {
     const delta = Math.min((now - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = now;
 
-    // 1. Update WebXR inputs (Touch Plus controllers, gestures, diorama grab)
-    this.xrManager.update();
+    // 0. Recenter diorama and HUD on first active XR frame once real local-floor pose is populated
+    if (this.needsXRRecenter && this.sceneManager.renderer.xr.isPresenting) {
+      const xr = this.sceneManager.renderer.xr;
+      if ((xr as any).updateCamera) {
+        (xr as any).updateCamera(this.sceneManager.camera);
+      }
+      this.resetPosition();
+      this.needsXRRecenter = false;
+    }
+
+    // 1. Update WebXR inputs with frame delta (frame-rate independent locomotion, pan, zoom)
+    this.xrManager.update(delta);
 
     // 2. Update OrbitControls on desktop when not in XR or first-person
-    if (this.controls.enabled && this.currentViewMode === 'diorama') {
+    if (this.controls.enabled && this.session.getState().viewMode === 'diorama') {
       this.controls.update();
     }
 
     // 3. Update Flyover / Animation playback
-    if (this.flyoverController) {
-      this.flyoverController.update(
+    const active = this.routeLoader.getActiveTrek();
+    if (active) {
+      active.flyoverController.update(
         delta,
         this.sceneManager.camera,
         this.sceneManager.dioramaRoot,
@@ -456,7 +496,7 @@ class TrekViewerApp {
     }
 
     // 4. In First-Person mode, keep HUD floating comfortably in front of user
-    if (this.currentViewMode === 'first-person' && this.spatialHUD) {
+    if (this.session.getState().viewMode === 'first-person' && this.spatialHUD) {
       const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(this.sceneManager.camera.quaternion);
       this.spatialHUD.group.position.copy(this.sceneManager.camera.position).add(forward);
       this.spatialHUD.group.quaternion.copy(this.sceneManager.camera.quaternion);

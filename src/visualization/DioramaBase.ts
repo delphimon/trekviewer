@@ -1,15 +1,19 @@
 import * as THREE from 'three';
-import { GeoBounds, GPXWaypoint } from '../gpx/TrackTypes';
-import { geoToLocalMeters } from '../gpx/Coordinates';
+import type { GeoBounds, GPXWaypoint } from '../gpx/TrackTypes.ts';
+import { geoToLocalMeters } from '../gpx/Coordinates.ts';
+import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export class DioramaBase {
   /**
-   * Creates a museum-grade architectural pedestal base with compass rose and scale bar.
+   * Creates an architectural pedestal base with compass rose, scale bar, and interactive waypoint pins.
    */
   public static create(
     bounds: GeoBounds,
     baseY: number = -80,
-    waypoints: GPXWaypoint[] = []
+    waypoints: GPXWaypoint[] = [],
+    baseElevation: number = bounds.minEle,
+    elevationSampler?: (x: number, z: number) => number,
+    initialExaggeration: number = 1.0
   ): THREE.Group {
     const group = new THREE.Group();
     group.name = 'DioramaBaseGroup';
@@ -17,12 +21,12 @@ export class DioramaBase {
     const margin = 0.25;
     const widthM = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
     const depthM = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
-    const plinthHeight = 25; // meters in 1:1 scale
+    const plinthHeight = 25;
 
     // Main plinth slab
     const plinthGeo = new THREE.BoxGeometry(widthM + 40, plinthHeight, depthM + 40);
     const plinthMat = new THREE.MeshStandardMaterial({
-      color: 0x111317, // Sleek matte obsidian / anodized titanium
+      color: 0x111317,
       metalness: 0.8,
       roughness: 0.3,
     });
@@ -31,7 +35,7 @@ export class DioramaBase {
     plinth.receiveShadow = true;
     group.add(plinth);
 
-    // Beveled accent border (glowing cyan / gold edge trim)
+    // Beveled accent border
     const trimGeo = new THREE.BoxGeometry(widthM + 44, 2, depthM + 44);
     const trimMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
@@ -42,7 +46,7 @@ export class DioramaBase {
     trim.position.y = baseY;
     group.add(trim);
 
-    // 3D Compass Rose (pointing True North, which is -Z)
+    // 3D Compass Rose (True North is -Z in Three.js)
     const compass = this.createCompassRose();
     compass.position.set(widthM / 2 + 60, baseY + 5, -depthM / 2 + 60);
     group.add(compass);
@@ -60,13 +64,24 @@ export class DioramaBase {
         const loc = geoToLocalMeters(
           wp.lat,
           wp.lon,
-          wp.ele || bounds.minEle,
+          wp.ele ?? baseElevation,
           bounds.centerLat,
           bounds.centerLon,
-          bounds.minEle
+          baseElevation
         );
-        const marker = this.createWaypointPin(wp.name);
-        marker.position.set(loc.x, loc.y + 10, loc.z);
+        let baseYPos = loc.y;
+        if (elevationSampler) {
+          const sampleY = elevationSampler(loc.x, loc.z);
+          if (!isNaN(sampleY)) {
+            baseYPos = Math.max(loc.y, sampleY);
+          }
+        }
+        const marker = this.createWaypointPin(wp);
+        marker.userData = {
+          waypoint: wp,
+          baseY: baseYPos,
+        };
+        marker.position.set(loc.x, baseYPos * initialExaggeration + 8, loc.z);
         wpGroup.add(marker);
       }
       group.add(wpGroup);
@@ -79,7 +94,6 @@ export class DioramaBase {
     const compass = new THREE.Group();
     compass.name = 'CompassRose';
 
-    // Outer ring
     const ringGeo = new THREE.RingGeometry(25, 28, 32);
     ringGeo.rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshBasicMaterial({
@@ -88,11 +102,11 @@ export class DioramaBase {
     });
     compass.add(new THREE.Mesh(ringGeo, ringMat));
 
-    // North Needle (Red Arrow pointing -Z)
+    // North Needle (-Z)
     const northGeo = new THREE.ConeGeometry(8, 35, 4);
-    northGeo.rotateX(-Math.PI / 2); // Point along -Z
+    northGeo.rotateX(-Math.PI / 2);
     const northMat = new THREE.MeshStandardMaterial({
-      color: 0xef4444, // Vibrant Red
+      color: 0xef4444,
       emissive: 0x991b1b,
       emissiveIntensity: 0.6,
     });
@@ -100,9 +114,9 @@ export class DioramaBase {
     north.position.z = -18;
     compass.add(north);
 
-    // South Needle (White/Silver Arrow pointing +Z)
+    // South Needle (+Z)
     const southGeo = new THREE.ConeGeometry(8, 35, 4);
-    southGeo.rotateX(Math.PI / 2); // Point along +Z
+    southGeo.rotateX(Math.PI / 2);
     const southMat = new THREE.MeshStandardMaterial({
       color: 0xe2e8f0,
       metalness: 0.8,
@@ -118,8 +132,7 @@ export class DioramaBase {
       color: 0x38bdf8,
       metalness: 0.9,
     });
-    const jewel = new THREE.Mesh(jewelGeo, jewelMat);
-    compass.add(jewel);
+    compass.add(new THREE.Mesh(jewelGeo, jewelMat));
 
     return compass;
   }
@@ -128,7 +141,6 @@ export class DioramaBase {
     const group = new THREE.Group();
     group.name = 'ScaleBar';
 
-    // 1 km or 5 km bar depending on extent
     const barLength = widthM > 8000 ? 2000 : 1000;
     const barGeo = new THREE.BoxGeometry(barLength, 3, 8);
     const barMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
@@ -136,7 +148,6 @@ export class DioramaBase {
     bar.position.x = barLength / 2;
     group.add(bar);
 
-    // End caps
     const capGeo = new THREE.BoxGeometry(4, 8, 16);
     const capMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const cap1 = new THREE.Mesh(capGeo, capMat);
@@ -148,27 +159,120 @@ export class DioramaBase {
     return group;
   }
 
-  private static createWaypointPin(name: string): THREE.Group {
+  private static createWaypointPin(wp: GPXWaypoint): THREE.Group {
     const pin = new THREE.Group();
+    pin.name = `Waypoint_${wp.name}`;
+    pin.userData = { waypoint: wp };
 
-    // 3D diamond waypoint
-    const octGeo = new THREE.OctahedronGeometry(5, 0);
+    const color = wp.type === 'summit' ? 0xf59e0b : wp.type === 'start' ? 0x10b981 : 0x38bdf8;
+
+    // Diamond jewel
+    const octGeo = new THREE.OctahedronGeometry(6, 0);
     const octMat = new THREE.MeshStandardMaterial({
-      color: 0x3b82f6,
-      emissive: 0x1d4ed8,
-      emissiveIntensity: 0.7,
+      color,
+      emissive: color,
+      emissiveIntensity: 0.8,
+      roughness: 0.2,
     });
     const diamond = new THREE.Mesh(octGeo, octMat);
-    diamond.position.y = 8;
+    diamond.position.y = 12;
     pin.add(diamond);
 
-    // Vertical stalk
-    const stalkGeo = new THREE.CylinderGeometry(0.5, 0.5, 8, 8);
-    const stalkMat = new THREE.MeshBasicMaterial({ color: 0x60a5fa });
+    // Stalk
+    const stalkGeo = new THREE.CylinderGeometry(0.8, 0.8, 12, 8);
+    const stalkMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
     const stalk = new THREE.Mesh(stalkGeo, stalkMat);
-    stalk.position.y = 4;
+    stalk.position.y = 6;
     pin.add(stalk);
 
+    // Base ring
+    const ringGeo = new THREE.RingGeometry(3, 7, 16);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.7,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.y = 0.5;
+    pin.add(ring);
+
+    // Billboard Text Label for key waypoints (summits, trailheads, finish, camps)
+    const label = this.createWaypointLabel(wp, color);
+    if (label) {
+      pin.add(label);
+    }
+
     return pin;
+  }
+
+  private static createWaypointLabel(wp: GPXWaypoint, accentColor: number): THREE.Sprite | null {
+    const isKeyLandmark = Boolean(
+      wp.type === 'summit' ||
+      wp.type === 'start' ||
+      wp.type === 'finish' ||
+      wp.type === 'day_boundary' ||
+      wp.sym?.toLowerCase().includes('summit') ||
+      wp.sym?.toLowerCase().includes('trailhead')
+    );
+
+    if (typeof document === 'undefined') return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    // Dark glass pill background
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === 'function') {
+      (ctx as any).roundRect(8, 8, 240, 48, 12);
+    } else if (typeof ctx.rect === 'function') {
+      ctx.rect(8, 8, 240, 48);
+    }
+    ctx.fill();
+
+    const hexStr = `#${accentColor.toString(16).padStart(6, '0')}`;
+    ctx.strokeStyle = hexStr;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Text Label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    let text = wp.name;
+    if (text.length > 18) text = text.substring(0, 16) + '...';
+    ctx.fillText(text, 128, 32);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    const spriteMat = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(40, 10, 1);
+    sprite.position.y = 24;
+    sprite.visible = isKeyLandmark; // Default visible for key landmarks, uncluttered
+    return sprite;
+  }
+
+  /**
+   * Adjusts waypoint pin vertical positions when vertical exaggeration changes.
+   */
+  public static setVerticalExaggeration(baseGroup: THREE.Group, factor: number): void {
+    const wpGroup = baseGroup.getObjectByName('Waypoints');
+    if (!wpGroup) return;
+    for (const child of wpGroup.children) {
+      if (child.userData && typeof child.userData.baseY === 'number') {
+        child.position.y = child.userData.baseY * factor + 8;
+      }
+    }
   }
 }

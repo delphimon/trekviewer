@@ -1,6 +1,15 @@
 import * as THREE from 'three';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
+import {
+  evaluatePinchState,
+  applyBimanualTransform,
+  applyOneHandedManipulation,
+  type DioramaTransform,
+  MIN_DIORAMA_SCALE,
+  MAX_DIORAMA_SCALE,
+} from './GestureMath.ts';
+import { disposeObject3D } from './ResourceLifecycle.ts';
 
 export interface XRInteractionCallbacks {
   onToggleViewMode?: () => void;
@@ -85,7 +94,7 @@ export const BONE_CONNECTIONS: [string, string][] = [
   ['pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal'],
   ['pinky-finger-phalanx-distal', 'pinky-finger-tip'],
 
-  // Knuckle transverse arch across palm
+  // Transverse palm arch
   ['thumb-metacarpal', 'index-finger-metacarpal'],
   ['index-finger-metacarpal', 'middle-finger-metacarpal'],
   ['middle-finger-metacarpal', 'ring-finger-metacarpal'],
@@ -101,10 +110,7 @@ export interface HandVisualOutline {
 
 const _scratchV1 = new THREE.Vector3();
 const _scratchV2 = new THREE.Vector3();
-const _scratchV3 = new THREE.Vector3();
-const _scratchM1 = new THREE.Matrix4();
 const _scratchV2D1 = new THREE.Vector2();
-const _scratchV2D2 = new THREE.Vector2();
 
 export interface HandState {
   hand: THREE.XRHandSpace;
@@ -112,6 +118,7 @@ export interface HandState {
   pinchReticle: THREE.Mesh;
   visualOutline: HandVisualOutline;
   isPinching: boolean;
+  isGrabbingDiorama: boolean;
   isClickingHUD: boolean;
   jointPosMap: Map<string, THREE.Vector3>;
   pinchWorldPos: THREE.Vector3;
@@ -148,6 +155,7 @@ export class XRManager {
   private spatialHUD: SpatialHUD | null = null;
   private currentViewMode: 'diorama' | 'first-person' | 'flyover' = 'diorama';
   private hapticDistanceAccumulator: number = 0;
+  private handIsPointingAtHUD: boolean[] = [false, false];
 
   private callbacks: XRInteractionCallbacks = {};
 
@@ -173,12 +181,10 @@ export class XRManager {
 
   private setupControllers(): void {
     for (let i = 0; i < 2; i++) {
-      // 1. Target ray space (laser pointer direction)
       const controller = this.renderer.xr.getController(i);
       controller.name = `ControllerRay_${i}`;
       this.sceneManager.scene.add(controller);
 
-      // Visual laser pointer beam
       const rayGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(0, 0, -2.5),
@@ -192,7 +198,6 @@ export class XRManager {
       rayLine.name = 'LaserRay';
       controller.add(rayLine);
 
-      // Pointer cursor reticle dot
       const reticleGeo = new THREE.RingGeometry(0.008, 0.015, 24);
       const reticleMat = new THREE.MeshBasicMaterial({
         color: 0x38bdf8,
@@ -204,13 +209,9 @@ export class XRManager {
       reticle.visible = false;
       this.sceneManager.scene.add(reticle);
 
-      // 2. Grip space (physical controller location)
       const grip = this.renderer.xr.getControllerGrip(i);
       grip.name = `ControllerGrip_${i}`;
       this.sceneManager.scene.add(grip);
-
-      // No black cylinder bar handle - physical controllers are held in real life,
-      // and in hand mode no artificial bar should appear in the palm!
 
       const state: ControllerState = {
         controller,
@@ -251,13 +252,11 @@ export class XRManager {
       hand.name = `XRHand_${i}`;
       this.sceneManager.scene.add(hand);
 
-      // Dedicated Glowing Hand Outline Skeleton (All 25 joints + 24 bone outline lines)
       const visualOutlineGroup = new THREE.Group();
       visualOutlineGroup.name = `HandVisualOutline_${i}`;
       visualOutlineGroup.visible = false;
       this.sceneManager.scene.add(visualOutlineGroup);
 
-      // 1. Joint tracking positions & optional meshes (spheres omitted from scene to eliminate joint dots)
       const jointMeshes = new Map<string, THREE.Mesh>();
       const jointPosMap = new Map<string, THREE.Vector3>();
       for (const jointName of ALL_HAND_JOINTS) {
@@ -277,18 +276,15 @@ export class XRManager {
         });
         const mesh = new THREE.Mesh(sphereGeo, sphereMat);
         mesh.visible = false;
-        // NOTE: mesh is intentionally NOT added to visualOutlineGroup to honor user preference
-        // for smooth continuous holographic bone outlines without round knuckle "dots"
         jointMeshes.set(jointName, mesh);
         jointPosMap.set(jointName, new THREE.Vector3());
       }
 
-      // 2. Bone Lines (28 bone segments connecting joints into a sleek holographic skeleton)
       const bonePositions = new Float32Array(BONE_CONNECTIONS.length * 2 * 3);
       const boneGeo = new THREE.BufferGeometry();
       boneGeo.setAttribute('position', new THREE.BufferAttribute(bonePositions, 3));
       const boneMat = new THREE.LineBasicMaterial({
-        color: 0x00f0ff, // Vibrant radiant cyan holographic outline
+        color: 0x00f0ff,
         transparent: true,
         opacity: 0.90,
         depthTest: false,
@@ -297,7 +293,6 @@ export class XRManager {
       boneLines.renderOrder = 998;
       visualOutlineGroup.add(boneLines);
 
-      // Tactile pinch visual reticle (radiant cyan diamond indicator at pinch contact point)
       const pinchGeo = new THREE.OctahedronGeometry(0.012, 0);
       const pinchMat = new THREE.MeshBasicMaterial({
         color: 0x00f0ff,
@@ -322,6 +317,7 @@ export class XRManager {
           bonePositions: boneGeo.getAttribute('position') as THREE.BufferAttribute,
         },
         isPinching: false,
+        isGrabbingDiorama: false,
         isClickingHUD: false,
         jointPosMap,
         pinchWorldPos: new THREE.Vector3(),
@@ -348,11 +344,15 @@ export class XRManager {
     }
   }
 
-  public update(): void {
+  /**
+   * Updates inputs with frame-rate independent time step.
+   */
+  public update(deltaSeconds: number = 0.016): void {
     const session = this.renderer.xr.getSession();
     if (!session) return;
 
-    const inputSources = session.inputSources;
+    // Clamp deltaSeconds to prevent tunneling or huge leaps on lag spikes
+    const dt = Math.max(0.001, Math.min(0.1, deltaSeconds));
     const activeGrabs: ActiveGrab[] = [];
 
     // 1. Controller Inputs & Laser Pointing
@@ -370,17 +370,13 @@ export class XRManager {
       const isHand = !!source.hand;
 
       if (isHand) {
-        // In hand mode, physical controller grip is always hidden (no black bar)
         state.grip.visible = false;
-
-        // When using hands, check if THIS specific hand is pointing towards the Spatial HUD:
         const b0_pinchTrigger = source.gamepad?.buttons[0]?.pressed || false;
         this.updatePointerRaycast(i, state, b0_pinchTrigger, true);
         state.prevButtons[0] = b0_pinchTrigger;
         continue;
       }
 
-      // Physical Touch Plus Controller:
       state.controller.visible = true;
       state.grip.visible = true;
       state.rayLine.visible = true;
@@ -390,21 +386,21 @@ export class XRManager {
       const axes = source.gamepad.axes;
       const buttons = source.gamepad.buttons;
 
-      // Current controller world position for natural 1:1 grip movement
       const currentGripWorld = new THREE.Vector3().setFromMatrixPosition(state.grip.matrixWorld);
 
-      // 1. Thumbstick Navigation
+      // Frame-rate independent thumbstick navigation
       if (axes.length >= 4) {
         const stickX = axes[2];
         const stickY = axes[3];
 
-        // --- Left Controller: TRAIL HIKE & SCRUB IN 1:1 / PAN IN DIORAMA ---
+        // --- Left Controller: Walk in 1:1 / Pan in diorama ---
         if (source.handedness === 'left') {
           if (this.currentViewMode === 'first-person') {
             if (Math.abs(stickY) > 0.1) {
               const isTurbo = buttons[0]?.pressed || false;
               const baseSpeedMps = isTurbo ? 75.0 : 18.0;
-              const metersDelta = -stickY * baseSpeedMps * (1 / 60);
+              // Time-based: meters = stick * speed * dt
+              const metersDelta = -stickY * baseSpeedMps * dt;
               this.callbacks.onScrubDistance?.(metersDelta);
 
               this.hapticDistanceAccumulator += Math.abs(metersDelta);
@@ -416,35 +412,35 @@ export class XRManager {
           } else {
             if (Math.abs(stickX) > 0.1 || Math.abs(stickY) > 0.1) {
               const isTurbo = buttons[0]?.pressed || false;
-              const panSpeed = isTurbo ? 0.35 : 0.16;
-              this.sceneManager.dioramaRoot.position.x -= stickX * panSpeed;
-              this.sceneManager.dioramaRoot.position.z -= stickY * panSpeed;
+              const panSpeed = isTurbo ? 21.0 : 10.0;
+              this.sceneManager.dioramaRoot.position.x -= stickX * panSpeed * dt;
+              this.sceneManager.dioramaRoot.position.z -= stickY * panSpeed * dt;
             }
           }
         }
 
-        // --- Right Controller: ROTATE & ZOOM ---
+        // --- Right Controller: Rotate & Zoom ---
         if (source.handedness === 'right' || source.handedness === 'none') {
           if (Math.abs(stickX) > 0.12) {
-            this.sceneManager.dioramaRoot.rotation.y -= stickX * 0.035;
+            const rotSpeed = 2.1; // rad/s
+            this.sceneManager.dioramaRoot.rotation.y -= stickX * rotSpeed * dt;
           }
           if (this.currentViewMode === 'diorama' && Math.abs(stickY) > 0.12) {
             const currentScale = this.sceneManager.dioramaRoot.scale.x;
-            const factor = 1 - stickY * 0.035;
-            const newScale = Math.max(0.000005, Math.min(0.05, currentScale * factor));
+            // Exponential time-based zoom
+            const zoomRate = Math.pow(0.25, stickY * dt);
+            const newScale = Math.max(MIN_DIORAMA_SCALE, Math.min(MAX_DIORAMA_SCALE, currentScale * zoomRate));
             this.sceneManager.dioramaRoot.scale.set(newScale, newScale, newScale);
           }
         }
       }
 
-      // 2. Button State Tracking & Edge Detection
       const b0_trigger = buttons[0]?.pressed || false;
       const b1_grip = (buttons[1]?.pressed || (buttons[1]?.value && buttons[1].value > 0.35)) || false;
       const b3_stickClick = buttons[3]?.pressed || false;
       const b4_primary = buttons[4]?.pressed || false;
       const b5_secondary = buttons[5]?.pressed || false;
 
-      // Controller Grip Interaction
       if (b1_grip) {
         if (!state.isGripping) {
           state.isGripping = true;
@@ -470,7 +466,6 @@ export class XRManager {
         }
       }
 
-      // Button Shortcuts
       if (b4_primary && !state.prevButtons[4]) {
         this.triggerHaptic(i, 0.7, 50);
         this.callbacks.onToggleViewMode?.();
@@ -486,7 +481,6 @@ export class XRManager {
         this.callbacks.onFocusHiker?.();
       }
 
-      // Laser Pointer Raycasting (HUD & terrain drag)
       this.updatePointerRaycast(i, state, b0_trigger, false);
 
       state.prevButtons[0] = b0_trigger;
@@ -497,11 +491,11 @@ export class XRManager {
       state.prevGripWorldPos.copy(currentGripWorld);
     }
 
-    // 2. WebXR Bare Hand Tracking & Pinch Detection
+    // 2. WebXR Hands
     const handGrabs = this.updateHands();
     activeGrabs.push(...handGrabs);
 
-    // 3. Unified 6DOF Diorama Manipulation (for bare hands and controllers)
+    // 3. Unified 6DOF Manipulation
     this.applyManipulation(activeGrabs);
   }
 
@@ -517,7 +511,6 @@ export class XRManager {
         continue;
       }
 
-      // Check if wrist is tracked to know if hand is in view
       const wrist = joints['wrist'];
       if (!wrist || !wrist.visible) {
         state.visualOutline.group.visible = false;
@@ -528,7 +521,6 @@ export class XRManager {
 
       state.visualOutline.group.visible = true;
 
-      // Update 25 joint positions (using preallocated vector map for zero heap allocation)
       for (const jointName of ALL_HAND_JOINTS) {
         const jointObj = joints[jointName];
         const pos = state.jointPosMap.get(jointName);
@@ -537,7 +529,6 @@ export class XRManager {
         }
       }
 
-      // Update 28 bone outline lines (smooth continuous holographic skeleton, no dots)
       const posArray = state.visualOutline.bonePositions.array as Float32Array;
       let vertIdx = 0;
       const wristFallback = state.jointPosMap.get('wrist') || _scratchV1.set(0, 0, 0);
@@ -561,10 +552,8 @@ export class XRManager {
         state.indexTipWorldPos.copy(indexTipPos);
 
         const pinchDist = thumbTipPos.distanceTo(indexTipPos);
-        // Robust pinch thresholds: 3.2cm engage, 4.5cm release (prevents zoom from dropping out during 2-hand gestures)
-        const isPinchingNow = state.isPinching
-          ? pinchDist <= 0.045
-          : pinchDist <= 0.032;
+        // Pure gesture math hysteresis evaluation
+        const isPinchingNow = evaluatePinchState(pinchDist, state.isPinching);
 
         _scratchV1.copy(thumbTipPos).add(indexTipPos).multiplyScalar(0.5);
         state.pinchWorldPos.copy(_scratchV1);
@@ -574,34 +563,42 @@ export class XRManager {
           state.wristWorldQuat.setFromRotationMatrix(wrist.matrixWorld);
         }
 
-        // Check direct touch / poke / grab interaction with Spatial HUD for THIS specific hand
         const isInteractingWithHUD = this.checkHandHUDInteraction(state, indexTipPos, isPinchingNow);
+        const isPointingAtHUD = this.handIsPointingAtHUD[i] || false;
+        const isPinchStarting = isPinchingNow && !state.isPinching;
 
-        if (isPinchingNow) {
+        if (isPinchStarting) {
+          // A pinch only grabs the diorama if it starts ON the diorama volume, NOT in mid-air, on lap, or while aiming at HUD / waypoints
+          if (!isInteractingWithHUD && !isPointingAtHUD && this.currentViewMode === 'diorama') {
+            state.isGrabbingDiorama = this.sceneManager.isPointOnDiorama(state.pinchWorldPos, 0.08);
+          } else {
+            state.isGrabbingDiorama = false;
+          }
+        } else if (!isPinchingNow) {
+          state.isGrabbingDiorama = false;
+        }
+
+        if (isPinchingNow && state.isGrabbingDiorama) {
           state.pinchReticle.position.copy(state.pinchWorldPos);
           state.pinchReticle.visible = true;
 
           const s = 1.0 + 0.2 * Math.sin(performance.now() * 0.012);
           state.pinchReticle.scale.set(s, s, s);
 
-          if (!state.isPinching) {
+          if (isPinchStarting) {
             state.prevPinchWorldPos.copy(state.pinchWorldPos);
             state.prevWristWorldPos.copy(state.wristWorldPos);
             state.prevWristWorldQuat.copy(state.wristWorldQuat);
           }
 
-          // EXCLUSIVITY: If hand is interacting with or repositioning the Spatial HUD,
-          // do NOT grab or drag the diorama!
-          if (!isInteractingWithHUD) {
-            activeGrabs.push({
-              id: `hand_${i}`,
-              source: 'hand',
-              worldPos: state.pinchWorldPos.clone(),
-              prevWorldPos: state.prevPinchWorldPos.clone(),
-              wristQuat: state.wristWorldQuat.clone(),
-              prevWristQuat: state.prevWristWorldQuat.clone(),
-            });
-          }
+          activeGrabs.push({
+            id: `hand_${i}`,
+            source: 'hand',
+            worldPos: state.pinchWorldPos.clone(),
+            prevWorldPos: state.prevPinchWorldPos.clone(),
+            wristQuat: state.wristWorldQuat.clone(),
+            prevWristQuat: state.prevWristWorldQuat.clone(),
+          });
         } else {
           state.pinchReticle.visible = false;
         }
@@ -612,6 +609,7 @@ export class XRManager {
         state.prevWristWorldQuat.copy(state.wristWorldQuat);
       } else {
         state.isPinching = false;
+        state.isGrabbingDiorama = false;
         state.pinchReticle.visible = false;
       }
     }
@@ -622,42 +620,46 @@ export class XRManager {
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
     if (!this.spatialHUD) return false;
 
-    // Convert world position of fingertip to local space of Spatial HUD
     const hudGroup = this.spatialHUD.group;
     const local = _scratchV1.copy(fingerPos);
     hudGroup.worldToLocal(local);
 
-    // 1. Check if user is grabbing the HUD top grab bar / handle
     const isNearGrabHandle = local.y >= 0.18 && local.y <= 0.38 && Math.abs(local.x) <= 0.38 && Math.abs(local.z) < 0.08;
     if (isNearGrabHandle && isPinching) {
       const camPos = this.sceneManager.camera.position;
       this.spatialHUD.group.position.copy(fingerPos).add(_scratchV2.set(0, -0.26, 0.05));
       this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
-      return true; // Exclude from diorama grab
+      return true;
     }
 
-    // Spatial HUD mesh is PlaneGeometry(0.8, 0.53) centered at origin
     const halfW = 0.40;
     const halfH = 0.265;
 
-    // Check if fingertip is within 5.5cm of HUD surface and within the card boundaries
     if (Math.abs(local.z) < 0.055 && Math.abs(local.x) <= halfW && Math.abs(local.y) <= halfH) {
-      // Normalized UV on HUD canvas: u in [0, 1] from left to right, v in [0, 1] from bottom to top
       const u = (local.x + halfW) / (2 * halfW);
       const v = (local.y + halfH) / (2 * halfH);
       const uv = _scratchV2D1.set(u, v);
 
       this.spatialHUD.onPointerHover(uv);
 
-      // Click when pinching or when finger pokes deeply into surface (< 1.5cm)
       const isPoke = local.z < 0.015 && local.z > -0.025;
       if ((isPinching || isPoke) && !state.isClickingHUD) {
         state.isClickingHUD = true;
         this.spatialHUD.onPointerClick(uv);
+      } else if (isPinching || isPoke) {
+        this.spatialHUD.onPointerDrag(uv);
       } else if (!isPinching && !isPoke) {
-        state.isClickingHUD = false;
+        if (state.isClickingHUD) {
+          state.isClickingHUD = false;
+          this.spatialHUD.onPointerRelease();
+        }
       }
-      return true; // Hand is engaged with HUD
+      return true;
+    }
+
+    if (state.isClickingHUD) {
+      state.isClickingHUD = false;
+      this.spatialHUD.onPointerRelease();
     }
     return false;
   }
@@ -665,109 +667,47 @@ export class XRManager {
   private applyManipulation(grabs: ActiveGrab[]): void {
     if (this.currentViewMode !== 'diorama') return;
 
+    const diorama = this.sceneManager.dioramaRoot;
+    const dioramaState: DioramaTransform = {
+      position: diorama.position,
+      rotationY: diorama.rotation.y,
+      rotationX: diorama.rotation.x,
+      scale: diorama.scale.x,
+    };
+
     if (grabs.length >= 2) {
-      // --- TWO-HANDED 6DOF MANIPULATION (MOVE + ROTATE YAW/PITCH + SCALE) ---
-      const g0 = grabs[0];
-      const g1 = grabs[1];
+      // Delegate to pure gesture math function
+      applyBimanualTransform(
+        dioramaState,
+        grabs[0].prevWorldPos,
+        grabs[1].prevWorldPos,
+        grabs[0].worldPos,
+        grabs[1].worldPos
+      );
 
-      const p0 = g0.worldPos;
-      const p1 = g1.worldPos;
-      const p0Prev = g0.prevWorldPos;
-      const p1Prev = g1.prevWorldPos;
-
-      const currentDist = p0.distanceTo(p1);
-      const prevDist = p0Prev.distanceTo(p1Prev);
-
-      const currentMid = _scratchV1.copy(p0).add(p1).multiplyScalar(0.5);
-      const prevMid = _scratchV2.copy(p0Prev).add(p1Prev).multiplyScalar(0.5);
-
-      // 1. Scale factor (stretch hands apart to expand/zoom in, squeeze hands together to shrink/zoom out)
-      let scaleFactor = 1.0;
-      if (prevDist > 0.03 && currentDist > 0.03) {
-        const rawFactor = currentDist / prevDist;
-        // Limit frame-to-frame delta to avoid sudden tracking spikes
-        scaleFactor = Math.max(0.65, Math.min(1.5, rawFactor));
+      diorama.rotation.y = dioramaState.rotationY;
+      if (dioramaState.rotationX !== undefined) {
+        diorama.rotation.x = dioramaState.rotationX;
       }
-
-      // 2. Horizontal (Yaw) & Vertical (Pitch) Rotation delta
-      const vPrev = _scratchV3.copy(p1Prev).sub(p0Prev);
-      const vCurr = p1.clone().sub(p0);
-      const anglePrev = Math.atan2(vPrev.x, vPrev.z);
-      const angleCurr = Math.atan2(vCurr.x, vCurr.z);
-      let deltaAngle = angleCurr - anglePrev;
-      while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
-      while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
-
-      // 3D Pitch: vertical inclination change between hands relative to depth
-      const deltaY = (p1.y - p1Prev.y) - (p0.y - p0Prev.y);
-      const sepZ = p1.z - p0.z;
-      let deltaPitch = 0;
-      if (Math.abs(sepZ) > 0.06) {
-        deltaPitch = -(deltaY / Math.abs(sepZ)) * Math.sign(sepZ) * 0.85;
-      }
-
-      // 3. Apply anchored 6DOF transform around hands' midpoint
-      const diorama = this.sceneManager.dioramaRoot;
-      const currentScale = diorama.scale.x;
-      const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
-      const effectiveScale = targetScale / currentScale;
-
-      // Offset from previous midpoint to diorama position
-      const offset = diorama.position.clone().sub(prevMid);
-      offset.multiplyScalar(effectiveScale);
-      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), deltaAngle);
-
-      // Update position, rotation, scale
-      diorama.position.copy(currentMid).add(offset);
-      diorama.rotation.y += deltaAngle;
-      if (Math.abs(deltaPitch) > 0.003) {
-        diorama.rotation.x = Math.max(-1.3, Math.min(1.3, diorama.rotation.x + deltaPitch));
-      }
-      diorama.scale.set(targetScale, targetScale, targetScale);
-
+      diorama.scale.set(dioramaState.scale, dioramaState.scale, dioramaState.scale);
     } else if (grabs.length === 1) {
-      // --- ONE-HANDED MANIPULATION (1:1 3D TRANSLATE + YAW & PITCH ROTATION) ---
       const g = grabs[0];
-      const deltaMove = g.worldPos.clone().sub(g.prevWorldPos);
-
-      // 1. 1:1 Translation in 3D
-      this.sceneManager.dioramaRoot.position.add(deltaMove);
-
-      // 2. Hand / Wrist twist yaw & pitch rotation
       if (g.wristQuat && g.prevWristQuat) {
-        const fPrev = _scratchV1.set(0, 0, -1).applyQuaternion(g.prevWristQuat);
-        const fCurr = _scratchV2.set(0, 0, -1).applyQuaternion(g.wristQuat);
-        const yawPrev = Math.atan2(fPrev.x, fPrev.z);
-        const yawCurr = Math.atan2(fCurr.x, fCurr.z);
-        let deltaYaw = yawCurr - yawPrev;
-        while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
-        while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
-
-        if (Math.abs(deltaYaw) > 0.005 && Math.abs(deltaYaw) < 0.4) {
-          this.sceneManager.dioramaRoot.rotation.y += deltaYaw * 0.95;
+        applyOneHandedManipulation(
+          dioramaState,
+          g.prevWorldPos,
+          g.worldPos,
+          g.prevWristQuat,
+          g.wristQuat
+        );
+        diorama.position.copy(dioramaState.position);
+        diorama.rotation.y = dioramaState.rotationY;
+        if (dioramaState.rotationX !== undefined) {
+          diorama.rotation.x = dioramaState.rotationX;
         }
-
-        // Wrist pitch tilt (allows looking down into canyons)
-        const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
-        const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
-        const deltaPitch = pitchCurr - pitchPrev;
-        if (Math.abs(deltaPitch) > 0.005 && Math.abs(deltaPitch) < 0.4) {
-          const diorama = this.sceneManager.dioramaRoot;
-          diorama.rotation.x = Math.max(-1.3, Math.min(1.3, diorama.rotation.x - deltaPitch * 0.9));
-        }
-      }
-
-      // 3. Orbit around center when dragging in an arc
-      const center = this.sceneManager.dioramaRoot.position;
-      const uPrev = _scratchV2D1.set(g.prevWorldPos.x - center.x, g.prevWorldPos.z - center.z);
-      const uCurr = _scratchV2D2.set(g.worldPos.x - center.x, g.worldPos.z - center.z);
-      if (uCurr.length() > 0.12 && uPrev.length() > 0.12) {
-        let arcDelta = Math.atan2(uCurr.x, uCurr.y) - Math.atan2(uPrev.x, uPrev.y);
-        while (arcDelta > Math.PI) arcDelta -= 2 * Math.PI;
-        while (arcDelta < -Math.PI) arcDelta += 2 * Math.PI;
-        if (Math.abs(arcDelta) > 0.008 && Math.abs(arcDelta) < 0.3) {
-          this.sceneManager.dioramaRoot.rotation.y += arcDelta * 0.6;
-        }
+      } else {
+        const delta = g.worldPos.clone().sub(g.prevWorldPos);
+        diorama.position.add(delta);
       }
     }
   }
@@ -784,7 +724,6 @@ export class XRManager {
     const rayOrigin = new THREE.Vector3().setFromMatrixPosition(state.controller.matrixWorld);
     const rayDir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix).normalize();
 
-    // 1. If currently dragging the HUD in 3D room space (physical controllers only)
     if (!isHand && state.isDraggingHUD && this.spatialHUD) {
       if (isTriggerDown) {
         const targetPos = rayOrigin.clone().addScaledVector(rayDir, state.hudDragDistance);
@@ -806,7 +745,6 @@ export class XRManager {
       }
     }
 
-    // 2. If currently dragging the terrain diorama (physical controllers only)
     if (!isHand && state.isDraggingTerrain && this.currentViewMode === 'diorama') {
       if (isTriggerDown) {
         const planeY = this.sceneManager.dioramaRoot.position.y;
@@ -840,7 +778,6 @@ export class XRManager {
       }
     }
 
-    // 3. Normal Raycasting against HUD
     this.raycaster.set(rayOrigin, rayDir);
     let hudHit: THREE.Intersection | null = null;
     let isHitGrabMesh = false;
@@ -859,6 +796,9 @@ export class XRManager {
     }
 
     if (hudHit) {
+      if (isHand) {
+        this.handIsPointingAtHUD[controllerIdx] = true;
+      }
       const hitDistance = hudHit.distance;
       state.rayLine.geometry.setFromPoints([
         new THREE.Vector3(0, 0, 0),
@@ -901,16 +841,55 @@ export class XRManager {
       return;
     }
 
-    // In hand mode when NOT pointing at the HUD:
-    // Hide ray line and reticle so they don't clutter the mountain diorama view!
+    if (this.currentViewMode === 'diorama') {
+      // 1. Raycast check for Waypoint Pins on Diorama (supported for both hands and controllers)
+      const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
+      if (wpGroup && wpGroup.children.length > 0) {
+        this.raycaster.set(rayOrigin, rayDir);
+        const wpHits = this.raycaster.intersectObjects(wpGroup.children, true);
+        if (wpHits.length > 0) {
+          let topObj: THREE.Object3D | null = wpHits[0].object;
+          while (topObj && !topObj.userData?.waypoint && topObj.parent && topObj !== wpGroup) {
+            topObj = topObj.parent;
+          }
+          const wp = topObj?.userData?.waypoint as { name: string } | undefined;
+          if (wp) {
+            if (isHand) {
+              this.handIsPointingAtHUD[controllerIdx] = true;
+            }
+            const dist = wpHits[0].distance;
+            state.rayLine.geometry.setFromPoints([
+              new THREE.Vector3(0, 0, 0),
+              new THREE.Vector3(0, 0, -dist),
+            ]);
+            state.rayLine.visible = true;
+            state.reticle.visible = true;
+            state.reticle.position.copy(wpHits[0].point);
+            if (wpHits[0].face) {
+              state.reticle.lookAt(wpHits[0].point.clone().add(wpHits[0].face.normal));
+            }
+            if (isTriggerDown && !state.prevButtons[0]) {
+              this.callbacks.onSelectWaypoint?.(wp.name);
+              this.triggerHaptic(controllerIdx, 1.0, 50);
+            }
+            return;
+          }
+        }
+      }
+    }
+
     if (isHand) {
+      this.handIsPointingAtHUD[controllerIdx] = false;
       state.rayLine.visible = false;
       state.reticle.visible = false;
+      if (state.prevButtons[0] && !isTriggerDown && this.spatialHUD) {
+        this.spatialHUD.onPointerRelease();
+      }
       return;
     }
 
-    // 4. Physical Controller: Raycast against Tabletop / Terrain Plane in diorama mode
     if (this.currentViewMode === 'diorama') {
+
       const planeY = this.sceneManager.dioramaRoot.position.y;
       let tableHit: THREE.Vector3 | null = null;
       if (rayDir.y < -0.01) {
@@ -941,7 +920,6 @@ export class XRManager {
       }
     }
 
-    // 5. Physical Controller: Default empty space ray
     state.rayLine.geometry.setFromPoints([
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(0, 0, -2.5),
@@ -965,5 +943,21 @@ export class XRManager {
     ) {
       source.gamepad.hapticActuators[0].pulse(intensity, durationMs);
     }
+  }
+
+  public dispose(): void {
+    for (const ctrl of this.controllers) {
+      disposeObject3D(ctrl.controller);
+      disposeObject3D(ctrl.grip);
+      disposeObject3D(ctrl.reticle);
+    }
+    this.controllers = [];
+
+    for (const h of this.hands) {
+      disposeObject3D(h.hand);
+      disposeObject3D(h.visualOutline.group);
+      disposeObject3D(h.pinchReticle);
+    }
+    this.hands = [];
   }
 }

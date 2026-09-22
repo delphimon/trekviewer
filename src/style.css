@@ -503,3 +503,12 @@ body, html {
     margin: 0 10px 10px 10px;
   }
 }
+
+.privacy-note,
+.attribution-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  opacity: 0.85;
+}
