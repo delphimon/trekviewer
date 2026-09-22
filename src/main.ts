@@ -9,6 +9,14 @@ import { XRManager } from './core/XRManager.ts';
 import { SpatialHUD } from './ui/SpatialHUD.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay.ts';
 
+export function resolveAssetUrl(path: string): string {
+  if (/^(https?:|blob:|data:)/i.test(path)) return path;
+  const cleanPath = path.replace(/^\/+/, '');
+  const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/';
+  const base = new URL(baseUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  return new URL(cleanPath, base).href;
+}
+
 class TrekViewerApp {
   private session: TrekSession;
   private sceneManager: SceneManager;
@@ -129,7 +137,7 @@ class TrekViewerApp {
 
   private async initRoutes(): Promise<void> {
     try {
-      const resp = await fetch('/routes/manifest.json');
+      const resp = await fetch(resolveAssetUrl('routes/manifest.json'));
       if (resp.ok) {
         this.manifest = await resp.json();
         this.overlay.setManifest(this.manifest);
@@ -143,12 +151,13 @@ class TrekViewerApp {
       }
     } catch (e) {
       console.warn('Failed to load route manifest, attempting direct Rainier load:', e);
-      await this.loadRouteByFile('/routes/MountRanierViaEmmons.gpx.gpx', 'Mount Rainier via Emmons', 'rainier-emmons');
+      await this.loadRouteByFile('/routes/MountRainierViaEmmons.gpx', 'Mount Rainier via Emmons', 'rainier-emmons');
     }
   }
 
   private async loadRouteByFile(url: string, fallbackName: string, routeId?: string): Promise<void> {
-    const trek = await this.routeLoader.loadRouteFromUrl(url, fallbackName, routeId ?? url);
+    const resolvedUrl = resolveAssetUrl(url);
+    const trek = await this.routeLoader.loadRouteFromUrl(resolvedUrl, fallbackName, routeId ?? url);
     if (trek) {
       this.onTrekLoaded(trek);
     }
@@ -528,6 +537,9 @@ class TrekViewerApp {
 }
 
 // Initialize on DOM load
-window.addEventListener('DOMContentLoaded', () => {
-  new TrekViewerApp();
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    new TrekViewerApp();
+  });
+}
+

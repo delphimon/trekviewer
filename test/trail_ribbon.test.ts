@@ -11,7 +11,7 @@ describe("trail ribbon", () => {
 console.log('--- Testing 2D Trail Ribbon & Alpine Hiker Beacon ---');
 
 // Parse a sample route
-const gpxPath = path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx');
+const gpxPath = path.resolve('public/routes/MountRainierViaEmmons.gpx');
 const xml = fs.readFileSync(gpxPath, 'utf8');
 const track = GPXParser.parse(xml, 'Rainier Test');
 

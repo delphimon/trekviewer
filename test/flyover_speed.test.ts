@@ -6,7 +6,7 @@ import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 
 describe('GPS Speed-Inferred Playback Simulation', () => {
   it('correctly parses track playback times and simulates flyover steps', () => {
-    const xml = fs.readFileSync('./public/routes/MountRanierViaEmmons.gpx.gpx', 'utf8');
+    const xml = fs.readFileSync('./public/routes/MountRainierViaEmmons.gpx', 'utf8');
     const track = GPXParser.parse(xml, 'Mount Rainier via Emmons');
 
     if (track.totalPlaybackSeconds <= 0) {

@@ -10,10 +10,7 @@ function assert(condition: boolean, msg: string) {
 describe('GPX Parser with Real Routes', () => {
   it('parses real mountain GPX files and resamples elevation profile', () => {
     // 1. Mount Rainier via Emmons
-    const rainierFile = fs.existsSync('public/routes/MountRanierViaEmmons.gpx.gpx')
-      ? 'public/routes/MountRanierViaEmmons.gpx.gpx'
-      : 'routes/MountRanierViaEmmons.gpx.gpx';
-    const rainierPath = path.resolve(rainierFile);
+    const rainierPath = path.resolve('public/routes/MountRainierViaEmmons.gpx');
     const rainierXML = fs.readFileSync(rainierPath, 'utf8');
     const rainierTrack = GPXParser.parse(rainierXML);
 
@@ -31,10 +28,7 @@ assert(rainierTrack.elevationGain > 2800, 'Rainier Emmons climb gain > 2,800m');
 assert(rainierTrack.totalDistance > 15000, 'Total roundtrip distance > 15 km');
 
     // 2. Enchantments & Dragontail Peak
-    const enchantFile = fs.existsSync('public/routes/EnchantmentsAndDragontail.gpx')
-      ? 'public/routes/EnchantmentsAndDragontail.gpx'
-      : 'routes/EnchantmentsAndDragontail.gpx';
-    const enchantPath = path.resolve(enchantFile);
+    const enchantPath = path.resolve('public/routes/EnchantmentsAndDragontail.gpx');
     const enchantXML = fs.readFileSync(enchantPath, 'utf8');
     const enchantTrack = GPXParser.parse(enchantXML);
 

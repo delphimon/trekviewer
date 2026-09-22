@@ -12,7 +12,7 @@ describe("hybrid and color", () => {
 console.log('--- Testing Hybrid Map View, Trail Color Modes & Radiant Hiker Beacon ---');
 
 // 1. Load test trek (Mount Rainier via Emmons)
-const rainierXml = fs.readFileSync(path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx'), 'utf8');
+const rainierXml = fs.readFileSync(path.resolve('public/routes/MountRainierViaEmmons.gpx'), 'utf8');
 const track = GPXParser.parse(rainierXml, 'Mount Rainier via Emmons');
 
 // 2. Test Trail Mesh creation and default color mode
