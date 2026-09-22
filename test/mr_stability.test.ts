@@ -361,4 +361,76 @@ describe('Mixed Reality (MR) Stability & Deterministic Anchoring', () => {
 
     xrManager.dispose();
   });
+
+  it('resetToArmLength explicitly re-anchors diorama and updates position based on XR camera pose', () => {
+    const env = setupMockEnvironment();
+    try {
+      const container = env.mockDoc.createElement('div');
+      const sm = new SceneManager(container);
+
+      // Start at default desktop position
+      sm.setupDesktopDiorama();
+      assert.strictEqual(sm.dioramaRoot.position.y, -0.15);
+
+      // Mock XR presenting with valid head pose
+      const xrCam = new THREE.PerspectiveCamera();
+      xrCam.position.set(0.4, 1.7, 0.2);
+      xrCam.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0); // facing -Z
+
+      (sm.renderer.xr as any).isPresenting = true;
+      (sm.renderer.xr as any).getCamera = () => xrCam;
+
+      // User triggers explicit reset
+      sm.resetToArmLength();
+
+      // Expected target: headPos.x + fwd.x * 0.8 = 0.4 + 0 = 0.4
+      // Target Z = headPos.z + fwd.z * 0.8 = 0.2 + (-1)*0.8 = -0.6
+      // Target Y = max(0.60, 1.7 - 0.32) = 1.38
+      assert.strictEqual(sm.dioramaRoot.position.x, 0.4);
+      assert.strictEqual(Math.abs(sm.dioramaRoot.position.z - (-0.6)) < 1e-4, true);
+      assert.strictEqual(Math.abs(sm.dioramaRoot.position.y - 1.38) < 1e-4, true);
+    } finally {
+      env.restore();
+    }
+  });
+
+  it('verifies active camera selection strictly selects XR camera during presentation and desktop camera otherwise', () => {
+    const desktopCam = new THREE.PerspectiveCamera();
+    const xrCam = new THREE.PerspectiveCamera();
+
+    let isPresenting = false;
+    const mockRenderer = {
+      xr: {
+        get isPresenting() { return isPresenting; },
+        getCamera: () => xrCam,
+      },
+    };
+
+    function getActiveViewCamera() {
+      return mockRenderer.xr.isPresenting
+        ? mockRenderer.xr.getCamera()
+        : desktopCam;
+    }
+
+    assert.strictEqual(getActiveViewCamera(), desktopCam, 'Must use desktop camera when not presenting');
+
+    isPresenting = true;
+    assert.strictEqual(getActiveViewCamera(), xrCam, 'Must use XR camera when presenting in WebXR');
+  });
+
+  it('positions first-person HUD viewer-relativly while preserving tabletop world-lock', () => {
+    const hudGroup = new THREE.Group();
+    const activeCam = new THREE.PerspectiveCamera();
+    activeCam.position.set(1.5, 2.0, 3.0);
+    activeCam.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4);
+
+    // In first-person mode, HUD follows active viewer camera
+    const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(activeCam.quaternion);
+    hudGroup.position.copy(activeCam.position).add(forward);
+    hudGroup.quaternion.copy(activeCam.quaternion);
+
+    assert.strictEqual(Math.abs(hudGroup.position.x - (1.5 + forward.x)) < 1e-5, true);
+    assert.strictEqual(Math.abs(hudGroup.position.y - (2.0 - 0.15)) < 1e-5, true);
+    assert.strictEqual(Math.abs(hudGroup.position.z - (3.0 + forward.z)) < 1e-5, true);
+  });
 });

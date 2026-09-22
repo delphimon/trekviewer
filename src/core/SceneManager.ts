@@ -112,6 +112,10 @@ export class SceneManager {
     }
   }
 
+  public isPassthrough(): boolean {
+    return this.isPassthroughActive;
+  }
+
   public setXREnergyMode(inXR: boolean): void {
     if (inXR) {
       // Power efficiency for Meta Quest: disable dynamic 2048x2048 shadow map pass

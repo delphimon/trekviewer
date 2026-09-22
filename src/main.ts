@@ -8,6 +8,7 @@ import { SceneManager, type XRAnchorPose } from './core/SceneManager.ts';
 import { XRManager } from './core/XRManager.ts';
 import { SpatialHUD } from './ui/SpatialHUD.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay.ts';
+import { XRDebugPanel } from './ui/XRDebugPanel.ts';
 
 type XRAnchorState = 'not-presenting' | 'waiting-for-pose' | 'anchored';
 
@@ -28,6 +29,7 @@ class TrekViewerApp {
   private controls: OrbitControls;
 
   private spatialHUD: SpatialHUD | null = null;
+  private debugPanel: XRDebugPanel | null = null;
   private manifest: RouteManifestItem[] = [];
   private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
   private lastTimestamp: number = performance.now();
@@ -144,7 +146,13 @@ class TrekViewerApp {
     // 7. Load Manifest and Initial Track
     this.initRoutes();
 
-    // 8. Start WebXR Animation Loop
+    // 8. Debug Diagnostics Panel (?debug=1)
+    if (this.isDebugMode) {
+      this.debugPanel = new XRDebugPanel();
+      this.sceneManager.scene.add(this.debugPanel.group);
+    }
+
+    // 9. Start WebXR Animation Loop
     this.sceneManager.renderer.setAnimationLoop(this.animate.bind(this));
   }
 
@@ -649,7 +657,44 @@ class TrekViewerApp {
       this.spatialHUD.group.quaternion.copy(activeCam.quaternion);
     }
 
-    // 5. Render Scene
+    // 5. Update Debug Diagnostics Panel if ?debug=1 active
+    if (this.debugPanel) {
+      const activeCam = this.getActiveViewCamera();
+      const state = this.session.getState();
+      const dioramaPos = this.sceneManager.dioramaRoot.position;
+      const dioramaRotY = this.sceneManager.dioramaRoot.rotation.y;
+      const dioramaScale = this.sceneManager.dioramaRoot.scale.x;
+      const hudPos = this.spatialHUD ? this.spatialHUD.group.position : new THREE.Vector3();
+
+      if (this.spatialHUD) {
+        this.debugPanel.group.position.copy(this.spatialHUD.group.position).add(new THREE.Vector3(0, -0.38, 0));
+        this.debugPanel.group.quaternion.copy(this.spatialHUD.group.quaternion);
+      } else {
+        const forward = new THREE.Vector3(0, -0.3, -1.2).applyQuaternion(activeCam.quaternion);
+        this.debugPanel.group.position.copy(activeCam.position).add(forward);
+        this.debugPanel.group.quaternion.copy(activeCam.quaternion);
+      }
+
+      this.debugPanel.update({
+        isPresenting: this.sceneManager.renderer.xr.isPresenting,
+        isPassthrough: this.sceneManager.isPassthrough(),
+        anchorState: this.xrAnchorState,
+        headPos: activeCam.position,
+        dioramaPos,
+        dioramaRotY,
+        dioramaScale,
+        dioramaVersion: this.dioramaTransformVersion,
+        hudPos,
+        viewMode: state.viewMode,
+        activeRouteId: state.activeRouteId || '',
+        loadingPhase: state.loadingPhase,
+        drawCalls: this.sceneManager.renderer.info.render.calls,
+        textures: this.sceneManager.renderer.info.memory.textures,
+        fps: delta > 0 ? 1 / delta : 0,
+      }, now);
+    }
+
+    // 6. Render Scene
     this.sceneManager.render();
   }
 }
