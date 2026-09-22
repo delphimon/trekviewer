@@ -103,14 +103,27 @@ export const BONE_CONNECTIONS: [string, string][] = [
 
 export interface HandVisualOutline {
   group: THREE.Group;
-  jointMeshes: Map<string, THREE.Mesh>;
   boneLines: THREE.LineSegments;
   bonePositions: THREE.BufferAttribute;
 }
 
 const _scratchV1 = new THREE.Vector3();
 const _scratchV2 = new THREE.Vector3();
+const _scratchV3 = new THREE.Vector3();
+const _scratchV4 = new THREE.Vector3();
+const _scratchV5 = new THREE.Vector3();
 const _scratchV2D1 = new THREE.Vector2();
+const _scratchQuat1 = new THREE.Quaternion();
+const _scratchQuat2 = new THREE.Quaternion();
+const _scratchMat1 = new THREE.Matrix4();
+
+function updateRayLineLength(line: THREE.Line, length: number): void {
+  const posAttr = line.geometry.attributes.position as THREE.BufferAttribute;
+  if (!posAttr) return;
+  posAttr.setXYZ(0, 0, 0, 0);
+  posAttr.setXYZ(1, 0, 0, -length);
+  posAttr.needsUpdate = true;
+}
 
 export interface HandState {
   hand: THREE.XRHandSpace;
@@ -137,7 +150,9 @@ interface ControllerState {
   reticle: THREE.Mesh;
   inputSource: any;
   prevButtons: boolean[];
+  currentGripWorldPos: THREE.Vector3;
   prevGripWorldPos: THREE.Vector3;
+  gripWorldQuat: THREE.Quaternion;
   isGripping: boolean;
   isDraggingHUD: boolean;
   hudDragDistance: number;
@@ -151,6 +166,7 @@ export class XRManager {
   private renderer: THREE.WebGLRenderer;
   private controllers: ControllerState[] = [];
   private hands: HandState[] = [];
+  private activeGrabs: ActiveGrab[] = [];
   private raycaster: THREE.Raycaster;
   private spatialHUD: SpatialHUD | null = null;
   private currentViewMode: 'diorama' | 'first-person' | 'flyover' = 'diorama';
@@ -165,6 +181,10 @@ export class XRManager {
     this.raycaster = new THREE.Raycaster();
     this.setupControllers();
     this.setupHands();
+
+    this.renderer.xr.addEventListener('sessionend', () => {
+      this.resetInteractionState();
+    });
   }
 
   public setCallbacks(cb: XRInteractionCallbacks): void {
@@ -185,10 +205,11 @@ export class XRManager {
       controller.name = `ControllerRay_${i}`;
       this.sceneManager.scene.add(controller);
 
-      const rayGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -2.5),
-      ]);
+      const rayGeo = new THREE.BufferGeometry();
+      rayGeo.setAttribute(
+        'position',
+        new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, -2.5]), 3)
+      );
       const rayMat = new THREE.LineBasicMaterial({
         color: 0x38bdf8,
         transparent: true,
@@ -220,7 +241,9 @@ export class XRManager {
         reticle,
         inputSource: null,
         prevButtons: [false, false, false, false, false, false, false, false],
+        currentGripWorldPos: new THREE.Vector3(),
         prevGripWorldPos: new THREE.Vector3(),
+        gripWorldQuat: new THREE.Quaternion(),
         isGripping: false,
         isDraggingHUD: false,
         hudDragDistance: 1.0,
@@ -257,26 +280,8 @@ export class XRManager {
       visualOutlineGroup.visible = false;
       this.sceneManager.scene.add(visualOutlineGroup);
 
-      const jointMeshes = new Map<string, THREE.Mesh>();
       const jointPosMap = new Map<string, THREE.Vector3>();
       for (const jointName of ALL_HAND_JOINTS) {
-        const isTip = jointName.endsWith('-tip');
-        const isWrist = jointName === 'wrist';
-        const isKnuckle = jointName.endsWith('-metacarpal');
-
-        const radius = isWrist ? 0.008 : isTip ? 0.0065 : isKnuckle ? 0.0055 : 0.0045;
-        const color = isTip ? 0xffffff : isKnuckle ? 0x0284c7 : 0x38bdf8;
-
-        const sphereGeo = new THREE.SphereGeometry(radius, 8, 8);
-        const sphereMat = new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 0.95,
-          depthTest: false,
-        });
-        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
-        mesh.visible = false;
-        jointMeshes.set(jointName, mesh);
         jointPosMap.set(jointName, new THREE.Vector3());
       }
 
@@ -312,7 +317,6 @@ export class XRManager {
         pinchReticle,
         visualOutline: {
           group: visualOutlineGroup,
-          jointMeshes,
           boneLines,
           bonePositions: boneGeo.getAttribute('position') as THREE.BufferAttribute,
         },
@@ -353,7 +357,7 @@ export class XRManager {
 
     // Clamp deltaSeconds to prevent tunneling or huge leaps on lag spikes
     const dt = Math.max(0.001, Math.min(0.1, deltaSeconds));
-    const activeGrabs: ActiveGrab[] = [];
+    this.activeGrabs.length = 0;
 
     // 1. Controller Inputs & Laser Pointing
     for (let i = 0; i < this.controllers.length; i++) {
@@ -386,7 +390,8 @@ export class XRManager {
       const axes = source.gamepad.axes;
       const buttons = source.gamepad.buttons;
 
-      const currentGripWorld = new THREE.Vector3().setFromMatrixPosition(state.grip.matrixWorld);
+      state.currentGripWorldPos.setFromMatrixPosition(state.grip.matrixWorld);
+      const currentGripWorld = state.currentGripWorldPos;
 
       // Frame-rate independent thumbstick navigation
       if (axes.length >= 4) {
@@ -448,14 +453,14 @@ export class XRManager {
           this.triggerHaptic(i, 0.7, 35);
         }
 
-        const gripQuat = new THREE.Quaternion().setFromRotationMatrix(state.grip.matrixWorld);
-        activeGrabs.push({
+        state.gripWorldQuat.setFromRotationMatrix(state.grip.matrixWorld);
+        this.activeGrabs.push({
           id: `controller_${i}`,
           source: 'controller',
-          worldPos: currentGripWorld.clone(),
-          prevWorldPos: state.prevGripWorldPos.clone(),
-          wristQuat: gripQuat,
-          prevWristQuat: gripQuat,
+          worldPos: currentGripWorld,
+          prevWorldPos: state.prevGripWorldPos,
+          wristQuat: state.gripWorldQuat,
+          prevWristQuat: state.gripWorldQuat,
         });
 
         state.prevGripWorldPos.copy(currentGripWorld);
@@ -492,16 +497,13 @@ export class XRManager {
     }
 
     // 2. WebXR Hands
-    const handGrabs = this.updateHands();
-    activeGrabs.push(...handGrabs);
+    this.updateHands();
 
     // 3. Unified 6DOF Manipulation
-    this.applyManipulation(activeGrabs);
+    this.applyManipulation(this.activeGrabs);
   }
 
-  private updateHands(): ActiveGrab[] {
-    const activeGrabs: ActiveGrab[] = [];
-
+  private updateHands(): void {
     for (let i = 0; i < this.hands.length; i++) {
       const state = this.hands[i];
       const hand = state.hand;
@@ -591,13 +593,13 @@ export class XRManager {
             state.prevWristWorldQuat.copy(state.wristWorldQuat);
           }
 
-          activeGrabs.push({
+          this.activeGrabs.push({
             id: `hand_${i}`,
             source: 'hand',
-            worldPos: state.pinchWorldPos.clone(),
-            prevWorldPos: state.prevPinchWorldPos.clone(),
-            wristQuat: state.wristWorldQuat.clone(),
-            prevWristQuat: state.prevWristWorldQuat.clone(),
+            worldPos: state.pinchWorldPos,
+            prevWorldPos: state.prevPinchWorldPos,
+            wristQuat: state.wristWorldQuat,
+            prevWristQuat: state.prevWristWorldQuat,
           });
         } else {
           state.pinchReticle.visible = false;
@@ -613,8 +615,6 @@ export class XRManager {
         state.pinchReticle.visible = false;
       }
     }
-
-    return activeGrabs;
   }
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
@@ -706,7 +706,7 @@ export class XRManager {
           diorama.rotation.x = dioramaState.rotationX;
         }
       } else {
-        const delta = g.worldPos.clone().sub(g.prevWorldPos);
+        const delta = _scratchV1.copy(g.worldPos).sub(g.prevWorldPos);
         diorama.position.add(delta);
       }
     }
@@ -718,23 +718,20 @@ export class XRManager {
     isTriggerDown: boolean,
     isHand: boolean = false
   ): void {
-    const tempMatrix = new THREE.Matrix4();
+    const tempMatrix = _scratchMat1;
     tempMatrix.identity().extractRotation(state.controller.matrixWorld);
 
-    const rayOrigin = new THREE.Vector3().setFromMatrixPosition(state.controller.matrixWorld);
-    const rayDir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix).normalize();
+    const rayOrigin = _scratchV1.setFromMatrixPosition(state.controller.matrixWorld);
+    const rayDir = _scratchV2.set(0, 0, -1).applyMatrix4(tempMatrix).normalize();
 
     if (!isHand && state.isDraggingHUD && this.spatialHUD) {
       if (isTriggerDown) {
-        const targetPos = rayOrigin.clone().addScaledVector(rayDir, state.hudDragDistance);
+        const targetPos = _scratchV3.copy(rayOrigin).addScaledVector(rayDir, state.hudDragDistance);
         this.spatialHUD.group.position.copy(targetPos);
         const camPos = this.sceneManager.camera.position;
         this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
 
-        state.rayLine.geometry.setFromPoints([
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(0, 0, -state.hudDragDistance),
-        ]);
+        updateRayLineLength(state.rayLine, state.hudDragDistance);
         state.rayLine.visible = true;
         state.reticle.visible = true;
         state.reticle.position.copy(this.spatialHUD.grabMesh.position).applyMatrix4(this.spatialHUD.group.matrixWorld);
@@ -752,7 +749,7 @@ export class XRManager {
         if (rayDir.y < -0.01) {
           const t = (planeY - rayOrigin.y) / rayDir.y;
           if (t > 0 && t < 15) {
-            newHit = rayOrigin.clone().addScaledVector(rayDir, t);
+            newHit = _scratchV3.copy(rayOrigin).addScaledVector(rayDir, t);
           }
         }
 
@@ -763,10 +760,7 @@ export class XRManager {
           this.sceneManager.dioramaRoot.position.z = state.terrainDragStartDioramaPos.z + deltaZ;
 
           const dist = rayOrigin.distanceTo(newHit);
-          state.rayLine.geometry.setFromPoints([
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 0, -dist),
-          ]);
+          updateRayLineLength(state.rayLine, dist);
           state.rayLine.visible = true;
           state.reticle.visible = true;
           state.reticle.position.copy(newHit);
@@ -800,15 +794,13 @@ export class XRManager {
         this.handIsPointingAtHUD[controllerIdx] = true;
       }
       const hitDistance = hudHit.distance;
-      state.rayLine.geometry.setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -hitDistance),
-      ]);
+      updateRayLineLength(state.rayLine, hitDistance);
       state.rayLine.visible = true;
       state.reticle.visible = true;
       state.reticle.position.copy(hudHit.point);
       if (hudHit.face) {
-        state.reticle.lookAt(hudHit.point.clone().add(hudHit.face.normal));
+        _scratchV3.copy(hudHit.point).add(hudHit.face.normal);
+        state.reticle.lookAt(_scratchV3);
       }
 
       if (!isHand && (isHitGrabMesh || (hudHit.uv && this.spatialHUD!.isHoveringDragHandle()))) {
@@ -858,15 +850,13 @@ export class XRManager {
               this.handIsPointingAtHUD[controllerIdx] = true;
             }
             const dist = wpHits[0].distance;
-            state.rayLine.geometry.setFromPoints([
-              new THREE.Vector3(0, 0, 0),
-              new THREE.Vector3(0, 0, -dist),
-            ]);
+            updateRayLineLength(state.rayLine, dist);
             state.rayLine.visible = true;
             state.reticle.visible = true;
             state.reticle.position.copy(wpHits[0].point);
             if (wpHits[0].face) {
-              state.reticle.lookAt(wpHits[0].point.clone().add(wpHits[0].face.normal));
+              _scratchV3.copy(wpHits[0].point).add(wpHits[0].face.normal);
+              state.reticle.lookAt(_scratchV3);
             }
             if (isTriggerDown && !state.prevButtons[0]) {
               this.callbacks.onSelectWaypoint?.(wp.name);
@@ -889,26 +879,23 @@ export class XRManager {
     }
 
     if (this.currentViewMode === 'diorama') {
-
       const planeY = this.sceneManager.dioramaRoot.position.y;
       let tableHit: THREE.Vector3 | null = null;
       if (rayDir.y < -0.01) {
         const t = (planeY - rayOrigin.y) / rayDir.y;
         if (t > 0 && t < 12) {
-          tableHit = rayOrigin.clone().addScaledVector(rayDir, t);
+          tableHit = _scratchV3.copy(rayOrigin).addScaledVector(rayDir, t);
         }
       }
 
       if (tableHit) {
         const dist = rayOrigin.distanceTo(tableHit);
-        state.rayLine.geometry.setFromPoints([
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(0, 0, -dist),
-        ]);
+        updateRayLineLength(state.rayLine, dist);
         state.rayLine.visible = true;
         state.reticle.visible = true;
         state.reticle.position.copy(tableHit);
-        state.reticle.lookAt(tableHit.clone().add(new THREE.Vector3(0, 1, 0)));
+        _scratchV4.copy(tableHit).add(_scratchV5.set(0, 1, 0));
+        state.reticle.lookAt(_scratchV4);
 
         if (isTriggerDown && !state.prevButtons[0]) {
           state.isDraggingTerrain = true;
@@ -920,14 +907,36 @@ export class XRManager {
       }
     }
 
-    state.rayLine.geometry.setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -2.5),
-    ]);
+    updateRayLineLength(state.rayLine, 2.5);
     state.rayLine.visible = true;
     state.reticle.visible = false;
 
     if (state.prevButtons[0] && !isTriggerDown && this.spatialHUD) {
+      this.spatialHUD.onPointerRelease();
+    }
+  }
+
+  public resetInteractionState(): void {
+    for (let i = 0; i < this.controllers.length; i++) {
+      const c = this.controllers[i];
+      c.isGripping = false;
+      c.isDraggingHUD = false;
+      c.isDraggingTerrain = false;
+      c.prevButtons.fill(false);
+      c.rayLine.visible = false;
+      c.reticle.visible = false;
+    }
+    for (let i = 0; i < this.hands.length; i++) {
+      const h = this.hands[i];
+      h.isPinching = false;
+      h.isGrabbingDiorama = false;
+      h.isClickingHUD = false;
+      h.pinchReticle.visible = false;
+      h.visualOutline.group.visible = false;
+    }
+    this.handIsPointingAtHUD[0] = false;
+    this.handIsPointingAtHUD[1] = false;
+    if (this.spatialHUD) {
       this.spatialHUD.onPointerRelease();
     }
   }
@@ -946,6 +955,7 @@ export class XRManager {
   }
 
   public dispose(): void {
+    this.resetInteractionState();
     for (const ctrl of this.controllers) {
       disposeObject3D(ctrl.controller);
       disposeObject3D(ctrl.grip);
