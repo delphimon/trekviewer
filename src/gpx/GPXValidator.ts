@@ -1,10 +1,13 @@
 import { haversineDistance } from './Coordinates.ts';
 
+export type ElevationProvenance = 'gpx' | 'dem' | 'interpolated' | 'fallback';
+
 export interface RawTrackPoint {
   lat: number;
   lon: number;
   ele?: number;
   rawEle?: number;
+  elevationProvenance?: ElevationProvenance;
   time?: Date;
   hr?: number;
   cad?: number;
@@ -86,6 +89,14 @@ export class GPXValidator {
         ele = undefined;
       }
 
+      // Check timestamp validity
+      let validTime = pt.time;
+      if (validTime) {
+        if (!(validTime instanceof Date) || !Number.isFinite(validTime.getTime())) {
+          validTime = undefined;
+        }
+      }
+
       // Check Pathological coordinate jumps (> 50km between consecutive points)
       if (prevPoint) {
         const d = haversineDistance(prevPoint.lat, prevPoint.lon, pt.lat, pt.lon);
@@ -103,7 +114,7 @@ export class GPXValidator {
         }
 
         // Check timestamp monotonicity
-        if (prevPoint.time && pt.time && pt.time.getTime() < prevPoint.time.getTime()) {
+        if (prevPoint.time && validTime && validTime.getTime() < prevPoint.time.getTime()) {
           nonMonotonicTimeCount++;
         }
       }
@@ -113,7 +124,8 @@ export class GPXValidator {
         lon: pt.lon,
         ele,
         rawEle: pt.rawEle !== undefined ? pt.rawEle : (ele !== undefined ? ele : undefined),
-        time: pt.time,
+        elevationProvenance: ele !== undefined ? 'gpx' : undefined,
+        time: validTime,
         hr: pt.hr,
         cad: pt.cad,
       };

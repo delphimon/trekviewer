@@ -3,6 +3,13 @@ import { haversineDistance } from './Coordinates.ts';
 import { calculateElevationStats } from './ElevationStats.ts';
 import { GPXValidator, type RawTrackPoint } from './GPXValidator.ts';
 
+export interface RawParsedGPX {
+  trackName: string;
+  rawSegments: RawTrackPoint[][];
+  waypoints: GPXWaypoint[];
+  warnings: string[];
+}
+
 export class GPXParser {
   /**
    * Parses raw GPX XML string into TrackStats preserving <trkseg> boundaries,
@@ -13,6 +20,19 @@ export class GPXParser {
     fallbackName?: string,
     demElevationSampler?: (lat: number, lon: number) => number | undefined
   ): TrackStats {
+    const raw = this.parseRaw(xmlContent, fallbackName);
+    return this.finalizeWithDEM(raw, demElevationSampler);
+  }
+
+  /**
+   * Phase 1: Validates XML structure, checks 25MB file limit, extracts coordinates,
+   * timestamps, and waypoints without requiring DEM.
+   */
+  public static parseRaw(xmlContent: string, fallbackName?: string): RawParsedGPX {
+    if (xmlContent.length > 25 * 1024 * 1024) {
+      throw new Error('GPX file exceeds 25 MB limit.');
+    }
+
     let trackName = fallbackName || 'Unnamed Trek';
     const rawSegments: RawTrackPoint[][] = [];
     const waypoints: GPXWaypoint[] = [];
@@ -141,7 +161,80 @@ export class GPXParser {
       throw new Error('Valid GPS points could not be extracted after filtering.');
     }
 
-    // 1. Missing Elevation Normalization
+    return {
+      trackName,
+      rawSegments: validatedSegments,
+      waypoints,
+      warnings: Array.from(new Set(allWarnings)),
+    };
+  }
+
+  /**
+   * Computes geographic bounds from raw parsed segments without requiring normalized elevations.
+   */
+  public static calculateRawBounds(raw: RawParsedGPX): GeoBounds {
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minEle = Infinity;
+    let maxEle = -Infinity;
+
+    for (const seg of raw.rawSegments) {
+      for (const p of seg) {
+        minLat = Math.min(minLat, p.lat);
+        maxLat = Math.max(maxLat, p.lat);
+        minLon = Math.min(minLon, p.lon);
+        maxLon = Math.max(maxLon, p.lon);
+        if (p.ele !== undefined) {
+          minEle = Math.min(minEle, p.ele);
+          maxEle = Math.max(maxEle, p.ele);
+        }
+      }
+    }
+
+    if (!isFinite(minEle)) minEle = 0;
+    if (!isFinite(maxEle)) maxEle = 1000;
+
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLon = (minLon + maxLon) / 2;
+    const widthMeters = haversineDistance(centerLat, minLon, centerLat, maxLon);
+    const depthMeters = haversineDistance(minLat, centerLon, maxLat, centerLon);
+    const elevationSpan = Math.max(maxEle - minEle, 10);
+
+    return {
+      minLat,
+      maxLat,
+      minLon,
+      maxLon,
+      minEle,
+      maxEle,
+      centerLat,
+      centerLon,
+      widthMeters,
+      depthMeters,
+      elevationSpan,
+    };
+  }
+
+  /**
+   * Phase 2: Finalizes track by normalizing missing elevations using DEM elevation sampler,
+   * building segments, calculating distance & elevation metrics, and deriving semantic landmarks.
+   */
+  public static finalizeWithDEM(
+    raw: RawParsedGPX,
+    demElevationSampler?: (lat: number, lon: number) => number | undefined
+  ): TrackStats {
+    const trackName = raw.trackName;
+    const waypoints = raw.waypoints;
+    const allWarnings = [...raw.warnings];
+
+    // Clone raw segments so raw data can be re-finalized if needed
+    const validatedSegments: RawTrackPoint[][] = raw.rawSegments.map((seg) =>
+      seg.map((p) => ({ ...p }))
+    );
+
+    // 1. Missing Elevation Normalization with provenance tracking
     this.normalizeElevations(validatedSegments, demElevationSampler);
 
     // 2. Build TrackPoints and Segments preserving boundaries
@@ -235,6 +328,7 @@ export class GPXParser {
           lon: cur.lon,
           ele,
           rawEle: cur.rawEle,
+          elevationProvenance: cur.elevationProvenance,
           time: cur.time,
           distanceFromStart: cumulativeDistance,
           elapsedSeconds: cumulativeElapsedSeconds,
@@ -397,6 +491,7 @@ export class GPXParser {
             const demEle = demSampler(pt.lat, pt.lon);
             if (demEle !== undefined && !isNaN(demEle) && isFinite(demEle)) {
               pt.ele = demEle;
+              pt.elevationProvenance = 'dem';
             }
           }
         }
@@ -407,6 +502,9 @@ export class GPXParser {
       let firstValidIdx = -1;
       for (let i = 0; i < seg.length; i++) {
         if (seg[i].ele !== undefined) {
+          if (!seg[i].elevationProvenance) {
+            seg[i].elevationProvenance = 'gpx';
+          }
           if (firstValidIdx === -1) {
             firstValidIdx = i;
           }
@@ -417,6 +515,7 @@ export class GPXParser {
             for (let j = lastValidIdx + 1; j < i; j++) {
               const alpha = (j - lastValidIdx) / span;
               seg[j].ele = startEle + alpha * (endEle - startEle);
+              seg[j].elevationProvenance = 'interpolated';
             }
           }
           lastValidIdx = i;
@@ -428,16 +527,19 @@ export class GPXParser {
         const firstValidEle = seg[firstValidIdx].ele!;
         for (let i = 0; i < firstValidIdx; i++) {
           seg[i].ele = firstValidEle;
+          seg[i].elevationProvenance = 'interpolated';
         }
         // Handle trailing points missing elevation
         const lastValidEle = seg[lastValidIdx].ele!;
         for (let i = lastValidIdx + 1; i < seg.length; i++) {
           seg[i].ele = lastValidEle;
+          seg[i].elevationProvenance = 'interpolated';
         }
       } else {
         // Entire segment had NO elevation at all: default to 1000m fallback
         for (const pt of seg) {
           pt.ele = 1000.0;
+          pt.elevationProvenance = 'fallback';
         }
       }
     }

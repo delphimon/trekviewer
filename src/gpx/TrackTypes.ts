@@ -3,6 +3,7 @@ export interface GPXPoint {
   lon: number;
   ele: number; // meters (normalized)
   rawEle?: number; // original elevation if present
+  elevationProvenance?: 'gpx' | 'dem' | 'interpolated' | 'fallback';
   time?: Date;
   distanceFromStart: number; // cumulative distance in meters across the whole trek
   elapsedSeconds: number; // raw seconds from start

@@ -14,6 +14,7 @@ export interface TerrainResult {
   bounds: GeoBounds;
   terrainBaseElevation: number;
   terrainQuality: TerrainQuality;
+  demGrid: ElevationGrid | null;
   elevationSampler: (x: number, z: number) => number;
   setTextureStyle: (style: TextureStyle) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
@@ -372,6 +373,7 @@ export class TerrainGenerator {
       bounds,
       terrainBaseElevation,
       terrainQuality,
+      demGrid,
       elevationSampler: sampleHeightAt,
       setTextureStyle,
       setVerticalExaggeration,

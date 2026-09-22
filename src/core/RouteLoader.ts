@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { TerrainGenerator } from '../terrain/TerrainGenerator.ts';
+import { ElevationTileService } from '../terrain/ElevationTiles.ts';
 import { TrailMesh } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
@@ -81,7 +82,8 @@ export class RouteLoader {
       this.session.setLoadingStatus('parsing', 'Parsing GPX survey track...', 0.1);
       if (context.isAborted()) return null;
 
-      const track = GPXParser.parse(xml, fallbackName);
+      const raw = GPXParser.parseRaw(xml, fallbackName);
+      let track = GPXParser.finalizeWithDEM(raw);
 
       this.session.setLoadingStatus('validating', `Survey validated: ${track.points.length.toLocaleString()} points`, 0.15);
       if (context.isAborted()) return null;
@@ -107,6 +109,16 @@ export class RouteLoader {
       if (context.isAborted()) {
         terrain.dispose();
         return null;
+      }
+
+      // If any points originally lacked elevation, refine track using real DEM grid
+      const hadMissingEle = raw.rawSegments.some((seg) => seg.some((p) => p.rawEle === undefined));
+      if (hadMissingEle && terrain.demGrid) {
+        const demSampler = (lat: number, lon: number) => {
+          const s = ElevationTileService.sampleElevation(terrain.demGrid!, lat, lon);
+          return s.isValid ? s.elevation : undefined;
+        };
+        track = GPXParser.finalizeWithDEM(raw, demSampler);
       }
 
       // 3. Generate 3D Trail Mesh off-scene
