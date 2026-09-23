@@ -205,6 +205,19 @@ export class XRManager {
     this.dioramaVerticalExaggeration = factor;
   }
 
+  public resetInteractionState(): void {
+    for (const hand of this.hands) {
+      hand.activeInteraction = 'none';
+      hand.isPinching = false;
+      hand.isClickingHUD = false;
+    }
+    for (const ctrl of this.controllers) {
+      ctrl.isDraggingHUD = false;
+      ctrl.isDraggingTerrain = false;
+    }
+  }
+
+
   public getDioramaProximity(handWorldPos: THREE.Vector3): { isTouching: boolean; proximityFactor: number } {
     if (this.currentViewMode !== 'diorama') return { isTouching: false, proximityFactor: 0 };
     const dioramaRoot = this.sceneManager.dioramaRoot;

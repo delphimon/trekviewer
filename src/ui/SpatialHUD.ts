@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { TrackStats, ViewMode, TextureStyle, TrailColorMode } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
+import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export interface SpatialHUDCallbacks {
   onTogglePlay: () => void;
@@ -813,5 +814,12 @@ export class SpatialHUD {
     }
 
     this.texture.needsUpdate = true;
+  }
+
+  public dispose(): void {
+    disposeObject3D(this.group);
+    this.texture.dispose();
+    this.canvas.width = 1;
+    this.canvas.height = 1;
   }
 }

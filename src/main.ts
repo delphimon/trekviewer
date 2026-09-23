@@ -10,6 +10,7 @@ import { DioramaBase } from './visualization/DioramaBase';
 import { FlyoverController } from './visualization/FlyoverController';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { DesktopOverlay } from './ui/DesktopOverlay';
+import { disposeObject3D } from './core/ResourceLifecycle';
 
 class TrekViewerApp {
   private sceneManager: SceneManager;
@@ -21,12 +22,14 @@ class TrekViewerApp {
   private currentTrack: TrackStats | null = null;
   private terrainResult: TerrainResult | null = null;
   private trailResult: TrailResult | null = null;
+  private currentBaseGroup: THREE.Group | null = null;
   private flyoverController: FlyoverController | null = null;
   private spatialHUD: SpatialHUD | null = null;
   private currentViewMode: ViewMode = 'diorama';
   private currentTextureStyle: TextureStyle = 'satellite';
   private currentTrailColorMode: TrailColorMode = 'solid';
   private manifest: RouteManifestItem[] = [];
+  private activeLoadAbortController: AbortController | null = null;
 
   private lastTimestamp: number = performance.now();
   private isDebugMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
@@ -163,36 +166,115 @@ class TrekViewerApp {
     }
   }
 
+  private abortActiveLoad(): void {
+    if (this.activeLoadAbortController) {
+      this.activeLoadAbortController.abort();
+      this.activeLoadAbortController = null;
+    }
+  }
+
+  private isAbortError(e: any): boolean {
+    return (
+      e?.name === 'AbortError' ||
+      (typeof e?.message === 'string' && e.message.toLowerCase().includes('abort'))
+    );
+  }
+
+  private disposeCurrentTrek(): void {
+    if (this.flyoverController) {
+      this.flyoverController.pause();
+      this.flyoverController = null;
+    }
+
+    if (this.terrainResult) {
+      this.terrainResult.dispose();
+      this.terrainResult = null;
+    }
+
+    if (this.trailResult) {
+      this.trailResult.dispose();
+      this.trailResult = null;
+    }
+
+    if (this.currentBaseGroup) {
+      disposeObject3D(this.currentBaseGroup);
+      this.currentBaseGroup = null;
+    }
+
+    if (this.spatialHUD) {
+      if (this.xrManager) {
+        this.xrManager.setSpatialHUD(null);
+      }
+      this.sceneManager.scene.remove(this.spatialHUD.group);
+      this.spatialHUD.dispose();
+      this.spatialHUD = null;
+    }
+
+    // Safety sweep of any remaining children on dioramaRoot
+    while (this.sceneManager.dioramaRoot.children.length > 0) {
+      const child = this.sceneManager.dioramaRoot.children[0];
+      this.sceneManager.dioramaRoot.remove(child);
+      disposeObject3D(child);
+    }
+  }
+
   private async loadRouteByFile(url: string, fallbackName: string): Promise<void> {
+    this.abortActiveLoad();
+    const abortController = new AbortController();
+    this.activeLoadAbortController = abortController;
+    const signal = abortController.signal;
+
     this.overlay.showStatus(`Loading trek: ${fallbackName}...`);
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(url, { signal });
       if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
       const xml = await resp.text();
-      await this.loadTrackFromXML(xml, fallbackName);
-    } catch (e) {
+      if (signal.aborted) return;
+      await this.loadTrackFromXML(xml, fallbackName, signal);
+    } catch (e: any) {
+      if (this.isAbortError(e) || signal.aborted) {
+        console.log(`[TrekApp] Route load aborted: ${fallbackName}`);
+        return;
+      }
       console.error(e);
       this.overlay.showStatus(`Failed to load trek from ${url}`, true);
     }
   }
 
-  public async loadTrackFromXML(xml: string, fallbackName?: string): Promise<void> {
+  public async loadTrackFromXML(xml: string, fallbackName?: string, signal?: AbortSignal): Promise<void> {
+    if (!signal) {
+      this.abortActiveLoad();
+      const abortController = new AbortController();
+      this.activeLoadAbortController = abortController;
+      signal = abortController.signal;
+    }
+
     try {
       this.overlay.showStatus('Parsing GPX survey track...');
       const track = GPXParser.parse(xml, fallbackName);
+      if (signal.aborted) return;
+
+      // 1. Dispose previous trek resources cleanly
+      this.disposeCurrentTrek();
+
       this.currentTrack = track;
 
-      // Clear existing models from dioramaRoot
-      while (this.sceneManager.dioramaRoot.children.length > 0) {
-        const child = this.sceneManager.dioramaRoot.children[0];
-        this.sceneManager.dioramaRoot.remove(child);
-      }
-
       // Generate 3D Terrain
-      const terrain = await TerrainGenerator.generate(track, (msg) => {
-        this.overlay.showStatus(msg);
-        this.spatialHUD?.showStatus(msg);
-      });
+      const isXR = this.sceneManager.renderer.xr.isPresenting;
+      const terrain = await TerrainGenerator.generate(
+        track,
+        (msg) => {
+          this.overlay.showStatus(msg);
+          this.spatialHUD?.showStatus(msg);
+        },
+        signal,
+        1.0,
+        isXR
+      );
+      if (signal.aborted) {
+        terrain.dispose();
+        return;
+      }
       this.terrainResult = terrain;
       this.spatialHUD?.clearStatus();
       this.overlay.clearStatus();
@@ -200,10 +282,16 @@ class TrekViewerApp {
       // Generate 3D Trail Mesh
       const trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
       trail.setColorMode(this.currentTrailColorMode);
+      if (signal.aborted) {
+        terrain.dispose();
+        trail.dispose();
+        return;
+      }
       this.trailResult = trail;
 
       // Generate Diorama Base Pedestal
       const base = DioramaBase.create(track.bounds, -80, track.waypoints, terrain.terrainBaseElevation, terrain.elevationSampler, 1.0);
+      this.currentBaseGroup = base;
 
       // Assemble Diorama Group
       this.sceneManager.dioramaRoot.add(terrain.group);
@@ -224,11 +312,6 @@ class TrekViewerApp {
           this.currentTrailColorMode
         );
       });
-
-      // Remove old Spatial HUD from scene if exists
-      if (this.spatialHUD) {
-        this.sceneManager.scene.remove(this.spatialHUD.group);
-      }
 
       // Setup 3D Spatial HUD in VR
       this.spatialHUD = new SpatialHUD(track, {
@@ -271,6 +354,9 @@ class TrekViewerApp {
       this.xrManager.setSpatialHUD(this.spatialHUD);
       this.xrManager.setDioramaContext(track.bounds, terrain.elevationSampler, terrain.terrainBaseElevation, 1.0);
 
+      // Reset diorama interaction state
+      this.xrManager.resetInteractionState();
+
       // Configure View Mode
       const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
       this.sceneManager.setViewMode(this.currentViewMode, maxDim);
@@ -283,10 +369,15 @@ class TrekViewerApp {
       const gainFt = Math.round(track.elevationGain * 3.28084);
       this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
     } catch (e: any) {
+      if (this.isAbortError(e) || signal?.aborted) {
+        console.log(`[TrekApp] Track generation aborted.`);
+        return;
+      }
       console.error(e);
       this.overlay.showStatus(`Error parsing GPX: ${e.message}`, true);
     }
   }
+
 
   private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
 
@@ -526,6 +617,7 @@ class TrekViewerApp {
         this.lastTelemetryLogTime = now;
         const isPresenting = this.sceneManager.renderer.xr.isPresenting;
         const xrCam = isPresenting ? this.sceneManager.renderer.xr.getCamera() : null;
+        const memInfo = this.sceneManager.getMemoryInfo();
         console.log(`[TELEMETRY]`, {
           build: __APP_BUILD_INFO__.shortSha,
           label: __APP_BUILD_INFO__.label,
@@ -537,9 +629,19 @@ class TrekViewerApp {
           baseCamQuat: this.sceneManager.camera.quaternion.toArray(),
           xrCamPos: xrCam ? xrCam.position.toArray() : null,
           xrCamQuat: xrCam ? xrCam.quaternion.toArray() : null,
+          gpuMemory: memInfo.memory,
+          renderCalls: memInfo.render.calls,
         });
       }
     }
+  }
+
+  public dispose(): void {
+    this.abortActiveLoad();
+    this.disposeCurrentTrek();
+    this.controls.dispose();
+    this.overlay.dispose();
+    this.sceneManager.dispose();
   }
 }
 
@@ -547,3 +649,4 @@ class TrekViewerApp {
 window.addEventListener('DOMContentLoaded', () => {
   new TrekViewerApp();
 });
+

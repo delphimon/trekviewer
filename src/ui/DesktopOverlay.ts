@@ -522,4 +522,13 @@ export class DesktopOverlay {
     btnColSpd?.classList.toggle('btn-active', mode === 'speed');
     btnColEle?.classList.toggle('btn-active', mode === 'elevation');
   }
+
+  public dispose(): void {
+    if (this.statusTimeout) {
+      window.clearTimeout(this.statusTimeout);
+      this.statusTimeout = null;
+    }
+    this.container.innerHTML = '';
+  }
 }
+

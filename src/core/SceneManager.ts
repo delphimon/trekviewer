@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
+import { disposeObject3D } from './ResourceLifecycle.ts';
 
 export class SceneManager {
   public scene: THREE.Scene;
@@ -15,6 +16,7 @@ export class SceneManager {
   private targetScale: number = 1.0;
   private targetPosition: THREE.Vector3 = new THREE.Vector3();
   private targetRotationY: number = 0;
+  private onWindowResizeBound: () => void;
 
   constructor(container: HTMLElement) {
     // 1. Scene
@@ -77,7 +79,8 @@ export class SceneManager {
     this.scene.fog = new THREE.FogExp2(0x93c5fd, 0.00004);
 
     // Handle Window Resize
-    window.addEventListener('resize', this.onWindowResize.bind(this));
+    this.onWindowResizeBound = this.onWindowResize.bind(this);
+    window.addEventListener('resize', this.onWindowResizeBound);
   }
 
   public setPassthrough(active: boolean): void {
@@ -172,5 +175,26 @@ export class SceneManager {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  /**
+   * Diagnostic instrumentation exposing Three.js GPU memory and render counts.
+   */
+  public getMemoryInfo(): { memory: THREE.WebGLInfo['memory']; render: THREE.WebGLInfo['render'] } {
+    return {
+      memory: { ...this.renderer.info.memory },
+      render: { ...this.renderer.info.render },
+    };
+  }
+
+  /**
+   * Complete teardown of Three.js scene, renderer, event listeners, and GPU resources.
+   */
+  public dispose(): void {
+    window.removeEventListener('resize', this.onWindowResizeBound);
+    disposeObject3D(this.skyMesh);
+    disposeObject3D(this.dioramaRoot);
+    this.sunLight.shadow.map?.dispose();
+    this.renderer.dispose();
   }
 }

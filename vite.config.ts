@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE D++ (tabletop height, 18cm reach, luminous outline)',
+      label: 'STAGE E (resource disposal lifecycle)',
     }),
   },
   plugins: [
