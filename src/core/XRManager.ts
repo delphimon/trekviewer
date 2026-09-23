@@ -98,6 +98,8 @@ export interface HandVisualOutline {
   jointMeshes: Map<string, THREE.Mesh>;
   boneLines: THREE.LineSegments;
   bonePositions: THREE.BufferAttribute;
+  boneMesh: THREE.InstancedMesh;
+  jointMesh: THREE.InstancedMesh;
 }
 
 const _scratchV1 = new THREE.Vector3();
@@ -106,6 +108,9 @@ const _scratchV3 = new THREE.Vector3();
 const _scratchM1 = new THREE.Matrix4();
 const _scratchV2D1 = new THREE.Vector2();
 const _scratchV2D2 = new THREE.Vector2();
+const _scratchQuat = new THREE.Quaternion();
+const _scratchQuatIdentity = new THREE.Quaternion();
+const _scratchScale = new THREE.Vector3();
 
 export interface HandState {
   hand: THREE.XRHandSpace;
@@ -364,58 +369,67 @@ export class XRManager {
       hand.name = `XRHand_${i}`;
       this.sceneManager.scene.add(hand);
 
-      // Dedicated Glowing Hand Outline Skeleton (All 25 joints + 24 bone outline lines)
+      // Dedicated Glowing Hand Outline Skeleton (All 25 joints + 28 3D volumetric bone tubes)
       const visualOutlineGroup = new THREE.Group();
       visualOutlineGroup.name = `HandVisualOutline_${i}`;
       visualOutlineGroup.visible = false;
       this.sceneManager.scene.add(visualOutlineGroup);
 
-      // 1. Joint tracking positions & optional meshes (spheres omitted from scene to eliminate joint dots)
+      // 1. Joint Tracking Map
       const jointMeshes = new Map<string, THREE.Mesh>();
       const jointPosMap = new Map<string, THREE.Vector3>();
       for (const jointName of ALL_HAND_JOINTS) {
-        const isTip = jointName.endsWith('-tip');
-        const isWrist = jointName === 'wrist';
-        const isKnuckle = jointName.endsWith('-metacarpal');
-
-        const radius = isWrist ? 0.008 : isTip ? 0.0065 : isKnuckle ? 0.0055 : 0.0045;
-        const color = isTip ? 0xffffff : isKnuckle ? 0x0284c7 : 0x38bdf8;
-
-        const sphereGeo = new THREE.SphereGeometry(radius, 8, 8);
-        const sphereMat = new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 0.95,
-          depthTest: false,
-        });
-        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
-        mesh.visible = false;
-        // NOTE: mesh is intentionally NOT added to visualOutlineGroup to honor user preference
-        // for smooth continuous holographic bone outlines without round knuckle "dots"
-        jointMeshes.set(jointName, mesh);
         jointPosMap.set(jointName, new THREE.Vector3());
       }
 
-      // 2. Bone Lines (28 bone segments connecting joints into a sleek holographic skeleton)
+      // 2. 3D Volumetric Bone Tubes (28 instanced cylinders with physical 5.6mm thickness)
+      const cylinderGeo = new THREE.CylinderGeometry(1, 1, 1, 8);
+      const boneMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.85,
+        depthTest: false,
+      });
+      const boneMesh = new THREE.InstancedMesh(cylinderGeo, boneMat, BONE_CONNECTIONS.length);
+      boneMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      boneMesh.frustumCulled = false;
+      boneMesh.renderOrder = 998;
+      visualOutlineGroup.add(boneMesh);
+
+      // 3. 3D Joint Spheres (25 instanced spheres: wrist, knuckles, fingertips)
+      const sphereGeo = new THREE.SphereGeometry(1, 10, 10);
+      const jointMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.90,
+        depthTest: false,
+      });
+      const jointMesh = new THREE.InstancedMesh(sphereGeo, jointMat, ALL_HAND_JOINTS.length);
+      jointMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      jointMesh.frustumCulled = false;
+      jointMesh.renderOrder = 999;
+      visualOutlineGroup.add(jointMesh);
+
+      // 4. Crisp Laser Edge Lines (28 segments)
       const bonePositions = new Float32Array(BONE_CONNECTIONS.length * 2 * 3);
       const boneGeo = new THREE.BufferGeometry();
       boneGeo.setAttribute('position', new THREE.BufferAttribute(bonePositions, 3));
-      const boneMat = new THREE.LineBasicMaterial({
-        color: 0x93c5fd, // Luminous sky blue outline (clearly visible against room in MR passthrough)
+      const boneLineMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
         transparent: true,
-        opacity: 0.70,
+        opacity: 0.90,
         depthTest: false,
       });
-      const boneLines = new THREE.LineSegments(boneGeo, boneMat);
+      const boneLines = new THREE.LineSegments(boneGeo, boneLineMat);
       boneLines.renderOrder = 998;
       visualOutlineGroup.add(boneLines);
 
       // Tactile pinch visual reticle (radiant 3D diamond indicator at pinch/fingertip contact point)
-      const pinchGeo = new THREE.OctahedronGeometry(0.014, 0);
+      const pinchGeo = new THREE.OctahedronGeometry(0.016, 0);
       const pinchMat = new THREE.MeshBasicMaterial({
-        color: 0x93c5fd,
+        color: 0x38bdf8,
         transparent: true,
-        opacity: 0.50,
+        opacity: 0.80,
         depthTest: false,
       });
       const pinchReticle = new THREE.Mesh(pinchGeo, pinchMat);
@@ -433,6 +447,8 @@ export class XRManager {
           jointMeshes,
           boneLines,
           bonePositions: boneGeo.getAttribute('position') as THREE.BufferAttribute,
+          boneMesh,
+          jointMesh,
         },
         isPinching: false,
         isClickingHUD: false,
@@ -446,6 +462,7 @@ export class XRManager {
         prevWristWorldQuat: new THREE.Quaternion(),
         indexTipWorldPos: new THREE.Vector3(),
       };
+
 
       hand.addEventListener('connected', (event: any) => {
         state.inputSource = event.data;
@@ -639,9 +656,17 @@ export class XRManager {
         continue;
       }
 
-      // Check if wrist is tracked to know if hand is in view
-      const wrist = joints['wrist'];
-      if (!wrist || !wrist.visible) {
+      // Check if at least one joint is visible/tracked
+      let hasTrackedJoint = false;
+      for (const jointName of ALL_HAND_JOINTS) {
+        const jointObj = joints[jointName];
+        if (jointObj && jointObj.visible) {
+          hasTrackedJoint = true;
+          break;
+        }
+      }
+
+      if (!hasTrackedJoint) {
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
         state.isPinching = false;
@@ -649,18 +674,70 @@ export class XRManager {
         continue;
       }
 
+      hand.visible = true;
       state.visualOutline.group.visible = true;
 
-      // Update 25 joint positions (using preallocated vector map for zero heap allocation)
+      // Update 25 joint positions (copying position directly decomposed from XRJointPose)
       for (const jointName of ALL_HAND_JOINTS) {
         const jointObj = joints[jointName];
         const pos = state.jointPosMap.get(jointName);
         if (jointObj && jointObj.visible && pos) {
-          pos.setFromMatrixPosition(jointObj.matrixWorld);
+          pos.copy(jointObj.position);
         }
       }
 
-      // Update 28 bone outline lines (smooth continuous holographic skeleton, no dots)
+      // Update 25 joint sphere instances
+      for (let jIdx = 0; jIdx < ALL_HAND_JOINTS.length; jIdx++) {
+        const jName = ALL_HAND_JOINTS[jIdx];
+        const pos = state.jointPosMap.get(jName);
+        const jointObj = joints[jName];
+
+        if (pos && jointObj?.visible) {
+          const isTip = jName.endsWith('-tip');
+          const isWrist = jName === 'wrist';
+          const isKnuckle = jName.endsWith('-metacarpal');
+          const r = isWrist ? 0.007 : isTip ? 0.006 : isKnuckle ? 0.005 : 0.004;
+          _scratchV1.set(r, r, r);
+          _scratchM1.compose(pos, _scratchQuatIdentity, _scratchV1);
+          state.visualOutline.jointMesh.setMatrixAt(jIdx, _scratchM1);
+        } else {
+          _scratchM1.makeScale(0, 0, 0);
+          state.visualOutline.jointMesh.setMatrixAt(jIdx, _scratchM1);
+        }
+      }
+      state.visualOutline.jointMesh.instanceMatrix.needsUpdate = true;
+
+      // Update 28 volumetric bone cylinder tubes
+      const _yAxis = _scratchV2.set(0, 1, 0);
+      for (let bIdx = 0; bIdx < BONE_CONNECTIONS.length; bIdx++) {
+        const [jA, jB] = BONE_CONNECTIONS[bIdx];
+        const pA = state.jointPosMap.get(jA);
+        const pB = state.jointPosMap.get(jB);
+        const jObjA = joints[jA];
+        const jObjB = joints[jB];
+
+        if (pA && pB && jObjA?.visible && jObjB?.visible) {
+          const dist = pA.distanceTo(pB);
+          if (dist > 0.002) {
+            _scratchV1.addVectors(pA, pB).multiplyScalar(0.5);
+            _scratchV3.subVectors(pB, pA).normalize();
+            _scratchQuat.setFromUnitVectors(_yAxis, _scratchV3);
+            const radius = 0.0028; // 2.8mm radius = 5.6mm thick glowing volumetric cylinder
+            _scratchScale.set(radius, dist, radius);
+            _scratchM1.compose(_scratchV1, _scratchQuat, _scratchScale);
+            state.visualOutline.boneMesh.setMatrixAt(bIdx, _scratchM1);
+          } else {
+            _scratchM1.makeScale(0, 0, 0);
+            state.visualOutline.boneMesh.setMatrixAt(bIdx, _scratchM1);
+          }
+        } else {
+          _scratchM1.makeScale(0, 0, 0);
+          state.visualOutline.boneMesh.setMatrixAt(bIdx, _scratchM1);
+        }
+      }
+      state.visualOutline.boneMesh.instanceMatrix.needsUpdate = true;
+
+      // Update 28 bone outline lines
       const posArray = state.visualOutline.bonePositions.array as Float32Array;
       let vertIdx = 0;
       const wristFallback = state.jointPosMap.get('wrist') || _scratchV1.set(0, 0, 0);
@@ -678,13 +755,13 @@ export class XRManager {
 
       const thumbTipPos = state.jointPosMap.get('thumb-tip');
       const indexTipPos = state.jointPosMap.get('index-finger-tip');
+      const wrist = joints['wrist'];
       const wristPos = state.jointPosMap.get('wrist');
 
       if (thumbTipPos && indexTipPos) {
         state.indexTipWorldPos.copy(indexTipPos);
 
         const pinchDist = thumbTipPos.distanceTo(indexTipPos);
-        // Robust pinch thresholds: 3.2cm engage, 4.5cm release (prevents zoom from dropping out during 2-hand gestures)
         const isPinchingNow = state.isPinching
           ? pinchDist <= 0.045
           : pinchDist <= 0.032;
@@ -694,7 +771,7 @@ export class XRManager {
 
         if (wrist && wrist.visible && wristPos) {
           state.wristWorldPos.copy(wristPos);
-          state.wristWorldQuat.setFromRotationMatrix(wrist.matrixWorld);
+          state.wristWorldQuat.copy(wrist.quaternion);
         }
 
         state.isPinching = isPinchingNow;
@@ -781,18 +858,27 @@ export class XRManager {
     isEngagedWithHUD: boolean,
     touchingInfo: { isTouching: boolean; proximityFactor: number }
   ): void {
-    const boneMat = state.visualOutline.boneLines.material as THREE.LineBasicMaterial;
+    const boneMat = state.visualOutline.boneMesh.material as THREE.MeshBasicMaterial;
+    const jointMat = state.visualOutline.jointMesh.material as THREE.MeshBasicMaterial;
+    const lineMat = state.visualOutline.boneLines.material as THREE.LineBasicMaterial;
     const reticleMat = state.pinchReticle.material as THREE.MeshBasicMaterial;
 
     const { isTouching, proximityFactor } = touchingInfo;
 
+    const applyColors = (hex: number, opacity: number, reticleHex: number, reticleOpacity: number) => {
+      boneMat.color.setHex(hex);
+      boneMat.opacity = opacity;
+      jointMat.color.setHex(hex);
+      jointMat.opacity = Math.min(1.0, opacity + 0.1);
+      lineMat.color.setHex(hex);
+      lineMat.opacity = opacity;
+      reticleMat.color.setHex(reticleHex);
+      reticleMat.opacity = reticleOpacity;
+    };
+
     if (state.activeInteraction === 'diorama') {
       // 1. ACTIVE DIORAMA GRAB: Radiant Amber Gold
-      boneMat.color.setHex(0xffb703);
-      boneMat.opacity = 1.0;
-      reticleMat.color.setHex(0xffb703);
-      reticleMat.opacity = 1.0;
-
+      applyColors(0xffb703, 1.0, 0xffb703, 1.0);
       state.pinchReticle.position.copy(state.pinchWorldPos);
       state.pinchReticle.visible = true;
       const pulse = 1.35 + 0.25 * Math.sin(performance.now() * 0.015);
@@ -800,34 +886,25 @@ export class XRManager {
 
     } else if (isEngagedWithHUD) {
       // 2. ENGAGED WITH HUD: Soft Violet / Indigo
-      boneMat.color.setHex(0x818cf8);
-      boneMat.opacity = 0.90;
+      applyColors(0x818cf8, 0.90, 0x818cf8, 0.80);
       state.pinchReticle.visible = false;
 
     } else if (isTouching) {
       // 3. IN RANGE / TOUCHING DIORAMA: Vibrant Glowing Electric Cyan
-      boneMat.color.setHex(0x00f0ff);
-      boneMat.opacity = 1.0;
-      reticleMat.color.setHex(0x00f0ff);
-      reticleMat.opacity = 0.95;
-
+      applyColors(0x00f0ff, 1.0, 0x00f0ff, 0.95);
       state.pinchReticle.position.copy(state.pinchWorldPos);
       state.pinchReticle.visible = true;
-      const hoverPulse = 1.05 + 0.20 * Math.sin(performance.now() * 0.010);
+      const hoverPulse = 1.10 + 0.20 * Math.sin(performance.now() * 0.010);
       state.pinchReticle.scale.set(hoverPulse, hoverPulse, hoverPulse);
 
     } else if (proximityFactor > 0.05) {
       // 4. APPROACHING DIORAMA (Within 35cm reach zone): Dynamic proximity transition
-      const r = Math.round(0x93 + (0x00 - 0x93) * proximityFactor);
-      const g = Math.round(0xc5 + (0xf0 - 0xc5) * proximityFactor);
-      const b = Math.round(0xfd + (0xff - 0xfd) * proximityFactor);
+      const r = Math.round(0x38 + (0x00 - 0x38) * proximityFactor);
+      const g = Math.round(0xbd + (0xf0 - 0xbd) * proximityFactor);
+      const b = Math.round(0xf8 + (0xff - 0xf8) * proximityFactor);
       const blendedColor = (r << 16) | (g << 8) | b;
 
-      boneMat.color.setHex(blendedColor);
-      boneMat.opacity = 0.70 + 0.25 * proximityFactor;
-      reticleMat.color.setHex(blendedColor);
-      reticleMat.opacity = 0.60 + 0.35 * proximityFactor;
-
+      applyColors(blendedColor, 0.85 + 0.15 * proximityFactor, blendedColor, 0.70 + 0.25 * proximityFactor);
       state.pinchReticle.position.copy(state.pinchWorldPos);
       state.pinchReticle.visible = true;
       const approachScale = 0.6 + 0.4 * proximityFactor;
@@ -835,16 +912,13 @@ export class XRManager {
 
     } else {
       // 5. AWAY FROM DIORAMA: Clean luminous sky-blue skeleton outline (clearly visible against room in passthrough)
-      boneMat.color.setHex(0x93c5fd);
-      boneMat.opacity = 0.70;
-      reticleMat.color.setHex(0x93c5fd);
-      reticleMat.opacity = 0.50;
-
+      applyColors(0x38bdf8, 0.85, 0x38bdf8, 0.70);
       state.pinchReticle.position.copy(state.pinchWorldPos);
       state.pinchReticle.visible = true;
-      state.pinchReticle.scale.set(0.5, 0.5, 0.5);
+      state.pinchReticle.scale.set(0.6, 0.6, 0.6);
     }
   }
+
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
     if (!this.spatialHUD) return false;

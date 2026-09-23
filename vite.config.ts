@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE E (resource disposal lifecycle)',
+      label: 'STAGE E+ (volumetric 3D hand skeleton & disposal)',
     }),
   },
   plugins: [
