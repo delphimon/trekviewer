@@ -150,6 +150,10 @@ export class SpatialHUD {
           this.selectedWaypoint !== newState.selectedWaypoint ||
           this.statusMessage !== newLoadingMsg;
 
+        const prevProgress = this.currentProgress;
+        const progressDelta = Math.abs(prevProgress - newState.progress);
+        const shouldRedrawProgress = this.isPlaying || progressDelta > 0.0001;
+
         this.currentProgress = newState.progress;
         this.currentElevation = newState.currentElevation;
         this.isPlaying = newState.isPlaying;
@@ -171,7 +175,7 @@ export class SpatialHUD {
         if (staticChanged) {
           this.staticDirty = true;
           this.drawHUD(true);
-        } else {
+        } else if (shouldRedrawProgress) {
           // Throttled progress update (target ~11Hz)
           const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
           if (now - this.lastProgressDrawTime >= 90) {

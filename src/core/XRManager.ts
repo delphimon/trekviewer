@@ -459,13 +459,14 @@ export class XRManager {
         }
 
         state.gripWorldQuat.setFromRotationMatrix(state.grip.matrixWorld);
+        const gripQuat = state.gripWorldQuat.clone();
         this.activeGrabs.push({
           id: `controller_${i}`,
           source: 'controller',
-          worldPos: currentGripWorld,
-          prevWorldPos: state.prevGripWorldPos,
-          wristQuat: state.gripWorldQuat,
-          prevWristQuat: state.gripWorldQuat,
+          worldPos: currentGripWorld.clone(),
+          prevWorldPos: state.prevGripWorldPos.clone(),
+          wristQuat: gripQuat,
+          prevWristQuat: gripQuat,
         });
 
         state.prevGripWorldPos.copy(currentGripWorld);
@@ -601,10 +602,10 @@ export class XRManager {
           this.activeGrabs.push({
             id: `hand_${i}`,
             source: 'hand',
-            worldPos: state.pinchWorldPos,
-            prevWorldPos: state.prevPinchWorldPos,
-            wristQuat: state.wristWorldQuat,
-            prevWristQuat: state.prevWristWorldQuat,
+            worldPos: state.pinchWorldPos.clone(),
+            prevWorldPos: state.prevPinchWorldPos.clone(),
+            wristQuat: state.wristWorldQuat.clone(),
+            prevWristQuat: state.prevWristWorldQuat.clone(),
           });
         } else {
           state.pinchReticle.visible = false;
@@ -631,9 +632,11 @@ export class XRManager {
 
     const isNearGrabHandle = local.y >= 0.18 && local.y <= 0.38 && Math.abs(local.x) <= 0.38 && Math.abs(local.z) < 0.08;
     if (isNearGrabHandle && isPinching) {
-      const camPos = this.sceneManager.camera.position;
+      const isXR = this.sceneManager.renderer.xr.isPresenting;
+      const camPos = isXR ? this.sceneManager.renderer.xr.getCamera().position : this.sceneManager.camera.position;
+      const targetLookAt = camPos.lengthSq() > 0.05 ? camPos : _scratchV3.set(0, this.spatialHUD.group.position.y, 0.5);
       this.spatialHUD.group.position.copy(fingerPos).add(_scratchV2.set(0, -0.26, 0.05));
-      this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+      this.spatialHUD.group.lookAt(targetLookAt.x, this.spatialHUD.group.position.y, targetLookAt.z);
       return true;
     }
 
@@ -733,8 +736,11 @@ export class XRManager {
       if (isTriggerDown) {
         const targetPos = _scratchV3.copy(rayOrigin).addScaledVector(rayDir, state.hudDragDistance);
         this.spatialHUD.group.position.copy(targetPos);
-        const camPos = this.sceneManager.camera.position;
-        this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+        const isXR = this.sceneManager.renderer.xr.isPresenting;
+        const camPos = isXR ? this.sceneManager.renderer.xr.getCamera().position : this.sceneManager.camera.position;
+        const targetX = Number.isFinite(camPos.x) ? camPos.x : 0;
+        const targetZ = Number.isFinite(camPos.z) ? camPos.z : 0.5;
+        this.spatialHUD.group.lookAt(targetX, this.spatialHUD.group.position.y, targetZ);
 
         updateRayLineLength(state.rayLine, state.hudDragDistance);
         state.rayLine.visible = true;

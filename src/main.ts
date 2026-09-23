@@ -4,7 +4,7 @@ import type { RouteManifestItem, ViewMode, TextureStyle, TrailColorMode, GPXWayp
 import { TrekSession } from './core/TrekSession.ts';
 import { RouteLoader } from './core/RouteLoader.ts';
 import { LoadedTrek } from './core/LoadedTrek.ts';
-import { SceneManager, type XRAnchorPose } from './core/SceneManager.ts';
+import { SceneManager } from './core/SceneManager.ts';
 import { XRManager } from './core/XRManager.ts';
 import { SpatialHUD } from './ui/SpatialHUD.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay.ts';
@@ -64,7 +64,7 @@ class TrekViewerApp {
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
-      this.xrAnchorState = 'waiting-for-pose';
+      this.xrAnchorState = 'anchored';
       this.xrManager.resetInteractionState();
 
       const session = this.sceneManager.renderer.xr.getSession();
@@ -87,7 +87,9 @@ class TrekViewerApp {
       this.sceneManager.setXREnergyMode(false);
       this.xrAnchorState = 'not-presenting';
       this.xrManager.resetInteractionState();
-      this.sceneManager.setupDesktopDiorama();
+      this.sceneManager.camera.position.set(0, 0.8, 1.3);
+      this.sceneManager.camera.lookAt(0, 0, 0);
+      this.controls.target.set(0, 0, 0);
       this.dioramaTransformVersion++;
       this.dockHUD(this.currentHUDDockSide);
     });
@@ -236,25 +238,7 @@ class TrekViewerApp {
 
     // Add HUD to scene and dock
     this.sceneManager.scene.add(this.spatialHUD.group);
-    if (this.sceneManager.renderer.xr.isPresenting && this.xrAnchorState === 'anchored') {
-      const xrCam = this.sceneManager.renderer.xr.getCamera();
-      const headPos = xrCam.position;
-      if (headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z)) {
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-        fwd.y = 0;
-        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
-        else fwd.normalize();
-        this.anchorTabletopHUD({
-          headPosition: headPos.clone(),
-          horizontalForward: fwd.clone(),
-          yaw: Math.atan2(fwd.x, fwd.z),
-        }, this.currentHUDDockSide);
-      } else {
-        this.dockHUD(this.currentHUDDockSide);
-      }
-    } else {
-      this.dockHUD(this.currentHUDDockSide);
-    }
+    this.dockHUD(this.currentHUDDockSide);
 
     // Register SpatialHUD with XRManager for laser raycasting and clicks
     this.xrManager.setSpatialHUD(this.spatialHUD);
@@ -304,108 +288,36 @@ class TrekViewerApp {
       : this.sceneManager.camera;
   }
 
-  private anchorTabletop(pose: XRAnchorPose, reason: string): void {
-    if (this.session.getState().viewMode !== 'diorama') return;
-    this.sceneManager.anchorDioramaAtPose(pose);
-    this.anchorTabletopHUD(pose, this.currentHUDDockSide);
-    this.dioramaTransformVersion++;
-    if (this.isDebugMode) {
-      console.log(`[XR Tabletop Anchored] reason=${reason} version=${this.dioramaTransformVersion}`, {
-        head: pose.headPosition.toArray(),
-        dioramaPos: this.sceneManager.dioramaRoot.position.toArray(),
-        dioramaRot: this.sceneManager.dioramaRoot.rotation.toArray(),
-      });
-    }
-  }
-
-  private anchorTabletopHUD(pose: XRAnchorPose, side: 'left' | 'right' | 'center'): void {
-    if (!this.spatialHUD) return;
-    this.spatialHUD.setDockSide(side);
-    const headPos = pose.headPosition;
-    const fwd = pose.horizontalForward;
-    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
-
-    if (side === 'left') {
-      const target = headPos.clone()
-        .addScaledVector(fwd, 0.70)
-        .addScaledVector(right, -0.72)
-        .add(new THREE.Vector3(0, -0.05, 0));
-      this.spatialHUD.group.position.copy(target);
-      this.spatialHUD.group.lookAt(headPos.x, this.spatialHUD.group.position.y, headPos.z);
-    } else if (side === 'right') {
-      const target = headPos.clone()
-        .addScaledVector(fwd, 0.70)
-        .addScaledVector(right, 0.72)
-        .add(new THREE.Vector3(0, -0.05, 0));
-      this.spatialHUD.group.position.copy(target);
-      this.spatialHUD.group.lookAt(headPos.x, this.spatialHUD.group.position.y, headPos.z);
-    } else {
-      const target = headPos.clone()
-        .addScaledVector(fwd, 1.12)
-        .add(new THREE.Vector3(0, 0.18, 0));
-      this.spatialHUD.group.position.copy(target);
-      this.spatialHUD.group.lookAt(headPos.x, headPos.y, headPos.z);
-    }
-  }
-
   private dockHUD(side: 'left' | 'right' | 'center'): void {
     this.currentHUDDockSide = side;
     if (!this.spatialHUD) return;
     this.spatialHUD.setDockSide(side);
 
     const isXR = this.sceneManager.renderer.xr.isPresenting;
-    const viewMode = this.session.getState().viewMode;
+    const camPos = isXR
+      ? this.sceneManager.renderer.xr.getCamera().position
+      : this.sceneManager.camera.position;
+    const targetLookAt = camPos.lengthSq() > 0.05 ? camPos : new THREE.Vector3(0, 0.95, 0.5);
 
-    if (viewMode === 'first-person') {
-      const activeCam = this.getActiveViewCamera();
-      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(activeCam.quaternion);
-      this.spatialHUD.group.position.copy(activeCam.position).add(forward);
-      this.spatialHUD.group.quaternion.copy(activeCam.quaternion);
+    if (this.session.getState().viewMode === 'first-person') {
+      this.spatialHUD.group.position.set(0, 1.25, -1.2);
+      this.spatialHUD.group.lookAt(targetLookAt.x, this.spatialHUD.group.position.y, targetLookAt.z);
       return;
     }
 
-    if (isXR) {
-      const xrCam = this.sceneManager.renderer.xr.getCamera();
-      const headPos = xrCam.position;
-      const hasValidHead = headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z);
-
-      if (hasValidHead) {
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-        fwd.y = 0;
-        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
-        else fwd.normalize();
-
-        this.anchorTabletopHUD({
-          headPosition: headPos.clone(),
-          horizontalForward: fwd.clone(),
-          yaw: Math.atan2(fwd.x, fwd.z),
-        }, side);
-      } else {
-        // Standard WebXR room coordinates (user at origin facing -Z)
-        if (side === 'left') {
-          this.spatialHUD.group.position.set(-0.70, 1.05, -0.70);
-          this.spatialHUD.group.lookAt(0, 1.05, 0);
-        } else if (side === 'right') {
-          this.spatialHUD.group.position.set(0.70, 1.05, -0.70);
-          this.spatialHUD.group.lookAt(0, 1.05, 0);
-        } else {
-          this.spatialHUD.group.position.set(0.0, 1.35, -1.15);
-          this.spatialHUD.group.lookAt(0, 1.20, 0);
-        }
-      }
+    if (side === 'left') {
+      // Docked comfortably to the left of the mountain
+      this.spatialHUD.group.position.set(-0.70, 0.95, -0.70);
+    } else if (side === 'right') {
+      // Docked to the right of the mountain
+      this.spatialHUD.group.position.set(0.70, 0.95, -0.70);
     } else {
-      // Desktop inspection mode
-      if (side === 'left') {
-        this.spatialHUD.group.position.set(-0.65, 0.25, -0.55);
-        this.spatialHUD.group.rotation.set(0, 0.35, 0);
-      } else if (side === 'right') {
-        this.spatialHUD.group.position.set(0.65, 0.25, -0.55);
-        this.spatialHUD.group.rotation.set(0, -0.35, 0);
-      } else {
-        this.spatialHUD.group.position.set(0.0, 0.45, -0.75);
-        this.spatialHUD.group.rotation.set(-0.15, 0, 0);
-      }
+      // Centered
+      this.spatialHUD.group.position.set(0, 0.95, -0.90);
     }
+
+    // Level orientation facing user: pure vertical yaw, zero crooked tilt/roll
+    this.spatialHUD.group.lookAt(targetLookAt.x, this.spatialHUD.group.position.y, targetLookAt.z);
   }
 
   private togglePlay(): void {
@@ -508,31 +420,10 @@ class TrekViewerApp {
       const maxDim = Math.max(active.track.bounds.widthMeters, active.track.bounds.depthMeters);
       this.sceneManager.setViewMode(this.session.getState().viewMode, maxDim);
     }
-    const isXR = this.sceneManager.renderer.xr.isPresenting;
-    if (isXR) {
-      const xrCam = this.sceneManager.renderer.xr.getCamera();
-      const headPos = xrCam.position;
-      const hasValidHead = headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z);
-      if (hasValidHead) {
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-        fwd.y = 0;
-        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
-        else fwd.normalize();
-        this.anchorTabletop({
-          headPosition: headPos.clone(),
-          horizontalForward: fwd.clone(),
-          yaw: Math.atan2(fwd.x, fwd.z),
-        }, 'user-reset');
-      } else {
-        this.sceneManager.anchorDioramaDefault();
-        this.dioramaTransformVersion++;
-        this.dockHUD(this.currentHUDDockSide);
-      }
-    } else {
-      this.sceneManager.setupDesktopDiorama();
-      this.dioramaTransformVersion++;
-      this.dockHUD(this.currentHUDDockSide);
-    }
+    this.sceneManager.dioramaRoot.position.set(0, -0.2, -1.1);
+    this.sceneManager.dioramaRoot.rotation.set(0, 0, 0);
+    this.dioramaTransformVersion++;
+    this.dockHUD(this.currentHUDDockSide);
   }
 
   private focusOnHiker(): void {
@@ -600,26 +491,6 @@ class TrekViewerApp {
     const delta = Math.min((now - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = now;
 
-    // 0. Deterministic One-Time XR Tabletop Anchoring
-    if (this.sceneManager.renderer.xr.isPresenting && this.xrAnchorState === 'waiting-for-pose') {
-      const xrCam = this.sceneManager.renderer.xr.getCamera();
-      const headPos = xrCam.position;
-      if (headPos.y > 0.4 && Number.isFinite(headPos.x) && Number.isFinite(headPos.y) && Number.isFinite(headPos.z)) {
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-        fwd.y = 0;
-        if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
-        else fwd.normalize();
-
-        const anchorPose: XRAnchorPose = {
-          headPosition: headPos.clone(),
-          horizontalForward: fwd.clone(),
-          yaw: Math.atan2(fwd.x, fwd.z),
-        };
-
-        this.anchorTabletop(anchorPose, 'initial-xr-anchor');
-        this.xrAnchorState = 'anchored';
-      }
-    }
 
     // 1. Update WebXR inputs with frame delta (frame-rate independent locomotion, pan, zoom)
     this.xrManager.update(delta);

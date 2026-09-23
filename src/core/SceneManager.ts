@@ -39,6 +39,8 @@ export class SceneManager {
     // 2. Diorama Root Group
     this.dioramaRoot = new THREE.Group();
     this.dioramaRoot.name = 'DioramaRoot';
+    this.dioramaRoot.position.set(0, -0.2, -1.1);
+    this.dioramaRoot.rotation.set(0, 0, 0);
     this.scene.add(this.dioramaRoot);
 
     // 3. Camera
@@ -48,7 +50,8 @@ export class SceneManager {
       0.1,
       80000
     );
-    this.camera.position.set(0, 1.2, 1.5);
+    this.camera.position.set(0, 0.8, 1.3);
+    this.camera.lookAt(0, 0, 0);
 
     // 4. Renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -154,7 +157,16 @@ export class SceneManager {
         minY: -110,
         maxY: Math.max(extentMeters * 0.5, 500),
       };
-      // Note: setViewMode only configures scale/volume policy; does not implicitly move world
+
+      if (this.dioramaRoot.position.lengthSq() < 0.001) {
+        this.dioramaRoot.position.set(0, -0.2, -1.1);
+        this.dioramaRoot.rotation.set(0, 0, 0);
+      }
+
+      if (!this.renderer.xr.isPresenting) {
+        this.camera.position.set(0, 0.8, 1.3);
+        this.camera.lookAt(0, 0, 0);
+      }
     } else {
       // 1:1 Real-world meters scale for First-Person immersion
       this.dioramaRoot.scale.set(1, 1, 1);
