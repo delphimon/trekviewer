@@ -92,7 +92,10 @@ describe('Track Geometry Fidelity & Adaptive Resolution', () => {
       elevationLoss: 0,
       minElevation: 1500,
       maxElevation: 4392,
+      movingTime: 3600,
       totalPlaybackSeconds: 60,
+      avgSpeed: 5.0,
+      maxSpeed: 10.0,
       bounds: {
         minLat: 46.85,
         maxLat: 46.87,
@@ -119,7 +122,7 @@ describe('Track Geometry Fidelity & Adaptive Resolution', () => {
 
     const tele1000 = routeGeom.getTelemetryAtDistance(1000);
     assert(Math.abs(tele1000.currentPoint.ele - 2000) < 0.1, `Expected ele 2000, got ${tele1000.currentPoint.ele}`);
-    assert(Math.abs(tele1000.currentPoint.grade - 0.10) < 0.01, 'Grade should interpolate accurately');
+    assert(tele1000.currentPoint.grade !== undefined && Math.abs(tele1000.currentPoint.grade - 0.10) < 0.01, 'Grade should interpolate accurately');
 
     const tele3500 = routeGeom.getTelemetryAtDistance(3500);
     assert(Math.abs(tele3500.currentPoint.ele - 3446) < 1.0, `Expected ele 3446, got ${tele3500.currentPoint.ele}`);

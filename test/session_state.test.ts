@@ -99,15 +99,16 @@ describe('TrekSession Authoritative State Store (Stage G)', () => {
       elevationLoss: 0,
       minElevation: 1500,
       maxElevation: 4392,
-      totalDurationSeconds: 7200,
+      movingTime: 7200,
       totalPlaybackSeconds: 3600,
+      avgSpeed: 5.0,
+      maxSpeed: 10.0,
       bounds: {
         minLat: 46.85, maxLat: 46.87, minLon: -121.77, maxLon: -121.75,
         minEle: 1500, maxEle: 4392,
         centerLat: 46.86, centerLon: -121.76,
-        widthMeters: 5000, depthMeters: 5000, heightMeters: 2892,
+        widthMeters: 5000, depthMeters: 5000, elevationSpan: 2892,
       },
-      elevationProfile: [],
       waypoints: [],
       landmarks: [],
       segments: [],
@@ -175,5 +176,86 @@ describe('TrekSession Authoritative State Store (Stage G)', () => {
 
     session.setAttribution('USGS Topo');
     assert.strictEqual(session.getState().attribution, 'USGS Topo');
+  });
+
+  it('preserves visual settings and playback speed across route switch while resetting progress and pause', () => {
+    const session = new TrekSession();
+
+    // User customizes visualization
+    session.setTextureStyle('topo');
+    session.setTrailColorMode('speed');
+    session.setVerticalExaggeration(2.5);
+    session.setSpeed(20);
+    session.setPlayback(true);
+    session.setProgress(0.75);
+
+    // Initial assertions
+    assert.strictEqual(session.getState().textureStyle, 'topo');
+    assert.strictEqual(session.getState().trailColorMode, 'speed');
+    assert.strictEqual(session.getState().verticalExaggeration, 2.5);
+    assert.strictEqual(session.getState().playbackSpeed, 20);
+    assert.strictEqual(session.getState().isPlaying, true);
+    assert.strictEqual(session.getState().progress, 0.75);
+
+    // Switch route: new track arrives
+    const newTrack: TrackStats = {
+      name: 'Enchantments Traverse',
+      points: [
+        { lat: 47.48, lon: -120.78, ele: 1200, distanceFromStart: 0, elapsedSeconds: 0, playbackSeconds: 0, index: 0 },
+        { lat: 47.50, lon: -120.80, ele: 2400, distanceFromStart: 8000, elapsedSeconds: 5000, playbackSeconds: 2500, index: 1 },
+      ],
+      totalDistance: 8000,
+      elevationGain: 1200,
+      elevationLoss: 0,
+      minElevation: 1200,
+      maxElevation: 2400,
+      movingTime: 5000,
+      totalPlaybackSeconds: 2500,
+      avgSpeed: 4.0,
+      maxSpeed: 8.0,
+      bounds: {
+        minLat: 47.48, maxLat: 47.50, minLon: -120.80, maxLon: -120.78,
+        minEle: 1200, maxEle: 2400,
+        centerLat: 47.49, centerLon: -120.79,
+        widthMeters: 4000, depthMeters: 4000, elevationSpan: 1200,
+      },
+      waypoints: [],
+      landmarks: [],
+      segments: [],
+      warnings: [],
+    };
+
+    session.setTrack(newTrack, 'enchantments', 'manifest');
+    session.setProgress(0, newTrack.points[0].ele);
+    session.setPlayback(false);
+
+    // Visual state MUST be preserved
+    assert.strictEqual(session.getState().textureStyle, 'topo');
+    assert.strictEqual(session.getState().trailColorMode, 'speed');
+    assert.strictEqual(session.getState().verticalExaggeration, 2.5);
+    assert.strictEqual(session.getState().playbackSpeed, 20);
+
+    // Progress and playback MUST be safely reset
+    assert.strictEqual(session.getState().progress, 0);
+    assert.strictEqual(session.getState().isPlaying, false);
+    assert.strictEqual(session.getState().activeRouteId, 'enchantments');
+    assert.strictEqual(session.getState().routeSource, 'manifest');
+  });
+
+  it('notifies subscribers of vertical exaggeration updates', () => {
+    const session = new TrekSession();
+    let noticedExaggeration: number | null = null;
+
+    session.subscribe((state, prev) => {
+      if (state.verticalExaggeration !== prev.verticalExaggeration) {
+        noticedExaggeration = state.verticalExaggeration;
+      }
+    });
+
+    session.setVerticalExaggeration(2.2);
+    assert.strictEqual(noticedExaggeration, 2.2);
+
+    session.setVerticalExaggeration(1.0);
+    assert.strictEqual(noticedExaggeration, 1.0);
   });
 });

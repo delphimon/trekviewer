@@ -326,9 +326,9 @@ export class DesktopOverlay {
           <div class="player-left">
             <button id="btnPlay" class="btn btn-primary play-btn">▶ Play</button>
             <div class="speed-selector">
-              <button class="btn btn-xs speed-btn" data-speed="1">1x</button>
+              <button class="btn btn-xs speed-btn btn-active" data-speed="1">1x</button>
               <button class="btn btn-xs speed-btn" data-speed="5">5x</button>
-              <button class="btn btn-xs speed-btn btn-active" data-speed="20">20x</button>
+              <button class="btn btn-xs speed-btn" data-speed="20">20x</button>
               <button class="btn btn-xs speed-btn" data-speed="60">60x</button>
             </div>
             <button id="btnViewToggle" class="btn btn-secondary view-toggle-btn">
@@ -523,10 +523,41 @@ export class DesktopOverlay {
     btnColEle?.classList.toggle('btn-active', mode === 'elevation');
   }
 
+  public setPlaybackSpeed(speed: number): void {
+    document.querySelectorAll('.speed-btn').forEach((btn) => {
+      const spd = parseFloat(btn.getAttribute('data-speed') || '1');
+      btn.classList.toggle('btn-active', Math.abs(spd - speed) < 0.05);
+    });
+  }
+
+  public setXREnabled(enabled: boolean): void {
+    const vrBtn = document.getElementById('btnEnterVR') as HTMLButtonElement | null;
+    const arBtn = document.getElementById('btnEnterAR') as HTMLButtonElement | null;
+    if (vrBtn) vrBtn.disabled = !enabled;
+    if (arBtn) arBtn.disabled = !enabled;
+  }
+
+  public setMetaInfo(attribution?: string, terrainQuality?: string): void {
+    let metaEl = document.getElementById('desktopAttribution');
+    if (!metaEl) {
+      metaEl = document.createElement('div');
+      metaEl.id = 'desktopAttribution';
+      metaEl.className = 'desktop-attribution';
+      metaEl.style.cssText = 'position:fixed;bottom:8px;left:8px;font-family:monospace;font-size:11px;color:#94a3b8;background:rgba(15,23,42,0.85);padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);z-index:99999;pointer-events:none;';
+      document.body.appendChild(metaEl);
+    }
+    const qualityLabel = terrainQuality === 'dem' ? 'DEM' : terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
+    metaEl.textContent = `Elevation: ${qualityLabel}${attribution ? ` | Imagery: ${attribution}` : ''}`;
+  }
+
   public dispose(): void {
     if (this.statusTimeout) {
       window.clearTimeout(this.statusTimeout);
       this.statusTimeout = null;
+    }
+    const metaEl = document.getElementById('desktopAttribution');
+    if (metaEl && metaEl.parentNode) {
+      metaEl.parentNode.removeChild(metaEl);
     }
     this.container.innerHTML = '';
   }

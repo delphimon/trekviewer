@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { RouteLoader } from '../src/core/RouteLoader.ts';
 import { LoadedTrek } from '../src/core/LoadedTrek.ts';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
+import { TrekSession } from '../src/core/TrekSession.ts';
 
 const ROUTE_A_GPX = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="TrekViewer Test">
@@ -131,8 +132,8 @@ describe('Route Transaction Architecture & State Atomicity (Stage F)', () => {
     });
 
     const trek = await loader.loadRouteFromXml(ROUTE_A_GPX, 'Camp Muir Trail');
-    assert(trek !== null, 'LoadedTrek must be created successfully');
-    assert.strictEqual(trek, committedTrek, 'Committed trek must match returned trek');
+    assert(trek, 'LoadedTrek must be created successfully');
+    assert.strictEqual(trek === committedTrek, true, 'Committed trek must match returned trek');
     assert.strictEqual(trek.track.name, 'Camp Muir Trail');
     assert.strictEqual(trek.isDisposed, false);
 
@@ -280,5 +281,31 @@ describe('Route Transaction Architecture & State Atomicity (Stage F)', () => {
     assert.strictEqual(dioramaRoot.children.length, 0, 'dioramaRoot must be empty after loader dispose');
     assert.strictEqual(loader.getActiveTrek(), null, 'activeTrek must be null after dispose');
     assert.strictEqual(trek.isDisposed, true, 'Trek must be marked disposed');
+  });
+
+  it('correctly classifies manifest vs upload source and preserves routeId', async () => {
+    const dioramaRoot = new THREE.Group();
+    const session = new TrekSession();
+    const loader = new RouteLoader({
+      dioramaRoot,
+      getIsXR: () => false,
+      session,
+    });
+
+    // 1. Loading from URL -> manifest source
+    const urlTrek = await loader.loadRouteFromUrl('/routes/route-a.gpx', 'Camp Muir Trail', 'route-a-id');
+    assert(urlTrek !== null);
+    assert.strictEqual(session.getState().routeSource, 'manifest');
+    assert.strictEqual(session.getState().activeRouteId, 'route-a-id');
+    assert.strictEqual(session.getState().routeName, 'Camp Muir Trail');
+
+    // 2. Loading from XML directly -> upload source
+    const xmlTrek = await loader.loadRouteFromXml(ROUTE_B_GPX, 'Custom Upload');
+    assert(xmlTrek !== null);
+    assert.strictEqual(session.getState().routeSource, 'upload');
+    assert.strictEqual(session.getState().activeRouteId, 'upload:Custom Upload');
+    assert.strictEqual(session.getState().routeName, 'Enchantments Traverse');
+
+    loader.dispose();
   });
 });
