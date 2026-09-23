@@ -90,11 +90,35 @@ export class DesktopOverlay {
       }
     }
 
-    if (!isError && (message.includes('Loaded:') || message.includes('active') || message.includes('complete'))) {
+    const spinner = this.statusBanner.querySelector('.status-spinner') as HTMLElement;
+    const isDone = !isError && (
+      message.toLowerCase().includes('ready') ||
+      message.includes('Loaded:') ||
+      message.includes('active') ||
+      message.includes('complete')
+    );
+
+    if (spinner) {
+      spinner.style.display = (isDone || isError) ? 'none' : 'inline-block';
+    }
+
+    if (isDone) {
       this.statusTimeout = window.setTimeout(() => {
         this.statusBanner.style.display = 'none';
-      }, 3500);
+      }, 2500);
+    } else if (isError) {
+      this.statusTimeout = window.setTimeout(() => {
+        this.statusBanner.style.display = 'none';
+      }, 6000);
     }
+  }
+
+  public clearStatus(): void {
+    if (this.statusTimeout) {
+      clearTimeout(this.statusTimeout);
+      this.statusTimeout = null;
+    }
+    this.statusBanner.style.display = 'none';
   }
 
   public updateTrack(track: TrackStats): void {

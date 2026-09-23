@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
+import type { GeoBounds } from '../gpx/TrackTypes.ts';
 
 export interface XRInteractionCallbacks {
   onToggleViewMode?: () => void;
@@ -174,6 +175,90 @@ export class XRManager {
     this.spatialHUD = hud;
   }
 
+  // Tabletop Diorama Proximity Context
+  private dioramaBounds: GeoBounds | null = null;
+  private dioramaWidthMeters: number = 2000;
+  private dioramaDepthMeters: number = 2000;
+  private dioramaElevationSampler: ((x: number, z: number) => number) | null = null;
+  private dioramaBaseElevation: number = 0;
+  private dioramaVerticalExaggeration: number = 1.0;
+  private dioramaPlinthBottomY: number = -105; // Plinth bottom in local diorama coords (-80 - 25 = -105)
+
+  public setDioramaContext(
+    bounds: GeoBounds,
+    elevationSampler?: (x: number, z: number) => number,
+    baseElevation: number = bounds.minEle,
+    verticalExaggeration: number = 1.0
+  ): void {
+    this.dioramaBounds = bounds;
+    const margin = 0.25;
+    this.dioramaWidthMeters = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
+    this.dioramaDepthMeters = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
+    this.dioramaElevationSampler = elevationSampler || null;
+    this.dioramaBaseElevation = baseElevation;
+    this.dioramaVerticalExaggeration = verticalExaggeration;
+  }
+
+  public setVerticalExaggeration(factor: number): void {
+    this.dioramaVerticalExaggeration = factor;
+  }
+
+  public isHandTouchingDiorama(handWorldPos: THREE.Vector3): boolean {
+    if (this.currentViewMode !== 'diorama') return false;
+    const dioramaRoot = this.sceneManager.dioramaRoot;
+    if (!dioramaRoot.visible) return false;
+
+    const dioramaScale = dioramaRoot.scale.x;
+    if (dioramaScale <= 0) return false;
+
+    // Transform hand world position to local diorama coordinates
+    const local = _scratchV1.copy(handWorldPos);
+    dioramaRoot.worldToLocal(local);
+
+    const halfW = this.dioramaWidthMeters * 0.5;
+    const halfD = this.dioramaDepthMeters * 0.5;
+
+    // 1. Horizontal distance outside diorama boundary (sides) in real-world meters
+    const dxLocal = Math.max(0, Math.abs(local.x) - halfW);
+    const dzLocal = Math.max(0, Math.abs(local.z) - halfD);
+    const distHorizWorld = Math.hypot(dxLocal, dzLocal) * dioramaScale;
+
+    // Hand is away to the sides if > 8cm outside diorama footprint
+    if (distHorizWorld > 0.08) {
+      return false;
+    }
+
+    // 2. Local terrain surface elevation at hand (x, z)
+    const clampedX = Math.max(-halfW, Math.min(halfW, local.x));
+    const clampedZ = Math.max(-halfD, Math.min(halfD, local.z));
+
+    let localSurfaceY = 0;
+    if (this.dioramaElevationSampler) {
+      try {
+        const sample = this.dioramaElevationSampler(clampedX, clampedZ);
+        if (typeof sample === 'number' && !isNaN(sample)) {
+          localSurfaceY = sample * this.dioramaVerticalExaggeration;
+        }
+      } catch {
+        localSurfaceY = 0;
+      }
+    }
+
+    // Hand is above map if > 8cm above local terrain surface
+    const dyAboveWorld = (local.y - localSurfaceY) * dioramaScale;
+    if (dyAboveWorld > 0.08) {
+      return false;
+    }
+
+    // Hand is below map if > 6cm below diorama plinth bottom
+    const dyBelowWorld = (this.dioramaPlinthBottomY - local.y) * dioramaScale;
+    if (dyBelowWorld > 0.06) {
+      return false;
+    }
+
+    return true;
+  }
+
   private setupControllers(): void {
     for (let i = 0; i < 2; i++) {
       // 1. Target ray space (laser pointer direction)
@@ -295,9 +380,9 @@ export class XRManager {
       const boneGeo = new THREE.BufferGeometry();
       boneGeo.setAttribute('position', new THREE.BufferAttribute(bonePositions, 3));
       const boneMat = new THREE.LineBasicMaterial({
-        color: 0x00f0ff, // Vibrant radiant cyan holographic outline
+        color: 0x64748b, // Faint translucent slate when away from diorama
         transparent: true,
-        opacity: 0.90,
+        opacity: 0.30,
         depthTest: false,
       });
       const boneLines = new THREE.LineSegments(boneGeo, boneMat);
@@ -623,27 +708,24 @@ export class XRManager {
 
       const isEngagedWithHUD = isDirectTouchHUD || isLaserHUD;
 
+      // Check whether hand is virtually touching the tabletop diorama
+      const isTouchingDiorama = this.isHandTouchingDiorama(state.pinchWorldPos) || this.isHandTouchingDiorama(state.indexTipWorldPos);
+
       if (!state.isPinching) {
         state.activeInteraction = 'none';
-        state.pinchReticle.visible = false;
       } else {
-        // Pinch is active
-        state.pinchReticle.position.copy(state.pinchWorldPos);
-        state.pinchReticle.visible = true;
-
-        const s = 1.0 + 0.2 * Math.sin(performance.now() * 0.012);
-        state.pinchReticle.scale.set(s, s, s);
-
         if (state.activeInteraction === 'none') {
           // Gesture initiated this frame: claim ownership
           if (isEngagedWithHUD) {
             state.activeInteraction = 'hud';
-          } else {
+          } else if (isTouchingDiorama) {
+            // ONLY grab diorama if virtually touching it!
             state.activeInteraction = 'diorama';
             state.prevPinchWorldPos.copy(state.pinchWorldPos);
             state.prevWristWorldPos.copy(state.wristWorldPos);
             state.prevWristWorldQuat.copy(state.wristWorldQuat);
           }
+          // If pinching in midair away from HUD and diorama, activeInteraction remains 'none'
         }
 
         // EXCLUSIVITY: If hand gesture belongs to HUD, do NOT grab or drag the diorama!
@@ -662,9 +744,56 @@ export class XRManager {
         state.prevWristWorldPos.copy(state.wristWorldPos);
         state.prevWristWorldQuat.copy(state.wristWorldQuat);
       }
+
+      // Dynamic Hand Outline & Reticle Visual Feedback
+      this.updateHandVisuals(state, isEngagedWithHUD, isTouchingDiorama);
     }
 
     return activeGrabs;
+  }
+
+  private updateHandVisuals(
+    state: HandState,
+    isEngagedWithHUD: boolean,
+    isTouchingDiorama: boolean
+  ): void {
+    const boneMat = state.visualOutline.boneLines.material as THREE.LineBasicMaterial;
+    const reticleMat = state.pinchReticle.material as THREE.MeshBasicMaterial;
+
+    if (state.activeInteraction === 'diorama') {
+      // 1. ACTIVE DIORAMA GRAB: Radiant Amber Gold
+      boneMat.color.setHex(0xffb703);
+      boneMat.opacity = 1.0;
+      reticleMat.color.setHex(0xffb703);
+      reticleMat.opacity = 1.0;
+
+      state.pinchReticle.position.copy(state.pinchWorldPos);
+      state.pinchReticle.visible = true;
+      const pulse = 1.15 + 0.25 * Math.sin(performance.now() * 0.015);
+      state.pinchReticle.scale.set(pulse, pulse, pulse);
+    } else if (isEngagedWithHUD) {
+      // 2. ENGAGED WITH HUD: Soft Violet / Indigo
+      boneMat.color.setHex(0x818cf8);
+      boneMat.opacity = 0.85;
+      state.pinchReticle.visible = false;
+    } else if (isTouchingDiorama) {
+      // 3. TOUCHING DIORAMA (Hovering / Ready to grab): Vibrant Glowing Electric Cyan
+      boneMat.color.setHex(0x00f0ff);
+      boneMat.opacity = 0.95;
+      reticleMat.color.setHex(0x00f0ff);
+      reticleMat.opacity = 0.85;
+
+      state.pinchReticle.position.copy(state.pinchWorldPos);
+      state.pinchReticle.visible = true;
+      const hoverScale = 0.8 + 0.15 * Math.sin(performance.now() * 0.008);
+      state.pinchReticle.scale.set(hoverScale, hoverScale, hoverScale);
+    } else {
+      // 4. FAR ENOUGH AWAY NOT TO GRAB: Faint Translucent Slate
+      // User clearly sees they are far enough away and will not manipulate the map
+      boneMat.color.setHex(0x64748b);
+      boneMat.opacity = 0.30;
+      state.pinchReticle.visible = false;
+    }
   }
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {

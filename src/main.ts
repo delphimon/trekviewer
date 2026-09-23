@@ -187,6 +187,7 @@ class TrekViewerApp {
       });
       this.terrainResult = terrain;
       this.spatialHUD?.clearStatus();
+      this.overlay.clearStatus();
 
       // Generate 3D Trail Mesh
       const trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
@@ -260,6 +261,7 @@ class TrekViewerApp {
 
       // Register SpatialHUD with XRManager for laser raycasting and clicks
       this.xrManager.setSpatialHUD(this.spatialHUD);
+      this.xrManager.setDioramaContext(track.bounds, terrain.elevationSampler, terrain.terrainBaseElevation, 1.0);
 
       // Configure View Mode
       const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);

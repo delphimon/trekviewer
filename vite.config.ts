@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE D (trail geometry)',
+      label: 'STAGE D+ (touch proximity, hand outline, banner fix)',
     }),
   },
   plugins: [
