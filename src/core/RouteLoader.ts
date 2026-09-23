@@ -139,15 +139,45 @@ export class RouteLoader {
     let trek: LoadedTrek | null = null;
 
     try {
-      this.options.session?.setLoadingStatus('parsing', 'Parsing GPX survey track...', 0.1);
-      this.options.onProgress?.('Parsing GPX survey track...', 0.1);
-      const track = GPXParser.parse(xml, fallbackName);
+      this.options.session?.setLoadingStatus('parsing', 'Parsing GPX survey track...', 0.05);
+      this.options.onProgress?.('Parsing GPX survey track...', 0.05);
+
+      // 1. Phase 1: Parse raw GPX survey track without requiring DEM
+      const raw = GPXParser.parseRaw(xml, fallbackName);
 
       if (this.isStale(context)) {
         return null;
       }
 
-      // 1. Generate 3D Terrain off-scene
+      // Calculate raw geographic bounds to establish DEM footprint
+      const rawBounds = GPXParser.calculateRawBounds(raw);
+
+      // 2. Obtain DEM elevation coverage covering the route bounds
+      const preparedElevation = await TerrainGenerator.prepareElevation(
+        rawBounds,
+        (msg, progress) => {
+          if (!this.isStale(context!)) {
+            this.options.session?.setLoadingStatus('terrain', msg, progress);
+            this.options.onProgress?.(msg, progress);
+          }
+        },
+        context.abortController.signal
+      );
+
+      if (this.isStale(context)) {
+        return null;
+      }
+
+      // 3. Phase 2: Finalize track metrics and missing elevations using real DEM sampler
+      this.options.session?.setLoadingStatus('parsing', 'Normalizing elevations with DEM surface...', 0.45);
+      this.options.onProgress?.('Normalizing elevations with DEM surface...', 0.45);
+      const track = GPXParser.finalizeWithDEM(raw, preparedElevation.elevationSamplerForGeo);
+
+      if (this.isStale(context)) {
+        return null;
+      }
+
+      // 4. Generate 3D Terrain off-scene reusing the prepared DEM grid
       const isXR = this.options.getIsXR();
       terrain = await TerrainGenerator.generate(
         track,
@@ -159,7 +189,8 @@ export class RouteLoader {
         },
         context.abortController.signal,
         1.0,
-        isXR
+        isXR,
+        preparedElevation
       );
 
       if (this.isStale(context)) {
