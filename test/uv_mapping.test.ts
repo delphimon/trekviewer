@@ -1,8 +1,10 @@
+import { describe, it } from 'vitest';
 import type { GeoBounds } from '../src/gpx/TrackTypes.ts';
 import { localMetersToGeo, geoToLocalMeters } from '../src/gpx/Coordinates.ts';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 
-console.log('--- Testing Satellite & DEM UV Orthorectification Alignment ---');
+describe('Satellite & DEM UV Orthorectification Alignment', () => {
+  it('evaluates UV orthorectification alignment', () => {
 
 // Test Case: Mount Rainier (center approx 46.8528, -121.7604)
 const centerLat = 46.852886;
@@ -74,3 +76,5 @@ if (Math.abs(summitUV.u - uvCenter.u) > 0.001 || Math.abs(summitUV.v - uvCenter.
 }
 
 console.log('✓ All UV orthorectification alignment tests passed!');
+  });
+});

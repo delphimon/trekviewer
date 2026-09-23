@@ -1,11 +1,13 @@
 import * as THREE from 'three';
+import { describe, it } from 'vitest';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import * as fs from 'fs';
 import * as path from 'path';
 
-console.log('--- Testing Hybrid Map View, Trail Color Modes & Radiant Hiker Beacon ---');
+describe('Hybrid Map View, Trail Color Modes & Radiant Hiker Beacon', () => {
+  it('evaluates hybrid map view, trail color modes, and hiker beacon', () => {
 
 // 1. Load test trek (Mount Rainier via Emmons)
 const rainierXml = fs.readFileSync(path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx'), 'utf8');
@@ -110,3 +112,5 @@ if (!usgsHybridUrl.includes('USGSImageryTopo') || !esriOverlayUrl.includes('Worl
 console.log('✓ Hybrid imagery and reference label tile URLs validated');
 
 console.log('✓ All Hybrid Map View, Trail Color, and Hiker Beacon tests passed successfully!');
+  });
+});

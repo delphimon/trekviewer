@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import assert from 'node:assert';
+import { describe, it } from 'vitest';
 import { ALL_HAND_JOINTS, BONE_CONNECTIONS } from '../src/core/XRManager.ts';
 
-console.log('--- Testing Hand Tracking & 6DOF Manipulation Gestures ---');
+describe('Hand Tracking & 6DOF Manipulation Gestures', () => {
+  it('evaluates gestures, isolation, and 6DOF manipulation', () => {
 
 // =========================================================================
 // 1. Pinch Detection & Hysteresis Logic Test
@@ -565,3 +567,5 @@ assert.deepStrictEqual(clicks, ['btn_toggle_hybrid'], 'Left hand pinch must trig
 console.log('✓ Hand / Controller click alignment verified: clicks map strictly 1:1 to pointed hand and are never reversed');
 
 console.log('✓ All Hand Gestures, 6DOF Manipulation, Skeleton & Input Isolation tests passed successfully!');
+  });
+});

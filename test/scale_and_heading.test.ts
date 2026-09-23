@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { describe, it } from 'vitest';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import { FlyoverController } from '../src/visualization/FlyoverController.ts';
@@ -6,7 +7,8 @@ import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import * as fs from 'fs';
 import * as path from 'path';
 
-console.log('--- Testing Scale-Adaptive Route, 1:1 Forward Angle & Topo Tile URLs ---');
+describe('Scale-Adaptive Route, 1:1 Forward Angle & Topo Tile URLs', () => {
+  it('evaluates scale adaptation, 1:1 heading, and topo tile URLs', () => {
 
 // 1. Test Scale Adaptation: Small Alpine Climb vs. Massive Bailey Range Traverse
 const rainierXml = fs.readFileSync(path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx'), 'utf8');
@@ -105,3 +107,5 @@ if (!usgsUrl.includes('USGSTopo') || !esriUrl.includes('World_Topo_Map') || !otm
 console.log('✓ High-res Topographic tile URLs and Web Mercator bounds verified!');
 
 console.log('✓ All scale, heading, and topo map tests passed!');
+  });
+});

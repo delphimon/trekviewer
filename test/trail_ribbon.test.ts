@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { describe, it } from 'vitest';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
 import * as fs from 'fs';
 import * as path from 'path';
 
-console.log('--- Testing 2D Trail Ribbon & Alpine Hiker Beacon ---');
+describe('2D Trail Ribbon & Alpine Hiker Beacon', () => {
+  it('evaluates trail ribbon geometry and hiker beacon components', () => {
 
 // Parse a sample route
 const gpxPath = path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx');
@@ -80,3 +82,5 @@ if (Math.abs(hiker.position.x - updateResult.position.x) > 0.001) {
 console.log('✓ Hiker position tracking along trail curve verified!');
 
 console.log('✓ All 2D Trail Ribbon & Alpine Hiker Beacon tests passed!');
+  });
+});
