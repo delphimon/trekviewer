@@ -641,7 +641,7 @@ export class GPXParser {
             ele: cur.ele,
             name: `Day ${dayCount} Start`,
             desc: `Route continuation on ${cur.time.toLocaleDateString()}`,
-            sym: 'Campground',
+            sym: 'DayBoundary',
             type: 'day_boundary',
             isDerivedLandmark: true,
           });
@@ -659,7 +659,7 @@ export class GPXParser {
             ele: cur.ele,
             name: 'Long Stop',
             desc: `Extended rest stop (${Math.round(dtSec / 60)} min) at ${Math.round(cur.ele)} m`,
-            sym: 'Shelter',
+            sym: 'RestStop',
             type: 'stop',
             isDerivedLandmark: true,
           });

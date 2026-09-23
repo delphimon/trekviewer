@@ -10,6 +10,7 @@ export interface TrailResult {
   routeGeometry: RouteGeometry;
   hikerMarker: THREE.Group;
   startBeacon: THREE.Group;
+  finishBeacon: THREE.Group;
   summitBeacon: THREE.Group;
   updateHikerPosition: (progress: number) => { currentPoint: GPXPoint; position: THREE.Vector3 };
   setColorMode: (mode: TrailColorMode) => void;
@@ -22,7 +23,8 @@ export class TrailMesh {
   public static create(
     track: TrackStats,
     elevationSampler?: (x: number, z: number) => number,
-    baseElevation: number = track.bounds.minEle
+    baseElevation: number = track.bounds.minEle,
+    initialExaggeration: number = 1.0
   ): TrailResult {
     const group = new THREE.Group();
     group.name = 'TrailGroup';
@@ -32,12 +34,11 @@ export class TrailMesh {
     const ribbonHalfWidth = Math.max(3.5, Math.min(80.0, maxDim / 850));
     const dioramaElevationOffset = Math.max(2.5, 2.0 * scaleFactor);
 
-    // Construct dual-representation RouteGeometry
+    // Construct pure RouteGeometry (analytical and ground DEM coordinates without diorama offsets)
     const routeGeometry = new RouteGeometry(
       track,
       baseElevation,
-      elevationSampler,
-      dioramaElevationOffset
+      elevationSampler
     );
 
     // Primary curve for backward-compatibility with tests & controllers
@@ -47,11 +48,23 @@ export class TrailMesh {
     // Total ribbon segments
     const totalSegments = Math.min(track.points.length * 3, 2400);
 
-    // 1. Build Multi-Segment Flat Ribbon Geometry (prevents cross-segment lines)
-    const dioramaGeo = this.buildMultiSegmentRibbon(routeGeometry, ribbonHalfWidth, totalSegments);
+    // 1. Build Multi-Segment Flat Ribbon Geometry for Tabletop Diorama
+    const { geometry: dioramaGeo, unscaledGroundY } = this.buildMultiSegmentRibbon(
+      routeGeometry,
+      ribbonHalfWidth,
+      totalSegments,
+      dioramaElevationOffset,
+      initialExaggeration
+    );
 
-    // 2. 1:1 Immersion Low-Profile Path Geometry
-    const firstPersonGeo = new THREE.TubeGeometry(primaryCurve, totalSegments, 0.08, 6, false);
+    // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.05m ground clearance)
+    const { geometry: firstPersonGeo } = this.buildMultiSegmentRibbon(
+      routeGeometry,
+      0.35,
+      totalSegments,
+      0.05,
+      1.0
+    );
 
     // Color application helper
     const applyColorsToGeo = (geo: THREE.BufferGeometry, mode: TrailColorMode) => {
@@ -60,9 +73,10 @@ export class TrailMesh {
       const count = posAttr.count;
       const colors = new Float32Array(count * 3);
       const color = new THREE.Color();
+      const progresses = geo.userData.progresses as Float32Array | undefined;
 
       for (let i = 0; i < count; i += 2) {
-        const progress = count > 1 ? i / (count - 1) : 0;
+        const progress = progresses ? progresses[i] : (count > 1 ? i / (count - 1) : 0);
         const telemetry = routeGeometry.getTelemetryAtProgress(progress);
         this.getColorForPoint(telemetry.currentPoint, track, mode, color);
 
@@ -83,6 +97,7 @@ export class TrailMesh {
 
     let currentColorMode: TrailColorMode = 'grade';
     applyColorsToGeo(dioramaGeo, currentColorMode);
+    applyColorsToGeo(firstPersonGeo, currentColorMode);
 
     // Diorama Material
     const dioramaMat = new THREE.MeshBasicMaterial({
@@ -101,33 +116,50 @@ export class TrailMesh {
       metalness: 0.2,
       emissive: new THREE.Color(0x223344),
       emissiveIntensity: 0.6,
+      side: THREE.DoubleSide,
     });
 
     const trailMesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(dioramaGeo, dioramaMat);
     trailMesh.renderOrder = 5;
     group.add(trailMesh);
 
-    // Start Beacon (Trailhead)
+    // Start Beacon (Neutral Start / Trailhead)
     const firstTele = routeGeometry.getTelemetryAtDistance(0);
-    const startBeacon = this.createPin(firstTele.position, 0x10b981, 'TRAILHEAD', scaleFactor);
+    const startGroundY = firstTele.position.y;
+    const startPos = new THREE.Vector3(firstTele.position.x, startGroundY * initialExaggeration + 8.0, firstTele.position.z);
+    const startBeacon = this.createPin(startPos, 0x10b981, 'START', scaleFactor);
     group.add(startBeacon);
 
-    // Summit / Finish Beacon
+    // Finish / Summit Beacon (Neutral semantics: SUMMIT only if at peak elevation, else FINISH)
     const lastTele = routeGeometry.getTelemetryAtDistance(routeGeometry.totalDistance);
-    const summitBeacon = this.createPin(lastTele.position, 0xf59e0b, 'SUMMIT', scaleFactor);
-    group.add(summitBeacon);
+    const finishGroundY = lastTele.position.y;
+    const lastPoint = lastTele.currentPoint;
+    const isSummit = Math.abs(lastPoint.ele - track.maxElevation) < 15 ||
+      (track.waypoints && track.waypoints.some((wp) =>
+        (wp.name.toLowerCase().includes('summit') || wp.sym?.toLowerCase().includes('summit')) &&
+        Math.hypot(wp.lat - lastPoint.lat, wp.lon - lastPoint.lon) < 0.002
+      ));
+    const finishLabel = isSummit ? 'SUMMIT' : 'FINISH';
+    const finishPos = new THREE.Vector3(lastTele.position.x, finishGroundY * initialExaggeration + 8.0, lastTele.position.z);
+    const finishBeacon = this.createPin(finishPos, 0xf59e0b, finishLabel, scaleFactor);
+    group.add(finishBeacon);
+    const summitBeacon = finishBeacon;
 
     // Radiant Hiker Marker
+    let currentExaggeration = initialExaggeration;
+    let currentProgress = 0;
     const hikerMarker = this.createHikerMarker(scaleFactor);
-    hikerMarker.position.copy(firstTele.position);
+    hikerMarker.position.set(firstTele.position.x, startGroundY * initialExaggeration + dioramaElevationOffset, firstTele.position.z);
     group.add(hikerMarker);
 
     // Distance-interpolated position update
     const updateHikerPosition = (
       progress: number
     ): { currentPoint: GPXPoint; position: THREE.Vector3 } => {
+      currentProgress = progress;
       const telemetry = routeGeometry.getTelemetryAtProgress(progress);
-      hikerMarker.position.copy(telemetry.position);
+      const hikerY = telemetry.position.y * currentExaggeration + dioramaElevationOffset;
+      hikerMarker.position.set(telemetry.position.x, hikerY, telemetry.position.z);
 
       // Keep hiker beacon upright to gravity while aligning yaw with heading
       const yaw = Math.atan2(telemetry.tangent.x, -telemetry.tangent.z);
@@ -135,7 +167,7 @@ export class TrailMesh {
 
       return {
         currentPoint: telemetry.currentPoint,
-        position: telemetry.position,
+        position: hikerMarker.position,
       };
     };
 
@@ -150,22 +182,32 @@ export class TrailMesh {
         trailMesh.geometry = firstPersonGeo;
         trailMesh.material = firstPersonMat;
         hikerMarker.visible = false;
+        startBeacon.visible = false;
+        finishBeacon.visible = false;
       } else {
         trailMesh.geometry = dioramaGeo;
         trailMesh.material = dioramaMat;
         hikerMarker.visible = true;
+        startBeacon.visible = true;
+        finishBeacon.visible = true;
       }
     };
 
-    // Keep unscaled ribbon Y positions for vertical exaggeration
-    const unscaledPositions = (dioramaGeo.attributes.position.array as Float32Array).slice();
-
     const setVerticalExaggeration = (factor: number) => {
+      currentExaggeration = factor;
       const posArray = dioramaGeo.attributes.position.array as Float32Array;
-      for (let i = 1; i < posArray.length; i += 3) {
-        posArray[i] = unscaledPositions[i] * factor;
+      for (let i = 0; i < unscaledGroundY.length; i++) {
+        posArray[i * 3 + 1] = unscaledGroundY[i] * factor + dioramaElevationOffset;
       }
       dioramaGeo.attributes.position.needsUpdate = true;
+
+      // Update start and finish beacons with constant +8.0 offset
+      startBeacon.position.y = startGroundY * factor + 8.0;
+      finishBeacon.position.y = finishGroundY * factor + 8.0;
+
+      // Update hiker marker position
+      const telemetry = routeGeometry.getTelemetryAtProgress(currentProgress);
+      hikerMarker.position.y = telemetry.position.y * factor + dioramaElevationOffset;
     };
 
     const dispose = () => {
@@ -183,6 +225,7 @@ export class TrailMesh {
       routeGeometry,
       hikerMarker,
       startBeacon,
+      finishBeacon,
       summitBeacon,
       updateHikerPosition,
       setColorMode,
@@ -195,18 +238,24 @@ export class TrailMesh {
   private static buildMultiSegmentRibbon(
     routeGeometry: RouteGeometry,
     halfWidth: number,
-    totalSegments: number
-  ): THREE.BufferGeometry {
+    totalSegments: number,
+    verticalOffset: number = 0,
+    verticalExaggeration: number = 1.0
+  ): { geometry: THREE.BufferGeometry; unscaledGroundY: Float32Array } {
     const geo = new THREE.BufferGeometry();
     const allPositions: number[] = [];
     const allNormals: number[] = [];
     const allIndices: number[] = [];
+    const unscaledGroundYList: number[] = [];
+    const allProgresses: number[] = [];
 
     let vertexOffset = 0;
 
     for (const segGeom of routeGeometry.segments) {
       const segCurve = segGeom.curve;
       const segPointsCount = Math.max(8, Math.round((segGeom.segment.distance / routeGeometry.totalDistance) * totalSegments));
+      const segStartDist = segGeom.segment.points[0]?.distanceFromStart ?? 0;
+      const segDistSpan = segGeom.segment.distance;
 
       for (let i = 0; i <= segPointsCount; i++) {
         const t = i / segPointsCount;
@@ -224,13 +273,23 @@ export class TrailMesh {
           perpZ = 0;
         }
 
+        const groundY = pt.y;
+        const finalY = groundY * verticalExaggeration + verticalOffset;
+
         // Left vertex
-        allPositions.push(pt.x - perpX * halfWidth, pt.y, pt.z - perpZ * halfWidth);
+        allPositions.push(pt.x - perpX * halfWidth, finalY, pt.z - perpZ * halfWidth);
         allNormals.push(0, 1, 0);
+        unscaledGroundYList.push(groundY);
 
         // Right vertex
-        allPositions.push(pt.x + perpX * halfWidth, pt.y, pt.z + perpZ * halfWidth);
+        allPositions.push(pt.x + perpX * halfWidth, finalY, pt.z + perpZ * halfWidth);
         allNormals.push(0, 1, 0);
+        unscaledGroundYList.push(groundY);
+
+        // Track progress
+        const dist = segStartDist + t * segDistSpan;
+        const prog = routeGeometry.totalDistance > 0 ? Math.min(1, Math.max(0, dist / routeGeometry.totalDistance)) : 0;
+        allProgresses.push(prog, prog);
 
         if (i < segPointsCount) {
           const v0 = vertexOffset + i * 2;
@@ -249,7 +308,12 @@ export class TrailMesh {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
     geo.setIndex(allIndices);
-    return geo;
+    geo.userData.progresses = new Float32Array(allProgresses);
+
+    return {
+      geometry: geo,
+      unscaledGroundY: new Float32Array(unscaledGroundYList),
+    };
   }
 
   private static getColorForPoint(

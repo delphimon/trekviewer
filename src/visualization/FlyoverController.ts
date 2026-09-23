@@ -117,7 +117,7 @@ export class FlyoverController {
   }
 
   public getCurrentWorldPosition(): THREE.Vector3 {
-    return this.trailResult.curve.getPointAt(this.progress);
+    return this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress).position;
   }
 
   public update(
@@ -144,8 +144,9 @@ export class FlyoverController {
 
     // 1:1 First-Person Trail Mode
     if (this.viewMode === 'first-person') {
-      const pos = this.trailResult.curve.getPointAt(this.progress);
-      const tangent = this.trailResult.curve.getTangentAt(this.progress);
+      const telemetry = this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress);
+      const pos = telemetry.position;
+      const tangent = telemetry.tangent;
 
       if (isWebXRPresenting && dioramaRoot) {
         // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)
