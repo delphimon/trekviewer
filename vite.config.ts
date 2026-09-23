@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE C+ (interaction & route fixes)',
+      label: 'STAGE D (trail geometry)',
     }),
   },
   plugins: [

@@ -1,232 +1,90 @@
 import * as THREE from 'three';
 import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/TrackTypes.ts';
-import { geoToLocalMeters } from '../gpx/Coordinates.ts';
+import { RouteGeometry } from './RouteGeometry.ts';
+import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export interface TrailResult {
   group: THREE.Group;
   trailMesh: THREE.Mesh;
   curve: THREE.CatmullRomCurve3;
+  routeGeometry: RouteGeometry;
   hikerMarker: THREE.Group;
   startBeacon: THREE.Group;
   summitBeacon: THREE.Group;
   updateHikerPosition: (progress: number) => { currentPoint: GPXPoint; position: THREE.Vector3 };
   setColorMode: (mode: TrailColorMode) => void;
   setViewMode: (mode: ViewMode) => void;
+  setVerticalExaggeration: (factor: number) => void;
+  dispose: () => void;
 }
 
 export class TrailMesh {
-  /**
-   * Generates dual-scale 3D route geometries:
-   * - Diorama Mode: Prominent 14m radius glowing neon cord (1.8mm on table, visible across the room).
-   * - 1:1 Immersion Mode: Sleek 0.08m (16cm wide) low-profile ground path that never blocks the view.
-   */
   public static create(
     track: TrackStats,
-    elevationSampler?: (x: number, z: number) => number
+    elevationSampler?: (x: number, z: number) => number,
+    baseElevation: number = track.bounds.minEle
   ): TrailResult {
     const group = new THREE.Group();
     group.name = 'TrailGroup';
 
-    const centerLat = track.bounds.centerLat;
-    const centerLon = track.bounds.centerLon;
-    const baseElevation = track.bounds.minEle;
-
-    // Compute dynamic scale factor so route ribbon and hiker beacon scale gracefully
-    // whether viewing a 5km day hike or an 80km multi-day traverse (e.g. Bailey Range)
     const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
     const scaleFactor = Math.max(1.0, maxDim / 4000);
-    // Ribbon half-width scales so it maintains a consistent ~2mm visible width on table
     const ribbonHalfWidth = Math.max(3.5, Math.min(80.0, maxDim / 850));
     const dioramaElevationOffset = Math.max(2.5, 2.0 * scaleFactor);
 
-    // Precompute window-smoothed grade and speed for velvety continuous gradients
-    const smoothedGrades: number[] = new Array(track.points.length);
-    const smoothedSpeeds: number[] = new Array(track.points.length);
-    const WINDOW = 2; // +/- 2 points (5-point moving window)
+    // Construct dual-representation RouteGeometry
+    const routeGeometry = new RouteGeometry(
+      track,
+      baseElevation,
+      elevationSampler,
+      dioramaElevationOffset
+    );
 
-    for (let i = 0; i < track.points.length; i++) {
-      let gradeSum = 0;
-      let gradeCount = 0;
-      let speedSum = 0;
-      let speedCount = 0;
+    // Primary curve for backward-compatibility with tests & controllers
+    const primaryCurve = routeGeometry.segments[0]?.curve ||
+      new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(0, 0, -10)]);
 
-      for (let w = Math.max(0, i - WINDOW); w <= Math.min(track.points.length - 1, i + WINDOW); w++) {
-        const pt = track.points[w];
-        if (pt.grade !== undefined && !isNaN(pt.grade)) {
-          gradeSum += Math.abs(pt.grade);
-          gradeCount++;
-        }
-        if (pt.speed !== undefined && !isNaN(pt.speed)) {
-          speedSum += pt.speed * 3.6; // convert m/s to km/h
-          speedCount++;
-        }
-      }
+    // Total ribbon segments
+    const totalSegments = Math.min(track.points.length * 3, 2400);
 
-      smoothedGrades[i] = gradeCount > 0 ? gradeSum / gradeCount : Math.abs(track.points[i].grade || 0);
-      smoothedSpeeds[i] = speedCount > 0 ? speedSum / speedCount : (track.points[i].speed ? track.points[i].speed! * 3.6 : track.avgSpeed);
-    }
+    // 1. Build Multi-Segment Flat Ribbon Geometry (prevents cross-segment lines)
+    const dioramaGeo = this.buildMultiSegmentRibbon(routeGeometry, ribbonHalfWidth, totalSegments);
 
-    // Build raw vectors for both modes
-    // Diorama offset: elevation above terrain (with polygonOffset) for crisp flat 2D map ribbon
-    // 1:1 offset: +0.06m (6cm) above terrain so it sits right under boots without floating
-    const dioramaVectors: THREE.Vector3[] = [];
-    const firstPersonVectors: THREE.Vector3[] = [];
+    // 2. 1:1 Immersion Low-Profile Path Geometry
+    const firstPersonGeo = new THREE.TubeGeometry(primaryCurve, totalSegments, 0.08, 6, false);
 
-    for (let i = 0; i < track.points.length; i++) {
-      const p = track.points[i];
-      const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, baseElevation);
-
-      let baseY = loc.y;
-      if (elevationSampler) {
-        const terrainY = elevationSampler(loc.x, loc.z);
-        baseY = Math.max(loc.y, terrainY);
-      }
-
-      dioramaVectors.push(new THREE.Vector3(loc.x, baseY + dioramaElevationOffset, loc.z));
-      firstPersonVectors.push(new THREE.Vector3(loc.x, baseY + 0.06, loc.z));
-    }
-
-    // Downsample points for smooth splines
-    const maxSplinePoints = 1200;
-    const step = Math.max(1, Math.floor(dioramaVectors.length / maxSplinePoints));
-    const dioramaSplinePoints: THREE.Vector3[] = [];
-    const fpSplinePoints: THREE.Vector3[] = [];
-
-    for (let i = 0; i < dioramaVectors.length; i += step) {
-      dioramaSplinePoints.push(dioramaVectors[i]);
-      fpSplinePoints.push(firstPersonVectors[i]);
-    }
-    if (dioramaSplinePoints[dioramaSplinePoints.length - 1] !== dioramaVectors[dioramaVectors.length - 1]) {
-      dioramaSplinePoints.push(dioramaVectors[dioramaVectors.length - 1]);
-      fpSplinePoints.push(firstPersonVectors[firstPersonVectors.length - 1]);
-    }
-
-    const curve = new THREE.CatmullRomCurve3(dioramaSplinePoints, false, 'catmullrom', 0.2);
-    const fpCurve = new THREE.CatmullRomCurve3(fpSplinePoints, false, 'catmullrom', 0.2);
-
-    const tubularSegments = Math.min(dioramaSplinePoints.length * 4, 2400);
-
-    // 1. Diorama Geometry: Crisp scale-adaptive flat 2D map ribbon (zero 3D cylinder bulk)
-    const dioramaGeo = this.createFlatRibbonGeometry(curve, tubularSegments, ribbonHalfWidth);
-
-    // 2. 1:1 Immersion Geometry: Sleek alpine ground footpath (radius = 0.08m = 16cm width)
-    const firstPersonGeo = new THREE.TubeGeometry(fpCurve, tubularSegments, 0.08, 6, false);
-
-    const minEle = track.minElevation;
-    const eleSpan = Math.max(track.maxElevation - minEle, 10);
-
-    const getColorForPoint = (ptIndex: number, mode: TrailColorMode, color: THREE.Color) => {
-      const pt = track.points[ptIndex];
-      if (mode === 'elevation') {
-        const normEle = Math.min(Math.max((pt.ele - minEle) / eleSpan, 0), 1);
-        if (normEle < 0.25) {
-          color.lerpColors(new THREE.Color(0x00f5d4), new THREE.Color(0x10b981), normEle / 0.25);
-        } else if (normEle < 0.55) {
-          color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0xf59e0b), (normEle - 0.25) / 0.3);
-        } else if (normEle < 0.85) {
-          color.lerpColors(new THREE.Color(0xf59e0b), new THREE.Color(0xef4444), (normEle - 0.55) / 0.3);
-        } else {
-          color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xffffff), (normEle - 0.85) / 0.15);
-        }
-      } else if (mode === 'grade') {
-        // Steepness of trail grade (slope percentage)
-        const grade = smoothedGrades[ptIndex];
-        if (grade < 5) {
-          // Flat or gentle cruise (< 5%) -> Bright Emerald Green
-          color.setHex(0x10b981);
-        } else if (grade < 15) {
-          // Moderate hiking grade (5% - 15%) -> Emerald to Golden Yellow
-          color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0xeab308), (grade - 5) / 10);
-        } else if (grade < 25) {
-          // Steep incline (15% - 25%) -> Golden Yellow to Bright Orange
-          color.lerpColors(new THREE.Color(0xeab308), new THREE.Color(0xf97316), (grade - 15) / 10);
-        } else if (grade < 40) {
-          // Arduous / extreme grade (25% - 40%) -> Bright Orange to Crimson Red
-          color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xef4444), (grade - 25) / 15);
-        } else {
-          // Scramble / technical cliff (> 40%) -> Crimson to Alpine Violet
-          const t = Math.min((grade - 40) / 25, 1);
-          color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xa855f7), t);
-        }
-      } else if (mode === 'speed') {
-        // Pace / travel speed (km/h)
-        const spd = smoothedSpeeds[ptIndex];
-        if (spd < 1.8) {
-          // Stopped or grueling slow crawl (< 1.8 km/h) -> Crimson Red
-          color.setHex(0xef4444);
-        } else if (spd < 3.2) {
-          // Steep climb pace (1.8 - 3.2 km/h) -> Crimson to Orange
-          color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xf97316), (spd - 1.8) / 1.4);
-        } else if (spd < 4.5) {
-          // Steady hiking pace (3.2 - 4.5 km/h) -> Orange to Golden Amber
-          color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xeab308), (spd - 3.2) / 1.3);
-        } else if (spd < 6.0) {
-          // Brisk walking pace (4.5 - 6.0 km/h) -> Golden Amber to Emerald Green
-          color.lerpColors(new THREE.Color(0xeab308), new THREE.Color(0x10b981), (spd - 4.5) / 1.5);
-        } else {
-          // Fast descent / trail run (> 6.0 km/h) -> Emerald to Radiant Cyan
-          const t = Math.min((spd - 6.0) / 6.0, 1);
-          color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0x06b6d4), t);
-        }
-      } else {
-        color.setHex(0x38bdf8);
-      }
-    };
-
-    const applyColorsToRibbon = (geo: THREE.BufferGeometry, segments: number, mode: TrailColorMode) => {
-      const count = (segments + 1) * 2;
-      const colors = new Float32Array(count * 3);
-      const color = new THREE.Color();
-
-      for (let i = 0; i <= segments; i++) {
-        const progress = i / segments;
-        const ptIndex = Math.min(
-          Math.floor(progress * (track.points.length - 1)),
-          track.points.length - 1
-        );
-        getColorForPoint(ptIndex, mode, color);
-
-        const vIdx = i * 2;
-        colors[vIdx * 3] = color.r;
-        colors[vIdx * 3 + 1] = color.g;
-        colors[vIdx * 3 + 2] = color.b;
-
-        colors[(vIdx + 1) * 3] = color.r;
-        colors[(vIdx + 1) * 3 + 1] = color.g;
-        colors[(vIdx + 1) * 3 + 2] = color.b;
-      }
-
-      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    };
-
-    const applyColorsToTube = (geo: THREE.TubeGeometry, radialSegs: number, mode: TrailColorMode) => {
+    // Color application helper
+    const applyColorsToGeo = (geo: THREE.BufferGeometry, mode: TrailColorMode) => {
       const posAttr = geo.attributes.position;
+      if (!posAttr) return;
       const count = posAttr.count;
       const colors = new Float32Array(count * 3);
       const color = new THREE.Color();
 
-      for (let i = 0; i < count; i++) {
-        const segmentIdx = Math.floor(i / (radialSegs + 1));
-        const progress = segmentIdx / tubularSegments;
-        const ptIndex = Math.min(
-          Math.floor(progress * (track.points.length - 1)),
-          track.points.length - 1
-        );
-        getColorForPoint(ptIndex, mode, color);
+      for (let i = 0; i < count; i += 2) {
+        const progress = count > 1 ? i / (count - 1) : 0;
+        const telemetry = routeGeometry.getTelemetryAtProgress(progress);
+        this.getColorForPoint(telemetry.currentPoint, track, mode, color);
 
         colors[i * 3] = color.r;
         colors[i * 3 + 1] = color.g;
         colors[i * 3 + 2] = color.b;
+
+        if (i + 1 < count) {
+          colors[(i + 1) * 3] = color.r;
+          colors[(i + 1) * 3 + 1] = color.g;
+          colors[(i + 1) * 3 + 2] = color.b;
+        }
       }
 
       geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
     };
 
-    let currentColorMode: TrailColorMode = 'solid';
-    applyColorsToRibbon(dioramaGeo, tubularSegments, currentColorMode);
-    applyColorsToTube(firstPersonGeo, 6, currentColorMode);
+    let currentColorMode: TrailColorMode = 'grade';
+    applyColorsToGeo(dioramaGeo, currentColorMode);
 
-    // Diorama Material: Crisp self-illuminated flat 2D map ribbon (offset to hug terrain without z-fighting)
+    // Diorama Material
     const dioramaMat = new THREE.MeshBasicMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
@@ -236,7 +94,7 @@ export class TrailMesh {
       polygonOffsetUnits: -8.0,
     });
 
-    // 1:1 Immersion Material: Clean, low-profile ground-level alpine line
+    // 1:1 First-Person Material
     const firstPersonMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.4,
@@ -249,55 +107,49 @@ export class TrailMesh {
     trailMesh.renderOrder = 5;
     group.add(trailMesh);
 
-    // Start Beacon (Emerald Pin + Base Ring)
-    const startBeacon = this.createPin(dioramaVectors[0], 0x10b981, 'TRAILHEAD', scaleFactor);
+    // Start Beacon (Trailhead)
+    const firstTele = routeGeometry.getTelemetryAtDistance(0);
+    const startBeacon = this.createPin(firstTele.position, 0x10b981, 'TRAILHEAD', scaleFactor);
     group.add(startBeacon);
 
-    // Summit / Finish Beacon (Golden Ruby Pin + Summit Flag)
-    const endVec = dioramaVectors[dioramaVectors.length - 1];
-    const summitBeacon = this.createPin(endVec, 0xf59e0b, 'SUMMIT', scaleFactor);
+    // Summit / Finish Beacon
+    const lastTele = routeGeometry.getTelemetryAtDistance(routeGeometry.totalDistance);
+    const summitBeacon = this.createPin(lastTele.position, 0xf59e0b, 'SUMMIT', scaleFactor);
     group.add(summitBeacon);
 
-    // Animated / Scrubber Hiker Marker: Radiant High-Visibility Alpine Beacon
+    // Radiant Hiker Marker
     const hikerMarker = this.createHikerMarker(scaleFactor);
-    hikerMarker.position.copy(dioramaVectors[0]);
+    hikerMarker.position.copy(firstTele.position);
     group.add(hikerMarker);
 
-    // Update Hiker Position function
+    // Distance-interpolated position update
     const updateHikerPosition = (
       progress: number
     ): { currentPoint: GPXPoint; position: THREE.Vector3 } => {
-      const clamped = Math.min(Math.max(progress, 0), 1);
-      const pos = curve.getPointAt(clamped);
-      hikerMarker.position.copy(pos);
+      const telemetry = routeGeometry.getTelemetryAtProgress(progress);
+      hikerMarker.position.copy(telemetry.position);
 
-      // Keep hiker marker beacon level with gravity/map surface (do NOT tilt group along 3D trail pitch)
-      const tangent = curve.getTangentAt(clamped);
-      const yaw = Math.atan2(tangent.x, tangent.z);
+      // Keep hiker beacon upright to gravity while aligning yaw with heading
+      const yaw = Math.atan2(telemetry.tangent.x, -telemetry.tangent.z);
       hikerMarker.rotation.set(0, yaw, 0);
 
-      const ptIdx = Math.min(
-        Math.floor(clamped * (track.points.length - 1)),
-        track.points.length - 1
-      );
-      const currentPoint = track.points[ptIdx];
-
-      return { currentPoint, position: pos };
+      return {
+        currentPoint: telemetry.currentPoint,
+        position: telemetry.position,
+      };
     };
 
     const setColorMode = (mode: TrailColorMode) => {
       currentColorMode = mode;
-      applyColorsToRibbon(dioramaGeo, tubularSegments, mode);
-      applyColorsToTube(firstPersonGeo, 6, mode);
-      (dioramaGeo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
-      (firstPersonGeo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      applyColorsToGeo(dioramaGeo, mode);
+      applyColorsToGeo(firstPersonGeo, mode);
     };
 
     const setViewMode = (mode: ViewMode) => {
       if (mode === 'first-person') {
         trailMesh.geometry = firstPersonGeo;
         trailMesh.material = firstPersonMat;
-        hikerMarker.visible = false; // Hide external avatar since user is at 1:1 eye level
+        hikerMarker.visible = false;
       } else {
         trailMesh.geometry = dioramaGeo;
         trailMesh.material = dioramaMat;
@@ -305,93 +157,150 @@ export class TrailMesh {
       }
     };
 
+    // Keep unscaled ribbon Y positions for vertical exaggeration
+    const unscaledPositions = (dioramaGeo.attributes.position.array as Float32Array).slice();
+
+    const setVerticalExaggeration = (factor: number) => {
+      const posArray = dioramaGeo.attributes.position.array as Float32Array;
+      for (let i = 1; i < posArray.length; i += 3) {
+        posArray[i] = unscaledPositions[i] * factor;
+      }
+      dioramaGeo.attributes.position.needsUpdate = true;
+    };
+
+    const dispose = () => {
+      disposeObject3D(group);
+      dioramaGeo.dispose();
+      firstPersonGeo.dispose();
+      dioramaMat.dispose();
+      firstPersonMat.dispose();
+    };
+
     return {
       group,
       trailMesh,
-      curve,
+      curve: primaryCurve,
+      routeGeometry,
       hikerMarker,
       startBeacon,
       summitBeacon,
       updateHikerPosition,
       setColorMode,
       setViewMode,
+      setVerticalExaggeration,
+      dispose,
     };
   }
 
-  /**
-   * Constructs a flat 2D ribbon quad strip along a 3D curve with zero cylindrical thickness.
-   */
-  private static createFlatRibbonGeometry(
-    curve: THREE.CatmullRomCurve3,
-    segments: number,
-    halfWidth: number
+  private static buildMultiSegmentRibbon(
+    routeGeometry: RouteGeometry,
+    halfWidth: number,
+    totalSegments: number
   ): THREE.BufferGeometry {
     const geo = new THREE.BufferGeometry();
-    const numVertices = (segments + 1) * 2;
-    const positions = new Float32Array(numVertices * 3);
-    const normals = new Float32Array(numVertices * 3);
-    const indices: number[] = [];
+    const allPositions: number[] = [];
+    const allNormals: number[] = [];
+    const allIndices: number[] = [];
 
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const pt = curve.getPointAt(t);
-      const tangent = curve.getTangentAt(t);
+    let vertexOffset = 0;
 
-      // Perpendicular vector across the trail on horizontal X-Z plane
-      let perpX = -tangent.z;
-      let perpZ = tangent.x;
-      const len = Math.hypot(perpX, perpZ);
-      if (len > 1e-5) {
-        perpX /= len;
-        perpZ /= len;
-      } else {
-        perpX = 1;
-        perpZ = 0;
+    for (const segGeom of routeGeometry.segments) {
+      const segCurve = segGeom.curve;
+      const segPointsCount = Math.max(8, Math.round((segGeom.segment.distance / routeGeometry.totalDistance) * totalSegments));
+
+      for (let i = 0; i <= segPointsCount; i++) {
+        const t = i / segPointsCount;
+        const pt = segCurve.getPointAt(t);
+        const tangent = segCurve.getTangentAt(t);
+
+        let perpX = -tangent.z;
+        let perpZ = tangent.x;
+        const len = Math.hypot(perpX, perpZ);
+        if (len > 1e-5) {
+          perpX /= len;
+          perpZ /= len;
+        } else {
+          perpX = 1;
+          perpZ = 0;
+        }
+
+        // Left vertex
+        allPositions.push(pt.x - perpX * halfWidth, pt.y, pt.z - perpZ * halfWidth);
+        allNormals.push(0, 1, 0);
+
+        // Right vertex
+        allPositions.push(pt.x + perpX * halfWidth, pt.y, pt.z + perpZ * halfWidth);
+        allNormals.push(0, 1, 0);
+
+        if (i < segPointsCount) {
+          const v0 = vertexOffset + i * 2;
+          const v1 = vertexOffset + i * 2 + 1;
+          const v2 = vertexOffset + (i + 1) * 2;
+          const v3 = vertexOffset + (i + 1) * 2 + 1;
+
+          allIndices.push(v0, v1, v2);
+          allIndices.push(v1, v3, v2);
+        }
       }
 
-      // Left vertex
-      const leftX = pt.x - perpX * halfWidth;
-      const leftY = pt.y;
-      const leftZ = pt.z - perpZ * halfWidth;
-
-      // Right vertex
-      const rightX = pt.x + perpX * halfWidth;
-      const rightY = pt.y;
-      const rightZ = pt.z + perpZ * halfWidth;
-
-      const vIdx = i * 2;
-      positions[vIdx * 3] = leftX;
-      positions[vIdx * 3 + 1] = leftY;
-      positions[vIdx * 3 + 2] = leftZ;
-
-      positions[(vIdx + 1) * 3] = rightX;
-      positions[(vIdx + 1) * 3 + 1] = rightY;
-      positions[(vIdx + 1) * 3 + 2] = rightZ;
-
-      // Upward normals
-      normals[vIdx * 3] = 0;
-      normals[vIdx * 3 + 1] = 1;
-      normals[vIdx * 3 + 2] = 0;
-
-      normals[(vIdx + 1) * 3] = 0;
-      normals[(vIdx + 1) * 3 + 1] = 1;
-      normals[(vIdx + 1) * 3 + 2] = 0;
-
-      if (i < segments) {
-        const v0 = i * 2;
-        const v1 = i * 2 + 1;
-        const v2 = (i + 1) * 2;
-        const v3 = (i + 1) * 2 + 1;
-
-        indices.push(v0, v1, v2);
-        indices.push(v1, v3, v2);
-      }
+      vertexOffset += (segPointsCount + 1) * 2;
     }
 
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-    geo.setIndex(indices);
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
+    geo.setIndex(allIndices);
     return geo;
+  }
+
+  private static getColorForPoint(
+    pt: GPXPoint,
+    track: TrackStats,
+    mode: TrailColorMode,
+    color: THREE.Color
+  ): void {
+    if (mode === 'elevation') {
+      const span = Math.max(track.maxElevation - track.minElevation, 10);
+      const normEle = Math.min(Math.max((pt.ele - track.minElevation) / span, 0), 1);
+      if (normEle < 0.25) {
+        color.lerpColors(new THREE.Color(0x00f5d4), new THREE.Color(0x10b981), normEle / 0.25);
+      } else if (normEle < 0.55) {
+        color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0xf59e0b), (normEle - 0.25) / 0.3);
+      } else if (normEle < 0.85) {
+        color.lerpColors(new THREE.Color(0xf59e0b), new THREE.Color(0xef4444), (normEle - 0.55) / 0.3);
+      } else {
+        color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xffffff), (normEle - 0.85) / 0.15);
+      }
+    } else if (mode === 'grade') {
+      const grade = Math.abs(pt.grade ?? 0);
+      if (grade < 5) {
+        color.setHex(0x10b981);
+      } else if (grade < 15) {
+        color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0xeab308), (grade - 5) / 10);
+      } else if (grade < 25) {
+        color.lerpColors(new THREE.Color(0xeab308), new THREE.Color(0xf97316), (grade - 15) / 10);
+      } else if (grade < 40) {
+        color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xef4444), (grade - 25) / 15);
+      } else {
+        const t = Math.min((grade - 40) / 25, 1);
+        color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xa855f7), t);
+      }
+    } else if (mode === 'speed') {
+      const spdKmh = (pt.speed ?? (track.avgSpeed / 3.6)) * 3.6;
+      if (spdKmh < 1.8) {
+        color.setHex(0xef4444);
+      } else if (spdKmh < 3.2) {
+        color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xf97316), (spdKmh - 1.8) / 1.4);
+      } else if (spdKmh < 4.5) {
+        color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xeab308), (spdKmh - 3.2) / 1.3);
+      } else if (spdKmh < 6.0) {
+        color.lerpColors(new THREE.Color(0xeab308), new THREE.Color(0x10b981), (spdKmh - 4.5) / 1.5);
+      } else {
+        const t = Math.min((spdKmh - 6.0) / 6.0, 1);
+        color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0x06b6d4), t);
+      }
+    } else {
+      color.setHex(0x38bdf8);
+    }
   }
 
   private static createPin(
@@ -406,7 +315,6 @@ export class TrailMesh {
 
     const s = Math.max(0.6, scaleFactor);
 
-    // Pin head (glowing sphere)
     const sphereGeo = new THREE.SphereGeometry(6 * s, 16, 16);
     const sphereMat = new THREE.MeshStandardMaterial({
       color: colorHex,
@@ -418,7 +326,6 @@ export class TrailMesh {
     sphere.position.y = 18 * s;
     pinGroup.add(sphere);
 
-    // Pin stem (slender cone pointing down)
     const coneGeo = new THREE.ConeGeometry(2 * s, 18 * s, 12);
     coneGeo.rotateX(Math.PI);
     const coneMat = new THREE.MeshStandardMaterial({
@@ -430,7 +337,6 @@ export class TrailMesh {
     cone.position.y = 9 * s;
     pinGroup.add(cone);
 
-    // Pulsing base ring
     const ringGeo = new THREE.RingGeometry(4 * s, 8 * s, 24);
     ringGeo.rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshBasicMaterial({
@@ -446,16 +352,13 @@ export class TrailMesh {
     return pinGroup;
   }
 
-  /**
-   * Creates a radiant alpine hiker beacon scaled to remain prominent across any trek extent.
-   */
   private static createHikerMarker(scaleFactor: number = 1.0): THREE.Group {
     const group = new THREE.Group();
     group.name = 'HikerMarker';
 
     const s = Math.max(1.0, scaleFactor);
 
-    // 1. Floating Radiant Beacon Jewel (elevated to y = 48m * s so it towers above alpine ridges)
+    // 1. Floating Radiant Beacon Jewel
     const jewelGeo = new THREE.OctahedronGeometry(16 * s, 0);
     const jewelMat = new THREE.MeshStandardMaterial({
       color: 0xffb703,
@@ -468,16 +371,14 @@ export class TrailMesh {
     jewel.position.y = 48 * s;
     group.add(jewel);
 
-    // Glowing white core sphere inside jewel
+    // Glowing core
     const coreGeo = new THREE.SphereGeometry(7 * s, 16, 16);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-    });
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const core = new THREE.Mesh(coreGeo, coreMat);
     core.position.y = 48 * s;
     group.add(core);
 
-    // 2. Vertical Radiant Laser Pillar connecting jewel down to ground
+    // 2. Vertical Radiant Laser Pillar
     const pillarHeight = 48 * s;
     const pillarGeo = new THREE.CylinderGeometry(1.8 * s, 1.8 * s, pillarHeight, 12);
     const pillarMat = new THREE.MeshBasicMaterial({
@@ -489,7 +390,7 @@ export class TrailMesh {
     pillar.position.y = pillarHeight / 2;
     group.add(pillar);
 
-    // 3. Ground Footprint Target Rings (pulsing amber/cyan radar reticle level to map)
+    // 3. Ground Radar Reticles
     const innerRingGeo = new THREE.RingGeometry(6 * s, 12 * s, 24);
     innerRingGeo.rotateX(-Math.PI / 2);
     const innerRingMat = new THREE.MeshBasicMaterial({
@@ -498,9 +399,6 @@ export class TrailMesh {
       transparent: true,
       opacity: 0.95,
       depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -3.0,
-      polygonOffsetUnits: -6.0,
     });
     const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
     innerRing.position.y = 1.2 * s;
@@ -515,35 +413,15 @@ export class TrailMesh {
       transparent: true,
       opacity: 0.85,
       depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -3.0,
-      polygonOffsetUnits: -6.0,
     });
     const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
     outerRing.position.y = 1.2 * s;
     outerRing.renderOrder = 6;
     group.add(outerRing);
 
-    const perimeterRingGeo = new THREE.RingGeometry(32 * s, 36 * s, 32);
-    perimeterRingGeo.rotateX(-Math.PI / 2);
-    const perimeterRingMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.6,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -3.0,
-      polygonOffsetUnits: -6.0,
-    });
-    const perimeterRing = new THREE.Mesh(perimeterRingGeo, perimeterRingMat);
-    perimeterRing.position.y = 1.2 * s;
-    perimeterRing.renderOrder = 6;
-    group.add(perimeterRing);
-
-    // 4. Directional Forward Chevron Arrow (shows trail heading)
+    // 4. Directional Forward Chevron Arrow
     const arrowGeo = new THREE.ConeGeometry(6 * s, 18 * s, 4);
-    arrowGeo.rotateX(Math.PI / 2); // points forward along +Z
+    arrowGeo.rotateX(Math.PI / 2);
     const arrowMat = new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
       emissive: 0x0284c7,

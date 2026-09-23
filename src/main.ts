@@ -189,12 +189,12 @@ class TrekViewerApp {
       this.spatialHUD?.clearStatus();
 
       // Generate 3D Trail Mesh
-      const trail = TrailMesh.create(track, terrain.elevationSampler);
+      const trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
       trail.setColorMode(this.currentTrailColorMode);
       this.trailResult = trail;
 
       // Generate Diorama Base Pedestal
-      const base = DioramaBase.create(track.bounds, -80, track.waypoints);
+      const base = DioramaBase.create(track.bounds, -80, track.waypoints, terrain.terrainBaseElevation, terrain.elevationSampler, 1.0);
 
       // Assemble Diorama Group
       this.sceneManager.dioramaRoot.add(terrain.group);
