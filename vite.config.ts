@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE B (pure GPX/data)',
+      label: 'STAGE C (terrain correctness)',
     }),
   },
   plugins: [
