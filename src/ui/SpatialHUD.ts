@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { TrackStats, ViewMode, TextureStyle, TrailColorMode } from '../gpx/TrackTypes.ts';
+import type { TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
@@ -38,6 +38,7 @@ export class SpatialHUD {
 
   private currentProgress: number = 0;
   private currentElevation: number = 0;
+  private elevationProvenance?: ElevationProvenanceStats;
   private isPlaying: boolean = false;
   private currentSpeed: number = 1.0;
   private currentViewMode: ViewMode = 'diorama';
@@ -167,9 +168,10 @@ export class SpatialHUD {
     this.drawHUD();
   }
 
-  public setMetaInfo(attribution?: string, terrainQuality?: string): void {
+  public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats): void {
     if (attribution !== undefined) this.attribution = attribution;
     if (terrainQuality !== undefined) this.terrainQuality = terrainQuality;
+    if (provenance !== undefined) this.elevationProvenance = provenance;
     this.drawHUD();
   }
 
@@ -803,7 +805,10 @@ export class SpatialHUD {
 
     // Compact Attribution & Elevation quality badge
     const qualityLabel = this.terrainQuality === 'dem' ? 'DEM' : this.terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
-    const metaStr = `Elevation: ${qualityLabel}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
+    const provStr = this.elevationProvenance && (this.elevationProvenance.demPercent > 0 || this.elevationProvenance.interpolatedPercent > 0)
+      ? ` (${this.elevationProvenance.gpxPercent}% GPX, ${this.elevationProvenance.demPercent}% DEM)`
+      : '';
+    const metaStr = `Elevation: ${qualityLabel}${provStr}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
     ctx.fillStyle = '#64748b';
     ctx.font = '12px sans-serif';
     ctx.fillText(metaStr, 45, 601);

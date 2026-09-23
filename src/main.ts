@@ -221,8 +221,8 @@ class TrekViewerApp {
         this.xrManager.setVerticalExaggeration(state.verticalExaggeration);
       }
       if (state.attribution !== prev.attribution || state.terrainQuality !== prev.terrainQuality) {
-        this.overlay.setMetaInfo(state.attribution, state.terrainQuality);
-        this.spatialHUD?.setMetaInfo(state.attribution, state.terrainQuality);
+        this.overlay.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats);
+        this.spatialHUD?.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats);
       }
       if (state.loadingPhase !== prev.loadingPhase) {
         this.overlay.setXREnabled(state.loadingPhase === 'ready');
@@ -299,8 +299,8 @@ class TrekViewerApp {
     this.overlay.setTextureStyle(state.textureStyle);
     this.overlay.setTrailColorMode(state.trailColorMode);
     this.overlay.setPlaybackSpeed(state.playbackSpeed);
-    this.overlay.setMetaInfo(attr, newTrek.terrainResult.terrainQuality);
-    this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality);
+    this.overlay.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats);
+    this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats);
   }
 
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {

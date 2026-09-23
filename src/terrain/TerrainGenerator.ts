@@ -8,6 +8,12 @@ import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export type TerrainQuality = 'dem' | 'partial-dem' | 'synthetic';
 
+export interface PreparedElevation {
+  demGrid: ElevationGrid | null;
+  terrainGeoBounds: GeoBounds;
+  elevationSamplerForGeo: (lat: number, lon: number) => number | undefined;
+}
+
 export interface TerrainResult {
   group: THREE.Group;
   terrainMesh: THREE.Mesh;
@@ -24,20 +30,17 @@ export interface TerrainResult {
 
 export class TerrainGenerator {
   /**
-   * Generates a complete 3D real-world terrain model with side diorama skirts.
-   * Preserves authentic DEM topography without clamping valleys below track minimum
-   * or distorting mountain shapes.
+   * Prepares DEM elevation data covering the given route bounds.
+   * Fetches real-world DEM elevation tiles once so the same grid can be shared
+   * between GPX elevation normalization and 3D terrain mesh generation.
    */
-  public static async generate(
-    track: TrackStats,
+  public static async prepareElevation(
+    bounds: GeoBounds,
     onProgress?: (msg: string, progress?: number | null) => void,
-    signal?: AbortSignal,
-    initialExaggeration: number = 1.0,
-    isXR: boolean = false
-  ): Promise<TerrainResult> {
+    signal?: AbortSignal
+  ): Promise<PreparedElevation> {
     onProgress?.('Fetching real-world 3D elevation data...', 0.1);
 
-    const bounds = track.bounds;
     const centerLat = bounds.centerLat;
     const centerLon = bounds.centerLon;
 
@@ -45,7 +48,6 @@ export class TerrainGenerator {
     const margin = 0.25;
     const widthM = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
     const depthM = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
-    const maxExtent = Math.max(widthM, depthM);
 
     // Compute geographic bounds of the entire 3D plane mesh
     const nwGeo = localMetersToGeo(-widthM / 2, -depthM / 2, centerLat, centerLon);
@@ -64,10 +66,6 @@ export class TerrainGenerator {
       elevationSpan: bounds.elevationSpan,
     };
 
-    // Shared tile grid covering the entire 3D mesh
-    const tileGrid = TextureProvider.getTileGridForBounds(terrainGeoBounds, 0.05);
-
-    // Fetch real DEM elevation tiles with cancellation support
     const demGrid = await ElevationTileService.fetchElevationGrid(
       terrainGeoBounds,
       0.05,
@@ -81,6 +79,54 @@ export class TerrainGenerator {
     if (signal?.aborted) {
       throw new Error('Terrain generation aborted');
     }
+
+    const elevationSamplerForGeo = (lat: number, lon: number): number | undefined => {
+      if (!demGrid) return undefined;
+      return ElevationTileService.sampleElevationValue(demGrid, lat, lon);
+    };
+
+    return {
+      demGrid,
+      terrainGeoBounds,
+      elevationSamplerForGeo,
+    };
+  }
+
+  /**
+   * Generates a complete 3D real-world terrain model with side diorama skirts.
+   * Preserves authentic DEM topography without clamping valleys below track minimum
+   * or distorting mountain shapes. Reuses preparedElevation if provided.
+   */
+  public static async generate(
+    track: TrackStats,
+    onProgress?: (msg: string, progress?: number | null) => void,
+    signal?: AbortSignal,
+    initialExaggeration: number = 1.0,
+    isXR: boolean = false,
+    preparedElevation?: PreparedElevation
+  ): Promise<TerrainResult> {
+    const bounds = track.bounds;
+
+    let demGrid: ElevationGrid | null;
+    let terrainGeoBounds: GeoBounds;
+
+    if (preparedElevation) {
+      demGrid = preparedElevation.demGrid;
+      terrainGeoBounds = preparedElevation.terrainGeoBounds;
+    } else {
+      const prepared = await this.prepareElevation(bounds, onProgress, signal);
+      demGrid = prepared.demGrid;
+      terrainGeoBounds = prepared.terrainGeoBounds;
+    }
+
+    const centerLat = terrainGeoBounds.centerLat;
+    const centerLon = terrainGeoBounds.centerLon;
+    const widthM = terrainGeoBounds.widthMeters;
+    const depthM = terrainGeoBounds.depthMeters;
+    const maxExtent = Math.max(widthM, depthM);
+
+    // Shared tile grid covering the entire 3D mesh
+    const tileGrid = TextureProvider.getTileGridForBounds(terrainGeoBounds, 0.05);
 
     // Determine terrain quality and base elevation
     let terrainQuality: TerrainQuality = 'dem';

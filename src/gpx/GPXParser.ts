@@ -1,4 +1,4 @@
-import type { GPXPoint, GPXWaypoint, GeoBounds, TrackStats, TrackSegment } from './TrackTypes.ts';
+import type { GPXPoint, GPXWaypoint, GeoBounds, TrackStats, TrackSegment, ElevationProvenanceStats } from './TrackTypes.ts';
 import { haversineDistance } from './Coordinates.ts';
 import { calculateElevationStats } from './ElevationStats.ts';
 import { GPXValidator, type RawTrackPoint } from './GPXValidator.ts';
@@ -233,7 +233,7 @@ export class GPXParser {
     );
 
     // 1. Missing Elevation Normalization with provenance tracking
-    this.normalizeElevations(validatedSegments, demElevationSampler);
+    this.normalizeElevations(validatedSegments, demElevationSampler, allWarnings);
 
     // 2. Build TrackPoints and Segments preserving boundaries
     const segments: TrackSegment[] = [];
@@ -394,8 +394,45 @@ export class GPXParser {
       elevationSpan,
     };
 
+    // Snap waypoints with missing elevations to DEM
+    const finalizedWaypoints = waypoints.map((wp) => {
+      if (wp.ele === undefined && demElevationSampler) {
+        const demEle = demElevationSampler(wp.lat, wp.lon);
+        if (demEle !== undefined && !isNaN(demEle) && isFinite(demEle)) {
+          return { ...wp, ele: demEle };
+        }
+      }
+      return { ...wp };
+    });
+
     // 3. Derive semantic landmarks from GPS data
-    const landmarks = this.deriveLandmarks(points, bounds, waypoints);
+    const landmarks = this.deriveLandmarks(points, bounds, finalizedWaypoints);
+
+    // Compute elevation provenance stats
+    let gpxCount = 0;
+    let demCount = 0;
+    let interpolatedCount = 0;
+    let fallbackCount = 0;
+
+    for (const p of points) {
+      if (p.elevationProvenance === 'gpx') gpxCount++;
+      else if (p.elevationProvenance === 'dem') demCount++;
+      else if (p.elevationProvenance === 'interpolated') interpolatedCount++;
+      else if (p.elevationProvenance === 'fallback') fallbackCount++;
+      else gpxCount++;
+    }
+
+    const totalPts = Math.max(points.length, 1);
+    const elevationProvenanceStats: ElevationProvenanceStats = {
+      gpxCount,
+      demCount,
+      interpolatedCount,
+      fallbackCount,
+      gpxPercent: Math.round((gpxCount / totalPts) * 100),
+      demPercent: Math.round((demCount / totalPts) * 100),
+      interpolatedPercent: Math.round((interpolatedCount / totalPts) * 100),
+      fallbackPercent: Math.round((fallbackCount / totalPts) * 100),
+    };
 
     return {
       name: trackName,
@@ -413,9 +450,10 @@ export class GPXParser {
       bounds,
       points,
       segments,
-      waypoints,
+      waypoints: finalizedWaypoints,
       landmarks,
       warnings: Array.from(new Set(allWarnings)),
+      elevationProvenanceStats,
     };
   }
 
@@ -473,20 +511,29 @@ export class GPXParser {
 
   /**
    * Normalizes missing elevations across segments using defined hierarchy:
-   * 1. Valid GPX elevation
-   * 2. DEM elevation at coordinate (if available)
-   * 3. Linear interpolation between adjacent valid track elevations
-   * 4. Bounded fallback to track median/valid
+   * 1. Valid GPX elevation ('gpx')
+   * 2. DEM elevation at coordinate ('dem')
+   * 3. Linear interpolation within segment ('interpolated')
+   * 4. Nearest valid segment elevation for completely un-elevated segments ('interpolated')
+   * 5. Fallback constant with explicit warning ('fallback')
    */
   private static normalizeElevations(
     segments: RawTrackPoint[][],
-    demSampler?: (lat: number, lon: number) => number | undefined
+    demSampler?: (lat: number, lon: number) => number | undefined,
+    warnings?: string[]
   ): void {
+    let hadMissingEle = false;
+
+    // Step A: Mark existing GPX elevations and sample DEM for missing points
     for (const seg of segments) {
-      // Step A: Sample DEM for points with missing ele if sampler is provided
-      if (demSampler) {
-        for (const pt of seg) {
-          if (pt.ele === undefined) {
+      for (const pt of seg) {
+        if (pt.ele !== undefined) {
+          if (!pt.elevationProvenance) {
+            pt.elevationProvenance = 'gpx';
+          }
+        } else {
+          hadMissingEle = true;
+          if (demSampler) {
             const demEle = demSampler(pt.lat, pt.lon);
             if (demEle !== undefined && !isNaN(demEle) && isFinite(demEle)) {
               pt.ele = demEle;
@@ -495,15 +542,18 @@ export class GPXParser {
           }
         }
       }
+    }
 
-      // Step B: Linear interpolation between valid neighbors
-      let lastValidIdx = -1;
+    // Step B: Linear interpolation within segments that have at least one valid elevation
+    const unElevatedSegmentIndices: number[] = [];
+
+    for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+      const seg = segments[segIdx];
       let firstValidIdx = -1;
+      let lastValidIdx = -1;
+
       for (let i = 0; i < seg.length; i++) {
         if (seg[i].ele !== undefined) {
-          if (!seg[i].elevationProvenance) {
-            seg[i].elevationProvenance = 'gpx';
-          }
           if (firstValidIdx === -1) {
             firstValidIdx = i;
           }
@@ -521,26 +571,71 @@ export class GPXParser {
         }
       }
 
-      // Handle leading points missing elevation
       if (firstValidIdx !== -1) {
+        // Extrapolate leading points
         const firstValidEle = seg[firstValidIdx].ele!;
         for (let i = 0; i < firstValidIdx; i++) {
           seg[i].ele = firstValidEle;
           seg[i].elevationProvenance = 'interpolated';
         }
-        // Handle trailing points missing elevation
+        // Extrapolate trailing points
         const lastValidEle = seg[lastValidIdx].ele!;
         for (let i = lastValidIdx + 1; i < seg.length; i++) {
           seg[i].ele = lastValidEle;
           seg[i].elevationProvenance = 'interpolated';
         }
       } else {
-        // Entire segment had NO elevation at all: default to 1000m fallback
-        for (const pt of seg) {
-          pt.ele = 1000.0;
-          pt.elevationProvenance = 'fallback';
+        // Completely un-elevated segment
+        unElevatedSegmentIndices.push(segIdx);
+      }
+    }
+
+    // Step C: For completely un-elevated segments, look for nearest valid elevations in other segments
+    if (unElevatedSegmentIndices.length > 0) {
+      // Find all points in other segments that have valid elevation
+      const validPoints: RawTrackPoint[] = [];
+      for (let sIdx = 0; sIdx < segments.length; sIdx++) {
+        if (!unElevatedSegmentIndices.includes(sIdx)) {
+          for (const p of segments[sIdx]) {
+            if (p.ele !== undefined) {
+              validPoints.push(p);
+            }
+          }
         }
       }
+
+      if (validPoints.length > 0) {
+        for (const sIdx of unElevatedSegmentIndices) {
+          const seg = segments[sIdx];
+          for (const pt of seg) {
+            let closestEle = validPoints[0].ele!;
+            let minDist = Infinity;
+            for (const vp of validPoints) {
+              const dist = haversineDistance(pt.lat, pt.lon, vp.lat, vp.lon);
+              if (dist < minDist) {
+                minDist = dist;
+                closestEle = vp.ele!;
+              }
+            }
+            pt.ele = closestEle;
+            pt.elevationProvenance = 'interpolated';
+          }
+        }
+      } else {
+        // Step D: Entire track across all segments has NO valid elevation anywhere
+        for (const sIdx of unElevatedSegmentIndices) {
+          const seg = segments[sIdx];
+          for (const pt of seg) {
+            pt.ele = 1000.0;
+            pt.elevationProvenance = 'fallback';
+          }
+        }
+        warnings?.push('No elevation data found in GPS track or DEM terrain; substituted fallback elevations.');
+      }
+    }
+
+    if (hadMissingEle && warnings) {
+      warnings.push('GPS track contained missing elevations; normalized via DEM and interpolation.');
     }
   }
 

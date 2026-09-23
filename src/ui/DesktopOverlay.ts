@@ -1,4 +1,4 @@
-import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode } from '../gpx/TrackTypes';
+import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
 import { GPXParser } from '../gpx/GPXParser';
 
 export interface OverlayCallbacks {
@@ -537,7 +537,7 @@ export class DesktopOverlay {
     if (arBtn) arBtn.disabled = !enabled;
   }
 
-  public setMetaInfo(attribution?: string, terrainQuality?: string): void {
+  public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats): void {
     let metaEl = document.getElementById('desktopAttribution');
     if (!metaEl) {
       metaEl = document.createElement('div');
@@ -547,7 +547,10 @@ export class DesktopOverlay {
       document.body.appendChild(metaEl);
     }
     const qualityLabel = terrainQuality === 'dem' ? 'DEM' : terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
-    metaEl.textContent = `Elevation: ${qualityLabel}${attribution ? ` | Imagery: ${attribution}` : ''}`;
+    const provStr = provenance && (provenance.demPercent > 0 || provenance.interpolatedPercent > 0)
+      ? ` (${provenance.gpxPercent}% GPX, ${provenance.demPercent}% DEM${provenance.interpolatedPercent > 0 ? `, ${provenance.interpolatedPercent}% interp` : ''})`
+      : '';
+    metaEl.textContent = `Elevation: ${qualityLabel}${provStr}${attribution ? ` | Imagery: ${attribution}` : ''}`;
   }
 
   public dispose(): void {

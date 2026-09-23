@@ -50,6 +50,17 @@ export interface GeoBounds {
   elevationSpan: number;
 }
 
+export interface ElevationProvenanceStats {
+  gpxCount: number;
+  demCount: number;
+  interpolatedCount: number;
+  fallbackCount: number;
+  gpxPercent: number;
+  demPercent: number;
+  interpolatedPercent: number;
+  fallbackPercent: number;
+}
+
 export interface TrackStats {
   name: string;
   totalDistance: number; // meters
@@ -69,6 +80,7 @@ export interface TrackStats {
   waypoints: GPXWaypoint[];
   landmarks: GPXWaypoint[];
   warnings: string[];
+  elevationProvenanceStats?: ElevationProvenanceStats;
 }
 
 export type ViewMode = 'diorama' | 'first-person' | 'flyover';
