@@ -113,6 +113,7 @@ export interface HandState {
   visualOutline: HandVisualOutline;
   isPinching: boolean;
   isClickingHUD: boolean;
+  activeInteraction: 'none' | 'hud' | 'diorama';
   jointPosMap: Map<string, THREE.Vector3>;
   pinchWorldPos: THREE.Vector3;
   prevPinchWorldPos: THREE.Vector3;
@@ -137,6 +138,8 @@ interface ControllerState {
   isDraggingTerrain: boolean;
   terrainDragStartHit: THREE.Vector3;
   terrainDragStartDioramaPos: THREE.Vector3;
+  isHoveringHUD: boolean;
+  isInteractingWithHUD: boolean;
 }
 
 export class XRManager {
@@ -226,6 +229,8 @@ export class XRManager {
         isDraggingTerrain: false,
         terrainDragStartHit: new THREE.Vector3(),
         terrainDragStartDioramaPos: new THREE.Vector3(),
+        isHoveringHUD: false,
+        isInteractingWithHUD: false,
       };
 
       controller.addEventListener('connected', (event: any) => {
@@ -237,6 +242,8 @@ export class XRManager {
         state.isGripping = false;
         state.isDraggingHUD = false;
         state.isDraggingTerrain = false;
+        state.isHoveringHUD = false;
+        state.isInteractingWithHUD = false;
         state.rayLine.visible = false;
         state.reticle.visible = false;
       });
@@ -323,6 +330,7 @@ export class XRManager {
         },
         isPinching: false,
         isClickingHUD: false,
+        activeInteraction: 'none',
         jointPosMap,
         pinchWorldPos: new THREE.Vector3(),
         prevPinchWorldPos: new THREE.Vector3(),
@@ -340,6 +348,7 @@ export class XRManager {
       hand.addEventListener('disconnected', () => {
         state.inputSource = null;
         state.isPinching = false;
+        state.activeInteraction = 'none';
         state.pinchReticle.visible = false;
         state.visualOutline.group.visible = false;
       });
@@ -352,7 +361,9 @@ export class XRManager {
     const session = this.renderer.xr.getSession();
     if (!session) return;
 
-    const inputSources = session.inputSources;
+    // 0. Update Bare Hand Tracking joint data, bone skeleton, and pinch state
+    this.updateHandTracking();
+
     const activeGrabs: ActiveGrab[] = [];
 
     // 1. Controller Inputs & Laser Pointing
@@ -373,10 +384,14 @@ export class XRManager {
         // In hand mode, physical controller grip is always hidden (no black bar)
         state.grip.visible = false;
 
-        // When using hands, check if THIS specific hand is pointing towards the Spatial HUD:
-        const b0_pinchTrigger = source.gamepad?.buttons[0]?.pressed || false;
-        this.updatePointerRaycast(i, state, b0_pinchTrigger, true);
-        state.prevButtons[0] = b0_pinchTrigger;
+        const matchingHand = this.hands.find(
+          (h) => h.inputSource && state.inputSource && h.inputSource.handedness === state.inputSource.handedness
+        ) || this.hands[i];
+
+        // Hand pinch is triggered via WebXR trigger button or joint pinch distance (<3.2cm)
+        const isHandPinching = (source.gamepad?.buttons[0]?.pressed) || (matchingHand?.isPinching) || false;
+        this.updatePointerRaycast(i, state, isHandPinching, true);
+        state.prevButtons[0] = isHandPinching;
         continue;
       }
 
@@ -498,22 +513,23 @@ export class XRManager {
     }
 
     // 2. WebXR Bare Hand Tracking & Pinch Detection
-    const handGrabs = this.updateHands();
+    const handGrabs = this.processHandGrabs();
     activeGrabs.push(...handGrabs);
 
     // 3. Unified 6DOF Diorama Manipulation (for bare hands and controllers)
     this.applyManipulation(activeGrabs);
   }
 
-  private updateHands(): ActiveGrab[] {
-    const activeGrabs: ActiveGrab[] = [];
-
+  private updateHandTracking(): void {
     for (let i = 0; i < this.hands.length; i++) {
       const state = this.hands[i];
       const hand = state.hand;
       const joints = (hand as any).joints;
       if (!joints) {
         state.visualOutline.group.visible = false;
+        state.pinchReticle.visible = false;
+        state.isPinching = false;
+        state.activeInteraction = 'none';
         continue;
       }
 
@@ -523,6 +539,7 @@ export class XRManager {
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
         state.isPinching = false;
+        state.activeInteraction = 'none';
         continue;
       }
 
@@ -574,45 +591,76 @@ export class XRManager {
           state.wristWorldQuat.setFromRotationMatrix(wrist.matrixWorld);
         }
 
-        // Check direct touch / poke / grab interaction with Spatial HUD for THIS specific hand
-        const isInteractingWithHUD = this.checkHandHUDInteraction(state, indexTipPos, isPinchingNow);
+        state.isPinching = isPinchingNow;
+      } else {
+        state.isPinching = false;
+      }
+    }
+  }
 
-        if (isPinchingNow) {
-          state.pinchReticle.position.copy(state.pinchWorldPos);
-          state.pinchReticle.visible = true;
+  private processHandGrabs(): ActiveGrab[] {
+    const activeGrabs: ActiveGrab[] = [];
 
-          const s = 1.0 + 0.2 * Math.sin(performance.now() * 0.012);
-          state.pinchReticle.scale.set(s, s, s);
+    for (let i = 0; i < this.hands.length; i++) {
+      const state = this.hands[i];
+      if (!state.visualOutline.group.visible) {
+        state.activeInteraction = 'none';
+        state.pinchReticle.visible = false;
+        continue;
+      }
 
-          if (!state.isPinching) {
+      const indexTipPos = state.jointPosMap.get('index-finger-tip');
+      if (!indexTipPos) continue;
+
+      // 1. Check direct fingertip touch / poke on Spatial HUD
+      const isDirectTouchHUD = this.checkHandHUDInteraction(state, indexTipPos, state.isPinching);
+
+      // 2. Check if this hand's laser pointer is hovering or interacting with the HUD
+      const matchingCtrl = this.controllers.find(
+        (c) => c.inputSource && state.inputSource && c.inputSource.handedness === state.inputSource.handedness
+      ) || this.controllers[i];
+      const isLaserHUD = !!matchingCtrl && (matchingCtrl.isHoveringHUD || matchingCtrl.isDraggingHUD || matchingCtrl.isInteractingWithHUD);
+
+      const isEngagedWithHUD = isDirectTouchHUD || isLaserHUD;
+
+      if (!state.isPinching) {
+        state.activeInteraction = 'none';
+        state.pinchReticle.visible = false;
+      } else {
+        // Pinch is active
+        state.pinchReticle.position.copy(state.pinchWorldPos);
+        state.pinchReticle.visible = true;
+
+        const s = 1.0 + 0.2 * Math.sin(performance.now() * 0.012);
+        state.pinchReticle.scale.set(s, s, s);
+
+        if (state.activeInteraction === 'none') {
+          // Gesture initiated this frame: claim ownership
+          if (isEngagedWithHUD) {
+            state.activeInteraction = 'hud';
+          } else {
+            state.activeInteraction = 'diorama';
             state.prevPinchWorldPos.copy(state.pinchWorldPos);
             state.prevWristWorldPos.copy(state.wristWorldPos);
             state.prevWristWorldQuat.copy(state.wristWorldQuat);
           }
-
-          // EXCLUSIVITY: If hand is interacting with or repositioning the Spatial HUD,
-          // do NOT grab or drag the diorama!
-          if (!isInteractingWithHUD) {
-            activeGrabs.push({
-              id: `hand_${i}`,
-              source: 'hand',
-              worldPos: state.pinchWorldPos.clone(),
-              prevWorldPos: state.prevPinchWorldPos.clone(),
-              wristQuat: state.wristWorldQuat.clone(),
-              prevWristQuat: state.prevWristWorldQuat.clone(),
-            });
-          }
-        } else {
-          state.pinchReticle.visible = false;
         }
 
-        state.isPinching = isPinchingNow;
+        // EXCLUSIVITY: If hand gesture belongs to HUD, do NOT grab or drag the diorama!
+        if (state.activeInteraction === 'diorama') {
+          activeGrabs.push({
+            id: `hand_${i}`,
+            source: 'hand',
+            worldPos: state.pinchWorldPos.clone(),
+            prevWorldPos: state.prevPinchWorldPos.clone(),
+            wristQuat: state.wristWorldQuat.clone(),
+            prevWristQuat: state.prevWristWorldQuat.clone(),
+          });
+        }
+
         state.prevPinchWorldPos.copy(state.pinchWorldPos);
         state.prevWristWorldPos.copy(state.wristWorldPos);
         state.prevWristWorldQuat.copy(state.wristWorldQuat);
-      } else {
-        state.isPinching = false;
-        state.pinchReticle.visible = false;
       }
     }
 
@@ -753,7 +801,7 @@ export class XRManager {
         const deltaPitch = pitchCurr - pitchPrev;
         if (Math.abs(deltaPitch) > 0.005 && Math.abs(deltaPitch) < 0.4) {
           const diorama = this.sceneManager.dioramaRoot;
-          diorama.rotation.x = Math.max(-1.3, Math.min(1.3, diorama.rotation.x - deltaPitch * 0.9));
+          diorama.rotation.x = Math.max(-1.3, Math.min(1.3, diorama.rotation.x + deltaPitch * 0.9));
         }
       }
 
@@ -778,19 +826,34 @@ export class XRManager {
     isTriggerDown: boolean,
     isHand: boolean = false
   ): void {
+    // If hand is actively manipulating the diorama, hide HUD pointer ray to avoid HUD clicks or clutter
+    if (isHand) {
+      const matchingHand = this.hands.find(
+        (h) => h.inputSource && state.inputSource && h.inputSource.handedness === state.inputSource.handedness
+      ) || this.hands[controllerIdx];
+      if (matchingHand && matchingHand.activeInteraction === 'diorama') {
+        state.rayLine.visible = false;
+        state.reticle.visible = false;
+        state.isHoveringHUD = false;
+        state.isInteractingWithHUD = false;
+        return;
+      }
+    }
+
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(state.controller.matrixWorld);
 
     const rayOrigin = new THREE.Vector3().setFromMatrixPosition(state.controller.matrixWorld);
     const rayDir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix).normalize();
 
-    // 1. If currently dragging the HUD in 3D room space (physical controllers only)
-    if (!isHand && state.isDraggingHUD && this.spatialHUD) {
+    // 1. If currently dragging the HUD in 3D room space (supports both hands and physical controllers)
+    if (state.isDraggingHUD && this.spatialHUD) {
       if (isTriggerDown) {
         const targetPos = rayOrigin.clone().addScaledVector(rayDir, state.hudDragDistance);
         this.spatialHUD.group.position.copy(targetPos);
         const camPos = this.sceneManager.camera.position;
         this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+        this.spatialHUD.group.updateMatrixWorld(true);
 
         state.rayLine.geometry.setFromPoints([
           new THREE.Vector3(0, 0, 0),
@@ -799,9 +862,12 @@ export class XRManager {
         state.rayLine.visible = true;
         state.reticle.visible = true;
         state.reticle.position.copy(this.spatialHUD.grabMesh.position).applyMatrix4(this.spatialHUD.group.matrixWorld);
+        state.isHoveringHUD = true;
+        state.isInteractingWithHUD = true;
         return;
       } else {
         state.isDraggingHUD = false;
+        state.isInteractingWithHUD = false;
         this.triggerHaptic(controllerIdx, 0.4, 25);
       }
     }
@@ -859,6 +925,9 @@ export class XRManager {
     }
 
     if (hudHit) {
+      state.isHoveringHUD = true;
+      state.isInteractingWithHUD = isTriggerDown;
+
       const hitDistance = hudHit.distance;
       state.rayLine.geometry.setFromPoints([
         new THREE.Vector3(0, 0, 0),
@@ -871,7 +940,9 @@ export class XRManager {
         state.reticle.lookAt(hudHit.point.clone().add(hudHit.face.normal));
       }
 
-      if (!isHand && (isHitGrabMesh || (hudHit.uv && this.spatialHUD!.isHoveringDragHandle()))) {
+      // Check if hitting HUD drag handle: grab cylinder or top drag handle bar on card
+      const isDragTarget = isHitGrabMesh || (hudHit.uv && (this.spatialHUD!.isHoveringDragHandle() || (hudHit.uv.y > 0.92 && hudHit.uv.x >= 0.25 && hudHit.uv.x <= 0.75)));
+      if (isDragTarget) {
         if (isTriggerDown && !state.prevButtons[0]) {
           state.isDraggingHUD = true;
           state.hudDragDistance = hitDistance;
@@ -884,7 +955,7 @@ export class XRManager {
         this.spatialHUD!.onPointerHover(hudHit.uv);
 
         if (isTriggerDown && !state.prevButtons[0]) {
-          if (!isHand && this.spatialHUD!.isHoveringDragHandle()) {
+          if (this.spatialHUD!.isHoveringDragHandle() || isDragTarget) {
             state.isDraggingHUD = true;
             state.hudDragDistance = hitDistance;
             this.triggerHaptic(controllerIdx, 0.8, 40);
@@ -896,9 +967,20 @@ export class XRManager {
           }
         } else if (isTriggerDown) {
           this.spatialHUD!.onPointerDrag(hudHit.uv);
+        } else if (state.prevButtons[0] && !isTriggerDown) {
+          this.spatialHUD!.onPointerRelease();
         }
       }
       return;
+    }
+
+    // Ray missed HUD
+    state.isHoveringHUD = false;
+    if (!isTriggerDown) {
+      state.isInteractingWithHUD = false;
+    }
+    if (state.prevButtons[0] && !isTriggerDown && this.spatialHUD) {
+      this.spatialHUD.onPointerRelease();
     }
 
     // In hand mode when NOT pointing at the HUD:

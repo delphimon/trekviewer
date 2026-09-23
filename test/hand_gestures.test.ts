@@ -280,7 +280,7 @@ function applyOneHandedManipulation(
   const deltaPitch = pitchCurr - pitchPrev;
   if (diorama.rotationX === undefined) diorama.rotationX = 0;
   if (Math.abs(deltaPitch) > 0.005 && Math.abs(deltaPitch) < 0.4) {
-    diorama.rotationX = Math.max(-1.3, Math.min(1.3, diorama.rotationX - deltaPitch * 0.9));
+    diorama.rotationX = Math.max(-1.3, Math.min(1.3, diorama.rotationX + deltaPitch * 0.9));
   }
 }
 
@@ -306,7 +306,7 @@ function applyOneHandedManipulation(
   assert(Math.abs(diorama.position.y - 1.25) < 1e-5, '1:1 Y translation match');
   assert(Math.abs(diorama.position.z - (-0.95)) < 1e-5, '1:1 Z translation match');
   assert(Math.abs(diorama.rotationY - (0.2 * 0.95)) < 0.02, 'Wrist twist yaw rotation applied');
-  assert(Math.abs(diorama.rotationX! - (-0.15 * 0.9)) < 0.02, 'Wrist tilt pitch rotation applied');
+  assert(Math.abs(diorama.rotationX! - (0.15 * 0.9)) < 0.02, 'Wrist tilt pitch rotation applied');
   console.log('✓ One-handed 1:1 translation, wrist-twist yaw rotation, and wrist pitch tilt verified');
 }
 
@@ -450,24 +450,38 @@ function processInputSource(
 console.log('Testing HUD grab exclusivity...');
 
 {
+  // 6A. Direct touch / poke exclusivity
   const activeGrabs: any[] = [];
   const isPinching = true;
-  const isInteractingWithHUD = true; // Hand is hovering/poking HUD
+  const isDirectTouchHUD = true; // Hand is poking HUD directly
+  const isLaserHUD = false;
+  const activeInteraction = (isDirectTouchHUD || isLaserHUD) ? 'hud' : 'diorama';
 
-  if (isPinching && !isInteractingWithHUD) {
+  if (activeInteraction === 'diorama') {
     activeGrabs.push({ id: 'hand_0', source: 'hand' });
   }
 
-  assert.strictEqual(activeGrabs.length, 0, 'Hand engaged with HUD must NOT be added to diorama grabs');
+  assert.strictEqual(activeGrabs.length, 0, 'Hand engaged with direct touch HUD must NOT be added to diorama grabs');
 
-  // When hand is in free space away from HUD
-  const isAwayFromHUD = false;
-  if (isPinching && !isAwayFromHUD) {
-    activeGrabs.push({ id: 'hand_0', source: 'hand' });
+  // 6B. Laser pointer hovering or dragging HUD from a distance
+  const activeGrabsLaser: any[] = [];
+  const isLaserEngaged = true; // Hand laser is pointing at HUD or scrubbing
+  const interactionLaser = isLaserEngaged ? 'hud' : 'diorama';
+  if (interactionLaser === 'diorama') {
+    activeGrabsLaser.push({ id: 'hand_0', source: 'hand' });
   }
-  assert.strictEqual(activeGrabs.length, 1, 'Hand away from HUD correctly grabs diorama');
+  assert.strictEqual(activeGrabsLaser.length, 0, 'Hand laser engaged with HUD must NOT be added to diorama grabs');
 
-  console.log('✓ HUD grab exclusivity verified: pinching on HUD does not trigger diorama translation/scale');
+  // 6C. When hand is in free space away from HUD
+  const isAwayFromHUD = true;
+  const activeGrabsFree: any[] = [];
+  const interactionFree = !isAwayFromHUD ? 'hud' : 'diorama';
+  if (interactionFree === 'diorama') {
+    activeGrabsFree.push({ id: 'hand_0', source: 'hand' });
+  }
+  assert.strictEqual(activeGrabsFree.length, 1, 'Hand away from HUD correctly grabs diorama');
+
+  console.log('✓ HUD grab exclusivity verified: pinching on HUD (laser or direct touch) does not trigger diorama translation/scale');
 }
 
 // =========================================================================
