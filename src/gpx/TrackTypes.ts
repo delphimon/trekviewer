@@ -1,9 +1,11 @@
 export interface GPXPoint {
   lat: number;
   lon: number;
-  ele: number; // meters
+  ele: number; // meters (normalized)
+  rawEle?: number; // original elevation if present
+  elevationProvenance?: 'gpx' | 'dem' | 'interpolated' | 'fallback';
   time?: Date;
-  distanceFromStart: number; // cumulative distance in meters
+  distanceFromStart: number; // cumulative distance in meters across the whole trek
   elapsedSeconds: number; // raw seconds from start
   playbackSeconds: number; // playback seconds with compressed pauses
   speed?: number; // m/s
@@ -11,6 +13,16 @@ export interface GPXPoint {
   hr?: number; // heart rate bpm
   cad?: number; // cadence rpm
   index: number;
+  segmentIndex?: number;
+}
+
+export interface TrackSegment {
+  points: GPXPoint[];
+  distance: number;
+  elevationGain: number;
+  elevationLoss: number;
+  startIndex: number;
+  endIndex: number;
 }
 
 export interface GPXWaypoint {
@@ -21,6 +33,7 @@ export interface GPXWaypoint {
   desc?: string;
   sym?: string;
   type?: string;
+  isDerivedLandmark?: boolean;
 }
 
 export interface GeoBounds {
@@ -52,7 +65,10 @@ export interface TrackStats {
   maxSpeed: number; // km/h
   bounds: GeoBounds;
   points: GPXPoint[];
+  segments: TrackSegment[];
   waypoints: GPXWaypoint[];
+  landmarks: GPXWaypoint[];
+  warnings: string[];
 }
 
 export type ViewMode = 'diorama' | 'first-person' | 'flyover';
