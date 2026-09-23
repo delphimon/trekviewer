@@ -29,8 +29,35 @@ class TrekViewerApp {
   private manifest: RouteManifestItem[] = [];
 
   private lastTimestamp: number = performance.now();
+  private isDebugMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
+  private dioramaMutationCount: number = 0;
+  private lastDioramaPos: THREE.Vector3 = new THREE.Vector3();
+  private lastDioramaRot: THREE.Euler = new THREE.Euler();
+  private lastDioramaScale: THREE.Vector3 = new THREE.Vector3();
+  private lastTelemetryLogTime: number = 0;
 
   constructor() {
+    // Diagnostic instance count (Section 46)
+    if (typeof window !== 'undefined') {
+      (window as any).__trekViewerInstances = ((window as any).__trekViewerInstances || 0) + 1;
+      if ((window as any).__trekViewerInstances > 1) {
+        console.warn(`[DIAGNOSTIC] Multiple TrekViewerApp instances detected: ${(window as any).__trekViewerInstances}`);
+      }
+    }
+
+    console.log(
+      `%c[TrekViewer Build]\nLabel: ${__APP_BUILD_INFO__.label}\nSHA: ${__APP_BUILD_INFO__.sha}\nBranch: ${__APP_BUILD_INFO__.branch}\nBuilt: ${__APP_BUILD_INFO__.builtAt}`,
+      'color: #38bdf8; font-weight: bold;'
+    );
+
+    if (typeof document !== 'undefined') {
+      const badge = document.createElement('div');
+      badge.id = 'buildBadge';
+      badge.style.cssText = 'position:fixed;bottom:8px;right:8px;font-family:monospace;font-size:11px;color:#94a3b8;background:rgba(15,23,42,0.85);padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);z-index:99999;pointer-events:none;';
+      badge.textContent = `Build: ${__APP_BUILD_INFO__.shortSha} | ${__APP_BUILD_INFO__.label}`;
+      document.body.appendChild(badge);
+    }
+
     const canvasContainer = document.getElementById('canvas-container')!;
     const uiContainer = document.getElementById('ui-container')!;
 
@@ -464,6 +491,42 @@ class TrekViewerApp {
 
     // 5. Render Scene
     this.sceneManager.render();
+
+    // 6. Diagnostic Telemetry (?debug=1)
+    if (this.isDebugMode) {
+      const diorama = this.sceneManager.dioramaRoot;
+      if (!this.lastDioramaPos.equals(diorama.position) ||
+          !this.lastDioramaRot.equals(diorama.rotation) ||
+          !this.lastDioramaScale.equals(diorama.scale)) {
+        this.dioramaMutationCount++;
+        this.lastDioramaPos.copy(diorama.position);
+        this.lastDioramaRot.copy(diorama.rotation);
+        this.lastDioramaScale.copy(diorama.scale);
+        console.log(`[TELEMETRY] dioramaRoot mutated (#${this.dioramaMutationCount}):`, {
+          pos: diorama.position.toArray(),
+          rot: [diorama.rotation.x, diorama.rotation.y, diorama.rotation.z],
+          scale: diorama.scale.toArray(),
+        });
+      }
+
+      if (now - this.lastTelemetryLogTime > 1000) {
+        this.lastTelemetryLogTime = now;
+        const isPresenting = this.sceneManager.renderer.xr.isPresenting;
+        const xrCam = isPresenting ? this.sceneManager.renderer.xr.getCamera() : null;
+        console.log(`[TELEMETRY]`, {
+          build: __APP_BUILD_INFO__.shortSha,
+          label: __APP_BUILD_INFO__.label,
+          isPresenting,
+          dioramaMutations: this.dioramaMutationCount,
+          dioramaPos: diorama.position.toArray(),
+          dioramaRotY: diorama.rotation.y,
+          baseCamPos: this.sceneManager.camera.position.toArray(),
+          baseCamQuat: this.sceneManager.camera.quaternion.toArray(),
+          xrCamPos: xrCam ? xrCam.position.toArray() : null,
+          xrCamQuat: xrCam ? xrCam.quaternion.toArray() : null,
+        });
+      }
+    }
   }
 }
 

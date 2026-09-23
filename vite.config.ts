@@ -1,8 +1,27 @@
 import { defineConfig } from 'vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { execSync } from 'child_process';
+
+let gitSha = 'fe42d68e70ab9eb8e761c89d3d43299a322cbb17';
+let gitBranch = 'diagnostic/mr-bisect';
+try {
+  gitSha = execSync('git rev-parse HEAD').toString().trim();
+  gitBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+} catch {}
+
+const buildTimestamp = new Date().toISOString();
 
 export default defineConfig({
   base: './',
+  define: {
+    __APP_BUILD_INFO__: JSON.stringify({
+      sha: gitSha,
+      shortSha: gitSha.substring(0, 7),
+      branch: gitBranch,
+      builtAt: buildTimestamp,
+      label: 'MR CONTROL A (fe42d68)',
+    }),
+  },
   plugins: [
     basicSsl(),
   ],
