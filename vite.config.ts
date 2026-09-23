@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE F (route transaction architecture & atomicity)',
+      label: 'STAGE G (TrekSession state machine & PR workflow)',
     }),
   },
   plugins: [

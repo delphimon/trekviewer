@@ -6,12 +6,14 @@ import { TrailMesh, type TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { LoadedTrek } from './LoadedTrek.ts';
+import { TrekSession } from './TrekSession.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 
 export interface RouteLoaderOptions {
   dioramaRoot: THREE.Group;
   getIsXR: () => boolean;
   getCurrentTrailColorMode?: () => TrailColorMode;
+  session?: TrekSession;
   onProgress?: (message: string, progress?: number | null) => void;
   onError?: (error: Error, routeName?: string) => void;
   onTrekCommitted?: (trek: LoadedTrek, previousTrek: LoadedTrek | null) => void;
@@ -83,6 +85,7 @@ export class RouteLoader {
     };
     this.currentContext = context;
 
+    this.options.session?.setLoadingStatus('parsing', `Fetching trek: ${fallbackName || 'route'}...`, 0.05);
     this.options.onProgress?.(`Fetching trek: ${fallbackName || 'route'}...`, 0.05);
 
     try {
@@ -102,6 +105,7 @@ export class RouteLoader {
         console.log(`[RouteLoader] Route load aborted: ${fallbackName || url}`);
         return null;
       }
+      this.options.session?.setLoadingStatus('error', err.message, null, true);
       console.error('[RouteLoader] Failed to fetch route:', err);
       this.options.onError?.(err, fallbackName);
       return null;
@@ -132,6 +136,7 @@ export class RouteLoader {
     let trek: LoadedTrek | null = null;
 
     try {
+      this.options.session?.setLoadingStatus('parsing', 'Parsing GPX survey track...', 0.1);
       this.options.onProgress?.('Parsing GPX survey track...', 0.1);
       const track = GPXParser.parse(xml, fallbackName);
 
@@ -145,6 +150,7 @@ export class RouteLoader {
         track,
         (msg, progress) => {
           if (!this.isStale(context!)) {
+            this.options.session?.setLoadingStatus('terrain', msg, progress);
             this.options.onProgress?.(msg, progress);
           }
         },
@@ -219,6 +225,12 @@ export class RouteLoader {
         previousTrek.dispose();
       }
 
+      if (this.options.session) {
+        this.options.session.setTerrainQuality(terrain.terrainQuality);
+        this.options.session.setTrack(track, routeId, existingContext ? 'upload' : 'manifest');
+        this.options.session.setLoadingStatus('ready', `Loaded: ${track.name}`, 1.0);
+      }
+
       // Notify caller of successful commit
       this.options.onTrekCommitted?.(trek, previousTrek);
       return trek;
@@ -237,6 +249,7 @@ export class RouteLoader {
         return null;
       }
 
+      this.options.session?.setLoadingStatus('error', err.message, null, true);
       console.error('[RouteLoader] Failed to build trek:', err);
       this.options.onError?.(err, fallbackName);
       return null;
