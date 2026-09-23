@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE D+ (touch proximity, hand outline, banner fix)',
+      label: 'STAGE D++ (tabletop height, 18cm reach, luminous outline)',
     }),
   },
   plugins: [

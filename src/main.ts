@@ -74,10 +74,14 @@ class TrekViewerApp {
     this.controls.minDistance = 0.2;
     this.controls.target.set(0, 0, 0);
 
-    // Disable OrbitControls during WebXR sessions and activate power-efficient mode
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
+      if (this.currentViewMode === 'diorama') {
+        // Natural tabletop height in room space (82cm above floor, 80cm in front of user)
+        this.sceneManager.dioramaRoot.position.set(0, 0.82, -0.80);
+        this.sceneManager.dioramaRoot.rotation.set(0, 0, 0);
+      }
       const session = this.sceneManager.renderer.xr.getSession();
       if (session) {
         // Request 72Hz framerate on Meta Quest 3 to drastically reduce heat and conserve battery
@@ -96,6 +100,10 @@ class TrekViewerApp {
       this.controls.enabled = true;
       this.sceneManager.setPassthrough(false);
       this.sceneManager.setXREnergyMode(false);
+      if (this.currentViewMode === 'diorama') {
+        this.sceneManager.dioramaRoot.position.set(0, -0.2, -1.1);
+        this.sceneManager.dioramaRoot.rotation.set(0, 0, 0);
+      }
     });
 
     // 3. WebXR Manager
@@ -375,10 +383,13 @@ class TrekViewerApp {
       const rotY = this.sceneManager.dioramaRoot.rotation.y;
       const rotated = hikerPos.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
       // Center dioramaRoot so that hiker position is placed comfortably in front of user
+      const isXR = this.sceneManager.renderer.xr.isPresenting;
+      const baseY = isXR ? 0.82 : -0.2;
+      const baseZ = isXR ? -0.80 : -1.0;
       this.sceneManager.dioramaRoot.position.set(
         -rotated.x * scale,
-        -0.2 - rotated.y * scale,
-        -1.0 - rotated.z * scale
+        baseY - rotated.y * scale,
+        baseZ - rotated.z * scale
       );
     }
   }

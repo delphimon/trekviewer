@@ -583,7 +583,7 @@ console.log('✓ Hand / Controller click alignment verified: clicks map strictly
 // =========================================================================
 // 9. Diorama Virtual Touch Proximity Math Test
 // =========================================================================
-console.log('Testing Diorama Virtual Touch Proximity Math (above, below, sides, touching)...');
+console.log('Testing Diorama Virtual Touch Proximity Math (tabletop height, 18cm envelope)...');
 
 interface MockDioramaContext {
   position: THREE.Vector3;
@@ -591,6 +591,7 @@ interface MockDioramaContext {
   widthMeters: number;
   depthMeters: number;
   plinthBottomY: number;
+  maxPeakLocal: number;
   elevationSampler: (x: number, z: number) => number;
   exaggeration: number;
 }
@@ -610,38 +611,32 @@ function testIsTouchingDiorama(
   const dzLocal = Math.max(0, Math.abs(local.z) - halfD);
   const distHorizWorld = Math.hypot(dxLocal, dzLocal) * diorama.scale;
 
-  if (distHorizWorld > 0.08) {
-    return false; // Away to the sides
-  }
-
   // Local terrain surface at hand position
   const clampedX = Math.max(-halfW, Math.min(halfW, local.x));
   const clampedZ = Math.max(-halfD, Math.min(halfD, local.z));
   const localSurfaceY = diorama.elevationSampler(clampedX, clampedZ) * diorama.exaggeration;
+  const topLimitLocal = Math.max(localSurfaceY, diorama.maxPeakLocal * diorama.exaggeration);
 
-  // Hand above map in world meters
-  const dyAboveWorld = (local.y - localSurfaceY) * diorama.scale;
-  if (dyAboveWorld > 0.08) {
-    return false; // Away above the map
+  let dyOutsideWorld = 0;
+  if (local.y > topLimitLocal) {
+    dyOutsideWorld = (local.y - topLimitLocal) * diorama.scale;
+  } else if (local.y < diorama.plinthBottomY) {
+    dyOutsideWorld = (diorama.plinthBottomY - local.y) * diorama.scale;
   }
 
-  // Hand below map in world meters
-  const dyBelowWorld = (diorama.plinthBottomY - local.y) * diorama.scale;
-  if (dyBelowWorld > 0.06) {
-    return false; // Away below the map
-  }
-
-  return true;
+  const distWorld = Math.hypot(distHorizWorld, dyOutsideWorld);
+  return distWorld <= 0.18;
 }
 
-// Setup a realistic diorama placed at (0, -0.2, -1.1) in room space
+// Setup realistic tabletop diorama placed at (0, 0.82, -0.80) in WebXR room space
 // Scale = 0.0001 (10km diorama scaled to 1.0m wide on table)
 const mockDiorama: MockDioramaContext = {
-  position: new THREE.Vector3(0, -0.2, -1.1),
+  position: new THREE.Vector3(0, 0.82, -0.80),
   scale: 0.0001,
   widthMeters: 10000,
   depthMeters: 10000,
   plinthBottomY: -105,
+  maxPeakLocal: 2000,
   elevationSampler: (x: number, z: number) => {
     // Peak at center (x=0, z=0) with height 2000m, sloping down to 200m at edges
     const distFromCenter = Math.hypot(x, z);
@@ -650,32 +645,32 @@ const mockDiorama: MockDioramaContext = {
   exaggeration: 1.0,
 };
 
-// Diorama center in world: (0, -0.2, -1.1)
-// Peak surface in world: position.y + (2000 * 0.0001) = -0.2 + 0.20 = 0.00m
+// Tabletop diorama center: (0, 0.82, -0.80)
+// Mountain summit in room space: position.y + (2000 * 0.0001) = 0.82 + 0.20 = 1.02m (comfortable chest height!)
 const worldPeakY = mockDiorama.position.y + 2000 * mockDiorama.scale;
 
-// Test 9A: Hand 25cm high in the air above the mountain peak (y = 0.25m)
-const handFloatingHigh = new THREE.Vector3(0, worldPeakY + 0.25, -1.1);
-assert.strictEqual(testIsTouchingDiorama(handFloatingHigh, mockDiorama), false, 'Hand 25cm in air above peak must NOT touch diorama');
+// Test 9A: Hand 35cm high in the air above mountain summit (y = worldPeakY + 0.35m = 1.37m)
+const handFloatingHigh = new THREE.Vector3(0, worldPeakY + 0.35, -0.80);
+assert.strictEqual(testIsTouchingDiorama(handFloatingHigh, mockDiorama), false, 'Hand 35cm in air above peak must NOT touch diorama');
 
-// Test 9B: Hand 20cm off to the side (x = +0.70m in world, while halfWidth in world is 0.50m)
-const handOffToSide = new THREE.Vector3(0.70, worldPeakY - 0.05, -1.1);
-assert.strictEqual(testIsTouchingDiorama(handOffToSide, mockDiorama), false, 'Hand 20cm outside border must NOT touch diorama');
+// Test 9B: Hand 35cm off to the side (x = +0.85m in world, while halfWidth in world is 0.50m)
+const handOffToSide = new THREE.Vector3(0.85, worldPeakY - 0.05, -0.80);
+assert.strictEqual(testIsTouchingDiorama(handOffToSide, mockDiorama), false, 'Hand 35cm outside border must NOT touch diorama');
 
-// Test 9C: Hand reaching under the table (y = -0.40m in world, while plinth bottom is -0.2105m)
-const handUnderTable = new THREE.Vector3(0, -0.40, -1.1);
+// Test 9C: Hand reaching under the table (y = 0.40m in world, while tabletop is 0.82m)
+const handUnderTable = new THREE.Vector3(0, 0.40, -0.80);
 assert.strictEqual(testIsTouchingDiorama(handUnderTable, mockDiorama), false, 'Hand below pedestal plinth must NOT touch diorama');
 
-// Test 9D: Hand virtually touching the mountain peak (3cm above peak surface: y = worldPeakY + 0.03m)
-const handTouchingPeak = new THREE.Vector3(0, worldPeakY + 0.03, -1.1);
-assert.strictEqual(testIsTouchingDiorama(handTouchingPeak, mockDiorama), true, 'Hand 3cm above peak MUST register as virtually touching diorama');
+// Test 9D: Hand virtually touching the mountain peak (5cm above summit: y = worldPeakY + 0.05m)
+const handTouchingPeak = new THREE.Vector3(0, worldPeakY + 0.05, -0.80);
+assert.strictEqual(testIsTouchingDiorama(handTouchingPeak, mockDiorama), true, 'Hand 5cm above peak MUST register as touching diorama');
 
-// Test 9E: Hand virtually touching a slope (at x=2000 local, worldX = 0.20m, surfaceY = 2000 - 700 = 1300m, worldY = -0.07m)
+// Test 9E: Hand virtually touching a slope/ridge (at x=2000 local, worldX = 0.20m, height within reach)
 const slopeSurfaceYWorld = mockDiorama.position.y + (2000 - 2000 * 0.35) * mockDiorama.scale;
-const handTouchingSlope = new THREE.Vector3(0.20, slopeSurfaceYWorld + 0.02, -1.1);
-assert.strictEqual(testIsTouchingDiorama(handTouchingSlope, mockDiorama), true, 'Hand 2cm above slope MUST register as virtually touching diorama');
+const handTouchingSlope = new THREE.Vector3(0.20, slopeSurfaceYWorld + 0.05, -0.80);
+assert.strictEqual(testIsTouchingDiorama(handTouchingSlope, mockDiorama), true, 'Hand 5cm above slope MUST register as touching diorama');
 
-console.log('✓ Diorama virtual touch proximity math verified (above, below, sides, touching)');
+console.log('✓ Diorama tabletop height and 18cm touch envelope verified successfully');
 
 // =========================================================================
 // 10. Proximity Grab Gating & Dynamic Hand Outline Visual Feedback Test
@@ -712,7 +707,7 @@ function evaluateHandVisualAndGrab(
   // Visuals
   if (interaction === 'diorama') {
     return {
-      boneColor: 0xffb703, // Amber Gold
+      boneColor: 0xffb703, // Radiant Amber Gold
       boneOpacity: 1.0,
       reticleVisible: true,
       reticleColor: 0xffb703,
@@ -722,7 +717,7 @@ function evaluateHandVisualAndGrab(
   } else if (isEngagedWithHUD) {
     return {
       boneColor: 0x818cf8, // Indigo / Violet
-      boneOpacity: 0.85,
+      boneOpacity: 0.90,
       reticleVisible: false,
       reticleColor: 0x000000,
       reticleOpacity: 0,
@@ -730,43 +725,43 @@ function evaluateHandVisualAndGrab(
     };
   } else if (isTouching) {
     return {
-      boneColor: 0x00f0ff, // Vibrant Cyan
-      boneOpacity: 0.95,
+      boneColor: 0x00f0ff, // Vibrant Glowing Electric Cyan
+      boneOpacity: 1.0,
       reticleVisible: true,
       reticleColor: 0x00f0ff,
-      reticleOpacity: 0.85,
+      reticleOpacity: 0.95,
       activeInteraction: interaction,
     };
   } else {
     return {
-      boneColor: 0x64748b, // Translucent Slate
-      boneOpacity: 0.30,
-      reticleVisible: false,
-      reticleColor: 0x000000,
-      reticleOpacity: 0,
+      boneColor: 0x93c5fd, // Luminous Sky Blue (highly visible in MR passthrough)
+      boneOpacity: 0.70,
+      reticleVisible: true, // Luminous fingertip tracking diamond
+      reticleColor: 0x93c5fd,
+      reticleOpacity: 0.50,
       activeInteraction: interaction,
     };
   }
 }
 
-// Case 10A: Hand in air, not touching, not pinching
+// Case 10A: Hand in air, not touching, not pinching -> luminous sky-blue outline with tracking diamond
 const stateAway = evaluateHandVisualAndGrab(false, false, false, 'none');
-assert.strictEqual(stateAway.boneColor, 0x64748b, 'Away hand outline must be subtle slate');
-assert.strictEqual(stateAway.boneOpacity, 0.30, 'Away hand outline must have low opacity (0.30)');
-assert.strictEqual(stateAway.reticleVisible, false, 'Away reticle must be hidden');
+assert.strictEqual(stateAway.boneColor, 0x93c5fd, 'Away hand outline must be luminous sky blue for high visibility in passthrough');
+assert.strictEqual(stateAway.boneOpacity, 0.70, 'Away hand outline must be clearly visible (0.70 opacity)');
+assert.strictEqual(stateAway.reticleVisible, true, 'Away hand tracking diamond must be visible');
 assert.strictEqual(stateAway.activeInteraction, 'none', 'Away hand must have none interaction');
 
 // Case 10B: User pinches while away in air -> must NOT grab diorama!
 const statePinchAway = evaluateHandVisualAndGrab(true, false, false, 'none');
 assert.strictEqual(statePinchAway.activeInteraction, 'none', 'Pinching in air away from map must NOT grab diorama');
-assert.strictEqual(statePinchAway.boneColor, 0x64748b, 'Pinching in air must keep slate outline');
+assert.strictEqual(statePinchAway.boneColor, 0x93c5fd, 'Pinching in air must keep sky-blue outline');
 
-// Case 10C: Hand moves in to touch the mountain -> lights up in cyan with contact reticle
+// Case 10C: Hand moves in to touch the mountain -> lights up in cyan with glowing contact reticle
 const stateTouching = evaluateHandVisualAndGrab(false, true, false, 'none');
-assert.strictEqual(stateTouching.boneColor, 0x00f0ff, 'Touching hand outline must glow vibrant cyan');
-assert.strictEqual(stateTouching.boneOpacity, 0.95, 'Touching hand outline must be high opacity (0.95)');
+assert.strictEqual(stateTouching.boneColor, 0x00f0ff, 'Touching hand outline must glow radiant electric cyan');
+assert.strictEqual(stateTouching.boneOpacity, 1.0, 'Touching hand outline must be full opacity 1.0');
 assert.strictEqual(stateTouching.reticleVisible, true, 'Touching hand must show contact indicator reticle');
-assert.strictEqual(stateTouching.reticleColor, 0x00f0ff, 'Contact indicator reticle must be vibrant cyan');
+assert.strictEqual(stateTouching.reticleColor, 0x00f0ff, 'Contact indicator reticle must be electric cyan');
 
 // Case 10D: User pinches while touching the mountain -> grabs diorama, turns amber gold!
 const stateGrab = evaluateHandVisualAndGrab(true, true, false, 'none');

@@ -116,8 +116,13 @@ export class SceneManager {
       const targetTableSize = 0.85; // meters in VR
       const scale = targetTableSize / Math.max(extentMeters, 1000);
       this.dioramaRoot.scale.set(scale, scale, scale);
-      // Place tabletop in front of user in VR
-      this.dioramaRoot.position.set(0, -0.2, -1.1);
+      // In WebXR: Natural tabletop height (82cm above floor, 80cm in front of user)
+      // On desktop: Position centered in front of desktop camera
+      if (this.renderer.xr.isPresenting) {
+        this.dioramaRoot.position.set(0, 0.82, -0.80);
+      } else {
+        this.dioramaRoot.position.set(0, -0.2, -1.1);
+      }
       this.dioramaRoot.rotation.set(0, 0, 0);
 
       // Reset desktop camera for diorama inspection
