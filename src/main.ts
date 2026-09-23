@@ -10,6 +10,7 @@ import { SpatialHUD } from './ui/SpatialHUD';
 import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
+import { TrekSession } from './core/TrekSession';
 
 class TrekViewerApp {
   private sceneManager: SceneManager;
@@ -17,8 +18,9 @@ class TrekViewerApp {
   private overlay: DesktopOverlay;
   private controls: OrbitControls;
   private routeLoader: RouteLoader;
+  public readonly session: TrekSession = new TrekSession();
 
-  // Active Trek State Accessors (delegated to RouteLoader)
+  // Active Trek State Accessors (delegated to RouteLoader & TrekSession)
   public get activeTrek(): LoadedTrek | null {
     return this.routeLoader.getActiveTrek();
   }
@@ -34,11 +36,17 @@ class TrekViewerApp {
   public get flyoverController(): FlyoverController | null {
     return this.routeLoader.getActiveTrek()?.flyoverController ?? null;
   }
+  public get currentViewMode(): ViewMode {
+    return this.session.getState().viewMode;
+  }
+  public get currentTextureStyle(): TextureStyle {
+    return this.session.getState().textureStyle;
+  }
+  public get currentTrailColorMode(): TrailColorMode {
+    return this.session.getState().trailColorMode;
+  }
 
   private spatialHUD: SpatialHUD | null = null;
-  private currentViewMode: ViewMode = 'diorama';
-  private currentTextureStyle: TextureStyle = 'satellite';
-  private currentTrailColorMode: TrailColorMode = 'solid';
   private manifest: RouteManifestItem[] = [];
 
   private lastTimestamp: number = performance.now();
@@ -143,17 +151,21 @@ class TrekViewerApp {
       onEnterXR: (mode) => this.enterXR(mode),
       onToggleViewMode: (mode) => this.setViewMode(mode),
       onTogglePlay: () => this.togglePlay(),
-      onSetSpeed: (speed) => this.flyoverController?.setSpeed(speed),
-      onScrub: (progress) => this.flyoverController?.setProgress(progress),
+      onSetSpeed: (speed) => this.session.setSpeed(speed),
+      onScrub: (progress) => {
+        this.flyoverController?.setProgress(progress);
+        this.session.setProgress(progress);
+      },
       onSetTextureStyle: (style) => this.setTextureStyle(style),
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
     });
 
-    // 5. Transactional Route Loader (Stage F)
+    // 5. Transactional Route Loader (Stage F & G)
     this.routeLoader = new RouteLoader({
       dioramaRoot: this.sceneManager.dioramaRoot,
       getIsXR: () => this.sceneManager.renderer.xr.isPresenting,
       getCurrentTrailColorMode: () => this.currentTrailColorMode,
+      session: this.session,
       onProgress: (msg, progress) => {
         this.overlay.showStatus(msg);
         this.spatialHUD?.showStatus(msg, progress ?? undefined);
@@ -168,10 +180,52 @@ class TrekViewerApp {
       },
     });
 
-    // 6. Load Manifest and Initial Track
+    // 6. Reactive State Subscriptions (Stage G)
+    this.session.subscribe((state, prev) => {
+      if (state.isPlaying !== prev.isPlaying) {
+        this.overlay.setPlaying(state.isPlaying);
+      }
+      if (state.playbackSpeed !== prev.playbackSpeed) {
+        this.flyoverController?.setSpeed(state.playbackSpeed);
+      }
+      if (state.progress !== prev.progress) {
+        this.overlay.updateScrubber(state.progress, state.currentElevation);
+        this.syncHUDState();
+      }
+      if (state.viewMode !== prev.viewMode) {
+        this.applyViewMode(state.viewMode);
+      }
+      if (state.textureStyle !== prev.textureStyle) {
+        this.overlay.setTextureStyle(state.textureStyle);
+        this.terrainResult?.setTextureStyle(state.textureStyle);
+        this.syncHUDState();
+      }
+      if (state.trailColorMode !== prev.trailColorMode) {
+        this.overlay.setTrailColorMode(state.trailColorMode);
+        this.trailResult?.setColorMode(state.trailColorMode);
+        this.syncHUDState();
+      }
+      if (state.verticalExaggeration !== prev.verticalExaggeration) {
+        this.activeTrek?.setVerticalExaggeration(state.verticalExaggeration);
+      }
+      if (state.loadingMessage !== prev.loadingMessage || state.loadingProgress !== prev.loadingProgress) {
+        if (state.loadingPhase === 'error') {
+          this.overlay.showStatus(state.loadingMessage, true);
+          this.spatialHUD?.showStatus(state.loadingMessage);
+        } else if (state.loadingPhase === 'ready') {
+          this.overlay.clearStatus();
+          this.spatialHUD?.clearStatus();
+        } else if (state.loadingMessage) {
+          this.overlay.showStatus(state.loadingMessage);
+          this.spatialHUD?.showStatus(state.loadingMessage, state.loadingProgress ?? undefined);
+        }
+      }
+    });
+
+    // 7. Load Manifest and Initial Track
     this.initRoutes();
 
-    // 7. Start WebXR Animation Loop
+    // 8. Start WebXR Animation Loop
     this.sceneManager.renderer.setAnimationLoop(this.animate.bind(this));
   }
 
@@ -198,18 +252,10 @@ class TrekViewerApp {
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
     const track = newTrek.track;
 
-    // 1. Setup Flyover Controller callback
+    // 1. Setup Flyover Controller callback -> sync to session
     newTrek.flyoverController.setUpdateCallback((state) => {
-      this.overlay.updateScrubber(state.progress, state.currentPoint.ele);
-      this.spatialHUD?.updateState(
-        state.progress,
-        state.currentPoint.ele,
-        state.isPlaying,
-        this.currentViewMode,
-        this.currentTextureStyle,
-        undefined,
-        this.currentTrailColorMode
-      );
+      this.session.setProgress(state.progress, state.currentPoint.ele, undefined, state.currentPoint);
+      this.session.setPlayback(state.isPlaying);
     });
 
     // 2. Re-create and mount Spatial HUD for this track
@@ -226,29 +272,34 @@ class TrekViewerApp {
       onTogglePlay: () => this.togglePlay(),
       onToggleViewMode: () => this.toggleViewMode(),
       onToggleTexture: () => {
+        const cur = this.session.getState().textureStyle;
         const next: TextureStyle =
-          this.currentTextureStyle === 'satellite'
+          cur === 'satellite'
             ? 'hybrid'
-            : this.currentTextureStyle === 'hybrid'
+            : cur === 'hybrid'
             ? 'topo'
             : 'satellite';
         this.setTextureStyle(next);
       },
       onToggleTrailColor: () => {
+        const cur = this.session.getState().trailColorMode;
         const next: TrailColorMode =
-          this.currentTrailColorMode === 'solid'
+          cur === 'solid'
             ? 'grade'
-            : this.currentTrailColorMode === 'grade'
+            : cur === 'grade'
             ? 'speed'
-            : this.currentTrailColorMode === 'speed'
+            : cur === 'speed'
             ? 'elevation'
             : 'solid';
         this.setTrailColorMode(next);
       },
       onReset: () => this.resetPosition(),
       onExitMR: () => this.exitMR(),
-      onScrub: (progress) => this.flyoverController?.setProgress(progress),
-      onSetSpeed: (speed) => this.flyoverController?.setSpeed(speed),
+      onScrub: (progress) => {
+        this.flyoverController?.setProgress(progress);
+        this.session.setProgress(progress);
+      },
+      onSetSpeed: (speed) => this.session.setSpeed(speed),
       onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
       onFocusHiker: () => this.focusOnHiker(),
       onDockHUD: (side) => this.dockHUD(side),
@@ -335,23 +386,30 @@ class TrekViewerApp {
     this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
   }
 
+  private syncHUDState(): void {
+    const s = this.session.getState();
+    this.spatialHUD?.updateState(
+      s.progress,
+      s.currentElevation,
+      s.isPlaying,
+      s.viewMode,
+      s.textureStyle,
+      undefined,
+      s.trailColorMode
+    );
+  }
+
   private togglePlay(): void {
     if (!this.flyoverController) return;
     const isPlaying = this.flyoverController.togglePlay();
-    this.overlay.setPlaying(isPlaying);
-    if (this.currentTrack && this.spatialHUD) {
-      this.spatialHUD.updateState(
-        this.flyoverController.getProgress(),
-        this.currentTrack.minElevation,
-        isPlaying,
-        this.currentViewMode,
-        this.currentTextureStyle
-      );
-    }
+    this.session.setPlayback(isPlaying);
   }
 
   private setViewMode(mode: ViewMode): void {
-    this.currentViewMode = mode;
+    this.session.setViewMode(mode);
+  }
+
+  private applyViewMode(mode: ViewMode): void {
     this.flyoverController?.setViewMode(mode);
     this.trailResult?.setViewMode(mode);
     this.xrManager.setViewMode(mode);
@@ -362,12 +420,9 @@ class TrekViewerApp {
 
       if (mode === 'diorama') {
         this.controls.enabled = !this.sceneManager.renderer.xr.isPresenting;
-        // Position HUD docked to preferred side
         this.dockHUD(this.currentHUDDockSide);
       } else {
-        // In 1:1 First-Person mode, disable orbit controls
         this.controls.enabled = false;
-        // Position HUD comfortably at eye/chest level in front of user
         if (this.spatialHUD) {
           this.spatialHUD.group.position.set(0, 1.25, -1.2);
           this.spatialHUD.group.rotation.set(-0.15, 0, 0);
@@ -385,6 +440,7 @@ class TrekViewerApp {
 
   private resetPosition(): void {
     this.flyoverController?.setProgress(0);
+    this.session.setProgress(0);
     if (this.currentTrack) {
       const maxDim = Math.max(this.currentTrack.bounds.widthMeters, this.currentTrack.bounds.depthMeters);
       this.sceneManager.setViewMode(this.currentViewMode, maxDim);
@@ -417,39 +473,11 @@ class TrekViewerApp {
   }
 
   private async setTextureStyle(style: TextureStyle): Promise<void> {
-    this.currentTextureStyle = style;
-    this.overlay.setTextureStyle(style);
-    if (this.spatialHUD && this.flyoverController && this.currentTrack) {
-      this.spatialHUD.updateState(
-        this.flyoverController.getProgress(),
-        this.currentTrack.minElevation,
-        this.flyoverController.getIsPlaying(),
-        this.currentViewMode,
-        this.currentTextureStyle,
-        undefined,
-        this.currentTrailColorMode
-      );
-    }
-    if (this.terrainResult) {
-      await this.terrainResult.setTextureStyle(style);
-    }
+    this.session.setTextureStyle(style);
   }
 
   private setTrailColorMode(mode: TrailColorMode): void {
-    this.currentTrailColorMode = mode;
-    this.overlay.setTrailColorMode(mode);
-    this.trailResult?.setColorMode(mode);
-    if (this.spatialHUD && this.flyoverController && this.currentTrack) {
-      this.spatialHUD.updateState(
-        this.flyoverController.getProgress(),
-        this.currentTrack.minElevation,
-        this.flyoverController.getIsPlaying(),
-        this.currentViewMode,
-        this.currentTextureStyle,
-        undefined,
-        this.currentTrailColorMode
-      );
-    }
+    this.session.setTrailColorMode(mode);
   }
 
   private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
