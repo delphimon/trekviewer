@@ -11,6 +11,7 @@ import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
 import { TrekSession } from './core/TrekSession';
+import { TextureProvider } from './terrain/TextureProvider';
 
 class TrekViewerApp {
   private sceneManager: SceneManager;
@@ -55,6 +56,11 @@ class TrekViewerApp {
   private lastDioramaPos: THREE.Vector3 = new THREE.Vector3();
   private lastDioramaRot: THREE.Euler = new THREE.Euler();
   private lastDioramaScale: THREE.Vector3 = new THREE.Vector3();
+  private savedTabletopTransform: {
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    scale: THREE.Vector3;
+  } | null = null;
   private lastTelemetryLogTime: number = 0;
 
   constructor() {
@@ -96,6 +102,7 @@ class TrekViewerApp {
     this.controls.target.set(0, 0, 0);
 
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
+      this.xrManager.resetInteractionState();
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
       if (this.currentViewMode === 'diorama') {
@@ -118,6 +125,7 @@ class TrekViewerApp {
       }
     });
     this.sceneManager.renderer.xr.addEventListener('sessionend', () => {
+      this.xrManager.resetInteractionState();
       this.controls.enabled = true;
       this.sceneManager.setPassthrough(false);
       this.sceneManager.setXREnergyMode(false);
@@ -146,7 +154,7 @@ class TrekViewerApp {
 
     // 4. Desktop & Quest 2D Overlay
     this.overlay = new DesktopOverlay(uiContainer, {
-      onSelectRoute: (route) => this.loadRouteByFile(route.file, route.name),
+      onSelectRoute: (route) => this.loadRouteByFile(route.file, route.name, route.id),
       onUploadGPX: (content, fileName) => this.loadTrackFromXML(content, fileName),
       onEnterXR: (mode) => this.enterXR(mode),
       onToggleViewMode: (mode) => this.setViewMode(mode),
@@ -187,6 +195,7 @@ class TrekViewerApp {
       }
       if (state.playbackSpeed !== prev.playbackSpeed) {
         this.flyoverController?.setSpeed(state.playbackSpeed);
+        this.overlay.setPlaybackSpeed(state.playbackSpeed);
       }
       if (state.progress !== prev.progress) {
         this.overlay.updateScrubber(state.progress, state.currentElevation);
@@ -198,6 +207,8 @@ class TrekViewerApp {
       if (state.textureStyle !== prev.textureStyle) {
         this.overlay.setTextureStyle(state.textureStyle);
         this.terrainResult?.setTextureStyle(state.textureStyle);
+        const attr = TextureProvider.getAttributionForStyle(state.textureStyle);
+        this.session.setAttribution(attr);
         this.syncHUDState();
       }
       if (state.trailColorMode !== prev.trailColorMode) {
@@ -207,6 +218,14 @@ class TrekViewerApp {
       }
       if (state.verticalExaggeration !== prev.verticalExaggeration) {
         this.activeTrek?.setVerticalExaggeration(state.verticalExaggeration);
+        this.xrManager.setVerticalExaggeration(state.verticalExaggeration);
+      }
+      if (state.attribution !== prev.attribution || state.terrainQuality !== prev.terrainQuality) {
+        this.overlay.setMetaInfo(state.attribution, state.terrainQuality);
+        this.spatialHUD?.setMetaInfo(state.attribution, state.terrainQuality);
+      }
+      if (state.loadingPhase !== prev.loadingPhase) {
+        this.overlay.setXREnabled(state.loadingPhase === 'ready');
       }
       if (state.loadingMessage !== prev.loadingMessage || state.loadingProgress !== prev.loadingProgress) {
         if (state.loadingPhase === 'error') {
@@ -238,15 +257,50 @@ class TrekViewerApp {
         // Load default iconic trek: Mount Rainier via Emmons Glacier
         const initial = this.manifest.find((m) => m.id === 'rainier-emmons') || this.manifest[0];
         if (initial) {
-          await this.loadRouteByFile(initial.file, initial.name);
+          await this.loadRouteByFile(initial.file, initial.name, initial.id);
         }
       } else {
         throw new Error('Could not load routes manifest.');
       }
     } catch (e) {
       console.warn('Failed to load route manifest, attempting direct Rainier load:', e);
-      await this.loadRouteByFile('/routes/MountRanierViaEmmons.gpx.gpx', 'Mount Rainier via Emmons');
+      await this.loadRouteByFile('/routes/MountRanierViaEmmons.gpx.gpx', 'Mount Rainier via Emmons', 'rainier-emmons');
     }
+  }
+
+  private applySessionStateToTrek(newTrek: LoadedTrek): void {
+    const state = this.session.getState();
+    const track = newTrek.track;
+
+    newTrek.setViewMode(state.viewMode);
+    this.xrManager.setViewMode(state.viewMode);
+    newTrek.setTextureStyle(state.textureStyle);
+    newTrek.setTrailColorMode(state.trailColorMode);
+    newTrek.setVerticalExaggeration(state.verticalExaggeration);
+    this.xrManager.setVerticalExaggeration(state.verticalExaggeration);
+
+    this.xrManager.setDioramaContext(
+      track.bounds,
+      newTrek.terrainResult.elevationSampler,
+      newTrek.terrainResult.terrainBaseElevation,
+      state.verticalExaggeration
+    );
+
+    newTrek.flyoverController.setSpeed(state.playbackSpeed);
+    newTrek.flyoverController.setProgress(0);
+    newTrek.flyoverController.pause();
+
+    this.session.setProgress(0, track.points[0]?.ele || track.minElevation);
+    this.session.setPlayback(false);
+    this.session.setTerrainQuality(newTrek.terrainResult.terrainQuality);
+    const attr = TextureProvider.getAttributionForStyle(state.textureStyle);
+    this.session.setAttribution(attr);
+
+    this.overlay.setTextureStyle(state.textureStyle);
+    this.overlay.setTrailColorMode(state.trailColorMode);
+    this.overlay.setPlaybackSpeed(state.playbackSpeed);
+    this.overlay.setMetaInfo(attr, newTrek.terrainResult.terrainQuality);
+    this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality);
   }
 
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
@@ -311,23 +365,18 @@ class TrekViewerApp {
 
     // Register SpatialHUD with XRManager for laser raycasting and clicks
     this.xrManager.setSpatialHUD(this.spatialHUD);
-    this.xrManager.setDioramaContext(
-      track.bounds,
-      newTrek.terrainResult.elevationSampler,
-      newTrek.terrainResult.terrainBaseElevation,
-      1.0
-    );
 
-    // Reset diorama interaction state
+    // 3. Reconcile active session state into newly committed trek
+    this.applySessionStateToTrek(newTrek);
+
+    // 4. Reset diorama interaction state
     this.xrManager.resetInteractionState();
 
-    // Configure View Mode
+    // 5. Configure View Mode in SceneManager
     const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
     this.sceneManager.setViewMode(this.currentViewMode, maxDim);
-    newTrek.setViewMode(this.currentViewMode);
-    this.xrManager.setViewMode(this.currentViewMode);
 
-    // Update 2D Overlay
+    // 6. Update 2D Overlay
     this.overlay.clearStatus();
     this.overlay.updateTrack(track);
     const distMi = (track.totalDistance * 0.000621371).toFixed(1);
@@ -335,8 +384,8 @@ class TrekViewerApp {
     this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
   }
 
-  private async loadRouteByFile(url: string, fallbackName: string): Promise<void> {
-    await this.routeLoader.loadRouteFromUrl(url, fallbackName);
+  private async loadRouteByFile(url: string, fallbackName: string, routeId?: string): Promise<void> {
+    await this.routeLoader.loadRouteFromUrl(url, fallbackName, routeId);
   }
 
   public async loadTrackFromXML(xml: string, fallbackName?: string): Promise<void> {
@@ -410,6 +459,17 @@ class TrekViewerApp {
   }
 
   private applyViewMode(mode: ViewMode): void {
+    const prevMode = this.session.getState().viewMode;
+    // Save tabletop transform when transitioning away from diorama
+    if (prevMode === 'diorama' && mode === 'first-person') {
+      const root = this.sceneManager.dioramaRoot;
+      this.savedTabletopTransform = {
+        position: root.position.clone(),
+        quaternion: root.quaternion.clone(),
+        scale: root.scale.clone(),
+      };
+    }
+
     this.flyoverController?.setViewMode(mode);
     this.trailResult?.setViewMode(mode);
     this.xrManager.setViewMode(mode);
@@ -419,6 +479,13 @@ class TrekViewerApp {
       this.sceneManager.setViewMode(mode, maxDim);
 
       if (mode === 'diorama') {
+        // Restore user diorama transform if saved
+        if (this.savedTabletopTransform) {
+          const root = this.sceneManager.dioramaRoot;
+          root.position.copy(this.savedTabletopTransform.position);
+          root.quaternion.copy(this.savedTabletopTransform.quaternion);
+          root.scale.copy(this.savedTabletopTransform.scale);
+        }
         this.controls.enabled = !this.sceneManager.renderer.xr.isPresenting;
         this.dockHUD(this.currentHUDDockSide);
       } else {
@@ -483,6 +550,11 @@ class TrekViewerApp {
   private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
     if (!('xr' in navigator)) {
       alert('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!');
+      return;
+    }
+
+    if (!this.activeTrek || this.session.getState().loadingPhase !== 'ready') {
+      alert('Please wait for the trek to finish loading before entering VR/MR.');
       return;
     }
 

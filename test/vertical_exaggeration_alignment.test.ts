@@ -39,7 +39,10 @@ describe('Vertical Exaggeration Alignment (Terrain, Trail & Waypoints)', () => {
       elevationLoss: 0,
       minElevation: startEle,
       maxElevation: summitEle,
+      movingTime: 3600,
       totalPlaybackSeconds: 60,
+      avgSpeed: 5.0,
+      maxSpeed: 10.0,
       bounds: {
         minLat: 46.85,
         maxLat: 46.87,
@@ -94,7 +97,7 @@ describe('Vertical Exaggeration Alignment (Terrain, Trail & Waypoints)', () => {
       DioramaBase.setVerticalExaggeration(baseGroup, factor);
 
       // Verify waypoint marker height matches factor * baseY + 8
-      const expectedY = baseSummitY * factor + 8;
+      const expectedY: number = baseSummitY * factor + 8;
       assert(
         Math.abs(summitMarker.position.y - expectedY) < 1e-4,
         `At ${factor}x, summit marker Y should be ${expectedY.toFixed(2)}, got ${summitMarker.position.y.toFixed(2)}`

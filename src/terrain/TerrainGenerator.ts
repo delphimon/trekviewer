@@ -98,7 +98,7 @@ export class TerrainGenerator {
 
       // Base elevation is independent from the lowest track elevation (preserves valleys below track)
       terrainBaseElevation = Math.min(demGrid.minElevation, bounds.minEle) - 30;
-      onProgress?.(terrainQuality === 'dem' ? 'Real-world DEM elevation loaded.' : 'Partial DEM elevation loaded (blending with survey).', 0.55);
+      onProgress?.(terrainQuality === 'dem' ? 'Real-world DEM elevation loaded.' : 'Partial DEM coverage — estimating uncovered terrain.', 0.55);
     } else {
       terrainQuality = 'synthetic';
       terrainBaseElevation = bounds.minEle - 30;

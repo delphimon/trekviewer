@@ -24,6 +24,7 @@ export interface RouteLoadContext {
   abortController: AbortController;
   routeId?: string;
   routeName?: string;
+  source: 'manifest' | 'upload';
 }
 
 /**
@@ -82,6 +83,7 @@ export class RouteLoader {
       abortController,
       routeId,
       routeName: fallbackName,
+      source: 'manifest',
     };
     this.currentContext = context;
 
@@ -124,8 +126,9 @@ export class RouteLoader {
       context = {
         generationId: ++this.nextGenerationId,
         abortController: new AbortController(),
-        routeId,
+        routeId: routeId || (fallbackName ? `upload:${fallbackName}` : `upload:${Date.now()}`),
         routeName: fallbackName,
+        source: 'upload',
       };
       this.currentContext = context;
     }
@@ -227,7 +230,8 @@ export class RouteLoader {
 
       if (this.options.session) {
         this.options.session.setTerrainQuality(terrain.terrainQuality);
-        this.options.session.setTrack(track, routeId, existingContext ? 'upload' : 'manifest');
+        const effectiveRouteId = context.routeId || routeId || (context.source === 'manifest' ? track.name : `upload:${track.name}`);
+        this.options.session.setTrack(track, effectiveRouteId, context.source);
         this.options.session.setLoadingStatus('ready', `Loaded: ${track.name}`, 1.0);
       }
 

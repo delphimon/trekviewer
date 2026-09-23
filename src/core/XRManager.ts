@@ -216,10 +216,17 @@ export class XRManager {
       hand.activeInteraction = 'none';
       hand.isPinching = false;
       hand.isClickingHUD = false;
+      hand.pinchReticle.visible = false;
+      hand.visualOutline.group.visible = false;
     }
     for (const ctrl of this.controllers) {
+      ctrl.isGripping = false;
       ctrl.isDraggingHUD = false;
       ctrl.isDraggingTerrain = false;
+      ctrl.isHoveringHUD = false;
+      ctrl.isInteractingWithHUD = false;
+      ctrl.rayLine.visible = false;
+      ctrl.reticle.visible = false;
     }
   }
 

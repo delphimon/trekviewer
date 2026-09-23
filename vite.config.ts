@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE H (contact-anchored & bimanual hand manipulation)',
+      label: 'STAGE I (CI & integration-state correctness)',
     }),
   },
   plugins: [

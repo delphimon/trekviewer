@@ -44,6 +44,8 @@ export class SpatialHUD {
   private currentTextureStyle: TextureStyle = 'satellite';
   private currentTrailColorMode: TrailColorMode = 'grade';
   private currentDockSide: 'left' | 'right' | 'center' = 'left';
+  private attribution: string = '';
+  private terrainQuality: string = 'dem';
 
   private statusMessage: string | null = null;
   private statusProgress: number = 0;
@@ -165,6 +167,12 @@ export class SpatialHUD {
     this.drawHUD();
   }
 
+  public setMetaInfo(attribution?: string, terrainQuality?: string): void {
+    if (attribution !== undefined) this.attribution = attribution;
+    if (terrainQuality !== undefined) this.terrainQuality = terrainQuality;
+    this.drawHUD();
+  }
+
   private setupInteractiveAreas(): void {
     this.interactiveAreas = [
       // Drag handle on top of HUD canvas
@@ -223,23 +231,10 @@ export class SpatialHUD {
         h: 58,
         action: () => this.callbacks.onStepSeconds(10),
       },
-      // Speed 0.5x
-      {
-        id: 'spd-0.5',
-        x: 445,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 0.5;
-          this.callbacks.onSetSpeed(0.5);
-          this.drawHUD();
-        },
-      },
       // Speed 1x
       {
         id: 'spd-1',
-        x: 535,
+        x: 445,
         y: 410,
         w: 80,
         h: 58,
@@ -249,29 +244,42 @@ export class SpatialHUD {
           this.drawHUD();
         },
       },
-      // Speed 2x
-      {
-        id: 'spd-2',
-        x: 625,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 2.0;
-          this.callbacks.onSetSpeed(2.0);
-          this.drawHUD();
-        },
-      },
       // Speed 5x
       {
         id: 'spd-5',
-        x: 715,
+        x: 535,
         y: 410,
         w: 80,
         h: 58,
         action: () => {
           this.currentSpeed = 5.0;
           this.callbacks.onSetSpeed(5.0);
+          this.drawHUD();
+        },
+      },
+      // Speed 20x
+      {
+        id: 'spd-20',
+        x: 625,
+        y: 410,
+        w: 80,
+        h: 58,
+        action: () => {
+          this.currentSpeed = 20.0;
+          this.callbacks.onSetSpeed(20.0);
+          this.drawHUD();
+        },
+      },
+      // Speed 60x
+      {
+        id: 'spd-60',
+        x: 715,
+        y: 410,
+        w: 80,
+        h: 58,
+        action: () => {
+          this.currentSpeed = 60.0;
+          this.callbacks.onSetSpeed(60.0);
           this.drawHUD();
         },
       },
@@ -685,8 +693,8 @@ export class SpatialHUD {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillText('+10s ⏩', 345, 446);
 
-    // Speeds: 0.5x, 1x, 2x, 5x
-    const speeds = [0.5, 1.0, 2.0, 5.0];
+    // Speeds: 1x, 5x, 20x, 60x
+    const speeds = [1.0, 5.0, 20.0, 60.0];
     const speedXs = [445, 535, 625, 715];
     speeds.forEach((spd, idx) => {
       const sx = speedXs[idx];
@@ -790,12 +798,19 @@ export class SpatialHUD {
     // 7. Footer Controller & Hand Gestures Guide
     ctx.fillStyle = '#94a3b8';
     ctx.font = '13px sans-serif';
-    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 575);
-    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 595);
+    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 565);
+    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 583);
+
+    // Compact Attribution & Elevation quality badge
+    const qualityLabel = this.terrainQuality === 'dem' ? 'DEM' : this.terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
+    const metaStr = `Elevation: ${qualityLabel}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(metaStr, 45, 601);
 
     // 8. Bottom Non-Intrusive Status & Progress Pill (never blocks header or controls)
     if (this.statusMessage) {
-      const pillY = 614;
+      const pillY = 620;
       const pillH = 38;
       ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
       ctx.beginPath();
