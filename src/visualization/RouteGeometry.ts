@@ -11,6 +11,7 @@ export interface RouteTelemetry {
 
 export interface SegmentGeometry {
   segment: TrackSegment;
+  groundVectors: THREE.Vector3[];
   localVectors: THREE.Vector3[];
   visualVectors: THREE.Vector3[];
   curve: THREE.CatmullRomCurve3;
@@ -71,7 +72,7 @@ export class RouteGeometry {
     track: TrackStats,
     baseElevation: number,
     elevationSampler?: (x: number, z: number) => number,
-    dioramaElevationOffset: number = 3.0
+    _deprecatedOffset?: number
   ) {
     this.track = track;
     this.totalDistance = Math.max(track.totalDistance, 1);
@@ -80,32 +81,33 @@ export class RouteGeometry {
 
     // Process each track segment independently to prevent connecting lines across gaps
     for (const seg of track.segments) {
-      const localVectors: THREE.Vector3[] = [];
+      const groundVectors: THREE.Vector3[] = [];
 
       for (const p of seg.points) {
         const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, baseElevation);
-        let baseY = loc.y;
+        let groundY = loc.y;
         if (elevationSampler) {
           const terrainY = elevationSampler(loc.x, loc.z);
           if (!isNaN(terrainY)) {
-            baseY = Math.max(loc.y, terrainY);
+            groundY = terrainY;
           }
         }
-        localVectors.push(new THREE.Vector3(loc.x, baseY + dioramaElevationOffset, loc.z));
+        groundVectors.push(new THREE.Vector3(loc.x, groundY, loc.z));
       }
 
-      if (localVectors.length < 2) continue;
+      if (groundVectors.length < 2) continue;
 
       // Visual route: RDP simplification with 6m tolerance to preserve tight switchbacks
-      const visualVectors = simplifyPointsRDP(localVectors, 6.0);
-      const splinePoints = visualVectors.length >= 2 ? visualVectors : localVectors;
+      const visualVectors = simplifyPointsRDP(groundVectors, 6.0);
+      const splinePoints = visualVectors.length >= 2 ? visualVectors : groundVectors;
 
       // Conservative Catmull-Rom tension (0.15) to prevent cutting corners on alpine hairpins
       const curve = new THREE.CatmullRomCurve3(splinePoints, false, 'catmullrom', 0.15);
 
       this.segments.push({
         segment: seg,
-        localVectors,
+        groundVectors,
+        localVectors: groundVectors,
         visualVectors: splinePoints,
         curve,
       });
@@ -113,18 +115,18 @@ export class RouteGeometry {
 
     // Fallback if no segments were constructed
     if (this.segments.length === 0 && track.points.length >= 2) {
-      const fallbackLocal = track.points.map((p) => {
+      const fallbackGround = track.points.map((p) => {
         const loc = geoToLocalMeters(p.lat, p.lon, p.ele, centerLat, centerLon, baseElevation);
-        let baseY = loc.y;
+        let groundY = loc.y;
         if (elevationSampler) {
           const terrainY = elevationSampler(loc.x, loc.z);
           if (!isNaN(terrainY)) {
-            baseY = Math.max(loc.y, terrainY);
+            groundY = terrainY;
           }
         }
-        return new THREE.Vector3(loc.x, baseY + dioramaElevationOffset, loc.z);
+        return new THREE.Vector3(loc.x, groundY, loc.z);
       });
-      const curve = new THREE.CatmullRomCurve3(fallbackLocal, false, 'catmullrom', 0.15);
+      const curve = new THREE.CatmullRomCurve3(fallbackGround, false, 'catmullrom', 0.15);
       this.segments.push({
         segment: {
           points: track.points,
@@ -134,8 +136,9 @@ export class RouteGeometry {
           startIndex: 0,
           endIndex: track.points.length - 1,
         },
-        localVectors: fallbackLocal,
-        visualVectors: fallbackLocal,
+        groundVectors: fallbackGround,
+        localVectors: fallbackGround,
+        visualVectors: fallbackGround,
         curve,
       });
     }

@@ -147,4 +147,73 @@ describe('Track Geometry Fidelity & Adaptive Resolution', () => {
     console.log('✓ Adaptive terrain resolution scales conservatively within Quest GPU budget');
     console.log('✓ All Track Geometry Fidelity & Adaptive Resolution tests passed successfully!');
   });
+
+  it('verifies RouteGeometry Ground Tier provides pure DEM coordinates without presentation offsets', () => {
+    const points: GPXPoint[] = [
+      { lat: 46.85, lon: -121.75, ele: 1500, distanceFromStart: 0, elapsedSeconds: 0, playbackSeconds: 0, index: 0 },
+      { lat: 46.86, lon: -121.76, ele: 2500, distanceFromStart: 2000, elapsedSeconds: 1800, playbackSeconds: 30, index: 1 },
+    ];
+
+    const track: TrackStats = {
+      name: 'Ground Tier Test',
+      points,
+      segments: [
+        {
+          points,
+          distance: 2000,
+          elevationGain: 1000,
+          elevationLoss: 0,
+          startIndex: 0,
+          endIndex: 1,
+        },
+      ],
+      totalDistance: 2000,
+      elevationGain: 1000,
+      elevationLoss: 0,
+      minElevation: 1500,
+      maxElevation: 2500,
+      movingTime: 1800,
+      totalPlaybackSeconds: 30,
+      avgSpeed: 5.0,
+      maxSpeed: 10.0,
+      bounds: {
+        minLat: 46.85,
+        maxLat: 46.86,
+        minLon: -121.76,
+        maxLon: -121.75,
+        minEle: 1500,
+        maxEle: 2500,
+        centerLat: 46.855,
+        centerLon: -121.755,
+        widthMeters: 2000,
+        depthMeters: 2000,
+        elevationSpan: 1000,
+      },
+      waypoints: [],
+      landmarks: [],
+      warnings: [],
+    };
+
+    // Elevation sampler returning terrain surface of 350m
+    const samplerHeight = 350.0;
+    const sampler = (_x: number, _z: number) => samplerHeight;
+
+    const routeGeom = new RouteGeometry(track, 1500, sampler);
+
+    // Verify groundVectors exist and store exact sampler height
+    assert.strictEqual(routeGeom.segments.length, 1);
+    const seg = routeGeom.segments[0];
+    assert(seg.groundVectors, 'SegmentGeometry must expose groundVectors');
+    assert.strictEqual(seg.groundVectors.length, 2);
+
+    for (const gv of seg.groundVectors) {
+      assert.strictEqual(gv.y, samplerHeight, 'Ground vector Y must match DEM surface height without diorama offset');
+    }
+
+    // Telemetry position at start must match DEM surface height
+    const tele0 = routeGeom.getTelemetryAtProgress(0);
+    assert.strictEqual(tele0.position.y, samplerHeight, 'Telemetry position Y must equal DEM surface height');
+
+    console.log('✓ RouteGeometry ground tier passes through pure DEM coordinates without baked display offsets');
+  });
 });

@@ -72,7 +72,7 @@ export class DioramaBase {
         if (elevationSampler) {
           const sampleY = elevationSampler(loc.x, loc.z);
           if (!isNaN(sampleY)) {
-            baseYPos = Math.max(loc.y, sampleY);
+            baseYPos = sampleY;
           }
         }
         const marker = this.createWaypointPin(wp);

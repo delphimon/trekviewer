@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE I (CI & integration-state correctness)',
+      label: 'STAGE J (correct route geometry model)',
     }),
   },
   plugins: [
