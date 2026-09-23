@@ -1,35 +1,45 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode } from './gpx/TrackTypes';
-import { GPXParser } from './gpx/GPXParser';
 import { SceneManager } from './core/SceneManager';
 import { XRManager } from './core/XRManager';
-import { TerrainGenerator, TerrainResult } from './terrain/TerrainGenerator';
-import { TrailMesh, TrailResult } from './visualization/TrailMesh';
-import { DioramaBase } from './visualization/DioramaBase';
+import { TerrainResult } from './terrain/TerrainGenerator';
+import { TrailResult } from './visualization/TrailMesh';
 import { FlyoverController } from './visualization/FlyoverController';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { DesktopOverlay } from './ui/DesktopOverlay';
-import { disposeObject3D } from './core/ResourceLifecycle';
+import { LoadedTrek } from './core/LoadedTrek';
+import { RouteLoader } from './core/RouteLoader';
 
 class TrekViewerApp {
   private sceneManager: SceneManager;
   private xrManager: XRManager;
   private overlay: DesktopOverlay;
   private controls: OrbitControls;
+  private routeLoader: RouteLoader;
 
-  // Active Trek State
-  private currentTrack: TrackStats | null = null;
-  private terrainResult: TerrainResult | null = null;
-  private trailResult: TrailResult | null = null;
-  private currentBaseGroup: THREE.Group | null = null;
-  private flyoverController: FlyoverController | null = null;
+  // Active Trek State Accessors (delegated to RouteLoader)
+  public get activeTrek(): LoadedTrek | null {
+    return this.routeLoader.getActiveTrek();
+  }
+  public get currentTrack(): TrackStats | null {
+    return this.routeLoader.getActiveTrek()?.track ?? null;
+  }
+  public get terrainResult(): TerrainResult | null {
+    return this.routeLoader.getActiveTrek()?.terrainResult ?? null;
+  }
+  public get trailResult(): TrailResult | null {
+    return this.routeLoader.getActiveTrek()?.trailResult ?? null;
+  }
+  public get flyoverController(): FlyoverController | null {
+    return this.routeLoader.getActiveTrek()?.flyoverController ?? null;
+  }
+
   private spatialHUD: SpatialHUD | null = null;
   private currentViewMode: ViewMode = 'diorama';
   private currentTextureStyle: TextureStyle = 'satellite';
   private currentTrailColorMode: TrailColorMode = 'solid';
   private manifest: RouteManifestItem[] = [];
-  private activeLoadAbortController: AbortController | null = null;
 
   private lastTimestamp: number = performance.now();
   private isDebugMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
@@ -139,10 +149,29 @@ class TrekViewerApp {
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
     });
 
-    // 5. Load Manifest and Initial Track
+    // 5. Transactional Route Loader (Stage F)
+    this.routeLoader = new RouteLoader({
+      dioramaRoot: this.sceneManager.dioramaRoot,
+      getIsXR: () => this.sceneManager.renderer.xr.isPresenting,
+      getCurrentTrailColorMode: () => this.currentTrailColorMode,
+      onProgress: (msg, progress) => {
+        this.overlay.showStatus(msg);
+        this.spatialHUD?.showStatus(msg, progress ?? undefined);
+      },
+      onError: (err, routeName) => {
+        console.error('[TrekViewerApp] Route load error:', err);
+        this.overlay.showStatus(`Failed to load trek ${routeName || ''}: ${err.message}`, true);
+        this.spatialHUD?.showStatus(`Error: ${err.message}`);
+      },
+      onTrekCommitted: (newTrek, prevTrek) => {
+        this.onTrekCommitted(newTrek, prevTrek);
+      },
+    });
+
+    // 6. Load Manifest and Initial Track
     this.initRoutes();
 
-    // 6. Start WebXR Animation Loop
+    // 7. Start WebXR Animation Loop
     this.sceneManager.renderer.setAnimationLoop(this.animate.bind(this));
   }
 
@@ -166,41 +195,24 @@ class TrekViewerApp {
     }
   }
 
-  private abortActiveLoad(): void {
-    if (this.activeLoadAbortController) {
-      this.activeLoadAbortController.abort();
-      this.activeLoadAbortController = null;
-    }
-  }
+  private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
+    const track = newTrek.track;
 
-  private isAbortError(e: any): boolean {
-    return (
-      e?.name === 'AbortError' ||
-      (typeof e?.message === 'string' && e.message.toLowerCase().includes('abort'))
-    );
-  }
+    // 1. Setup Flyover Controller callback
+    newTrek.flyoverController.setUpdateCallback((state) => {
+      this.overlay.updateScrubber(state.progress, state.currentPoint.ele);
+      this.spatialHUD?.updateState(
+        state.progress,
+        state.currentPoint.ele,
+        state.isPlaying,
+        this.currentViewMode,
+        this.currentTextureStyle,
+        undefined,
+        this.currentTrailColorMode
+      );
+    });
 
-  private disposeCurrentTrek(): void {
-    if (this.flyoverController) {
-      this.flyoverController.pause();
-      this.flyoverController = null;
-    }
-
-    if (this.terrainResult) {
-      this.terrainResult.dispose();
-      this.terrainResult = null;
-    }
-
-    if (this.trailResult) {
-      this.trailResult.dispose();
-      this.trailResult = null;
-    }
-
-    if (this.currentBaseGroup) {
-      disposeObject3D(this.currentBaseGroup);
-      this.currentBaseGroup = null;
-    }
-
+    // 2. Re-create and mount Spatial HUD for this track
     if (this.spatialHUD) {
       if (this.xrManager) {
         this.xrManager.setSpatialHUD(null);
@@ -210,172 +222,86 @@ class TrekViewerApp {
       this.spatialHUD = null;
     }
 
-    // Safety sweep of any remaining children on dioramaRoot
-    while (this.sceneManager.dioramaRoot.children.length > 0) {
-      const child = this.sceneManager.dioramaRoot.children[0];
-      this.sceneManager.dioramaRoot.remove(child);
-      disposeObject3D(child);
-    }
+    this.spatialHUD = new SpatialHUD(track, {
+      onTogglePlay: () => this.togglePlay(),
+      onToggleViewMode: () => this.toggleViewMode(),
+      onToggleTexture: () => {
+        const next: TextureStyle =
+          this.currentTextureStyle === 'satellite'
+            ? 'hybrid'
+            : this.currentTextureStyle === 'hybrid'
+            ? 'topo'
+            : 'satellite';
+        this.setTextureStyle(next);
+      },
+      onToggleTrailColor: () => {
+        const next: TrailColorMode =
+          this.currentTrailColorMode === 'solid'
+            ? 'grade'
+            : this.currentTrailColorMode === 'grade'
+            ? 'speed'
+            : this.currentTrailColorMode === 'speed'
+            ? 'elevation'
+            : 'solid';
+        this.setTrailColorMode(next);
+      },
+      onReset: () => this.resetPosition(),
+      onExitMR: () => this.exitMR(),
+      onScrub: (progress) => this.flyoverController?.setProgress(progress),
+      onSetSpeed: (speed) => this.flyoverController?.setSpeed(speed),
+      onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
+      onFocusHiker: () => this.focusOnHiker(),
+      onDockHUD: (side) => this.dockHUD(side),
+    });
+
+    // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
+    this.sceneManager.scene.add(this.spatialHUD.group);
+    this.dockHUD(this.currentHUDDockSide);
+
+    // Register SpatialHUD with XRManager for laser raycasting and clicks
+    this.xrManager.setSpatialHUD(this.spatialHUD);
+    this.xrManager.setDioramaContext(
+      track.bounds,
+      newTrek.terrainResult.elevationSampler,
+      newTrek.terrainResult.terrainBaseElevation,
+      1.0
+    );
+
+    // Reset diorama interaction state
+    this.xrManager.resetInteractionState();
+
+    // Configure View Mode
+    const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
+    this.sceneManager.setViewMode(this.currentViewMode, maxDim);
+    newTrek.setViewMode(this.currentViewMode);
+    this.xrManager.setViewMode(this.currentViewMode);
+
+    // Update 2D Overlay
+    this.overlay.clearStatus();
+    this.overlay.updateTrack(track);
+    const distMi = (track.totalDistance * 0.000621371).toFixed(1);
+    const gainFt = Math.round(track.elevationGain * 3.28084);
+    this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
   }
 
   private async loadRouteByFile(url: string, fallbackName: string): Promise<void> {
-    this.abortActiveLoad();
-    const abortController = new AbortController();
-    this.activeLoadAbortController = abortController;
-    const signal = abortController.signal;
-
-    this.overlay.showStatus(`Loading trek: ${fallbackName}...`);
-    try {
-      const resp = await fetch(url, { signal });
-      if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
-      const xml = await resp.text();
-      if (signal.aborted) return;
-      await this.loadTrackFromXML(xml, fallbackName, signal);
-    } catch (e: any) {
-      if (this.isAbortError(e) || signal.aborted) {
-        console.log(`[TrekApp] Route load aborted: ${fallbackName}`);
-        return;
-      }
-      console.error(e);
-      this.overlay.showStatus(`Failed to load trek from ${url}`, true);
-    }
+    await this.routeLoader.loadRouteFromUrl(url, fallbackName);
   }
 
-  public async loadTrackFromXML(xml: string, fallbackName?: string, signal?: AbortSignal): Promise<void> {
-    if (!signal) {
-      this.abortActiveLoad();
-      const abortController = new AbortController();
-      this.activeLoadAbortController = abortController;
-      signal = abortController.signal;
+  public async loadTrackFromXML(xml: string, fallbackName?: string): Promise<void> {
+    await this.routeLoader.loadRouteFromXml(xml, fallbackName);
+  }
+
+  private disposeCurrentTrek(): void {
+    if (this.spatialHUD) {
+      if (this.xrManager) {
+        this.xrManager.setSpatialHUD(null);
+      }
+      this.sceneManager.scene.remove(this.spatialHUD.group);
+      this.spatialHUD.dispose();
+      this.spatialHUD = null;
     }
-
-    try {
-      this.overlay.showStatus('Parsing GPX survey track...');
-      const track = GPXParser.parse(xml, fallbackName);
-      if (signal.aborted) return;
-
-      // 1. Dispose previous trek resources cleanly
-      this.disposeCurrentTrek();
-
-      this.currentTrack = track;
-
-      // Generate 3D Terrain
-      const isXR = this.sceneManager.renderer.xr.isPresenting;
-      const terrain = await TerrainGenerator.generate(
-        track,
-        (msg) => {
-          this.overlay.showStatus(msg);
-          this.spatialHUD?.showStatus(msg);
-        },
-        signal,
-        1.0,
-        isXR
-      );
-      if (signal.aborted) {
-        terrain.dispose();
-        return;
-      }
-      this.terrainResult = terrain;
-      this.spatialHUD?.clearStatus();
-      this.overlay.clearStatus();
-
-      // Generate 3D Trail Mesh
-      const trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
-      trail.setColorMode(this.currentTrailColorMode);
-      if (signal.aborted) {
-        terrain.dispose();
-        trail.dispose();
-        return;
-      }
-      this.trailResult = trail;
-
-      // Generate Diorama Base Pedestal
-      const base = DioramaBase.create(track.bounds, -80, track.waypoints, terrain.terrainBaseElevation, terrain.elevationSampler, 1.0);
-      this.currentBaseGroup = base;
-
-      // Assemble Diorama Group
-      this.sceneManager.dioramaRoot.add(terrain.group);
-      this.sceneManager.dioramaRoot.add(trail.group);
-      this.sceneManager.dioramaRoot.add(base);
-
-      // Setup Flyover Controller
-      this.flyoverController = new FlyoverController(trail, track);
-      this.flyoverController.setUpdateCallback((state) => {
-        this.overlay.updateScrubber(state.progress, state.currentPoint.ele);
-        this.spatialHUD?.updateState(
-          state.progress,
-          state.currentPoint.ele,
-          state.isPlaying,
-          this.currentViewMode,
-          this.currentTextureStyle,
-          undefined,
-          this.currentTrailColorMode
-        );
-      });
-
-      // Setup 3D Spatial HUD in VR
-      this.spatialHUD = new SpatialHUD(track, {
-        onTogglePlay: () => this.togglePlay(),
-        onToggleViewMode: () => this.toggleViewMode(),
-        onToggleTexture: () => {
-          const next: TextureStyle =
-            this.currentTextureStyle === 'satellite'
-              ? 'hybrid'
-              : this.currentTextureStyle === 'hybrid'
-              ? 'topo'
-              : 'satellite';
-          this.setTextureStyle(next);
-        },
-        onToggleTrailColor: () => {
-          const next: TrailColorMode =
-            this.currentTrailColorMode === 'solid'
-              ? 'grade'
-              : this.currentTrailColorMode === 'grade'
-              ? 'speed'
-              : this.currentTrailColorMode === 'speed'
-              ? 'elevation'
-              : 'solid';
-          this.setTrailColorMode(next);
-        },
-        onReset: () => this.resetPosition(),
-        onExitMR: () => this.exitMR(),
-        onScrub: (progress) => this.flyoverController?.setProgress(progress),
-        onSetSpeed: (speed) => this.flyoverController?.setSpeed(speed),
-        onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
-        onFocusHiker: () => this.focusOnHiker(),
-        onDockHUD: (side) => this.dockHUD(side),
-      });
-
-      // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
-      this.sceneManager.scene.add(this.spatialHUD.group);
-      this.dockHUD('left');
-
-      // Register SpatialHUD with XRManager for laser raycasting and clicks
-      this.xrManager.setSpatialHUD(this.spatialHUD);
-      this.xrManager.setDioramaContext(track.bounds, terrain.elevationSampler, terrain.terrainBaseElevation, 1.0);
-
-      // Reset diorama interaction state
-      this.xrManager.resetInteractionState();
-
-      // Configure View Mode
-      const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
-      this.sceneManager.setViewMode(this.currentViewMode, maxDim);
-      this.trailResult.setViewMode(this.currentViewMode);
-      this.xrManager.setViewMode(this.currentViewMode);
-
-      // Update 2D Overlay
-      this.overlay.updateTrack(track);
-      const distMi = (track.totalDistance * 0.000621371).toFixed(1);
-      const gainFt = Math.round(track.elevationGain * 3.28084);
-      this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
-    } catch (e: any) {
-      if (this.isAbortError(e) || signal?.aborted) {
-        console.log(`[TrekApp] Track generation aborted.`);
-        return;
-      }
-      console.error(e);
-      this.overlay.showStatus(`Error parsing GPX: ${e.message}`, true);
-    }
+    this.routeLoader.dispose();
   }
 
 
@@ -637,7 +563,6 @@ class TrekViewerApp {
   }
 
   public dispose(): void {
-    this.abortActiveLoad();
     this.disposeCurrentTrek();
     this.controls.dispose();
     this.overlay.dispose();

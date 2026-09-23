@@ -51,6 +51,11 @@ export class FlyoverController {
     this.isPlaying = false;
   }
 
+  public dispose(): void {
+    this.pause();
+    this.onUpdateCallback = undefined;
+  }
+
   public togglePlay(): boolean {
     if (this.isPlaying) {
       this.pause();

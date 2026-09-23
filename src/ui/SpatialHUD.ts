@@ -106,18 +106,22 @@ export class SpatialHUD {
 
   private statusTimeout: number | null = null;
 
-  public showStatus(message: string): void {
+  public showStatus(message: string, progress?: number): void {
     if (this.statusTimeout) {
       clearTimeout(this.statusTimeout);
       this.statusTimeout = null;
     }
 
     this.statusMessage = message;
-    const match = message.match(/\((\d+)%\)/);
-    if (match) {
-      this.statusProgress = parseInt(match[1], 10) / 100;
+    if (typeof progress === 'number') {
+      this.statusProgress = Math.max(0, Math.min(1, progress));
     } else {
-      this.statusProgress = 0;
+      const match = message.match(/\((\d+)%\)/);
+      if (match) {
+        this.statusProgress = parseInt(match[1], 10) / 100;
+      } else {
+        this.statusProgress = 0;
+      }
     }
     this.drawHUD();
 
