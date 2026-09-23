@@ -50,6 +50,7 @@ console.log('Testing two-handed 6DOF manipulation math...');
 
 interface DioramaTransform {
   position: THREE.Vector3;
+  quaternion?: THREE.Quaternion;
   rotationY: number;
   rotationX?: number;
   scale: number;
@@ -60,8 +61,17 @@ function applyBimanualTransform(
   p0Prev: THREE.Vector3,
   p1Prev: THREE.Vector3,
   p0Curr: THREE.Vector3,
-  p1Curr: THREE.Vector3
+  p1Curr: THREE.Vector3,
+  wrist0Prev?: THREE.Quaternion,
+  wrist0Curr?: THREE.Quaternion,
+  wrist1Prev?: THREE.Quaternion,
+  wrist1Curr?: THREE.Quaternion
 ): void {
+  if (!diorama.quaternion) {
+    const euler = new THREE.Euler(diorama.rotationX || 0, diorama.rotationY || 0, 0, 'YXZ');
+    diorama.quaternion = new THREE.Quaternion().setFromEuler(euler);
+  }
+
   const prevDist = p0Prev.distanceTo(p1Prev);
   const currDist = p0Curr.distanceTo(p1Curr);
 
@@ -75,39 +85,88 @@ function applyBimanualTransform(
     scaleFactor = Math.max(0.65, Math.min(1.5, rawFactor));
   }
 
-  // 2. Yaw rotation delta with boundary wrapping (-PI to PI)
+  // 2. 3D Rotation of the inter-hand line
   const vPrev = p1Prev.clone().sub(p0Prev);
   const vCurr = p1Curr.clone().sub(p0Curr);
-  const anglePrev = Math.atan2(vPrev.x, vPrev.z);
-  const angleCurr = Math.atan2(vCurr.x, vCurr.z);
-  let deltaAngle = angleCurr - anglePrev;
-  while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
-  while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
 
-  // 3D Pitch: vertical inclination change between hands relative to depth
-  const deltaY = (p1Curr.y - p1Prev.y) - (p0Curr.y - p0Prev.y);
-  const sepZ = p1Curr.z - p0Curr.z;
-  let deltaPitch = 0;
-  if (Math.abs(sepZ) > 0.06) {
-    deltaPitch = -(deltaY / Math.abs(sepZ)) * Math.sign(sepZ) * 0.85;
+  const qLine = new THREE.Quaternion();
+  if (vPrev.lengthSq() > 1e-6 && vCurr.lengthSq() > 1e-6) {
+    const uPrev = vPrev.clone().normalize();
+    const uCurr = vCurr.clone().normalize();
+    if (uPrev.dot(uCurr) > -0.999) {
+      qLine.setFromUnitVectors(uPrev, uCurr);
+    }
   }
 
-  // 3. Anchored transform around hands' midpoint
+  // 3. Wrist twist along the inter-hand line (handlebar tilt)
+  const qTwist = new THREE.Quaternion();
+  if (vCurr.lengthSq() > 1e-6) {
+    const uLine = vCurr.clone().normalize();
+    let twistAccum = 0;
+    let twistCount = 0;
+
+    const wristPairs = [
+      { prev: wrist0Prev, curr: wrist0Curr },
+      { prev: wrist1Prev, curr: wrist1Curr },
+    ];
+    for (const pair of wristPairs) {
+      if (pair.prev && pair.curr) {
+        const dq = pair.curr.clone().multiply(pair.prev.clone().invert());
+        if (dq.w < 0) {
+          dq.x = -dq.x;
+          dq.y = -dq.y;
+          dq.z = -dq.z;
+          dq.w = -dq.w;
+        }
+        const rotVec = new THREE.Vector3(dq.x * 2, dq.y * 2, dq.z * 2);
+        const twistAngle = rotVec.dot(uLine);
+        if (Math.abs(twistAngle) > 0.002 && Math.abs(twistAngle) < 0.3) {
+          twistAccum += twistAngle;
+          twistCount++;
+        }
+      }
+    }
+
+    if (twistCount > 0) {
+      const avgTwist = twistAccum / twistCount;
+      qTwist.setFromAxisAngle(uLine, avgTwist * 0.85);
+    }
+  }
+
+  // Combined 3D rotation
+  let qRot = qTwist.multiply(qLine);
+
+  // Guard against upside-down inversion: diorama up vector must maintain y >= 0.15
+  const testQuat = qRot.clone().multiply(diorama.quaternion);
+  const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
+  if (upVector.y < 0.15) {
+    const vPrevHoriz = new THREE.Vector3(p1Prev.x - p0Prev.x, 0, p1Prev.z - p0Prev.z);
+    const vCurrHoriz = new THREE.Vector3(p1Curr.x - p0Curr.x, 0, p1Curr.z - p0Curr.z);
+    if (vPrevHoriz.lengthSq() > 1e-6 && vCurrHoriz.lengthSq() > 1e-6) {
+      qRot = new THREE.Quaternion().setFromUnitVectors(vPrevHoriz.normalize(), vCurrHoriz.normalize());
+    } else {
+      qRot = new THREE.Quaternion();
+    }
+  }
+
+  // 4. Scale calculation
   const currentScale = diorama.scale;
   const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
   const effectiveScale = targetScale / currentScale;
 
+  // 5. Anchored 6DOF transform around hands' midpoint
   const offset = diorama.position.clone().sub(prevMid);
   offset.multiplyScalar(effectiveScale);
-  offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), deltaAngle);
+  offset.applyQuaternion(qRot);
 
   diorama.position.copy(currMid).add(offset);
-  diorama.rotationY += deltaAngle;
-  if (diorama.rotationX === undefined) diorama.rotationX = 0;
-  if (Math.abs(deltaPitch) > 0.003) {
-    diorama.rotationX = Math.max(-1.3, Math.min(1.3, diorama.rotationX + deltaPitch));
-  }
+  diorama.quaternion.premultiply(qRot);
   diorama.scale = targetScale;
+
+  // Sync Euler angles for test inspection
+  const eulerOut = new THREE.Euler().setFromQuaternion(diorama.quaternion, 'YXZ');
+  diorama.rotationY = eulerOut.y;
+  diorama.rotationX = eulerOut.x;
 }
 
 // 2A. Stretch hands apart -> Scale increases (Zoom In)
@@ -240,13 +299,94 @@ function applyBimanualTransform(
 
   applyBimanualTransform(diorama, p0Prev, p1Prev, p0Curr, p1Curr);
 
-  // deltaY = 0.06 - 0 = 0.06, sepZ = -0.4 -> deltaPitch = -(0.06/0.4)*(-1)*0.85 = +0.1275 rad
   assert(diorama.rotationX! > 0.10, `Expected pitch tilt > 0.10, got ${diorama.rotationX}`);
   console.log('✓ Dual-hand vertical separation correctly tilts diorama pitch in 3D');
 }
 
+// 2G. Two-Handed Rigid Invariance Test:
+// Both virtual grab points on the diorama must remain 100% glued to Hand 0 and Hand 1 under simultaneous 3D translation, line yaw, line pitch, and scale.
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0.1, 1.0, -1.1),
+    rotationY: 0.25,
+    scale: 0.002,
+  };
+  const eulerInit = new THREE.Euler(0, 0.25, 0, 'YXZ');
+  diorama.quaternion = new THREE.Quaternion().setFromEuler(eulerInit);
+
+  // Two pinch points on the diorama surface
+  const p0Prev = new THREE.Vector3(-0.05, 1.02, -1.05);
+  const p1Prev = new THREE.Vector3(0.25, 0.98, -1.25);
+
+  // Compute initial local coordinates of both pinch points on the diorama
+  const invQ = diorama.quaternion.clone().invert();
+  const l0 = p0Prev.clone().sub(diorama.position).multiplyScalar(1 / diorama.scale).applyQuaternion(invQ);
+  const l1 = p1Prev.clone().sub(diorama.position).multiplyScalar(1 / diorama.scale).applyQuaternion(invQ);
+
+  // Hands simultaneously move in 3D, rotate in yaw, pitch up, and stretch 1.25x
+  const p0Curr = new THREE.Vector3(-0.10, 1.08, -0.98);
+  const p1Curr = new THREE.Vector3(0.32, 1.18, -1.28);
+
+  applyBimanualTransform(diorama, p0Prev, p1Prev, p0Curr, p1Curr);
+
+  // Compute where the diorama places the two local points in world space now
+  const p0WorldNew = diorama.position.clone().add(l0.clone().multiplyScalar(diorama.scale).applyQuaternion(diorama.quaternion!));
+  const p1WorldNew = diorama.position.clone().add(l1.clone().multiplyScalar(diorama.scale).applyQuaternion(diorama.quaternion!));
+
+  assert(p0WorldNew.distanceTo(p0Curr) < 1e-5, `P0 slippage: ${p0WorldNew.distanceTo(p0Curr)}`);
+  assert(p1WorldNew.distanceTo(p1Curr) < 1e-5, `P1 slippage: ${p1WorldNew.distanceTo(p1Curr)}`);
+  console.log('✓ Two-handed rigid contact invariance verified: zero slippage for both hands under 6DOF line transform');
+}
+
+// 2H. Two-Handed Handlebar Wrist Twist:
+// Twisting wrists along the inter-hand axis pitches the diorama without moving the two pinch points.
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0, 1.2, -1.0),
+    rotationY: 0,
+    rotationX: 0,
+    scale: 0.002,
+  };
+
+  const p0 = new THREE.Vector3(-0.2, 1.2, -1.0);
+  const p1 = new THREE.Vector3(0.2, 1.2, -1.0);
+
+  // Both hands stay at fixed positions, but both wrists twist forward (handlebar pitch)
+  const qWristPrev = new THREE.Quaternion().identity();
+  const qWristCurr = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.12);
+
+  applyBimanualTransform(diorama, p0, p1, p0, p1, qWristPrev, qWristCurr, qWristPrev, qWristCurr);
+
+  assert(diorama.rotationX! > 0.08, `Expected handlebar pitch tilt > 0.08, got ${diorama.rotationX}`);
+  console.log('✓ Dual-hand handlebar wrist twist tilts diorama pitch while hands remain fixed');
+}
+
+// 2I. Two-Handed Upright Protection:
+// Tilting line past 80 degrees keeps diorama right-side up (up.y >= 0.15).
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0, 1.2, -1.0),
+    rotationY: 0,
+    rotationX: 0,
+    scale: 0.002,
+  };
+
+  const p0Prev = new THREE.Vector3(0, 1.2, -0.8);
+  const p1Prev = new THREE.Vector3(0, 1.2, -1.2);
+
+  // Extreme tilt: far hand pulled almost straight down (attempting inversion)
+  const p0Curr = new THREE.Vector3(0, 1.8, -0.8);
+  const p1Curr = new THREE.Vector3(0, 0.4, -0.85);
+
+  applyBimanualTransform(diorama, p0Prev, p1Prev, p0Curr, p1Curr);
+
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(diorama.quaternion!);
+  assert(up.y >= 0.15, `Diorama flipped upside down: up.y = ${up.y}`);
+  console.log('✓ Dual-hand upright protection guarantees diorama never flips upside down');
+}
+
 // =========================================================================
-// 3. One-Handed Direct Manipulation (1:1 Drag, Wrist Twist Yaw & Pitch)
+// 3. One-Handed Direct Manipulation (1:1 Drag, Contact-Point Wrist Twist Yaw & Pitch)
 // =========================================================================
 console.log('Testing one-handed direct manipulation...');
 
@@ -257,33 +397,68 @@ function applyOneHandedManipulation(
   prevWristQuat: THREE.Quaternion,
   currWristQuat: THREE.Quaternion
 ): void {
-  // 1. 1:1 Translation
-  const deltaMove = currHandPos.clone().sub(prevHandPos);
-  diorama.position.add(deltaMove);
-
-  // 2. Wrist twist yaw delta
-  const fPrev = new THREE.Vector3(0, 0, -1).applyQuaternion(prevWristQuat);
-  const fCurr = new THREE.Vector3(0, 0, -1).applyQuaternion(currWristQuat);
-  const yawPrev = Math.atan2(fPrev.x, fPrev.z);
-  const yawCurr = Math.atan2(fCurr.x, fCurr.z);
-  let deltaYaw = yawCurr - yawPrev;
-  while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
-  while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
-
-  if (Math.abs(deltaYaw) > 0.005 && Math.abs(deltaYaw) < 0.4) {
-    diorama.rotationY += deltaYaw * 0.95;
+  if (!diorama.quaternion) {
+    const euler = new THREE.Euler(diorama.rotationX || 0, diorama.rotationY || 0, 0, 'YXZ');
+    diorama.quaternion = new THREE.Quaternion().setFromEuler(euler);
   }
 
-  // 3. Wrist pitch tilt (allows looking down into canyons)
-  const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
-  const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
-  const deltaPitch = pitchCurr - pitchPrev;
-  if (diorama.rotationX === undefined) diorama.rotationX = 0;
-  if (Math.abs(deltaPitch) > 0.005 && Math.abs(deltaPitch) < 0.4) {
-    diorama.rotationX = Math.max(-1.3, Math.min(1.3, diorama.rotationX + deltaPitch * 0.9));
+  let rotDelta = new THREE.Quaternion();
+
+  if (prevWristQuat && currWristQuat) {
+    const fPrev = new THREE.Vector3(0, 0, -1).applyQuaternion(prevWristQuat);
+    const fCurr = new THREE.Vector3(0, 0, -1).applyQuaternion(currWristQuat);
+
+    const yawPrev = Math.atan2(fPrev.x, fPrev.z);
+    const yawCurr = Math.atan2(fCurr.x, fCurr.z);
+    let deltaYaw = yawCurr - yawPrev;
+    while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
+    while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
+
+    const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
+    const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
+    const deltaPitch = pitchCurr - pitchPrev;
+
+    const qYaw = new THREE.Quaternion();
+    if (Math.abs(deltaYaw) > 0.0005 && Math.abs(deltaYaw) < 0.5) {
+      qYaw.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaYaw);
+    }
+
+    const qPitch = new THREE.Quaternion();
+    if (Math.abs(deltaPitch) > 0.0005 && Math.abs(deltaPitch) < 0.5) {
+      const fHoriz = new THREE.Vector3(fCurr.x, 0, fCurr.z);
+      if (fHoriz.lengthSq() > 1e-4) {
+        fHoriz.normalize();
+      } else {
+        fHoriz.set(0, 0, -1);
+      }
+      const rightAxis = new THREE.Vector3().crossVectors(fHoriz, new THREE.Vector3(0, 1, 0)).normalize();
+      qPitch.setFromAxisAngle(rightAxis, deltaPitch);
+    }
+
+    const qCombined = qYaw.clone().multiply(qPitch);
+
+    const testQuat = qCombined.clone().multiply(diorama.quaternion);
+    const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
+    if (upVector.y >= 0.15) {
+      rotDelta = qCombined;
+    } else {
+      rotDelta = qYaw;
+    }
   }
+
+  // Physical pivot transformation around contact point
+  const r = diorama.position.clone().sub(prevHandPos);
+  r.applyQuaternion(rotDelta);
+
+  diorama.position.copy(currHandPos).add(r);
+  diorama.quaternion.premultiply(rotDelta);
+
+  const eulerOut = new THREE.Euler().setFromQuaternion(diorama.quaternion, 'YXZ');
+  diorama.rotationY = eulerOut.y;
+  diorama.rotationX = eulerOut.x;
 }
 
+// 3A. Center Grab 1:1 Translation and Wrist Twist Yaw & Pitch
 {
   const diorama: DioramaTransform = {
     position: new THREE.Vector3(0, 1.2, -1.0),
@@ -292,8 +467,8 @@ function applyOneHandedManipulation(
     scale: 0.002,
   };
 
-  const pPrev = new THREE.Vector3(0.1, 1.2, -0.9);
-  const pCurr = new THREE.Vector3(0.15, 1.25, -0.85); // move (+0.05, +0.05, +0.05)
+  const pPrev = new THREE.Vector3(0, 1.2, -1.0);
+  const pCurr = new THREE.Vector3(0.05, 1.25, -0.95); // move (+0.05, +0.05, +0.05)
 
   // Wrist twists yaw 0.2 rad and pitches 0.15 rad
   const qPrev = new THREE.Quaternion().identity();
@@ -305,9 +480,68 @@ function applyOneHandedManipulation(
   assert(Math.abs(diorama.position.x - 0.05) < 1e-5, '1:1 X translation match');
   assert(Math.abs(diorama.position.y - 1.25) < 1e-5, '1:1 Y translation match');
   assert(Math.abs(diorama.position.z - (-0.95)) < 1e-5, '1:1 Z translation match');
-  assert(Math.abs(diorama.rotationY - (0.2 * 0.95)) < 0.02, 'Wrist twist yaw rotation applied');
-  assert(Math.abs(diorama.rotationX! - (0.15 * 0.9)) < 0.02, 'Wrist tilt pitch rotation applied');
+  assert(Math.abs(diorama.rotationY - 0.2) < 0.02, 'Wrist twist yaw rotation applied');
+  assert(Math.abs(diorama.rotationX! - 0.15) < 0.02, 'Wrist tilt pitch rotation applied');
   console.log('✓ One-handed 1:1 translation, wrist-twist yaw rotation, and wrist pitch tilt verified');
+}
+
+// 3B. Off-Center Contact-Anchored Invariance Test:
+// When grabbing an arbitrary off-center point on the diorama, the grabbed virtual point must remain pinned to the hand with zero slippage.
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0.2, 1.1, -0.9),
+    rotationY: 0.1,
+    scale: 0.002,
+  };
+  const eulerInit = new THREE.Euler(0, 0.1, 0, 'YXZ');
+  diorama.quaternion = new THREE.Quaternion().setFromEuler(eulerInit);
+
+  // Virtual contact point on mountain surface (15cm away from center)
+  const pPrev = new THREE.Vector3(0.35, 1.15, -0.85);
+
+  // Compute local coordinates of the contact point on diorama
+  const invQ = diorama.quaternion.clone().invert();
+  const localContact = pPrev.clone().sub(diorama.position).multiplyScalar(1 / diorama.scale).applyQuaternion(invQ);
+
+  // Hand translates and twists wrist by 0.25 rad yaw and 0.18 rad pitch
+  const pCurr = new THREE.Vector3(0.42, 1.22, -0.78);
+  const qPrev = new THREE.Quaternion().identity();
+  const qCurr = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.18, 0.25, 0, 'YXZ'));
+
+  applyOneHandedManipulation(diorama, pPrev, pCurr, qPrev, qCurr);
+
+  // Compute where the diorama places the contact point in world space
+  const contactWorldNew = diorama.position.clone().add(
+    localContact.clone().multiplyScalar(diorama.scale).applyQuaternion(diorama.quaternion!)
+  );
+
+  assert(contactWorldNew.distanceTo(pCurr) < 1e-6, `Contact point slipped: ${contactWorldNew.distanceTo(pCurr)}`);
+  console.log('✓ One-handed off-center contact-anchored invariance verified: zero slippage under wrist yaw & pitch');
+}
+
+// 3C. One-Handed Upright Protection:
+// When user tilts wrist down by 80 degrees, diorama pitch is clamped to keep it right-side up.
+{
+  const diorama: DioramaTransform = {
+    position: new THREE.Vector3(0, 1.2, -1.0),
+    rotationY: 0,
+    rotationX: 0,
+    scale: 0.002,
+  };
+
+  const pPrev = new THREE.Vector3(0, 1.2, -1.0);
+  const pCurr = new THREE.Vector3(0, 1.2, -1.0);
+
+  // Wrist attempts to tilt upside down (-1.45 rad, ~83 deg)
+  const qPrev = new THREE.Quaternion().identity();
+  const qCurr = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.45, 0.3, 0, 'YXZ'));
+
+  applyOneHandedManipulation(diorama, pPrev, pCurr, qPrev, qCurr);
+
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(diorama.quaternion!);
+  assert(up.y >= 0.15, `Diorama flipped upside down: up.y = ${up.y}`);
+  assert(Math.abs(diorama.rotationY - 0.3) < 0.02, 'Yaw rotation still applied even when pitch is clamped');
+  console.log('✓ One-handed upright protection guarantees diorama never flips upside down');
 }
 
 // =========================================================================

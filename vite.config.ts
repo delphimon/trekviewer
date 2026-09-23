@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE G (TrekSession state machine & PR workflow)',
+      label: 'STAGE H (contact-anchored & bimanual hand manipulation)',
     }),
   },
   plugins: [

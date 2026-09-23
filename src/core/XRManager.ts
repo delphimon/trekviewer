@@ -138,6 +138,7 @@ interface ControllerState {
   inputSource: any;
   prevButtons: boolean[];
   prevGripWorldPos: THREE.Vector3;
+  prevGripWorldQuat: THREE.Quaternion;
   isGripping: boolean;
   isDraggingHUD: boolean;
   hudDragDistance: number;
@@ -334,6 +335,7 @@ export class XRManager {
         inputSource: null,
         prevButtons: [false, false, false, false, false, false, false, false],
         prevGripWorldPos: new THREE.Vector3(),
+        prevGripWorldQuat: new THREE.Quaternion(),
         isGripping: false,
         isDraggingHUD: false,
         hudDragDistance: 1.0,
@@ -584,23 +586,25 @@ export class XRManager {
 
       // Controller Grip Interaction
       if (b1_grip) {
+        const gripQuat = new THREE.Quaternion().setFromRotationMatrix(state.grip.matrixWorld);
         if (!state.isGripping) {
           state.isGripping = true;
           state.prevGripWorldPos.copy(currentGripWorld);
+          state.prevGripWorldQuat.copy(gripQuat);
           this.triggerHaptic(i, 0.7, 35);
         }
 
-        const gripQuat = new THREE.Quaternion().setFromRotationMatrix(state.grip.matrixWorld);
         activeGrabs.push({
           id: `controller_${i}`,
           source: 'controller',
           worldPos: currentGripWorld.clone(),
           prevWorldPos: state.prevGripWorldPos.clone(),
           wristQuat: gripQuat,
-          prevWristQuat: gripQuat,
+          prevWristQuat: state.prevGripWorldQuat.clone(),
         });
 
         state.prevGripWorldPos.copy(currentGripWorld);
+        state.prevGripWorldQuat.copy(gripQuat);
       } else {
         if (state.isGripping) {
           state.isGripping = false;
@@ -967,7 +971,7 @@ export class XRManager {
     if (this.currentViewMode !== 'diorama') return;
 
     if (grabs.length >= 2) {
-      // --- TWO-HANDED 6DOF MANIPULATION (MOVE + ROTATE YAW/PITCH + SCALE) ---
+      // --- TWO-HANDED 6DOF MANIPULATION (SCALE, ROTATE, TRANSLATE & PITCH ALONG INTER-HAND LINE) ---
       const g0 = grabs[0];
       const g1 = grabs[1];
 
@@ -986,90 +990,153 @@ export class XRManager {
       let scaleFactor = 1.0;
       if (prevDist > 0.03 && currentDist > 0.03) {
         const rawFactor = currentDist / prevDist;
-        // Limit frame-to-frame delta to avoid sudden tracking spikes
         scaleFactor = Math.max(0.65, Math.min(1.5, rawFactor));
       }
 
-      // 2. Horizontal (Yaw) & Vertical (Pitch) Rotation delta
+      // 2. 3D Rotation of the inter-hand line
       const vPrev = _scratchV3.copy(p1Prev).sub(p0Prev);
       const vCurr = p1.clone().sub(p0);
-      const anglePrev = Math.atan2(vPrev.x, vPrev.z);
-      const angleCurr = Math.atan2(vCurr.x, vCurr.z);
-      let deltaAngle = angleCurr - anglePrev;
-      while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
-      while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
 
-      // 3D Pitch: vertical inclination change between hands relative to depth
-      const deltaY = (p1.y - p1Prev.y) - (p0.y - p0Prev.y);
-      const sepZ = p1.z - p0.z;
-      let deltaPitch = 0;
-      if (Math.abs(sepZ) > 0.06) {
-        deltaPitch = -(deltaY / Math.abs(sepZ)) * Math.sign(sepZ) * 0.85;
+      const qLine = new THREE.Quaternion();
+      if (vPrev.lengthSq() > 1e-6 && vCurr.lengthSq() > 1e-6) {
+        const uPrev = vPrev.normalize();
+        const uCurr = vCurr.clone().normalize();
+        if (uPrev.dot(uCurr) > -0.999) {
+          qLine.setFromUnitVectors(uPrev, uCurr);
+        }
       }
 
-      // 3. Apply anchored 6DOF transform around hands' midpoint
+      // 3. Wrist twist along the inter-hand line (handlebar tilt)
+      const qTwist = new THREE.Quaternion();
+      if (vCurr.lengthSq() > 1e-6) {
+        const uLine = vCurr.clone().normalize();
+        let twistAccum = 0;
+        let twistCount = 0;
+
+        for (const g of [g0, g1]) {
+          if (g.wristQuat && g.prevWristQuat) {
+            const dq = g.wristQuat.clone().multiply(g.prevWristQuat.clone().invert());
+            if (dq.w < 0) {
+              dq.x = -dq.x;
+              dq.y = -dq.y;
+              dq.z = -dq.z;
+              dq.w = -dq.w;
+            }
+            const rotVec = new THREE.Vector3(dq.x * 2, dq.y * 2, dq.z * 2);
+            const twistAngle = rotVec.dot(uLine);
+            if (Math.abs(twistAngle) > 0.002 && Math.abs(twistAngle) < 0.3) {
+              twistAccum += twistAngle;
+              twistCount++;
+            }
+          }
+        }
+
+        if (twistCount > 0) {
+          const avgTwist = twistAccum / twistCount;
+          qTwist.setFromAxisAngle(uLine, avgTwist * 0.85);
+        }
+      }
+
+      // Combined 3D rotation
+      const qRot = qTwist.multiply(qLine);
+
+      // Guard against upside-down inversion: diorama up vector must maintain y >= 0.15
       const diorama = this.sceneManager.dioramaRoot;
+      const testQuat = qRot.clone().multiply(diorama.quaternion);
+      const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
+      if (upVector.y < 0.15) {
+        // Exceeds pitch limit: restrict to yaw rotation around vertical axis only
+        const vPrevHoriz = new THREE.Vector3(p1Prev.x - p0Prev.x, 0, p1Prev.z - p0Prev.z);
+        const vCurrHoriz = new THREE.Vector3(p1.x - p0.x, 0, p1.z - p0.z);
+        if (vPrevHoriz.lengthSq() > 1e-6 && vCurrHoriz.lengthSq() > 1e-6) {
+          qRot.setFromUnitVectors(vPrevHoriz.normalize(), vCurrHoriz.normalize());
+        } else {
+          qRot.identity();
+        }
+      }
+
+      // 4. Scale calculation
       const currentScale = diorama.scale.x;
       const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
       const effectiveScale = targetScale / currentScale;
 
-      // Offset from previous midpoint to diorama position
+      // 5. Physical anchored transform around hands' midpoint
+      // Invariant: Grab points P0 and P1 stay glued to the inter-hand line with zero slippage
       const offset = diorama.position.clone().sub(prevMid);
       offset.multiplyScalar(effectiveScale);
-      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), deltaAngle);
+      offset.applyQuaternion(qRot);
 
-      // Update position, rotation, scale
+      // Update diorama position, orientation, scale
       diorama.position.copy(currentMid).add(offset);
-      diorama.rotation.y += deltaAngle;
-      if (Math.abs(deltaPitch) > 0.003) {
-        diorama.rotation.x = Math.max(-1.3, Math.min(1.3, diorama.rotation.x + deltaPitch));
-      }
+      diorama.quaternion.premultiply(qRot);
       diorama.scale.set(targetScale, targetScale, targetScale);
 
     } else if (grabs.length === 1) {
-      // --- ONE-HANDED MANIPULATION (1:1 3D TRANSLATE + YAW & PITCH ROTATION) ---
+      // --- ONE-HANDED CONTACT-ANCHORED 6DOF MANIPULATION (TRANSLATE + PIVOT YAW/PITCH) ---
       const g = grabs[0];
-      const deltaMove = g.worldPos.clone().sub(g.prevWorldPos);
+      const pPrev = g.prevWorldPos;
+      const pCurr = g.worldPos;
+      const diorama = this.sceneManager.dioramaRoot;
 
-      // 1. 1:1 Translation in 3D
-      this.sceneManager.dioramaRoot.position.add(deltaMove);
+      let rotDelta = new THREE.Quaternion(); // Identity
 
-      // 2. Hand / Wrist twist yaw & pitch rotation
       if (g.wristQuat && g.prevWristQuat) {
+        // Extract forward direction of hand in world space
         const fPrev = _scratchV1.set(0, 0, -1).applyQuaternion(g.prevWristQuat);
         const fCurr = _scratchV2.set(0, 0, -1).applyQuaternion(g.wristQuat);
+
+        // Yaw angle delta (rotation around world vertical Y axis)
         const yawPrev = Math.atan2(fPrev.x, fPrev.z);
         const yawCurr = Math.atan2(fCurr.x, fCurr.z);
         let deltaYaw = yawCurr - yawPrev;
         while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
         while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
 
-        if (Math.abs(deltaYaw) > 0.005 && Math.abs(deltaYaw) < 0.4) {
-          this.sceneManager.dioramaRoot.rotation.y += deltaYaw * 0.95;
-        }
-
-        // Wrist pitch tilt (allows looking down into canyons)
+        // Pitch angle delta (tilt up/down along hand's horizontal lateral axis)
         const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
         const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
         const deltaPitch = pitchCurr - pitchPrev;
-        if (Math.abs(deltaPitch) > 0.005 && Math.abs(deltaPitch) < 0.4) {
-          const diorama = this.sceneManager.dioramaRoot;
-          diorama.rotation.x = Math.max(-1.3, Math.min(1.3, diorama.rotation.x + deltaPitch * 0.9));
+
+        // Yaw quaternion around world vertical Y axis
+        const qYaw = new THREE.Quaternion();
+        if (Math.abs(deltaYaw) > 0.0005 && Math.abs(deltaYaw) < 0.5) {
+          qYaw.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaYaw);
+        }
+
+        // Lateral axis perpendicular to hand forward direction on the horizontal plane
+        const qPitch = new THREE.Quaternion();
+        if (Math.abs(deltaPitch) > 0.0005 && Math.abs(deltaPitch) < 0.5) {
+          const fHoriz = _scratchV3.set(fCurr.x, 0, fCurr.z);
+          if (fHoriz.lengthSq() > 1e-4) {
+            fHoriz.normalize();
+          } else {
+            fHoriz.set(0, 0, -1);
+          }
+          const rightAxis = new THREE.Vector3().crossVectors(fHoriz, new THREE.Vector3(0, 1, 0)).normalize();
+          qPitch.setFromAxisAngle(rightAxis, deltaPitch);
+        }
+
+        // Combined yaw + pitch rotation
+        const qCombined = qYaw.clone().multiply(qPitch);
+
+        // Guard against upside-down inversion: diorama up vector must maintain y >= 0.15
+        const testQuat = qCombined.clone().multiply(diorama.quaternion);
+        const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
+        if (upVector.y >= 0.15) {
+          rotDelta = qCombined;
+        } else {
+          // Exceeds pitch limit: keep yaw only so user can still rotate and position
+          rotDelta = qYaw;
         }
       }
 
-      // 3. Orbit around center when dragging in an arc
-      const center = this.sceneManager.dioramaRoot.position;
-      const uPrev = _scratchV2D1.set(g.prevWorldPos.x - center.x, g.prevWorldPos.z - center.z);
-      const uCurr = _scratchV2D2.set(g.worldPos.x - center.x, g.worldPos.z - center.z);
-      if (uCurr.length() > 0.12 && uPrev.length() > 0.12) {
-        let arcDelta = Math.atan2(uCurr.x, uCurr.y) - Math.atan2(uPrev.x, uPrev.y);
-        while (arcDelta > Math.PI) arcDelta -= 2 * Math.PI;
-        while (arcDelta < -Math.PI) arcDelta += 2 * Math.PI;
-        if (Math.abs(arcDelta) > 0.008 && Math.abs(arcDelta) < 0.3) {
-          this.sceneManager.dioramaRoot.rotation.y += arcDelta * 0.6;
-        }
-      }
+      // Physical pivot transformation around contact point:
+      // Invariant: The virtual point on the diorama being held under pPrev lands exactly at pCurr
+      const r = diorama.position.clone().sub(pPrev);
+      r.applyQuaternion(rotDelta);
+
+      diorama.position.copy(pCurr).add(r);
+      diorama.quaternion.premultiply(rotDelta);
     }
   }
 
