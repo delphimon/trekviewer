@@ -307,9 +307,11 @@ export class XRManager {
 
       controller.addEventListener('connected', (event: any) => {
         state.inputSource = event.data;
+        const handedness = event.data?.handedness as XRHandedness | undefined;
+        this.enforcePhysicalControllerOwnership(handedness);
       });
 
-      controller.addEventListener('disconnected', () => {
+      controller.addEventListener('disconnected', (event: any) => {
         state.inputSource = null;
         state.isGripping = false;
         state.isDraggingHUD = false;
@@ -318,6 +320,8 @@ export class XRManager {
         state.isInteractingWithHUD = false;
         state.rayLine.visible = false;
         state.reticle.visible = false;
+        const handedness = event?.data?.handedness as XRHandedness | undefined;
+        this.enforcePhysicalControllerOwnership(handedness);
       });
 
       this.controllers.push(state);
@@ -611,9 +615,77 @@ export class XRManager {
     this.applyManipulation(activeGrabs);
   }
 
-  private updateHandTracking(): void {
+  /**
+   * Determines whether a physical 6DOF controller (e.g. Touch Plus) is currently active for the given handedness.
+   * Physical controllers and bare hands for the same handedness are strictly mutually exclusive (Section 4).
+   */
+  public isPhysicalControllerActive(handedness: XRHandedness): boolean {
+    if (!handedness || handedness === 'none') return false;
+
+    // 1. Check connected controller states
+    for (const ctrl of this.controllers) {
+      const src = ctrl.inputSource;
+      if (src && !src.hand && src.handedness === handedness) {
+        return true;
+      }
+    }
+
+    // 2. Check active XR session input sources directly as defensive fallback
+    const session = this.renderer.xr.getSession();
+    if (session && session.inputSources) {
+      for (let i = 0; i < session.inputSources.length; i++) {
+        const src = session.inputSources[i];
+        if (src && !src.hand && src.handedness === handedness) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Forces hand visuals and interaction state to immediately hide/reset if a physical
+   * controller is active for that hand (Section 4).
+   */
+  public enforcePhysicalControllerOwnership(targetHandedness?: XRHandedness): void {
     for (let i = 0; i < this.hands.length; i++) {
       const state = this.hands[i];
+      const handedness = (state.inputSource?.handedness as XRHandedness) || (i === 0 ? 'left' : 'right');
+      if (targetHandedness && handedness !== targetHandedness) {
+        continue;
+      }
+
+      if (this.isPhysicalControllerActive(handedness)) {
+        state.hand.visible = false;
+        state.visualOutline.group.visible = false;
+        state.pinchReticle.visible = false;
+        state.isPinching = false;
+        state.isClickingHUD = false;
+        state.activeInteraction = 'none';
+      }
+    }
+  }
+
+  private updateHandTracking(): void {
+    // Defensive invariant: enforce physical controller exclusivity before checking joints
+    this.enforcePhysicalControllerOwnership();
+
+    for (let i = 0; i < this.hands.length; i++) {
+      const state = this.hands[i];
+      const handedness = (state.inputSource?.handedness as XRHandedness) || (i === 0 ? 'left' : 'right');
+
+      // If a physical controller is active for this hand, suppress all hand visuals and gestures
+      if (this.isPhysicalControllerActive(handedness)) {
+        state.hand.visible = false;
+        state.visualOutline.group.visible = false;
+        state.pinchReticle.visible = false;
+        state.isPinching = false;
+        state.isClickingHUD = false;
+        state.activeInteraction = 'none';
+        continue;
+      }
+
       const hand = state.hand;
       const joints = (hand as any).joints;
       if (!joints) {
@@ -737,7 +809,9 @@ export class XRManager {
 
         if (wrist && wrist.visible && wristPos) {
           state.wristWorldPos.copy(wristPos);
-          state.wristWorldQuat.copy(wrist.quaternion);
+          if (wrist.quaternion) {
+            state.wristWorldQuat.copy(wrist.quaternion);
+          }
         }
 
         state.isPinching = isPinchingNow;
