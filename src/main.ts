@@ -16,7 +16,7 @@ import { TextureProvider } from './terrain/TextureProvider';
 import { TileImageCache } from './terrain/TileImageCache';
 import { resolveAssetUrl } from './utils/AssetUrl';
 
-class TrekViewerApp {
+export class TrekViewerApp {
   private sceneManager: SceneManager;
   private xrManager: XRManager;
   private overlay: DesktopOverlay;
@@ -599,7 +599,7 @@ class TrekViewerApp {
       progress = proj.progress;
       curDist = proj.routeDistanceMeters;
       const telemetry = this.activeTrek.trailResult.routeGeometry.getTelemetryAtDistance(curDist);
-      curEle = telemetry?.position.y ?? telemetry?.currentPoint.ele ?? this.currentTrack.minElevation;
+      curEle = telemetry?.currentPoint.ele ?? telemetry?.position.y ?? this.currentTrack.minElevation;
       curPoint = telemetry?.currentPoint ?? null;
     } else {
       progress = this.findClosestTrackProgress(
@@ -609,6 +609,12 @@ class TrekViewerApp {
         this.currentTrack.totalDistance
       );
       curDist = progress * this.currentTrack.totalDistance;
+      const ptIdx = Math.min(
+        this.currentTrack.points.length - 1,
+        Math.max(0, Math.round(progress * (this.currentTrack.points.length - 1)))
+      );
+      curPoint = this.currentTrack.points[ptIdx] ?? null;
+      curEle = curPoint?.ele ?? this.currentTrack.minElevation;
     }
 
     // Sync flyover controller
@@ -871,8 +877,10 @@ class TrekViewerApp {
 }
 
 // Initialize on DOM load with explicit provider environment resolution (Section 48)
-window.addEventListener('DOMContentLoaded', async () => {
-  await TextureProvider.initializeFromEnvironment();
-  new TrekViewerApp();
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', async () => {
+    await TextureProvider.initializeFromEnvironment();
+    new TrekViewerApp();
+  });
+}
 

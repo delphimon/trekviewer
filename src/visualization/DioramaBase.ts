@@ -499,6 +499,26 @@ export class DioramaBase {
       pin = pin.parent;
     }
     if (!pin) return;
+
+    // Immediately clear hover on any other waypoint pins to avoid stale halos/labels (Stage V3)
+    const wpGroup = baseGroup.getObjectByName('Waypoints');
+    if (wpGroup) {
+      for (const child of wpGroup.children) {
+        if (child !== pin && child.userData?.isHovered) {
+          child.userData.isHovered = false;
+          child.userData.hoverTimeout = 0;
+          if (!child.userData.isSelected) {
+            const lbl = child.getObjectByName('WaypointLabelSprite');
+            if (lbl) lbl.visible = false;
+            const hlo = child.getObjectByName('WaypointHaloMesh');
+            if (hlo) hlo.visible = false;
+            const conn = child.getObjectByName('WaypointConnectorLine');
+            if (conn) conn.visible = false;
+          }
+        }
+      }
+    }
+
     pin.userData.isHovered = true;
     pin.userData.hoverTimeout = 0;
     const label = pin.getObjectByName('WaypointLabelSprite');
