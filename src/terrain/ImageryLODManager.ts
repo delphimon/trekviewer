@@ -142,7 +142,7 @@ export class ImageryLODManager {
     this.verticalExaggeration = options.verticalExaggeration ?? 1.0;
     this.maxPatches = options.maxPatches ?? 36;
     this.maxConcurrency = options.maxConcurrency ?? 6;
-    this.enableInXR = options.enableInXR ?? false;
+    this.enableInXR = options.enableInXR ?? true;
     this.viewMode = options.viewMode || 'diorama';
     this.routeGeometry = options.routeGeometry;
 
@@ -249,12 +249,15 @@ export class ImageryLODManager {
       this.currentProgress = Math.max(0, Math.min(1, routeProgress));
     }
 
-    // Desktop-first gate until explicitly enabled in XR stage
-    if (isXR && !this.enableInXR) {
-      if (this.patches.size > 0) {
-        this.clearAllPatches();
+    // In XR, enforce gate and apply conservative Quest device profile (Section 40)
+    if (isXR) {
+      if (!this.enableInXR) {
+        if (this.patches.size > 0) {
+          this.clearAllPatches();
+        }
+        return;
       }
-      return;
+      this.setDeviceProfile(true);
     }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();

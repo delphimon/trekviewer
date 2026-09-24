@@ -48,7 +48,7 @@ export class LoadedTrek {
         verticalExaggeration: 1.0,
         textureStyle: 'satellite',
         maxPatches: 36,
-        enableInXR: false, // Desktop first!
+        enableInXR: true, // Stage S2: Enabled in XR on Quest with conservative limits!
       });
 
     this.group = new THREE.Group();
