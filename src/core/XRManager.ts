@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
-import type { GeoBounds } from '../gpx/TrackTypes.ts';
+import type { GeoBounds, ViewMode } from '../gpx/TrackTypes.ts';
 import {
   ALL_HAND_JOINTS,
   BONE_CONNECTIONS,
@@ -108,7 +108,7 @@ export class XRManager {
   private hands: HandState[] = [];
   private raycaster: THREE.Raycaster;
   private spatialHUD: SpatialHUD | null = null;
-  private currentViewMode: 'diorama' | 'first-person' | 'flyover' = 'diorama';
+  private currentViewMode: ViewMode = 'diorama';
   private hapticDistanceAccumulator: number = 0;
 
   private callbacks: XRInteractionCallbacks = {};
@@ -125,7 +125,7 @@ export class XRManager {
     this.callbacks = cb;
   }
 
-  public setViewMode(mode: 'diorama' | 'first-person' | 'flyover'): void {
+  public setViewMode(mode: ViewMode): void {
     this.currentViewMode = mode;
   }
 
@@ -1121,7 +1121,39 @@ export class XRManager {
       this.spatialHUD.onPointerRelease();
     }
 
-    // In hand mode when NOT pointing at the HUD:
+    // 4. Raycast against Waypoint Pins in diorama mode (Controllers & Hands pointing)
+    if (this.currentViewMode === 'diorama') {
+      const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
+      if (wpGroup && wpGroup.children.length > 0) {
+        const wpHits = this.raycaster.intersectObjects(wpGroup.children, true);
+        if (wpHits.length > 0) {
+          const hitWp = wpHits[0];
+          let curr: THREE.Object3D | null = hitWp.object;
+          while (curr && (!curr.userData || !curr.userData.waypoint)) {
+            curr = curr.parent;
+          }
+          if (curr && curr.userData && curr.userData.waypoint) {
+            const wp = curr.userData.waypoint;
+            const dist = hitWp.distance;
+            state.rayLine.geometry.setFromPoints([
+              new THREE.Vector3(0, 0, 0),
+              new THREE.Vector3(0, 0, -dist),
+            ]);
+            state.rayLine.visible = true;
+            state.reticle.visible = true;
+            state.reticle.position.copy(hitWp.point);
+
+            if (isTriggerDown && !state.prevButtons[0]) {
+              this.triggerHaptic(controllerIdx, 0.8, 50);
+              this.callbacks.onSelectWaypoint?.(wp.name);
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    // In hand mode when NOT pointing at the HUD or Waypoints:
     // Hide ray line and reticle so they don't clutter the mountain diorama view!
     if (isHand) {
       state.rayLine.visible = false;
@@ -1129,7 +1161,7 @@ export class XRManager {
       return;
     }
 
-    // 4. Physical Controller: Raycast against Tabletop / Terrain Plane in diorama mode
+    // 5. Physical Controller: Raycast against Tabletop / Terrain Plane in diorama mode
     if (this.currentViewMode === 'diorama') {
       const planeY = this.sceneManager.dioramaRoot.position.y;
       let tableHit: THREE.Vector3 | null = null;

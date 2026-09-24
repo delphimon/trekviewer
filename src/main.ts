@@ -157,6 +157,7 @@ class TrekViewerApp {
           this.flyoverController.stepDistanceMeters(meters);
         }
       },
+      onSelectWaypoint: (name) => this.jumpToWaypoint(name),
     });
 
     // 4. Desktop & Quest 2D Overlay
@@ -174,6 +175,7 @@ class TrekViewerApp {
       onSetTextureStyle: (style) => this.setTextureStyle(style),
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
       onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
+      onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
     });
 
     // 5. Transactional Route Loader (Stage F & G)
@@ -549,6 +551,96 @@ class TrekViewerApp {
     }
   }
 
+  public jumpToWaypoint(name: string, lat?: number, lon?: number): void {
+    if (!this.currentTrack || this.currentTrack.points.length === 0) return;
+
+    let targetLat = lat;
+    let targetLon = lon;
+
+    // If coordinates were not passed, resolve by name from waypoints or landmarks
+    if (targetLat === undefined || targetLon === undefined) {
+      const match =
+        this.currentTrack.waypoints?.find((w) => w.name.toLowerCase() === name.toLowerCase()) ||
+        this.currentTrack.landmarks?.find((l) => l.name.toLowerCase() === name.toLowerCase()) ||
+        this.currentTrack.waypoints?.find((w) => w.name.toLowerCase().includes(name.toLowerCase())) ||
+        this.currentTrack.landmarks?.find((l) => l.name.toLowerCase().includes(name.toLowerCase()));
+      if (match) {
+        targetLat = match.lat;
+        targetLon = match.lon;
+      }
+    }
+
+    if (targetLat === undefined || targetLon === undefined) {
+      console.warn(`[TrekViewer] Could not resolve coordinates for waypoint "${name}"`);
+      return;
+    }
+
+    const progress = this.findClosestTrackProgress(
+      this.currentTrack.points,
+      targetLat,
+      targetLon,
+      this.currentTrack.totalDistance
+    );
+
+    // Sync session and flyover controller
+    this.session.setProgress(progress);
+    if (this.flyoverController) {
+      this.flyoverController.pause();
+      this.flyoverController.setProgress(progress);
+    }
+
+    // Get closest point elevation
+    const ptIdx = Math.min(
+      Math.floor(progress * (this.currentTrack.points.length - 1)),
+      this.currentTrack.points.length - 1
+    );
+    const curEle = this.currentTrack.points[ptIdx]?.ele ?? this.currentTrack.minElevation;
+
+    // Update overlay & HUD
+    this.overlay.setPlaying(false);
+    this.overlay.updateScrubber(progress, curEle);
+    this.spatialHUD?.updateState(
+      progress,
+      curEle,
+      false,
+      this.currentViewMode,
+      this.currentTextureStyle,
+      this.session.getState().playbackSpeed,
+      this.currentTrailColorMode,
+      this.session.getState().verticalExaggeration
+    );
+
+    this.overlay.showStatus(`Jumped to: ${name}`);
+    this.spatialHUD?.showStatus(`Jumped to: ${name}`);
+  }
+
+  public findClosestTrackProgress(
+    points: { lat: number; lon: number; distanceFromStart: number }[],
+    lat: number,
+    lon: number,
+    totalDistance: number
+  ): number {
+    if (!points || points.length === 0 || totalDistance <= 0) return 0;
+
+    let bestIdx = 0;
+    let bestDistSq = Infinity;
+    const cosLat = Math.cos((lat * Math.PI) / 180);
+
+    for (let i = 0; i < points.length; i++) {
+      const pt = points[i];
+      const dLat = (pt.lat - lat) * 111320;
+      const dLon = (pt.lon - lon) * 111320 * cosLat;
+      const distSq = dLat * dLat + dLon * dLon;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        bestIdx = i;
+      }
+    }
+
+    const closestPt = points[bestIdx];
+    return Math.min(1, Math.max(0, closestPt.distanceFromStart / totalDistance));
+  }
+
   private toggleViewMode(): void {
     const nextMode: ViewMode = this.currentViewMode === 'diorama' ? 'first-person' : 'diorama';
     this.setViewMode(nextMode);
@@ -671,20 +763,44 @@ class TrekViewerApp {
         const isPresenting = this.sceneManager.renderer.xr.isPresenting;
         const xrCam = isPresenting ? this.sceneManager.renderer.xr.getCamera() : null;
         const memInfo = this.sceneManager.getMemoryInfo();
-        console.log(`[TELEMETRY]`, {
-          build: __APP_BUILD_INFO__.shortSha,
+        const tileStats = TileImageCache.getStats();
+        const lodStats = this.activeTrek?.imageryLOD?.getDiagnostics();
+        const hudUploadRate = this.spatialHUD ? this.spatialHUD.getUploadRate() : 0;
+        const terrainQuality = this.activeTrek?.terrainResult?.terrainQuality || 'unknown';
+
+        const telemetryData = {
+          sha: __APP_BUILD_INFO__.shortSha,
           label: __APP_BUILD_INFO__.label,
           isPresenting,
+          viewMode: this.currentViewMode,
           dioramaMutations: this.dioramaMutationCount,
-          dioramaPos: diorama.position.toArray(),
-          dioramaRotY: diorama.rotation.y,
-          baseCamPos: this.sceneManager.camera.position.toArray(),
-          baseCamQuat: this.sceneManager.camera.quaternion.toArray(),
-          xrCamPos: xrCam ? xrCam.position.toArray() : null,
-          xrCamQuat: xrCam ? xrCam.quaternion.toArray() : null,
-          gpuMemory: memInfo.memory,
-          renderCalls: memInfo.render.calls,
-        });
+          dioramaPos: diorama.position.toArray().map((v) => Number(v.toFixed(2))),
+          dioramaRotY: Number(diorama.rotation.y.toFixed(2)),
+          dioramaScale: Number(diorama.scale.x.toFixed(4)),
+          baseCamPos: this.sceneManager.camera.position.toArray().map((v) => Number(v.toFixed(2))),
+          xrCamPos: xrCam ? xrCam.position.toArray().map((v) => Number(v.toFixed(2))) : null,
+          drawCalls: memInfo.render.calls,
+          gpuTextures: memInfo.memory.textures,
+          tileCacheCount: tileStats.entries,
+          tileCacheInFlight: tileStats.inFlight,
+          lodZoom: lodStats ? lodStats.targetZoom : 0,
+          lodPatches: lodStats ? lodStats.activePatchesCount : 0,
+          hudUploadRate,
+          terrainQuality,
+        };
+
+        console.log(`[TELEMETRY]`, telemetryData);
+
+        // Compact real-time on-screen diagnostics overlay (Requirement #122)
+        const badge = document.getElementById('buildBadge');
+        if (badge) {
+          badge.innerHTML = `
+            <div style="font-weight:bold;color:#38bdf8;">${__APP_BUILD_INFO__.shortSha} • ${isPresenting ? 'XR ON' : 'XR OFF'} • ${this.currentViewMode} • ${terrainQuality}</div>
+            <div>Pos: [${telemetryData.dioramaPos.join(', ')}] Rot: ${telemetryData.dioramaRotY} S: ${telemetryData.dioramaScale}</div>
+            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Tiles: ${telemetryData.tileCacheCount} (in-flight: ${telemetryData.tileCacheInFlight})</div>
+            <div>LOD: Z${telemetryData.lodZoom}, ${telemetryData.lodPatches} patches | HUD: ${hudUploadRate}/s</div>
+          `.trim();
+        }
       }
     }
   }

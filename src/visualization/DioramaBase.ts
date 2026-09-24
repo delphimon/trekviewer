@@ -163,7 +163,16 @@ export class DioramaBase {
     pin.name = `Waypoint_${wp.name}`;
     pin.userData = { waypoint: wp };
 
-    const color = wp.type === 'summit' ? 0xf59e0b : wp.type === 'start' ? 0x10b981 : 0x38bdf8;
+    const color =
+      wp.type === 'summit'
+        ? 0xf59e0b
+        : wp.type === 'start'
+        ? 0x10b981
+        : wp.type === 'finish'
+        ? 0xef4444
+        : wp.type === 'day_boundary'
+        ? 0x8b5cf6
+        : 0x38bdf8;
 
     // Diamond jewel
     const octGeo = new THREE.OctahedronGeometry(6, 0);

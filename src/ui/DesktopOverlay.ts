@@ -12,6 +12,7 @@ export interface OverlayCallbacks {
   onSetTextureStyle: (style: TextureStyle) => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
   onSetVerticalExaggeration?: (val: number) => void;
+  onSelectWaypoint?: (name: string, lat: number, lon: number) => void;
 }
 
 export class DesktopOverlay {
@@ -180,6 +181,8 @@ export class DesktopOverlay {
     this.cachedElevationSamples = GPXParser.sampleElevationProfile(track.points, 180);
     this.renderStaticChartBackground();
     this.updateScrubber(0, track.points[0]?.ele || track.minElevation);
+    this.updateTrailLegend();
+    this.updateLandmarks(track);
   }
 
   private renderStaticChartBackground(): void {
@@ -340,6 +343,14 @@ export class DesktopOverlay {
               <button id="btnColorSpeed" class="btn btn-sm">🏃 Pace</button>
               <button id="btnColorEle" class="btn btn-sm">📈 Altitude</button>
             </div>
+            <div id="trailLegend" class="trail-legend">
+              <div class="legend-bar" id="legendBar"></div>
+              <div class="legend-labels" id="legendLabels">
+                <span id="legendMin">0% (Gentle)</span>
+                <span id="legendMid">15%</span>
+                <span id="legendMax">40%+</span>
+              </div>
+            </div>
 
             <h3>Vertical Exaggeration</h3>
             <div class="btn-group" id="groupExag">
@@ -347,6 +358,11 @@ export class DesktopOverlay {
               <button class="btn btn-sm btn-exag" data-exag="1.5">1.5x</button>
               <button class="btn btn-sm btn-exag" data-exag="2">2.0x</button>
               <button class="btn btn-sm btn-exag" data-exag="3">3.0x</button>
+            </div>
+
+            <div class="landmarks-section" id="landmarksSection" style="display:none;">
+              <h3>Key Landmarks</h3>
+              <div class="landmarks-list" id="landmarksList"></div>
             </div>
           </div>
 
@@ -594,6 +610,112 @@ export class DesktopOverlay {
     btnColGrade?.classList.toggle('btn-active', mode === 'grade');
     btnColSpd?.classList.toggle('btn-active', mode === 'speed');
     btnColEle?.classList.toggle('btn-active', mode === 'elevation');
+    this.updateTrailLegend(mode);
+  }
+
+  public updateTrailLegend(mode: TrailColorMode = this.trailColorMode): void {
+    const bar = document.getElementById('legendBar');
+    const minEl = document.getElementById('legendMin');
+    const midEl = document.getElementById('legendMid');
+    const maxEl = document.getElementById('legendMax');
+    if (!bar || !minEl || !midEl || !maxEl) return;
+
+    if (mode === 'grade') {
+      bar.style.background = 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 50%, #ef4444 75%, #a855f7 100%)';
+      minEl.textContent = '0% (Gentle)';
+      midEl.textContent = '15%';
+      maxEl.textContent = '40%+ (Extreme)';
+    } else if (mode === 'speed') {
+      bar.style.background = 'linear-gradient(to right, #ef4444 0%, #f97316 25%, #eab308 50%, #10b981 75%, #06b6d4 100%)';
+      minEl.textContent = '< 1.1 mph (Slow)';
+      midEl.textContent = '2.8 mph';
+      maxEl.textContent = '4.0+ mph (Fast)';
+    } else if (mode === 'elevation') {
+      bar.style.background = 'linear-gradient(to right, #00f5d4 0%, #10b981 25%, #f59e0b 55%, #ef4444 85%, #ffffff 100%)';
+      if (this.currentTrack) {
+        const minFt = Math.round(this.currentTrack.minElevation * 3.28084);
+        const maxFt = Math.round(this.currentTrack.maxElevation * 3.28084);
+        const midFt = Math.round((minFt + maxFt) / 2);
+        minEl.textContent = `${minFt.toLocaleString()} ft`;
+        midEl.textContent = `${midFt.toLocaleString()} ft`;
+        maxEl.textContent = `${maxFt.toLocaleString()} ft`;
+      } else {
+        minEl.textContent = 'Min Alt';
+        midEl.textContent = 'Mid Alt';
+        maxEl.textContent = 'High Point';
+      }
+    } else {
+      bar.style.background = '#38bdf8';
+      minEl.textContent = '';
+      midEl.textContent = 'Cyan Trail';
+      maxEl.textContent = '';
+    }
+  }
+
+  private updateLandmarks(track: TrackStats): void {
+    const section = document.getElementById('landmarksSection');
+    const list = document.getElementById('landmarksList');
+    if (!section || !list) return;
+
+    const landmarks: { name: string; lat: number; lon: number; ele?: number; type?: string }[] = [];
+    const seen = new Set<string>();
+
+    const addLandmark = (item: { name: string; lat: number; lon: number; ele?: number; type?: string }) => {
+      const coordKey = `${item.lat.toFixed(3)},${item.lon.toFixed(3)}`;
+      const nameKey = item.name.toLowerCase().trim();
+      if (seen.has(coordKey) || seen.has(nameKey)) return;
+      seen.add(coordKey);
+      seen.add(nameKey);
+      landmarks.push(item);
+    };
+
+    // 1. Derived landmarks (Summit / High Point, Start, Finish, Day Boundaries)
+    for (const lm of track.landmarks || []) {
+      if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+        addLandmark(lm);
+      }
+    }
+
+    // 2. Explicit GPX Waypoints
+    for (const wp of track.waypoints || []) {
+      addLandmark(wp);
+    }
+
+    if (landmarks.length === 0) {
+      section.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+
+    section.style.display = 'block';
+    list.innerHTML = '';
+
+    for (const lm of landmarks) {
+      const chip = document.createElement('button');
+      chip.className = 'landmark-chip';
+      chip.type = 'button';
+
+      let icon = '📍';
+      if (lm.type === 'start' || lm.name.toLowerCase().includes('start') || lm.name.toLowerCase().includes('trailhead')) {
+        icon = '🟢';
+      } else if (lm.type === 'summit' || lm.name.toLowerCase().includes('summit') || lm.name.toLowerCase().includes('peak') || lm.name.toLowerCase().includes('high point')) {
+        icon = '⛰️';
+      } else if (lm.type === 'finish' || lm.name.toLowerCase().includes('finish')) {
+        icon = '🏁';
+      } else if (lm.type === 'day_boundary' || lm.name.toLowerCase().includes('camp')) {
+        icon = '⛺';
+      }
+
+      const eleText = lm.ele ? ` (${Math.round(lm.ele * 3.28084)} ft)` : '';
+      chip.innerHTML = `${icon} <span>${lm.name}${eleText}</span>`;
+      chip.title = `Jump route progress to ${lm.name}`;
+
+      chip.addEventListener('click', () => {
+        this.callbacks.onSelectWaypoint?.(lm.name, lm.lat, lm.lon);
+      });
+
+      list.appendChild(chip);
+    }
   }
 
   public setPlaybackSpeed(speed: number): void {

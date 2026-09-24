@@ -218,10 +218,23 @@ export class RouteLoader {
       }
 
       // 3. Generate Diorama Base Pedestal off-scene
+      // Combine explicit waypoints with prominent derived landmarks (Start, Summit/High Point, Finish) (Requirement #117)
+      const allWaypoints = [...track.waypoints];
+      for (const lm of track.landmarks) {
+        if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+          const isDuplicate = allWaypoints.some(
+            (w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005
+          );
+          if (!isDuplicate) {
+            allWaypoints.push(lm);
+          }
+        }
+      }
+
       base = DioramaBase.create(
         track.bounds,
         -80,
-        track.waypoints,
+        allWaypoints,
         terrain.terrainBaseElevation,
         terrain.elevationSampler,
         1.0
