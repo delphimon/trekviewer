@@ -315,7 +315,8 @@ export class ImageryLODManager {
       return;
     }
 
-    const camPos = camera.position;
+    const camPos = new THREE.Vector3();
+    camera.getWorldPosition(camPos);
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
     const dioramaScale = dioramaRoot.scale.x;
@@ -467,7 +468,9 @@ export class ImageryLODManager {
     // Estimate distance to diorama center in world space
     const dioramaWorldPos = new THREE.Vector3();
     dioramaRoot.getWorldPosition(dioramaWorldPos);
-    const camDist = Math.max(camera.position.distanceTo(dioramaWorldPos), 0.2);
+    const camWorldPos = new THREE.Vector3();
+    camera.getWorldPosition(camWorldPos);
+    const camDist = Math.max(camWorldPos.distanceTo(dioramaWorldPos), 0.2);
     const dioramaScale = dioramaRoot.scale.x;
 
     const fov = (camera as THREE.PerspectiveCamera).fov || 60;
@@ -486,7 +489,7 @@ export class ImageryLODManager {
     this.currentTargetZoom = targetZoom;
 
     // Determine target center point on the diorama
-    const ray = new THREE.Ray(camera.position, this.lastCamDir);
+    const ray = new THREE.Ray(camWorldPos, this.lastCamDir);
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dioramaWorldPos.y);
     const hit = new THREE.Vector3();
 
@@ -544,8 +547,8 @@ export class ImageryLODManager {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
     this.providerMaxZoom = provider.maxZoom;
 
-    // Highest available resolution in 1:1 trail mode (up to 18)
-    const innerZoom = Math.min(this.providerMaxZoom, 18);
+    // Highest available resolution in 1:1 trail mode: up to provider max (zoom 19 for Esri / Bing) (Stage T5)
+    const innerZoom = Math.min(this.providerMaxZoom, 19);
     const midZoom = Math.max(13, innerZoom - 1);
     this.currentTargetZoom = innerZoom;
     this.calculatedDesiredZoom = innerZoom;
@@ -568,7 +571,9 @@ export class ImageryLODManager {
       forwardLon = forwardTelemetry.currentPoint.lon;
     } else {
       // Fallback: estimate hiker location from camera ground projection
-      const ray = new THREE.Ray(camera.position, this.lastCamDir);
+      const camWorldPos = new THREE.Vector3();
+      camera.getWorldPosition(camWorldPos);
+      const ray = new THREE.Ray(camWorldPos, this.lastCamDir);
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dioramaRoot.position.y);
       const hit = new THREE.Vector3();
       if (ray.intersectPlane(plane, hit)) {

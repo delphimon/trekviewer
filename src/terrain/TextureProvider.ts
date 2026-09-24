@@ -42,23 +42,84 @@ export class TextureProvider {
     return this.maxAnisotropy;
   }
 
-  static {
-    // Check if Cesium token is configured in Vite environment
-    const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
-    const cesiumToken = metaEnv ? (metaEnv.VITE_CESIUM_ION_TOKEN as string | undefined) : undefined;
+  private static satelliteProviderSetting: 'auto' | 'esri' | 'cesium-bing' = 'auto';
 
-    if (cesiumToken && cesiumToken.trim().length > 10) {
-      this.cesiumProvider = new CesiumBingImageryProvider(cesiumToken.trim());
-      this.cesiumProvider.init().then((success) => {
-        if (success && this.cesiumProvider) {
-          this.activeSatelliteProvider = this.cesiumProvider;
-        }
-      }).catch(() => {
-        this.activeSatelliteProvider = this.esriSatelliteProvider;
-      });
-    } else {
+  public static getSatelliteProviderSetting(): 'auto' | 'esri' | 'cesium-bing' {
+    return this.satelliteProviderSetting;
+  }
+
+  public static getEnvToken(): string | undefined {
+    const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+    const procEnv = typeof globalThis !== 'undefined' ? (globalThis as any).process?.env : undefined;
+    return (
+      (metaEnv?.VITE_CESIUM_ION_TOKEN as string | undefined) ||
+      (procEnv?.VITE_CESIUM_ION_TOKEN as string | undefined) ||
+      (procEnv?.CESIUM_ION_TOKEN as string | undefined)
+    );
+  }
+
+  public static getEnvProviderSetting(): 'auto' | 'esri' | 'cesium-bing' {
+    const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+    const procEnv = typeof globalThis !== 'undefined' ? (globalThis as any).process?.env : undefined;
+    const raw = (
+      (metaEnv?.VITE_SATELLITE_PROVIDER as string | undefined) ||
+      (procEnv?.VITE_SATELLITE_PROVIDER as string | undefined) ||
+      (procEnv?.SATELLITE_PROVIDER as string | undefined) ||
+      'auto'
+    ).toLowerCase().trim();
+
+    if (raw === 'esri') return 'esri';
+    if (raw === 'cesium-bing' || raw === 'cesium' || raw === 'bing') return 'cesium-bing';
+    return 'auto';
+  }
+
+  /**
+   * Sets or switches the active satellite imagery provider at runtime (Sections 32, 33).
+   * Supports 'auto' (Bing if valid token, else Esri), 'esri' (explicit), or 'cesium-bing'.
+   * Gracefully falls back to Esri World Imagery if Cesium fails or token is missing.
+   */
+  public static async setSatelliteProvider(
+    providerType: 'auto' | 'esri' | 'cesium-bing',
+    token?: string
+  ): Promise<boolean> {
+    this.satelliteProviderSetting = providerType;
+
+    if (providerType === 'esri') {
       this.activeSatelliteProvider = this.esriSatelliteProvider;
+      return true;
     }
+
+    const resolvedToken = token || this.getEnvToken();
+    if (!resolvedToken || resolvedToken.trim().length <= 10) {
+      if (providerType === 'cesium-bing') {
+        console.warn('[TextureProvider] Cesium Bing provider requested but no valid Cesium Ion token found. Falling back to Esri World Imagery.');
+      }
+      this.activeSatelliteProvider = this.esriSatelliteProvider;
+      return false;
+    }
+
+    try {
+      this.cesiumProvider = new CesiumBingImageryProvider(resolvedToken.trim());
+      const success = await this.cesiumProvider.init();
+      if (success) {
+        this.activeSatelliteProvider = this.cesiumProvider;
+        return true;
+      } else {
+        console.warn('[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to Esri World Imagery.');
+        this.activeSatelliteProvider = this.esriSatelliteProvider;
+        return false;
+      }
+    } catch (err) {
+      console.warn('[TextureProvider] Error initializing Cesium provider:', err);
+      this.activeSatelliteProvider = this.esriSatelliteProvider;
+      return false;
+    }
+  }
+
+  static {
+    const providerSetting = this.getEnvProviderSetting();
+    const token = this.getEnvToken();
+    this.setSatelliteProvider(providerSetting, token).catch(() => {});
   }
 
   public static getActiveSatelliteProvider(): ImageryProvider {

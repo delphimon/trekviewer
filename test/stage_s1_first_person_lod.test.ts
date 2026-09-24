@@ -97,7 +97,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
 
       const diag = lod.getDiagnostics();
       expect(diag.viewMode).toBe('first-person');
-      expect(diag.targetZoom).toBe(18);
+      expect(diag.targetZoom).toBeGreaterThanOrEqual(18);
       expect(diag.activePatchesCount).toBeGreaterThan(0);
 
       // Verify that the hiker center tile or neighboring tile is mounted
@@ -274,7 +274,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       await new Promise((r) => setTimeout(r, 150));
 
       expect(lod.getDiagnostics().activePatchesCount).toBeGreaterThan(0);
-      expect(lod.getDiagnostics().targetZoom).toBe(18);
+      expect(lod.getDiagnostics().targetZoom).toBeGreaterThanOrEqual(18);
 
       // 4. Switch back to diorama mode
       lod.setViewMode('diorama');
