@@ -11,10 +11,10 @@ describe('Scale-Adaptive Route, 1:1 Forward Angle & Topo Tile URLs', () => {
   it('evaluates scale adaptation, 1:1 heading, and topo tile URLs', () => {
 
 // 1. Test Scale Adaptation: Small Alpine Climb vs. Massive Bailey Range Traverse
-const rainierXml = fs.readFileSync(path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx'), 'utf8');
+const rainierXml = fs.readFileSync(path.resolve('public/routes/MountRainierViaEmmons.gpx'), 'utf8');
 const rainierTrack = GPXParser.parse(rainierXml, 'Mount Rainier');
 
-const baileyXml = fs.readFileSync(path.resolve('public/routes/Olympus and Bailey Range Traverse 2026.gpx'), 'utf8');
+const baileyXml = fs.readFileSync(path.resolve('public/routes/OlympusBaileyTraverse2026.gpx'), 'utf8');
 const baileyTrack = GPXParser.parse(baileyXml, 'Bailey Range Traverse');
 
 const rainierDim = Math.max(rainierTrack.bounds.widthMeters, rainierTrack.bounds.depthMeters);

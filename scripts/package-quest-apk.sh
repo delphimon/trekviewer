@@ -11,8 +11,8 @@ npm run build
 
 APP_NAME="TrekViewer 3D"
 PACKAGE_NAME="com.trekviewer.app"
-VERSION_CODE=1
-VERSION_NAME="1.0.0"
+VERSION_CODE="${VERSION_CODE:-1}"
+VERSION_NAME="${VERSION_NAME:-1.0.0}"
 OUTPUT_APK="./trekviewer.apk"
 MANIFEST_PATH="./dist/manifest.webmanifest"
 

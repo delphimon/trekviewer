@@ -9,7 +9,7 @@ describe('2D Trail Ribbon & Alpine Hiker Beacon', () => {
   it('evaluates trail ribbon geometry and hiker beacon components', () => {
 
 // Parse a sample route
-const gpxPath = path.resolve('public/routes/MountRanierViaEmmons.gpx.gpx');
+const gpxPath = path.resolve('public/routes/MountRainierViaEmmons.gpx');
 const xml = fs.readFileSync(gpxPath, 'utf8');
 const track = GPXParser.parse(xml, 'Rainier Test');
 

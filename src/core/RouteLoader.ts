@@ -8,6 +8,7 @@ import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { LoadedTrek } from './LoadedTrek.ts';
 import { TrekSession } from './TrekSession.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
+import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 
 export interface RouteLoaderOptions {
   dioramaRoot: THREE.Group;
@@ -91,7 +92,8 @@ export class RouteLoader {
     this.options.onProgress?.(`Fetching trek: ${fallbackName || 'route'}...`, 0.05);
 
     try {
-      const resp = await fetch(url, { signal: abortController.signal });
+      const targetUrl = resolveAssetUrl(url);
+      const resp = await fetch(targetUrl, { signal: abortController.signal });
       if (!resp.ok) {
         throw new Error(`HTTP error ${resp.status}: Could not fetch route from ${url}`);
       }

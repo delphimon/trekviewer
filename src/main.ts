@@ -13,6 +13,7 @@ import { RouteLoader } from './core/RouteLoader';
 import { TrekSession } from './core/TrekSession';
 import { TextureProvider } from './terrain/TextureProvider';
 import { TileImageCache } from './terrain/TileImageCache';
+import { resolveAssetUrl } from './utils/AssetUrl';
 
 class TrekViewerApp {
   private sceneManager: SceneManager;
@@ -78,7 +79,8 @@ class TrekViewerApp {
       'color: #38bdf8; font-weight: bold;'
     );
 
-    if (typeof document !== 'undefined') {
+    // Visual badge shown in development or when ?debug=1 is enabled (Requirement #112)
+    if (typeof document !== 'undefined' && (this.isDebugMode || (import.meta as any).env?.DEV)) {
       const badge = document.createElement('div');
       badge.id = 'buildBadge';
       badge.style.cssText = 'position:fixed;bottom:8px;right:8px;font-family:monospace;font-size:11px;color:#94a3b8;background:rgba(15,23,42,0.85);padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);z-index:99999;pointer-events:none;';
@@ -258,7 +260,7 @@ class TrekViewerApp {
 
   private async initRoutes(): Promise<void> {
     try {
-      const resp = await fetch('/routes/manifest.json');
+      const resp = await fetch(resolveAssetUrl('/routes/manifest.json'));
       if (resp.ok) {
         this.manifest = await resp.json();
         this.overlay.setManifest(this.manifest);
@@ -272,7 +274,7 @@ class TrekViewerApp {
       }
     } catch (e) {
       console.warn('Failed to load route manifest, attempting direct Rainier load:', e);
-      await this.loadRouteByFile('/routes/MountRanierViaEmmons.gpx.gpx', 'Mount Rainier via Emmons', 'rainier-emmons');
+      await this.loadRouteByFile(resolveAssetUrl('/routes/MountRainierViaEmmons.gpx'), 'Mount Rainier via Emmons', 'rainier-emmons');
     }
   }
 

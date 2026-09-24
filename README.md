@@ -91,12 +91,33 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 ## 🛠 Local Development & Testing
 
 ```bash
-# Run local dev server with HTTPS
+# Clean install dependencies
+npm ci
+
+# Run local development server with HTTPS
 npm run dev
 
-# Run all 8 automated unit test suites
-for f in test/*.test.ts; do node --experimental-strip-types "$f"; done
+# Run TypeScript typechecker
+npm run typecheck
 
-# Build production static bundle
+# Run automated Vitest test suite
+npm test
+
+# Build production static bundle into dist/
 npm run build
 ```
+
+---
+
+## 🌐 Network, Offline & PWA Behavior
+
+- **Client-Side Architecture**: TrekViewer runs 100% clientside inside your browser or WebXR runtime. There is no custom backend server.
+- **PWA & APK Installation**: Installing TrekViewer as a PWA or sideloading via APK installs the web application shell to your Meta Quest App Library for dedicated, full-screen WebXR launching.
+- **Network Tile Access**: While the app shell and bundled GPX routes are served locally, real-world DEM elevation grids and high-resolution satellite/topographic imagery tiles are streamed dynamically over Wi-Fi from public providers (AWS Terrarium, Esri World Imagery, USGS Topo). An active internet connection is required to fetch new terrain and map textures.
+
+---
+
+## 🔒 Privacy
+
+- **Your Data Remains Private**: Uploaded GPX files and personal track data stay strictly in your local browser/device memory and are never uploaded or transmitted to any third-party server.
+- **Tile Requests**: Outgoing network traffic consists exclusively of anonymous HTTP GET requests to public map and DEM tile servers.
