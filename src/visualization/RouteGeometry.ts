@@ -8,6 +8,8 @@ export interface RouteTelemetry {
   tangent: THREE.Vector3;
   currentPoint: GPXPoint;
   segmentIndex: number;
+  smoothedGrade?: number;
+  smoothedSpeed?: number;
 }
 
 export interface SegmentGeometry {
@@ -228,15 +230,144 @@ export class RouteGeometry {
       position = segGeom.localVectors[0].clone();
     }
 
+    const smoothedGrade = this.getSmoothedGradeAtDistance(targetDist);
+    const smoothedSpeed = this.getSmoothedSpeedAtDistance(targetDist);
+
     return {
       position,
       tangent,
       currentPoint,
       segmentIndex: segIdx,
+      smoothedGrade,
+      smoothedSpeed,
     };
   }
 
   public getTelemetryAtProgress(progress: number): RouteTelemetry {
     return this.getTelemetryAtDistance(progress * this.totalDistance);
+  }
+
+  /**
+   * Samples analytical elevation at any target distance along the route.
+   */
+  public getElevationAtDistance(targetDist: number): number {
+    const points = this.track.points;
+    if (points.length === 0) return 0;
+    if (points.length === 1) return points[0].ele;
+    const dClamped = Math.max(0, Math.min(this.totalDistance, targetDist));
+
+    let low = 0;
+    let high = points.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (points[mid].distanceFromStart < dClamped) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    const idx0 = Math.max(0, Math.min(points.length - 2, low - 1));
+    const p0 = points[idx0];
+    const p1 = points[idx0 + 1];
+    const dSpan = p1.distanceFromStart - p0.distanceFromStart;
+    const alpha = dSpan > 0.001 ? (dClamped - p0.distanceFromStart) / dSpan : 0;
+    return p0.ele + alpha * (p1.ele - p0.ele);
+  }
+
+  /**
+   * Computes spatially smoothed grade across a surrounding distance window (default 70m).
+   * Eliminates single-sample GPS elevation spikes while accurately capturing sustained slopes.
+   * Section 16.
+   */
+  public getSmoothedGradeAtDistance(targetDist: number, windowMeters: number = 70): number {
+    if (this.totalDistance <= 1.0) return 0;
+    const halfWindow = windowMeters / 2;
+    const d0 = Math.max(0, targetDist - halfWindow);
+    const d1 = Math.min(this.totalDistance, targetDist + halfWindow);
+    const span = d1 - d0;
+    if (span < 1.0) return 0;
+
+    const ele0 = this.getElevationAtDistance(d0);
+    const ele1 = this.getElevationAtDistance(d1);
+    return ((ele1 - ele0) / span) * 100;
+  }
+
+  /**
+   * Computes smoothed speed/pace using a moving distance window (default 150m)
+   * with median filtering to reject isolated GPS speed spikes and drops.
+   * Section 17.
+   */
+  public getSmoothedSpeedAtDistance(targetDist: number, windowMeters: number = 150): number {
+    const points = this.track.points;
+    if (points.length === 0) return 0;
+    const halfWindow = windowMeters / 2;
+    const d0 = Math.max(0, targetDist - halfWindow);
+    const d1 = Math.min(this.totalDistance, targetDist + halfWindow);
+
+    let low = 0;
+    let high = points.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (points[mid].distanceFromStart < d0) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    const startIdx = Math.max(0, low);
+
+    const speeds: number[] = [];
+    for (let i = startIdx; i < points.length && points[i].distanceFromStart <= d1; i++) {
+      const spd = points[i].speed;
+      if (spd !== undefined && !isNaN(spd) && spd >= 0) {
+        speeds.push(spd);
+      }
+    }
+
+    if (speeds.length > 0) {
+      speeds.sort((a, b) => a - b);
+      const mid = speeds.length >> 1;
+      const medianSpeed = speeds.length % 2 === 1
+        ? speeds[mid]
+        : (speeds[mid - 1] + speeds[mid]) / 2;
+      return medianSpeed;
+    }
+
+    // Fallback: estimate speed from distance / elapsedSeconds across window
+    const t0 = this.getElapsedSecondsAtDistance(d0);
+    const t1 = this.getElapsedSecondsAtDistance(d1);
+    const dt = t1 - t0;
+    const ds = d1 - d0;
+    if (dt > 1.0 && ds > 1.0) {
+      return ds / dt;
+    }
+    return points[0]?.speed ?? 0;
+  }
+
+  /**
+   * Samples elapsed seconds at target distance along the route.
+   */
+  public getElapsedSecondsAtDistance(targetDist: number): number {
+    const points = this.track.points;
+    if (points.length === 0) return 0;
+    if (points.length === 1) return points[0].elapsedSeconds;
+    const dClamped = Math.max(0, Math.min(this.totalDistance, targetDist));
+
+    let low = 0;
+    let high = points.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (points[mid].distanceFromStart < dClamped) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    const idx0 = Math.max(0, Math.min(points.length - 2, low - 1));
+    const p0 = points[idx0];
+    const p1 = points[idx0 + 1];
+    const dSpan = p1.distanceFromStart - p0.distanceFromStart;
+    const alpha = dSpan > 0.001 ? (dClamped - p0.distanceFromStart) / dSpan : 0;
+    return p0.elapsedSeconds + alpha * (p1.elapsedSeconds - p0.elapsedSeconds);
   }
 }

@@ -24,7 +24,7 @@ export class DesktopOverlay {
   private currentProgress: number = 0;
   private viewMode: ViewMode = 'diorama';
   private textureStyle: TextureStyle = 'satellite';
-  private trailColorMode: TrailColorMode = 'grade';
+  private trailColorMode: TrailColorMode = 'solid';
   private verticalExaggeration: number = 1.0;
 
   // Cached elevation profile for high-performance scrubbing
@@ -340,16 +340,17 @@ export class DesktopOverlay {
 
             <h3>Trail Colors</h3>
             <div class="btn-group">
-              <button id="btnColorGrade" class="btn btn-sm btn-active">⛰️ Steepness</button>
+              <button id="btnColorSolid" class="btn btn-sm btn-active">🧭 Solid</button>
+              <button id="btnColorGrade" class="btn btn-sm">⛰️ Steepness</button>
               <button id="btnColorSpeed" class="btn btn-sm">🏃 Pace</button>
               <button id="btnColorEle" class="btn btn-sm">📈 Altitude</button>
             </div>
             <div id="trailLegend" class="trail-legend">
               <div class="legend-bar" id="legendBar"></div>
               <div class="legend-labels" id="legendLabels">
-                <span id="legendMin">0% (Gentle)</span>
-                <span id="legendMid">15%</span>
-                <span id="legendMax">40%+</span>
+                <span id="legendMin"></span>
+                <span id="legendMid">Solid Route (High-Contrast Cyan)</span>
+                <span id="legendMax"></span>
               </div>
             </div>
 
@@ -548,16 +549,23 @@ export class DesktopOverlay {
       this.callbacks.onSetTextureStyle('topo');
     });
 
-    // Trail Color Mode Buttons
+    // Trail Color Mode Buttons (Sections 14-19)
+    const btnColSolid = document.getElementById('btnColorSolid')!;
     const btnColGrade = document.getElementById('btnColorGrade')!;
     const btnColSpd = document.getElementById('btnColorSpeed')!;
     const btnColEle = document.getElementById('btnColorEle')!;
     const clearColActive = () => {
+      btnColSolid.classList.remove('btn-active');
       btnColGrade.classList.remove('btn-active');
       btnColSpd.classList.remove('btn-active');
       btnColEle.classList.remove('btn-active');
     };
 
+    btnColSolid.addEventListener('click', () => {
+      clearColActive();
+      btnColSolid.classList.add('btn-active');
+      this.callbacks.onSetTrailColorMode('solid');
+    });
     btnColGrade.addEventListener('click', () => {
       clearColActive();
       btnColGrade.classList.add('btn-active');
@@ -605,9 +613,11 @@ export class DesktopOverlay {
 
   public setTrailColorMode(mode: TrailColorMode): void {
     this.trailColorMode = mode;
+    const btnColSolid = document.getElementById('btnColorSolid');
     const btnColGrade = document.getElementById('btnColorGrade');
     const btnColSpd = document.getElementById('btnColorSpeed');
     const btnColEle = document.getElementById('btnColorEle');
+    btnColSolid?.classList.toggle('btn-active', mode === 'solid');
     btnColGrade?.classList.toggle('btn-active', mode === 'grade');
     btnColSpd?.classList.toggle('btn-active', mode === 'speed');
     btnColEle?.classList.toggle('btn-active', mode === 'elevation');
@@ -624,12 +634,12 @@ export class DesktopOverlay {
     if (mode === 'grade') {
       bar.style.background = 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 50%, #ef4444 75%, #a855f7 100%)';
       minEl.textContent = '0% (Gentle)';
-      midEl.textContent = '15%';
+      midEl.textContent = 'Smoothed Grade (15%)';
       maxEl.textContent = '40%+ (Extreme)';
     } else if (mode === 'speed') {
       bar.style.background = 'linear-gradient(to right, #ef4444 0%, #f97316 25%, #eab308 50%, #10b981 75%, #06b6d4 100%)';
       minEl.textContent = '< 1.1 mph (Slow)';
-      midEl.textContent = '2.8 mph';
+      midEl.textContent = 'Smoothed Pace (2.8 mph)';
       maxEl.textContent = '4.0+ mph (Fast)';
     } else if (mode === 'elevation') {
       bar.style.background = 'linear-gradient(to right, #00f5d4 0%, #10b981 25%, #f59e0b 55%, #ef4444 85%, #ffffff 100%)';
@@ -648,7 +658,7 @@ export class DesktopOverlay {
     } else {
       bar.style.background = '#38bdf8';
       minEl.textContent = '';
-      midEl.textContent = 'Cyan Trail';
+      midEl.textContent = 'Solid Route (High-Contrast Cyan)';
       maxEl.textContent = '';
     }
   }

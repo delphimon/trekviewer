@@ -62,7 +62,7 @@ export class TrekSession {
       routeSource: null,
       viewMode: 'diorama',
       textureStyle: 'satellite',
-      trailColorMode: 'grade',
+      trailColorMode: 'solid',
       verticalExaggeration: 1.0,
       isPlaying: false,
       playbackSpeed: 1.0,

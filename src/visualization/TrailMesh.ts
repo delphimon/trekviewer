@@ -68,28 +68,80 @@ export class TrailMesh {
       elevationSampler
     );
 
-    // Color application helper
+    // Color application helper with smoothed broad bands and run-length filtering (Sections 14-18)
     const applyColorsToGeo = (geo: THREE.BufferGeometry, mode: TrailColorMode) => {
       const posAttr = geo.attributes.position;
       if (!posAttr) return;
       const count = posAttr.count;
+      const numStations = count / 2;
       const colors = new Float32Array(count * 3);
-      const color = new THREE.Color();
       const progresses = geo.userData.progresses as Float32Array | undefined;
 
-      for (let i = 0; i < count; i += 2) {
-        const progress = progresses ? progresses[i] : (count > 1 ? i / (count - 1) : 0);
-        const telemetry = routeGeometry.getTelemetryAtProgress(progress);
-        this.getColorForPoint(telemetry.currentPoint, track, mode, color);
+      if (mode === 'solid') {
+        const solidCol = new THREE.Color(0x38bdf8);
+        for (let i = 0; i < count; i++) {
+          colors[i * 3] = solidCol.r;
+          colors[i * 3 + 1] = solidCol.g;
+          colors[i * 3 + 2] = solidCol.b;
+        }
+      } else if (mode === 'elevation') {
+        const color = new THREE.Color();
+        for (let i = 0; i < count; i += 2) {
+          const progress = progresses ? progresses[i] : (count > 1 ? i / (count - 1) : 0);
+          const telemetry = routeGeometry.getTelemetryAtProgress(progress);
+          TrailMesh.getColorForPoint(telemetry.currentPoint, track, 'elevation', color);
 
-        colors[i * 3] = color.r;
-        colors[i * 3 + 1] = color.g;
-        colors[i * 3 + 2] = color.b;
+          colors[i * 3] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
 
-        if (i + 1 < count) {
-          colors[(i + 1) * 3] = color.r;
-          colors[(i + 1) * 3 + 1] = color.g;
-          colors[(i + 1) * 3 + 2] = color.b;
+          if (i + 1 < count) {
+            colors[(i + 1) * 3] = color.r;
+            colors[(i + 1) * 3 + 1] = color.g;
+            colors[(i + 1) * 3 + 2] = color.b;
+          }
+        }
+      } else {
+        // 'grade' or 'speed' mode with broad bands and run-length filtering
+        const stationDists = new Float32Array(numStations);
+        const rawBands = new Int8Array(numStations);
+
+        for (let s = 0; s < numStations; s++) {
+          const prog = progresses ? progresses[s * 2] : (numStations > 1 ? s / (numStations - 1) : 0);
+          const dist = prog * routeGeometry.totalDistance;
+          stationDists[s] = dist;
+
+          if (mode === 'grade') {
+            const smoothedGrade = routeGeometry.getSmoothedGradeAtDistance(dist);
+            rawBands[s] = TrailMesh.getGradeBand(smoothedGrade);
+          } else {
+            const smoothedSpeed = routeGeometry.getSmoothedSpeedAtDistance(dist);
+            rawBands[s] = TrailMesh.getSpeedBand(smoothedSpeed);
+          }
+        }
+
+        const filteredBands = TrailMesh.filterBandsRunLength(rawBands, stationDists, 60.0);
+        const color = new THREE.Color();
+
+        for (let s = 0; s < numStations; s++) {
+          const band = filteredBands[s];
+          if (mode === 'grade') {
+            TrailMesh.getColorForGradeBand(band, color);
+          } else {
+            TrailMesh.getColorForSpeedBand(band, color);
+          }
+
+          const i0 = s * 2;
+          const i1 = s * 2 + 1;
+          colors[i0 * 3] = color.r;
+          colors[i0 * 3 + 1] = color.g;
+          colors[i0 * 3 + 2] = color.b;
+
+          if (i1 < count) {
+            colors[i1 * 3] = color.r;
+            colors[i1 * 3 + 1] = color.g;
+            colors[i1 * 3 + 2] = color.b;
+          }
         }
       }
 
@@ -97,7 +149,7 @@ export class TrailMesh {
       (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
     };
 
-    let currentColorMode: TrailColorMode = 'grade';
+    let currentColorMode: TrailColorMode = 'solid';
     applyColorsToGeo(dioramaGeo, currentColorMode);
     applyColorsToGeo(firstPersonGeo, currentColorMode);
 
@@ -345,7 +397,104 @@ export class TrailMesh {
     };
   }
 
-  private static getColorForPoint(
+  public static getGradeBand(grade: number): number {
+    const absG = Math.abs(grade);
+    if (absG < 8) return 0;   // 0-8% Gentle
+    if (absG < 15) return 1;  // 8-15% Moderate
+    if (absG < 25) return 2;  // 15-25% Steep
+    if (absG < 40) return 3;  // 25-40% Very Steep
+    return 4;                 // 40%+ Extreme
+  }
+
+  public static getColorForGradeBand(band: number, color: THREE.Color): void {
+    switch (band) {
+      case 0: color.setHex(0x10b981); break; // Green
+      case 1: color.setHex(0xeab308); break; // Yellow
+      case 2: color.setHex(0xf97316); break; // Orange
+      case 3: color.setHex(0xef4444); break; // Red
+      case 4: default: color.setHex(0xa855f7); break; // Purple
+    }
+  }
+
+  public static getSpeedBand(speedMs: number): number {
+    const spdKmh = speedMs * 3.6;
+    if (spdKmh < 1.8) return 0; // < 1.8 km/h (< 1.1 mph) Slow
+    if (spdKmh < 3.2) return 1; // 1.8 - 3.2 km/h (1.1 - 2.0 mph)
+    if (spdKmh < 4.5) return 2; // 3.2 - 4.5 km/h (2.0 - 2.8 mph) Steady
+    if (spdKmh < 6.0) return 3; // 4.5 - 6.0 km/h (2.8 - 3.7 mph) Brisk
+    return 4;                   // 6.0+ km/h (3.7+ mph) Fast
+  }
+
+  public static getColorForSpeedBand(band: number, color: THREE.Color): void {
+    switch (band) {
+      case 0: color.setHex(0xef4444); break; // Red
+      case 1: color.setHex(0xf97316); break; // Orange
+      case 2: color.setHex(0xeab308); break; // Yellow
+      case 3: color.setHex(0x10b981); break; // Green
+      case 4: default: color.setHex(0x06b6d4); break; // Cyan
+    }
+  }
+
+  public static filterBandsRunLength(
+    rawBands: Int8Array,
+    stationDists: Float32Array,
+    minRunLength: number = 60.0
+  ): Int8Array {
+    const n = rawBands.length;
+    if (n <= 2) return new Int8Array(rawBands);
+
+    const filtered = new Int8Array(rawBands);
+
+    interface BandRun {
+      band: number;
+      start: number;
+      end: number;
+      lengthMeters: number;
+    }
+
+    const getRuns = (arr: Int8Array): BandRun[] => {
+      const runs: BandRun[] = [];
+      let start = 0;
+      for (let i = 1; i <= n; i++) {
+        if (i === n || arr[i] !== arr[start]) {
+          const end = i - 1;
+          const lengthMeters = stationDists[end] - stationDists[start];
+          runs.push({ band: arr[start], start, end, lengthMeters });
+          start = i;
+        }
+      }
+      return runs;
+    };
+
+    const runs = getRuns(filtered);
+
+    // Merge isolated transient runs (length < minRunLength)
+    for (let r = 0; r < runs.length; r++) {
+      const run = runs[r];
+      if (run.lengthMeters < minRunLength) {
+        const prev = r > 0 ? runs[r - 1] : null;
+        const next = r < runs.length - 1 ? runs[r + 1] : null;
+
+        if (prev && next && prev.band === next.band) {
+          for (let k = run.start; k <= run.end; k++) {
+            filtered[k] = prev.band;
+          }
+        } else if (prev && Math.abs(run.band - prev.band) <= 1 && (!next || prev.lengthMeters >= (next?.lengthMeters ?? 0))) {
+          for (let k = run.start; k <= run.end; k++) {
+            filtered[k] = prev.band;
+          }
+        } else if (next && Math.abs(run.band - next.band) <= 1) {
+          for (let k = run.start; k <= run.end; k++) {
+            filtered[k] = next.band;
+          }
+        }
+      }
+    }
+
+    return filtered;
+  }
+
+  public static getColorForPoint(
     pt: GPXPoint,
     track: TrackStats,
     mode: TrailColorMode,
@@ -364,33 +513,12 @@ export class TrailMesh {
         color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xffffff), (normEle - 0.85) / 0.15);
       }
     } else if (mode === 'grade') {
-      const grade = Math.abs(pt.grade ?? 0);
-      if (grade < 5) {
-        color.setHex(0x10b981);
-      } else if (grade < 15) {
-        color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0xeab308), (grade - 5) / 10);
-      } else if (grade < 25) {
-        color.lerpColors(new THREE.Color(0xeab308), new THREE.Color(0xf97316), (grade - 15) / 10);
-      } else if (grade < 40) {
-        color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xef4444), (grade - 25) / 15);
-      } else {
-        const t = Math.min((grade - 40) / 25, 1);
-        color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xa855f7), t);
-      }
+      const band = TrailMesh.getGradeBand(pt.grade ?? 0);
+      TrailMesh.getColorForGradeBand(band, color);
     } else if (mode === 'speed') {
-      const spdKmh = (pt.speed ?? (track.avgSpeed / 3.6)) * 3.6;
-      if (spdKmh < 1.8) {
-        color.setHex(0xef4444);
-      } else if (spdKmh < 3.2) {
-        color.lerpColors(new THREE.Color(0xef4444), new THREE.Color(0xf97316), (spdKmh - 1.8) / 1.4);
-      } else if (spdKmh < 4.5) {
-        color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xeab308), (spdKmh - 3.2) / 1.3);
-      } else if (spdKmh < 6.0) {
-        color.lerpColors(new THREE.Color(0xeab308), new THREE.Color(0x10b981), (spdKmh - 4.5) / 1.5);
-      } else {
-        const t = Math.min((spdKmh - 6.0) / 6.0, 1);
-        color.lerpColors(new THREE.Color(0x10b981), new THREE.Color(0x06b6d4), t);
-      }
+      const speedMs = pt.speed ?? (track.avgSpeed / 3.6);
+      const band = TrailMesh.getSpeedBand(speedMs);
+      TrailMesh.getColorForSpeedBand(band, color);
     } else {
       color.setHex(0x38bdf8);
     }
