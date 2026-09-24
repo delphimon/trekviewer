@@ -491,6 +491,7 @@ class TrekViewerApp {
     // Natural 1x vertical exaggeration in first-person mode; restore user preference in diorama
     const effectiveExaggeration = mode === 'first-person' ? 1.0 : this.session.getState().verticalExaggeration;
     this.activeTrek?.setVerticalExaggeration(effectiveExaggeration);
+    this.activeTrek?.setViewMode(mode);
     this.xrManager.setVerticalExaggeration(effectiveExaggeration);
 
     this.flyoverController?.setViewMode(mode);
@@ -727,10 +728,12 @@ class TrekViewerApp {
 
     // 5. Update Adaptive Imagery LOD (Stage M)
     if (this.activeTrek && !this.activeTrek.isDisposed) {
+      const currentProgress = this.flyoverController?.getProgress() ?? this.session.getState().progress;
       this.activeTrek.imageryLOD.update(
         this.sceneManager.camera,
         this.sceneManager.dioramaRoot,
-        this.sceneManager.renderer.xr.isPresenting
+        this.sceneManager.renderer.xr.isPresenting,
+        currentProgress
       );
     }
 

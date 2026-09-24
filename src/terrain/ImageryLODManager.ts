@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { GeoBounds, TextureStyle } from '../gpx/TrackTypes.ts';
+import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
+import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import {
   geoToLocalMeters,
   localMetersToGeo,
@@ -33,6 +34,9 @@ export interface ImageryLODManagerOptions {
   terrainGeoBounds: GeoBounds;
   terrainBaseElevation: number;
   elevationSampler: (x: number, z: number) => number;
+  routeGeometry?: RouteGeometry;
+  track?: TrackStats;
+  viewMode?: ViewMode;
   verticalExaggeration?: number;
   textureStyle?: TextureStyle;
   maxPatches?: number;
@@ -52,6 +56,8 @@ export interface ImageryLODDiagnostics {
   patchesCreatedTotal: number;
   patchesDisposedTotal: number;
   generation: number;
+  viewMode?: ViewMode;
+  currentProgress?: number;
 }
 
 interface PendingTileRequest {
@@ -120,6 +126,12 @@ export class ImageryLODManager {
   private lastCamDir: THREE.Vector3 = new THREE.Vector3();
   private lastDioramaScale: number = 1.0;
 
+  // View mode and 1:1 trail following state (Section 11 & 12)
+  private viewMode: ViewMode = 'diorama';
+  private currentProgress: number = 0;
+  private lastEvalProgress: number = -1;
+  private routeGeometry?: RouteGeometry;
+
   // Telemetry & diagnostics
   private patchesCreatedTotal: number = 0;
   private patchesDisposedTotal: number = 0;
@@ -131,6 +143,8 @@ export class ImageryLODManager {
     this.maxPatches = options.maxPatches ?? 36;
     this.maxConcurrency = options.maxConcurrency ?? 6;
     this.enableInXR = options.enableInXR ?? false;
+    this.viewMode = options.viewMode || 'diorama';
+    this.routeGeometry = options.routeGeometry;
 
     this.group = new THREE.Group();
     this.group.name = 'ImageryLODGroup';
@@ -149,7 +163,36 @@ export class ImageryLODManager {
       patchesCreatedTotal: this.patchesCreatedTotal,
       patchesDisposedTotal: this.patchesDisposedTotal,
       generation: this.currentGeneration,
+      viewMode: this.viewMode,
+      currentProgress: this.currentProgress,
     };
+  }
+
+  public setViewMode(mode: ViewMode): void {
+    if (this.isDisposed || this.viewMode === mode) return;
+    this.viewMode = mode;
+    this.currentGeneration++;
+
+    for (const pending of this.pendingRequests.values()) {
+      pending.abortController.abort();
+    }
+    this.pendingRequests.clear();
+    this.requestQueue = [];
+    this.desiredTileKeys.clear();
+    this.activeRequestCount = 0;
+
+    this.lastEvalTime = 0;
+    this.lastEvalProgress = -1;
+
+    this.clearAllPatches();
+  }
+
+  public setRouteProgress(progress: number): void {
+    this.currentProgress = Math.max(0, Math.min(1, progress));
+  }
+
+  public setRouteGeometry(routeGeometry: RouteGeometry): void {
+    this.routeGeometry = routeGeometry;
   }
 
   public setDeviceProfile(isQuest: boolean): void {
@@ -194,8 +237,17 @@ export class ImageryLODManager {
    * Main per-frame update method called from scene render loop.
    * Debounced and movement-thresholded to prevent high-frequency tracking churn.
    */
-  public update(camera: THREE.Camera, dioramaRoot: THREE.Group, isXR: boolean = false): void {
+  public update(
+    camera: THREE.Camera,
+    dioramaRoot: THREE.Group,
+    isXR: boolean = false,
+    routeProgress?: number
+  ): void {
     if (this.isDisposed || !ENABLE_ADAPTIVE_IMAGERY_LOD) return;
+
+    if (routeProgress !== undefined) {
+      this.currentProgress = Math.max(0, Math.min(1, routeProgress));
+    }
 
     // Desktop-first gate until explicitly enabled in XR stage
     if (isXR && !this.enableInXR) {
@@ -214,14 +266,31 @@ export class ImageryLODManager {
     const camDir = new THREE.Vector3();
     camera.getWorldDirection(camDir);
     const dioramaScale = dioramaRoot.scale.x;
-
-    const posDelta = camPos.distanceTo(this.lastCamPos);
-    const dirAngle = camDir.angleTo(this.lastCamDir);
-    const scaleRatio = Math.abs(dioramaScale - this.lastDioramaScale) / Math.max(this.lastDioramaScale, 0.001);
-
     const isFirstRun = this.lastEvalTime === 0;
-    if (!isFirstRun && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
-      return; // Under movement threshold, view converged cleanly
+
+    if (this.viewMode === 'first-person') {
+      // Progress-based reevaluation threshold in 1:1 trail mode (Section 12)
+      const totalDist = this.routeGeometry?.totalDistance || 10000;
+      const progressDistMoved =
+        this.lastEvalProgress < 0
+          ? Infinity
+          : Math.abs(this.currentProgress - this.lastEvalProgress) * totalDist;
+      const dirAngle = camDir.angleTo(this.lastCamDir);
+
+      if (!isFirstRun && progressDistMoved < 50 && dirAngle < 0.25) {
+        return; // Position along trail hasn't shifted significantly (Section 12)
+      }
+
+      this.lastEvalProgress = this.currentProgress;
+    } else {
+      // Diorama tabletop movement threshold
+      const posDelta = camPos.distanceTo(this.lastCamPos);
+      const dirAngle = camDir.angleTo(this.lastCamDir);
+      const scaleRatio = Math.abs(dioramaScale - this.lastDioramaScale) / Math.max(this.lastDioramaScale, 0.001);
+
+      if (!isFirstRun && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
+        return; // Under movement threshold, view converged cleanly
+      }
     }
 
     this.lastEvalTime = now;
@@ -229,7 +298,11 @@ export class ImageryLODManager {
     this.lastCamDir.copy(camDir);
     this.lastDioramaScale = dioramaScale;
 
-    this.evaluateLOD(camera, dioramaRoot);
+    if (this.viewMode === 'first-person') {
+      this.evaluateFirstPersonLOD(camera, dioramaRoot);
+    } else {
+      this.evaluateLOD(camera, dioramaRoot);
+    }
   }
 
   /**
@@ -409,6 +482,110 @@ export class ImageryLODManager {
     this.reconcileDesiredTiles(budgetedCandidates, provider, targetZoom);
   }
 
+  /**
+   * 1:1 trail mode imagery LOD profile (Section 11 & 12).
+   * Allocates high-detail inner zone around hiker, directional forward prefetch along trail,
+   * and medium-detail middle zone, conforming to natural 1x scale topography.
+   */
+  private evaluateFirstPersonLOD(camera: THREE.Camera, dioramaRoot: THREE.Group): void {
+    const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
+    this.providerMaxZoom = provider.maxZoom;
+
+    // Highest available resolution in 1:1 trail mode (up to 18)
+    const innerZoom = Math.min(this.providerMaxZoom, 18);
+    const midZoom = Math.max(13, innerZoom - 1);
+    this.currentTargetZoom = innerZoom;
+    this.calculatedDesiredZoom = innerZoom;
+
+    let hikerLat = this.options.terrainGeoBounds.centerLat;
+    let hikerLon = this.options.terrainGeoBounds.centerLon;
+    let forwardLat = hikerLat;
+    let forwardLon = hikerLon;
+
+    if (this.routeGeometry) {
+      const currentTelemetry = this.routeGeometry.getTelemetryAtProgress(this.currentProgress);
+      hikerLat = currentTelemetry.currentPoint.lat;
+      hikerLon = currentTelemetry.currentPoint.lon;
+
+      // Directional forward prefetch along trail: ~250m ahead (Section 12)
+      const currentDist = currentTelemetry.currentPoint.distanceFromStart;
+      const forwardDist = Math.min(this.routeGeometry.totalDistance, currentDist + 250);
+      const forwardTelemetry = this.routeGeometry.getTelemetryAtDistance(forwardDist);
+      forwardLat = forwardTelemetry.currentPoint.lat;
+      forwardLon = forwardTelemetry.currentPoint.lon;
+    } else {
+      // Fallback: estimate hiker location from camera ground projection
+      const ray = new THREE.Ray(camera.position, this.lastCamDir);
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dioramaRoot.position.y);
+      const hit = new THREE.Vector3();
+      if (ray.intersectPlane(plane, hit)) {
+        const localHit = hit.clone();
+        dioramaRoot.worldToLocal(localHit);
+        const geo = localMetersToGeo(
+          localHit.x,
+          localHit.z,
+          this.options.terrainGeoBounds.centerLat,
+          this.options.terrainGeoBounds.centerLon
+        );
+        hikerLat = geo.lat;
+        hikerLon = geo.lon;
+        forwardLat = geo.lat;
+        forwardLon = geo.lon;
+      }
+    }
+
+    // 1. Inner zone: ~300-750m high detail around hiker (Section 11)
+    const innerCenterTile = latLonToTile(hikerLat, hikerLon, innerZoom);
+    const innerCandidates = this.collectCandidateTiles(innerCenterTile.x, innerCenterTile.y, innerZoom, 1);
+
+    // 2. Forward prefetch: tiles ahead along route (Section 12)
+    const forwardCenterTile = latLonToTile(forwardLat, forwardLon, innerZoom);
+    const forwardCandidates = this.collectCandidateTiles(forwardCenterTile.x, forwardCenterTile.y, innerZoom, 1);
+
+    // 3. Middle zone: ~750-1500m medium detail (Section 11)
+    const midCenterTile = latLonToTile(hikerLat, hikerLon, midZoom);
+    const midCandidates = this.collectCandidateTiles(midCenterTile.x, midCenterTile.y, midZoom, 2);
+
+    // Deduplicate candidates by tile key, prioritizing inner zone, then forward prefetch, then middle zone
+    const candidateMap = new Map<string, { x: number; y: number; zoom: number; dist: number }>();
+
+    for (const c of innerCandidates) {
+      const key = `${this.currentTextureStyle}:${innerZoom}:${c.x}:${c.y}`;
+      if (!candidateMap.has(key)) {
+        candidateMap.set(key, { ...c, zoom: innerZoom, dist: c.dist });
+      }
+    }
+
+    for (const c of forwardCandidates) {
+      const key = `${this.currentTextureStyle}:${innerZoom}:${c.x}:${c.y}`;
+      if (!candidateMap.has(key)) {
+        // Forward prefetch tiles prioritized right after immediate inner tiles
+        candidateMap.set(key, { ...c, zoom: innerZoom, dist: c.dist + 1.2 });
+      }
+    }
+
+    for (const c of midCandidates) {
+      const key = `${this.currentTextureStyle}:${midZoom}:${c.x}:${c.y}`;
+      if (!candidateMap.has(key)) {
+        candidateMap.set(key, { ...c, zoom: midZoom, dist: c.dist + 4.0 });
+      }
+    }
+
+    // Filter candidate tiles that intersect actual terrain geographic bounds
+    const validCandidates = Array.from(candidateMap.values()).filter((c) =>
+      ImageryLODManager.tileIntersectsBounds(c.x, c.y, c.zoom, this.options.terrainGeoBounds)
+    );
+
+    // Sort by priority (dist)
+    validCandidates.sort((a, b) => a.dist - b.dist);
+
+    // Limit desired candidates to budget
+    const budgetedCandidates = validCandidates.slice(0, this.maxPatches);
+
+    // Reconcile desired tiles
+    this.reconcileDesiredTiles(budgetedCandidates, provider, innerZoom);
+  }
+
   private collectCandidateTiles(
     cx: number,
     cy: number,
@@ -445,18 +622,19 @@ export class ImageryLODManager {
    * Cancels consumer subscriptions for obsolete requests without aborting useful shared work.
    */
   private reconcileDesiredTiles(
-    candidates: { x: number; y: number; dist: number }[],
+    candidates: { x: number; y: number; zoom?: number; dist: number }[],
     provider: ImageryProvider,
-    zoom: number
+    defaultZoom: number
   ): void {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const newDesiredKeys = new Set<string>();
-    const candidateMap = new Map<string, { x: number; y: number; dist: number }>();
+    const candidateMap = new Map<string, { x: number; y: number; zoom: number; dist: number }>();
 
     for (const c of candidates) {
-      const key = `${this.currentTextureStyle}:${zoom}:${c.x}:${c.y}`;
+      const z = c.zoom ?? defaultZoom;
+      const key = `${this.currentTextureStyle}:${z}:${c.x}:${c.y}`;
       newDesiredKeys.add(key);
-      candidateMap.set(key, c);
+      candidateMap.set(key, { ...c, zoom: z });
     }
 
     this.desiredTileKeys = newDesiredKeys;
@@ -484,7 +662,7 @@ export class ImageryLODManager {
       if (!this.patches.has(key) && !this.pendingRequests.has(key)) {
         this.requestQueue.push({
           key,
-          zoom,
+          zoom: c.zoom,
           x: c.x,
           y: c.y,
           dist: c.dist,
