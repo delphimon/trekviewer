@@ -206,7 +206,7 @@ export class ImageryLODManager {
     }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (now - this.lastEvalTime < this.EVAL_INTERVAL_MS) {
+    if (this.lastEvalTime !== 0 && now - this.lastEvalTime < this.EVAL_INTERVAL_MS) {
       return;
     }
 
@@ -284,6 +284,53 @@ export class ImageryLODManager {
       tb.maxLat < bounds.minLat ||
       tb.minLat > bounds.maxLat
     );
+  }
+
+  /**
+   * Fetches image source for a patch tile.
+   * For 'hybrid', loads base satellite and reference overlay concurrently,
+   * compositing them onto an offscreen canvas with graceful fallback to satellite (Req #6).
+   */
+  public static async loadPatchImage(
+    zoom: number,
+    x: number,
+    y: number,
+    style: TextureStyle,
+    signal?: AbortSignal
+  ): Promise<HTMLImageElement | HTMLCanvasElement> {
+    if (style === 'hybrid') {
+      const satProvider = TextureProvider.getActiveSatelliteProvider();
+      const labelProvider = TextureProvider.getReferenceOverlayProvider();
+
+      // Load base satellite tile and transparent label overlay concurrently (Req #6)
+      const satPromise = TileImageCache.loadTile(satProvider, zoom, x, y, 4500, signal);
+      const labelPromise = TileImageCache.loadTile(labelProvider, zoom, x, y, 3500, signal).catch(() => null);
+
+      const [satImg, labelImg] = await Promise.all([satPromise, labelPromise]);
+
+      if (typeof document !== 'undefined' && document.createElement) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(satImg, 0, 0, 256, 256);
+            if (labelImg) {
+              ctx.drawImage(labelImg, 0, 0, 256, 256);
+            }
+            return canvas;
+          }
+        } catch {
+          // If canvas operations fail (e.g. headless/mocking limitations), fall back to satImg
+        }
+      }
+
+      return satImg;
+    }
+
+    const provider = TextureProvider.getProviderForStyle(style);
+    return TileImageCache.loadTile(provider, zoom, x, y, 4500, signal);
   }
 
   private evaluateLOD(camera: THREE.Camera, dioramaRoot: THREE.Group): void {
@@ -481,8 +528,8 @@ export class ImageryLODManager {
       this.activeRequestCount++;
 
       const requestStyle = this.currentTextureStyle;
-      TileImageCache.loadTile(provider, next.zoom, next.x, next.y, 4500, abortController.signal)
-        .then((img) => {
+      ImageryLODManager.loadPatchImage(next.zoom, next.x, next.y, requestStyle, abortController.signal)
+        .then((imageSource) => {
           this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
           this.pendingRequests.delete(next.key);
 
@@ -493,7 +540,7 @@ export class ImageryLODManager {
             this.currentTextureStyle === requestStyle
           ) {
             const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            this.createAndMountPatch(next.key, next.zoom, next.x, next.y, img, next.dist, now);
+            this.createAndMountPatch(next.key, next.zoom, next.x, next.y, imageSource, next.dist, now);
           }
 
           this.drainQueue(provider);
@@ -511,7 +558,7 @@ export class ImageryLODManager {
     zoom: number,
     x: number,
     y: number,
-    img: HTMLImageElement,
+    img: HTMLImageElement | HTMLCanvasElement,
     dist: number,
     now: number
   ): void {
@@ -521,7 +568,9 @@ export class ImageryLODManager {
     const texture = new THREE.CanvasTexture(img);
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = TextureProvider.getMaxAnisotropy();
     texture.generateMipmaps = true;
+    texture.needsUpdate = true;
 
     // Build conforming terrain geometry with true local Y datum
     const geo = this.buildPatchGeometry(zoom, x, y);

@@ -29,6 +29,9 @@ export class TextureProvider {
   private static activeSatelliteProvider: ImageryProvider = TextureProvider.esriSatelliteProvider;
   private static maxAnisotropy: number = 4; // Bounded default for non-WebGL/test environments
 
+  public static readonly UPLOAD_THROTTLE_MS: number = 600; // Req #26: Throttle whole-route composite canvas uploads (500-1000ms)
+  public static readonly TILE_BATCH_THRESHOLD: number = 8; // Req #26: Or every N tiles, whichever happens first
+
   public static setMaxAnisotropy(anisotropy: number): void {
     if (typeof anisotropy === 'number' && !isNaN(anisotropy) && anisotropy >= 0) {
       this.maxAnisotropy = Math.max(1, Math.min(16, anisotropy));
@@ -188,10 +191,10 @@ export class TextureProvider {
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
       texture.magFilter = THREE.LinearFilter;
       texture.anisotropy = this.maxAnisotropy;
-      texture.generateMipmaps = true;
+      texture.generateMipmaps = false; // Req #27: Disable mipmap generation during intermediate compositing
 
       const provider = this.activeSatelliteProvider;
       const tasks: { tx: number; ty: number }[] = [];
@@ -204,7 +207,8 @@ export class TextureProvider {
       const totalCount = tasks.length;
       let completedCount = 0;
       let successCount = 0;
-      let lastUpdateTime = performance.now();
+      let tilesSinceLastUpload = 0;
+      let lastUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
       const worker = async () => {
         while (tasks.length > 0) {
@@ -227,9 +231,16 @@ export class TextureProvider {
           }
 
           completedCount++;
-          const now = performance.now();
-          if (now - lastUpdateTime > 250 || completedCount === totalCount) {
+          tilesSinceLastUpload++;
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          // Req #26: Throttle whole-route composite canvas uploads (500-1000ms or every N tiles)
+          if (
+            completedCount < totalCount &&
+            (tilesSinceLastUpload >= TextureProvider.TILE_BATCH_THRESHOLD ||
+              now - lastUpdateTime >= TextureProvider.UPLOAD_THROTTLE_MS)
+          ) {
             lastUpdateTime = now;
+            tilesSinceLastUpload = 0;
             texture.needsUpdate = true;
             onProgressUpdate?.(texture, completedCount, totalCount);
           }
@@ -243,7 +254,11 @@ export class TextureProvider {
       if (signal?.aborted) return null;
       if (successCount === 0) return null;
 
+      // Req #27: Enable mipmap generation and LinearMipmapLinearFilter only on final completion
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.needsUpdate = true;
+      onProgressUpdate?.(texture, completedCount, totalCount);
       return texture;
     } catch (e) {
       console.warn('Failed to fetch high-res satellite imagery:', e);
@@ -282,10 +297,10 @@ export class TextureProvider {
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
       texture.magFilter = THREE.LinearFilter;
       texture.anisotropy = this.maxAnisotropy;
-      texture.generateMipmaps = true;
+      texture.generateMipmaps = false; // Req #27: Disable mipmap generation during intermediate compositing
 
       const satProvider = this.activeSatelliteProvider;
       const labelProvider = this.referenceOverlayProvider;
@@ -300,7 +315,8 @@ export class TextureProvider {
       const totalCount = tasks.length;
       let completedCount = 0;
       let successCount = 0;
-      let lastUpdateTime = performance.now();
+      let tilesSinceLastUpload = 0;
+      let lastUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
       const worker = async () => {
         while (tasks.length > 0) {
@@ -338,9 +354,16 @@ export class TextureProvider {
           }
 
           completedCount++;
-          const now = performance.now();
-          if (now - lastUpdateTime > 250 || completedCount === totalCount) {
+          tilesSinceLastUpload++;
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          // Req #26: Throttle whole-route composite canvas uploads (500-1000ms or every N tiles)
+          if (
+            completedCount < totalCount &&
+            (tilesSinceLastUpload >= TextureProvider.TILE_BATCH_THRESHOLD ||
+              now - lastUpdateTime >= TextureProvider.UPLOAD_THROTTLE_MS)
+          ) {
             lastUpdateTime = now;
+            tilesSinceLastUpload = 0;
             texture.needsUpdate = true;
             onProgressUpdate?.(texture, completedCount, totalCount);
           }
@@ -354,7 +377,11 @@ export class TextureProvider {
       if (signal?.aborted) return null;
       if (successCount === 0) return null;
 
+      // Req #27: Enable mipmap generation and LinearMipmapLinearFilter only on final completion
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.needsUpdate = true;
+      onProgressUpdate?.(texture, completedCount, totalCount);
       return texture;
     } catch (e) {
       console.warn('Failed to fetch hybrid texture:', e);
@@ -392,10 +419,10 @@ export class TextureProvider {
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
       texture.magFilter = THREE.LinearFilter;
       texture.anisotropy = this.maxAnisotropy;
-      texture.generateMipmaps = true;
+      texture.generateMipmaps = false; // Req #27: Disable mipmap generation during intermediate compositing
 
       const provider = this.usgsTopoProvider;
       const tasks: { tx: number; ty: number }[] = [];
@@ -408,7 +435,8 @@ export class TextureProvider {
       const totalCount = tasks.length;
       let completedCount = 0;
       let successCount = 0;
-      let lastUpdateTime = performance.now();
+      let tilesSinceLastUpload = 0;
+      let lastUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
       const worker = async () => {
         while (tasks.length > 0) {
@@ -431,9 +459,16 @@ export class TextureProvider {
           }
 
           completedCount++;
-          const now = performance.now();
-          if (now - lastUpdateTime > 250 || completedCount === totalCount) {
+          tilesSinceLastUpload++;
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          // Req #26: Throttle whole-route composite canvas uploads (500-1000ms or every N tiles)
+          if (
+            completedCount < totalCount &&
+            (tilesSinceLastUpload >= TextureProvider.TILE_BATCH_THRESHOLD ||
+              now - lastUpdateTime >= TextureProvider.UPLOAD_THROTTLE_MS)
+          ) {
             lastUpdateTime = now;
+            tilesSinceLastUpload = 0;
             texture.needsUpdate = true;
             onProgressUpdate?.(texture, completedCount, totalCount);
           }
@@ -447,7 +482,11 @@ export class TextureProvider {
       if (signal?.aborted) return null;
       if (successCount === 0) return null;
 
+      // Req #27: Enable mipmap generation and LinearMipmapLinearFilter only on final completion
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.needsUpdate = true;
+      onProgressUpdate?.(texture, completedCount, totalCount);
       return texture;
     } catch (e) {
       console.warn('Failed to fetch high-res topographic map tiles:', e);

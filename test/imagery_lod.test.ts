@@ -219,7 +219,7 @@ describe('Stage M: Adaptive High-Resolution Map Imagery LOD', () => {
       lod.update(camera, dioramaRoot, false);
 
       // Wait for image loads to resolve
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 150));
 
       const initialCreated = lod.getDiagnostics().patchesCreatedTotal;
       assert(initialCreated > 0, 'Initial evaluation should create patches');
