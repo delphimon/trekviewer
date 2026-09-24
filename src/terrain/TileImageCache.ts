@@ -170,36 +170,65 @@ export class TileImageCache {
       throw new Error('Tile load aborted');
     }
 
-    // In-flight request deduplication (Requirement #77)
-    const existing = this.inFlight.get(key);
-    if (existing) {
-      return existing;
+    // In-flight request deduplication (Requirement #77 & Section 15)
+    let loadPromise = this.inFlight.get(key);
+    if (!loadPromise) {
+      loadPromise = (async () => {
+        const urls = provider.getTileUrls(zoom, x, y);
+        let lastError: any = null;
+
+        for (const url of urls) {
+          try {
+            // Shared network request executes with internal timeout to populate cache
+            const img = await this.loadImageWithTimeout(url, timeoutMs);
+            this.set(key, img);
+            return img;
+          } catch (err) {
+            lastError = err;
+          }
+        }
+
+        throw lastError || new Error(`Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`);
+      })();
+
+      this.inFlight.set(key, loadPromise);
+      loadPromise
+        .finally(() => {
+          this.inFlight.delete(key);
+        })
+        .catch(() => {});
     }
 
-    const loadPromise = (async () => {
-      const urls = provider.getTileUrls(zoom, x, y);
-      let lastError: any = null;
+    // Individual consumer await with signal listener
+    if (!signal) {
+      return loadPromise;
+    }
 
-      for (const url of urls) {
-        if (signal?.aborted) break;
-        try {
-          const img = await this.loadImageWithTimeout(url, timeoutMs, signal);
-          this.set(key, img);
-          return img;
-        } catch (err) {
-          lastError = err;
-        }
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      if (signal.aborted) {
+        return reject(new Error('Tile load aborted'));
       }
 
-      throw lastError || new Error(`Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`);
-    })();
+      const onAbort = () => {
+        signal.removeEventListener('abort', onAbort);
+        reject(new Error('Tile load aborted'));
+      };
+      signal.addEventListener('abort', onAbort);
 
-    this.inFlight.set(key, loadPromise);
-    try {
-      return await loadPromise;
-    } finally {
-      this.inFlight.delete(key);
-    }
+      loadPromise!
+        .then((img) => {
+          signal.removeEventListener('abort', onAbort);
+          if (signal.aborted) {
+            reject(new Error('Tile load aborted'));
+          } else {
+            resolve(img);
+          }
+        })
+        .catch((err) => {
+          signal.removeEventListener('abort', onAbort);
+          reject(err);
+        });
+    });
   }
 
   private static loadImageWithTimeout(
@@ -207,6 +236,10 @@ export class TileImageCache {
     timeoutMs: number,
     signal?: AbortSignal
   ): Promise<HTMLImageElement> {
+    if (typeof Image === 'undefined') {
+      return Promise.reject(new Error('Image is not defined in this environment'));
+    }
+
     return new Promise((resolve, reject) => {
       if (signal?.aborted) {
         reject(new Error('Aborted'));

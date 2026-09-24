@@ -780,21 +780,26 @@ class TrekViewerApp {
           tileCacheCount: tileStats.entries,
           tileCacheInFlight: tileStats.inFlight,
           lodZoom: lodStats ? lodStats.targetZoom : 0,
+          lodCalcZoom: lodStats ? lodStats.calculatedDesiredZoom : 0,
+          lodProviderMax: lodStats ? lodStats.providerMaxZoom : 0,
           lodPatches: lodStats ? lodStats.activePatchesCount : 0,
+          lodQueue: lodStats ? lodStats.requestQueueLength : 0,
+          lodInFlight: lodStats ? lodStats.inFlightRequests : 0,
+          tileCacheMB: Number((tileStats.decodedBytes / (1024 * 1024)).toFixed(1)),
           hudUploadRate,
           terrainQuality,
         };
 
         console.log(`[TELEMETRY]`, telemetryData);
 
-        // Compact real-time on-screen diagnostics overlay (Requirement #122)
+        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38)
         const badge = document.getElementById('buildBadge');
         if (badge) {
           badge.innerHTML = `
             <div style="font-weight:bold;color:#38bdf8;">${__APP_BUILD_INFO__.shortSha} • ${isPresenting ? 'XR ON' : 'XR OFF'} • ${this.currentViewMode} • ${terrainQuality}</div>
             <div>Pos: [${telemetryData.dioramaPos.join(', ')}] Rot: ${telemetryData.dioramaRotY} S: ${telemetryData.dioramaScale}</div>
-            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Tiles: ${telemetryData.tileCacheCount} (in-flight: ${telemetryData.tileCacheInFlight})</div>
-            <div>LOD: Z${telemetryData.lodZoom}, ${telemetryData.lodPatches} patches | HUD: ${hudUploadRate}/s</div>
+            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, in-flight: ${telemetryData.tileCacheInFlight})</div>
+            <div>LOD: Z${telemetryData.lodZoom} (max Z${telemetryData.lodProviderMax}), ${telemetryData.lodPatches} patches (q:${telemetryData.lodQueue}, req:${telemetryData.lodInFlight}) | HUD: ${hudUploadRate}/s</div>
           `.trim();
         }
       }

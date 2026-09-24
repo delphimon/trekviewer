@@ -88,6 +88,24 @@ export function localMetersToGeo(
   return { lat, lon };
 }
 
+export const WEB_MERCATOR_MAX_LAT = 85.05112878;
+export const WGS84_EQUATORIAL_RADIUS_METERS = 6378137;
+
+/**
+ * Clamps latitude to valid Web Mercator projection range (±85.05112878°).
+ */
+export function clampLatitude(lat: number): number {
+  return Math.max(-WEB_MERCATOR_MAX_LAT, Math.min(WEB_MERCATOR_MAX_LAT, lat));
+}
+
+/**
+ * Calculates ground meters per pixel at a given latitude and zoom level.
+ */
+export function metersPerPixelAtZoom(lat: number, zoom: number): number {
+  const latRad = degToRad(clampLatitude(lat));
+  return (Math.cos(latRad) * 2 * Math.PI * WGS84_EQUATORIAL_RADIUS_METERS) / (256 * 2 ** zoom);
+}
+
 /**
  * Converts lat/lon to standard Web Mercator Slippy Map tile indices (x, y) at given zoom level.
  */
@@ -97,11 +115,13 @@ export function latLonToTile(
   zoom: number
 ): { x: number; y: number } {
   const n = 2 ** zoom;
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const latRad = degToRad(lat);
-  const y = Math.floor(
+  const clampedLon = Math.max(-180, Math.min(180, lon));
+  const clampedLat = clampLatitude(lat);
+  const x = Math.max(0, Math.min(n - 1, Math.floor(((clampedLon + 180) / 360) * n)));
+  const latRad = degToRad(clampedLat);
+  const y = Math.max(0, Math.min(n - 1, Math.floor(
     ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n
-  );
+  )));
   return { x, y };
 }
 
@@ -118,4 +138,31 @@ export function tileToLatLon(
   const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
   const lat = radToDeg(latRad);
   return { lat, lon };
+}
+
+/**
+ * Returns the geographic bounding box for a given tile.
+ */
+export function tileBounds(
+  x: number,
+  y: number,
+  zoom: number
+): {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+  nw: { lat: number; lon: number };
+  se: { lat: number; lon: number };
+} {
+  const nw = tileToLatLon(x, y, zoom);
+  const se = tileToLatLon(x + 1, y + 1, zoom);
+  return {
+    minLat: Math.min(nw.lat, se.lat),
+    maxLat: Math.max(nw.lat, se.lat),
+    minLon: Math.min(nw.lon, se.lon),
+    maxLon: Math.max(nw.lon, se.lon),
+    nw,
+    se,
+  };
 }
