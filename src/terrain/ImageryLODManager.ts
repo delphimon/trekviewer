@@ -65,6 +65,14 @@ export interface ImageryLODDiagnostics {
   viewMode?: ViewMode;
   currentProgress?: number;
   debugPatchBounds?: boolean;
+  // Stage U4 additions (Section 47)
+  visibleByZoom: Map<number, number>;
+  desiredZoom: number;
+  readyHighResCount: number;
+  totalDesiredHighResCount: number;
+  requestedCount: number;
+  readyCount: number;
+  visibleCount: number;
 }
 
 interface PendingTileRequest {
@@ -86,18 +94,312 @@ interface QueuedTile {
   style: TextureStyle;
 }
 
+export interface XRViewMetrics {
+  worldPosition: THREE.Vector3;
+  forward: THREE.Vector3;
+  verticalFov: number;
+  viewportHeightPx: number;
+}
+
+/**
+ * Derives representative viewing metrics from XR ArrayCamera or PerspectiveCamera (Section 45).
+ */
+export function getViewMetrics(
+  camera: THREE.Camera,
+  renderer?: THREE.WebGLRenderer
+): XRViewMetrics {
+  const worldPosition = new THREE.Vector3();
+  camera.getWorldPosition(worldPosition);
+
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+
+  let verticalFov = 60;
+  let viewportHeightPx = typeof window !== 'undefined' ? window.innerHeight : 1080;
+
+  // 1. Check if camera is an ArrayCamera with subcameras (WebXR stereo)
+  const arrayCam = camera as THREE.ArrayCamera;
+  if (arrayCam.cameras && arrayCam.cameras.length > 0) {
+    const subCam = arrayCam.cameras[0];
+    if (subCam.projectionMatrix && subCam.projectionMatrix.elements[5] > 0) {
+      // elements[5] = 1 / tan(fovY / 2)
+      verticalFov = 2 * Math.atan(1 / subCam.projectionMatrix.elements[5]) * (180 / Math.PI);
+    }
+    if ((subCam as any).viewport && (subCam as any).viewport.w) {
+      viewportHeightPx = (subCam as any).viewport.w;
+    }
+  } else if ((camera as THREE.PerspectiveCamera).fov) {
+    verticalFov = (camera as THREE.PerspectiveCamera).fov;
+  } else if (camera.projectionMatrix && camera.projectionMatrix.elements[5] > 0) {
+    verticalFov = 2 * Math.atan(1 / camera.projectionMatrix.elements[5]) * (180 / Math.PI);
+  }
+
+  // 2. Check WebXR framebuffer height from renderer if presenting
+  if (renderer?.xr?.isPresenting) {
+    const session = renderer.xr.getSession?.();
+    const baseLayer = (renderer.xr as any).getBaseLayer
+      ? (renderer.xr as any).getBaseLayer()
+      : (session as any)?.renderState?.baseLayer;
+    if (baseLayer?.framebufferHeight) {
+      viewportHeightPx = baseLayer.framebufferHeight;
+    }
+  } else if (renderer?.domElement) {
+    const size = new THREE.Vector2();
+    renderer.getDrawingBufferSize(size);
+    if (size.y > 0) {
+      viewportHeightPx = size.y;
+    }
+  }
+
+  return {
+    worldPosition,
+    forward,
+    verticalFov,
+    viewportHeightPx,
+  };
+}
+
+/**
+ * Dynamic patch subdivision scaling (Section 44).
+ * Matches base terrain geometry without inventing redundant terrain vertices on Quest.
+ */
+export function getPatchSubdivisionSegments(zoom: number): number {
+  if (zoom >= 18) return 4;
+  if (zoom >= 16) return 6;
+  return 8;
+}
+
+/**
+ * Pure tile key helper utilities.
+ */
+export function getTileKey(style: TextureStyle, zoom: number, x: number, y: number): string {
+  return `${style}:${zoom}:${x}:${y}`;
+}
+
+export function parseTileKey(key: string): { style: TextureStyle; zoom: number; x: number; y: number } {
+  const parts = key.split(':');
+  return {
+    style: parts[0] as TextureStyle,
+    zoom: parseInt(parts[1], 10),
+    x: parseInt(parts[2], 10),
+    y: parseInt(parts[3], 10),
+  };
+}
+
+export function getParentTileKey(style: TextureStyle, zoom: number, x: number, y: number): string | null {
+  if (zoom <= 13) return null;
+  return `${style}:${zoom - 1}:${Math.floor(x / 2)}:${Math.floor(y / 2)}`;
+}
+
+export function getChildTileKeys(style: TextureStyle, zoom: number, x: number, y: number): string[] {
+  const nextZ = zoom + 1;
+  const cx = x * 2;
+  const cy = y * 2;
+  return [
+    `${style}:${nextZ}:${cx}:${cy}`,
+    `${style}:${nextZ}:${cx + 1}:${cy}`,
+    `${style}:${nextZ}:${cx}:${cy + 1}`,
+    `${style}:${nextZ}:${cx + 1}:${cy + 1}`,
+  ];
+}
+
+export interface CoherentTileCandidate {
+  x: number;
+  y: number;
+  zoom: number;
+  dist: number;
+  isHighRes?: boolean;
+}
+
+/**
+ * Selects coherent refinement rings (Sections 38, 39, 62).
+ * Eliminates random checkerboard holes:
+ * - Central focus: contiguous grid at zHigh (e.g. 3x3)
+ * - Surrounding ring: contiguous perimeter ring at zMid
+ * - Bounded strictly to maxPatches
+ */
+export function computeCoherentLODTiles(
+  centerLat: number,
+  centerLon: number,
+  targetZoom: number,
+  maxPatches: number,
+  bounds: GeoBounds,
+  secondaryCenterGeo?: { lat: number; lon: number }
+): CoherentTileCandidate[] {
+  if (targetZoom <= 13) {
+    const centerTile = latLonToTile(centerLat, centerLon, targetZoom);
+    const candidates: CoherentTileCandidate[] = [];
+    let r = 0;
+    while (candidates.length < maxPatches && r <= 6) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const tx = centerTile.x + dx;
+          const ty = centerTile.y + dy;
+          if (ImageryLODManager.tileIntersectsBounds(tx, ty, targetZoom, bounds)) {
+            candidates.push({
+              x: tx,
+              y: ty,
+              zoom: targetZoom,
+              dist: Math.hypot(dx, dy),
+            });
+            if (candidates.length >= maxPatches) break;
+          }
+        }
+        if (candidates.length >= maxPatches) break;
+      }
+      r++;
+    }
+    return candidates;
+  }
+
+  const zHigh = targetZoom;
+  const zMid = zHigh - 1;
+  const centerTile = latLonToTile(centerLat, centerLon, zHigh);
+
+  // Helper to generate a candidate ring set for a given center grid radius
+  function tryRingConfiguration(gridRadius: number): CoherentTileCandidate[] | null {
+    const highTiles: CoherentTileCandidate[] = [];
+    const minDx = gridRadius === 0.5 ? 0 : -gridRadius;
+    const maxDx = gridRadius === 0.5 ? 1 : gridRadius;
+    const minDy = gridRadius === 0.5 ? 0 : -gridRadius;
+    const maxDy = gridRadius === 0.5 ? 1 : gridRadius;
+
+    let pMinX = Infinity;
+    let pMaxX = -Infinity;
+    let pMinY = Infinity;
+    let pMaxY = -Infinity;
+
+    // Collect primary center high-res tiles
+    for (let dy = minDy; dy <= maxDy; dy++) {
+      for (let dx = minDx; dx <= maxDx; dx++) {
+        const tx = centerTile.x + dx;
+        const ty = centerTile.y + dy;
+        if (ImageryLODManager.tileIntersectsBounds(tx, ty, zHigh, bounds)) {
+          highTiles.push({
+            x: tx,
+            y: ty,
+            zoom: zHigh,
+            dist: Math.hypot(dx, dy),
+            isHighRes: true,
+          });
+          const px = Math.floor(tx / 2);
+          const py = Math.floor(ty / 2);
+          if (px < pMinX) pMinX = px;
+          if (px > pMaxX) pMaxX = px;
+          if (py < pMinY) pMinY = py;
+          if (py > pMaxY) pMaxY = py;
+        }
+      }
+    }
+
+    // Include secondary center if provided (e.g. forward prefetch in 1:1 trail mode)
+    if (secondaryCenterGeo) {
+      const secCenterTile = latLonToTile(secondaryCenterGeo.lat, secondaryCenterGeo.lon, zHigh);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const tx = secCenterTile.x + dx;
+          const ty = secCenterTile.y + dy;
+          if (
+            ImageryLODManager.tileIntersectsBounds(tx, ty, zHigh, bounds) &&
+            !highTiles.some((t) => t.x === tx && t.y === ty)
+          ) {
+            highTiles.push({
+              x: tx,
+              y: ty,
+              zoom: zHigh,
+              dist: Math.hypot(dx, dy) + 1.2,
+              isHighRes: true,
+            });
+            const px = Math.floor(tx / 2);
+            const py = Math.floor(ty / 2);
+            if (px < pMinX) pMinX = px;
+            if (px > pMaxX) pMaxX = px;
+            if (py < pMinY) pMinY = py;
+            if (py > pMaxY) pMaxY = py;
+          }
+        }
+      }
+    }
+
+    if (highTiles.length === 0) return [];
+
+    // Outer coherent 1-tile ring at zMid surrounding the parent footprint
+    const midTiles: CoherentTileCandidate[] = [];
+    for (let py = pMinY - 1; py <= pMaxY + 1; py++) {
+      for (let px = pMinX - 1; px <= pMaxX + 1; px++) {
+        // Exclude inner parent footprint
+        if (px >= pMinX && px <= pMaxX && py >= pMinY && py <= pMaxY) continue;
+        if (ImageryLODManager.tileIntersectsBounds(px, py, zMid, bounds)) {
+          midTiles.push({
+            x: px,
+            y: py,
+            zoom: zMid,
+            dist: Math.hypot((px - (pMinX + pMaxX) / 2) * 2, (py - (pMinY + pMaxY) / 2) * 2) + 2.0,
+            isHighRes: false,
+          });
+        }
+      }
+    }
+
+    if (highTiles.length + midTiles.length <= maxPatches) {
+      return [...highTiles, ...midTiles];
+    }
+    return null;
+  }
+
+  // 1. Try 3x3 at zHigh + surrounding zMid ring (gridRadius = 1) (Section 39)
+  if (maxPatches >= 21) {
+    const config3x3 = tryRingConfiguration(1);
+    if (config3x3) return config3x3;
+  }
+
+  // 2. If 3x3 exceeds budget, coherently shrink center to 2x2 (gridRadius = 0.5) (Section 38)
+  const config2x2 = tryRingConfiguration(0.5);
+  if (config2x2) return config2x2;
+
+  // 3. If even 2x2 exceeds budget, lower entire region coherently to zMid (Section 38)
+  const midCenterTile = latLonToTile(centerLat, centerLon, zMid);
+  const midOnlyCandidates: CoherentTileCandidate[] = [];
+  let r = 0;
+  while (midOnlyCandidates.length < maxPatches && r <= 6) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const tx = midCenterTile.x + dx;
+        const ty = midCenterTile.y + dy;
+        if (ImageryLODManager.tileIntersectsBounds(tx, ty, zMid, bounds)) {
+          midOnlyCandidates.push({
+            x: tx,
+            y: ty,
+            zoom: zMid,
+            dist: Math.hypot(dx, dy),
+            isHighRes: true,
+          });
+          if (midOnlyCandidates.length >= maxPatches) break;
+        }
+      }
+      if (midOnlyCandidates.length >= maxPatches) break;
+    }
+    r++;
+  }
+  return midOnlyCandidates;
+}
+
 /**
  * ImageryLODManager
  *
- * Implements Stage R2: Bounded Adaptive High-Resolution Map Imagery Lifecycle.
+ * Implements Stage R2, S1-S3, T5, and Stage U4: Coherent Adaptive High-Resolution Map Imagery.
  *
- * Features:
- * - Web Mercator ground-resolution-based target zoom selection with hysteresis.
- * - Dynamic view footprint / region of interest (not fixed center grid).
- * - Desired-tile reconciliation (replaces all-or-nothing generation aborts).
- * - Bounded request scheduler with concurrency limits and distance priority.
- * - Conforming terrain patch meshes with true local-Y datum coordinates.
- * - Decoupled GPU patch lifecycle and LRU caching.
+ * Stage U4 Enhancements:
+ * - Separates requested, ready, and visible LOD explicitly (Section 37).
+ * - Coherent coverage-first refinement rings without checkerboarding (Sections 38, 39, 62).
+ * - Explicit parent/child replacement and deterministic hierarchy (Sections 40, 41, 63).
+ * - Depth-write disabled during fade-in, opaque depth-write on completion (Section 42).
+ * - Surface-conforming dynamic patch geometry subdivision (Sections 43, 44).
+ * - XR view metrics derived from subcamera projection and WebXR framebuffer (Section 45).
+ * - Target zoom promotion dwell time (500 ms) preventing head micro-jitter (Section 46).
+ * - Granular coverage diagnostics (Section 47).
  *
  * INVARIANT: This class NEVER mutates dioramaRoot position, rotation, scale,
  * camera transform, HUD transform, or session state.
@@ -119,7 +421,7 @@ export class ImageryLODManager {
   private debugPatchBounds: boolean;
   private lastIsXR: boolean = false;
 
-  // Reconciliation state (Section 14 & 30)
+  // Reconciliation state (Section 14, 30, 37)
   private desiredTileKeys: Set<string> = new Set();
   private pendingRequests: Map<string, PendingTileRequest> = new Map();
   private requestQueue: QueuedTile[] = [];
@@ -132,9 +434,15 @@ export class ImageryLODManager {
   private lastEvalTime: number = 0;
   private readonly EVAL_INTERVAL_MS: number = 250; // 4 evaluations/sec max
 
+  // Promotion dwell timer (Section 46)
+  private readonly PROMOTION_DWELL_MS: number = 500;
+  private pendingPromoteZoom: number | null = null;
+  private promoteCandidateSince: number = 0;
+
   private lastCamPos: THREE.Vector3 = new THREE.Vector3();
   private lastCamDir: THREE.Vector3 = new THREE.Vector3();
   private lastDioramaScale: number = 1.0;
+  private lastDioramaWorldPos: THREE.Vector3 = new THREE.Vector3();
 
   // View mode and 1:1 trail following state (Section 11 & 12)
   private viewMode: ViewMode = 'diorama';
@@ -163,6 +471,29 @@ export class ImageryLODManager {
   }
 
   public getDiagnostics(): ImageryLODDiagnostics {
+    const visibleByZoom = new Map<number, number>();
+    let visibleCount = 0;
+
+    for (const patch of this.patches.values()) {
+      if (patch.mesh.visible) {
+        visibleCount++;
+        visibleByZoom.set(patch.zoom, (visibleByZoom.get(patch.zoom) || 0) + 1);
+      }
+    }
+
+    let readyHighRes = 0;
+    let totalDesiredHighRes = 0;
+    for (const key of this.desiredTileKeys) {
+      const parsed = parseTileKey(key);
+      if (parsed.zoom === this.currentTargetZoom) {
+        totalDesiredHighRes++;
+        const patch = this.patches.get(key);
+        if (patch && patch.mesh.visible) {
+          readyHighRes++;
+        }
+      }
+    }
+
     return {
       activePatchesCount: this.patches.size,
       targetZoom: this.currentTargetZoom,
@@ -178,6 +509,13 @@ export class ImageryLODManager {
       viewMode: this.viewMode,
       currentProgress: this.currentProgress,
       debugPatchBounds: this.debugPatchBounds,
+      visibleByZoom,
+      desiredZoom: this.currentTargetZoom,
+      readyHighResCount: readyHighRes,
+      totalDesiredHighResCount: totalDesiredHighRes,
+      requestedCount: this.desiredTileKeys.size,
+      readyCount: this.patches.size,
+      visibleCount,
     };
   }
 
@@ -266,13 +604,14 @@ export class ImageryLODManager {
 
   /**
    * Main per-frame update method called from scene render loop.
-   * Debounced and movement-thresholded to prevent high-frequency tracking churn.
+   * Debounced, movement-thresholded, and dwell-filtered.
    */
   public update(
     camera: THREE.Camera,
     dioramaRoot: THREE.Group,
     isXR: boolean = false,
-    routeProgress?: number
+    routeProgress?: number,
+    renderer?: THREE.WebGLRenderer
   ): void {
     if (this.isDisposed || !ENABLE_ADAPTIVE_IMAGERY_LOD) return;
 
@@ -295,7 +634,8 @@ export class ImageryLODManager {
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
-    // Smooth crossfade/fade-in animation tick for active patches (Stage S3)
+    // Smooth crossfade/fade-in animation tick for active patches (Stage S3 & U4 Section 42)
+    let anyFadeCompleted = false;
     for (const patch of this.patches.values()) {
       if (patch.isFading) {
         const elapsed = now - patch.creationTime;
@@ -305,57 +645,65 @@ export class ImageryLODManager {
         if (t >= 1.0) {
           mat.opacity = 1.0;
           mat.transparent = false;
+          mat.depthWrite = true;
           mat.needsUpdate = true;
           patch.isFading = false;
+          anyFadeCompleted = true;
         }
       }
+    }
+
+    if (anyFadeCompleted) {
+      this.updatePatchVisibility();
     }
 
     if (this.lastEvalTime !== 0 && now - this.lastEvalTime < this.EVAL_INTERVAL_MS) {
       return;
     }
 
-    const camPos = new THREE.Vector3();
-    camera.getWorldPosition(camPos);
-    const camDir = new THREE.Vector3();
-    camera.getWorldDirection(camDir);
+    const metrics = getViewMetrics(camera, renderer);
+    const camPos = metrics.worldPosition;
+    const camDir = metrics.forward;
     const dioramaScale = dioramaRoot.scale.x;
     const isFirstRun = this.lastEvalTime === 0;
 
+    const posDelta = camPos.distanceTo(this.lastCamPos);
+    const dirAngle = camDir.angleTo(this.lastCamDir);
+    const scaleRatio = Math.abs(dioramaScale - this.lastDioramaScale) / Math.max(this.lastDioramaScale, 0.001);
+
     if (this.viewMode === 'first-person') {
-      // Progress-based reevaluation threshold in 1:1 trail mode (Section 12)
       const totalDist = this.routeGeometry?.totalDistance || 10000;
       const progressDistMoved =
         this.lastEvalProgress < 0
           ? Infinity
           : Math.abs(this.currentProgress - this.lastEvalProgress) * totalDist;
-      const dirAngle = camDir.angleTo(this.lastCamDir);
 
       if (!isFirstRun && progressDistMoved < 50 && dirAngle < 0.25) {
-        return; // Position along trail hasn't shifted significantly (Section 12)
+        return;
       }
 
       this.lastEvalProgress = this.currentProgress;
     } else {
-      // Diorama tabletop movement threshold
-      const posDelta = camPos.distanceTo(this.lastCamPos);
-      const dirAngle = camDir.angleTo(this.lastCamDir);
-      const scaleRatio = Math.abs(dioramaScale - this.lastDioramaScale) / Math.max(this.lastDioramaScale, 0.001);
-
-      if (!isFirstRun && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
-        return; // Under movement threshold, view converged cleanly
+      const hasPendingPromotion = this.pendingPromoteZoom !== null;
+      if (!isFirstRun && !hasPendingPromotion && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
+        return;
       }
     }
+
+    const dioramaWorldPos = new THREE.Vector3();
+    dioramaRoot.getWorldPosition(dioramaWorldPos);
+    const dioramaPosDelta = dioramaWorldPos.distanceTo(this.lastDioramaWorldPos);
 
     this.lastEvalTime = now;
     this.lastCamPos.copy(camPos);
     this.lastCamDir.copy(camDir);
     this.lastDioramaScale = dioramaScale;
+    this.lastDioramaWorldPos.copy(dioramaWorldPos);
 
     if (this.viewMode === 'first-person') {
-      this.evaluateFirstPersonLOD(camera, dioramaRoot);
+      this.evaluateFirstPersonLOD(camera, dioramaRoot, renderer);
     } else {
-      this.evaluateLOD(camera, dioramaRoot);
+      this.evaluateLOD(camera, dioramaRoot, renderer, dioramaPosDelta, scaleRatio, isFirstRun);
     }
   }
 
@@ -429,7 +777,6 @@ export class ImageryLODManager {
       const satProvider = TextureProvider.getActiveSatelliteProvider();
       const labelProvider = TextureProvider.getReferenceOverlayProvider();
 
-      // Load base satellite tile and transparent label overlay concurrently (Req #6)
       const satPromise = TileImageCache.loadTile(satProvider, zoom, x, y, 4500, signal);
       const labelPromise = TileImageCache.loadTile(labelProvider, zoom, x, y, 3500, signal).catch(() => null);
 
@@ -449,7 +796,7 @@ export class ImageryLODManager {
             return canvas;
           }
         } catch {
-          // If canvas operations fail (e.g. headless/mocking limitations), fall back to satImg
+          // If canvas operations fail, fall back to satImg
         }
       }
 
@@ -460,36 +807,63 @@ export class ImageryLODManager {
     return TileImageCache.loadTile(provider, zoom, x, y, 4500, signal);
   }
 
-  private evaluateLOD(camera: THREE.Camera, dioramaRoot: THREE.Group): void {
+  private evaluateLOD(
+    camera: THREE.Camera,
+    dioramaRoot: THREE.Group,
+    renderer?: THREE.WebGLRenderer,
+    dioramaPosDelta: number = 0,
+    scaleRatio: number = 0,
+    isFirstRun: boolean = false
+  ): void {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
     this.providerMaxZoom = provider.maxZoom;
     const centerLat = this.options.terrainGeoBounds.centerLat;
 
-    // Estimate distance to diorama center in world space
+    // Estimate distance to diorama center in world space using accurate XR view metrics (Section 45)
+    const metrics = getViewMetrics(camera, renderer);
     const dioramaWorldPos = new THREE.Vector3();
     dioramaRoot.getWorldPosition(dioramaWorldPos);
-    const camWorldPos = new THREE.Vector3();
-    camera.getWorldPosition(camWorldPos);
-    const camDist = Math.max(camWorldPos.distanceTo(dioramaWorldPos), 0.2);
+    const camDist = Math.max(metrics.worldPosition.distanceTo(dioramaWorldPos), 0.2);
     const dioramaScale = dioramaRoot.scale.x;
 
-    const fov = (camera as THREE.PerspectiveCamera).fov || 60;
-    const vHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
-    const targetZoom = ImageryLODManager.calculateTargetZoom(
+    const rawTargetZoom = ImageryLODManager.calculateTargetZoom(
       camDist,
       dioramaScale,
       centerLat,
-      fov,
-      vHeight,
+      metrics.verticalFov,
+      metrics.viewportHeightPx,
       provider.maxZoom,
       this.currentTargetZoom
     );
 
-    this.calculatedDesiredZoom = targetZoom;
-    this.currentTargetZoom = targetZoom;
+    this.calculatedDesiredZoom = rawTargetZoom;
+
+    // Promotion dwell time (Section 46): require stable zoom for 500ms unless mountain moved significantly
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const dioramaMovedSignificantly = isFirstRun || dioramaPosDelta > 0.10 || scaleRatio > 0.15;
+
+    if (rawTargetZoom > this.currentTargetZoom) {
+      if (dioramaMovedSignificantly) {
+        this.currentTargetZoom = rawTargetZoom;
+        this.pendingPromoteZoom = null;
+      } else {
+        if (this.pendingPromoteZoom !== rawTargetZoom) {
+          this.pendingPromoteZoom = rawTargetZoom;
+          this.promoteCandidateSince = now;
+        } else if (now - this.promoteCandidateSince >= this.PROMOTION_DWELL_MS) {
+          this.currentTargetZoom = rawTargetZoom;
+          this.pendingPromoteZoom = null;
+        }
+      }
+    } else {
+      this.currentTargetZoom = rawTargetZoom;
+      this.pendingPromoteZoom = null;
+    }
+
+    const effectiveTargetZoom = this.currentTargetZoom;
 
     // Determine target center point on the diorama
-    const ray = new THREE.Ray(camWorldPos, this.lastCamDir);
+    const ray = new THREE.Ray(metrics.worldPosition, metrics.forward);
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dioramaWorldPos.y);
     const hit = new THREE.Vector3();
 
@@ -511,43 +885,30 @@ export class ImageryLODManager {
       }
     }
 
-    // Dynamic region-of-interest footprint calculation (Section 9)
-    const vWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const aspect = Math.max(0.5, Math.min(2.5, vWidth / vHeight));
-    const fovRad = degToRad(fov);
-    const halfVisibleH = (camDist * Math.tan(fovRad / 2)) / Math.max(dioramaScale, 0.000001);
-    const halfVisibleW = halfVisibleH * aspect;
-    const visibleRadiusLocalMeters = Math.hypot(halfVisibleW, halfVisibleH);
-
-    const tileSpanMeters = metersPerPixelAtZoom(targetGeo.lat, targetZoom) * 256;
-    const rawRadius = Math.ceil((visibleRadiusLocalMeters * 1.3) / Math.max(tileSpanMeters, 1));
-    const tileRadius = Math.max(1, Math.min(4, rawRadius));
-
-    const centerTile = latLonToTile(targetGeo.lat, targetGeo.lon, targetZoom);
-    const candidates = this.collectCandidateTiles(centerTile.x, centerTile.y, targetZoom, tileRadius);
-
-    // Filter candidate tiles that intersect actual terrain geographic bounds
-    const validCandidates = candidates.filter((tile) =>
-      ImageryLODManager.tileIntersectsBounds(tile.x, tile.y, targetZoom, this.options.terrainGeoBounds)
+    // Coherent refinement rings (Sections 38, 39, 62)
+    const candidates = computeCoherentLODTiles(
+      targetGeo.lat,
+      targetGeo.lon,
+      effectiveTargetZoom,
+      this.maxPatches,
+      this.options.terrainGeoBounds
     );
 
-    // Limit desired candidates to budget
-    const budgetedCandidates = validCandidates.slice(0, this.maxPatches);
-
-    // Reconcile desired tiles with in-flight and visible patches (Section 14 & 30)
-    this.reconcileDesiredTiles(budgetedCandidates, provider, targetZoom);
+    // Reconcile desired tiles with in-flight and visible patches (Section 14, 30, 40)
+    this.reconcileDesiredTiles(candidates, provider, effectiveTargetZoom);
   }
 
   /**
    * 1:1 trail mode imagery LOD profile (Section 11 & 12).
-   * Allocates high-detail inner zone around hiker, directional forward prefetch along trail,
-   * and medium-detail middle zone, conforming to natural 1x scale topography.
    */
-  private evaluateFirstPersonLOD(camera: THREE.Camera, dioramaRoot: THREE.Group): void {
+  private evaluateFirstPersonLOD(
+    camera: THREE.Camera,
+    dioramaRoot: THREE.Group,
+    renderer?: THREE.WebGLRenderer
+  ): void {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
     this.providerMaxZoom = provider.maxZoom;
 
-    // Highest available resolution in 1:1 trail mode: up to provider max (zoom 19 for Esri / Bing) (Stage T5)
     const innerZoom = Math.min(this.providerMaxZoom, 19);
     const midZoom = Math.max(13, innerZoom - 1);
     this.currentTargetZoom = innerZoom;
@@ -570,10 +931,8 @@ export class ImageryLODManager {
       forwardLat = forwardTelemetry.currentPoint.lat;
       forwardLon = forwardTelemetry.currentPoint.lon;
     } else {
-      // Fallback: estimate hiker location from camera ground projection
-      const camWorldPos = new THREE.Vector3();
-      camera.getWorldPosition(camWorldPos);
-      const ray = new THREE.Ray(camWorldPos, this.lastCamDir);
+      const metrics = getViewMetrics(camera, renderer);
+      const ray = new THREE.Ray(metrics.worldPosition, metrics.forward);
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dioramaRoot.position.y);
       const hit = new THREE.Vector3();
       if (ray.intersectPlane(plane, hit)) {
@@ -608,39 +967,33 @@ export class ImageryLODManager {
     const candidateMap = new Map<string, { x: number; y: number; zoom: number; dist: number }>();
 
     for (const c of innerCandidates) {
-      const key = `${this.currentTextureStyle}:${innerZoom}:${c.x}:${c.y}`;
+      const key = getTileKey(this.currentTextureStyle, innerZoom, c.x, c.y);
       if (!candidateMap.has(key)) {
         candidateMap.set(key, { ...c, zoom: innerZoom, dist: c.dist });
       }
     }
 
     for (const c of forwardCandidates) {
-      const key = `${this.currentTextureStyle}:${innerZoom}:${c.x}:${c.y}`;
+      const key = getTileKey(this.currentTextureStyle, innerZoom, c.x, c.y);
       if (!candidateMap.has(key)) {
-        // Forward prefetch tiles prioritized right after immediate inner tiles
         candidateMap.set(key, { ...c, zoom: innerZoom, dist: c.dist + 1.2 });
       }
     }
 
     for (const c of midCandidates) {
-      const key = `${this.currentTextureStyle}:${midZoom}:${c.x}:${c.y}`;
+      const key = getTileKey(this.currentTextureStyle, midZoom, c.x, c.y);
       if (!candidateMap.has(key)) {
         candidateMap.set(key, { ...c, zoom: midZoom, dist: c.dist + 4.0 });
       }
     }
 
-    // Filter candidate tiles that intersect actual terrain geographic bounds
     const validCandidates = Array.from(candidateMap.values()).filter((c) =>
       ImageryLODManager.tileIntersectsBounds(c.x, c.y, c.zoom, this.options.terrainGeoBounds)
     );
 
-    // Sort by priority (dist)
     validCandidates.sort((a, b) => a.dist - b.dist);
-
-    // Limit desired candidates to budget
     const budgetedCandidates = validCandidates.slice(0, this.maxPatches);
 
-    // Reconcile desired tiles
     this.reconcileDesiredTiles(budgetedCandidates, provider, innerZoom);
   }
 
@@ -651,7 +1004,7 @@ export class ImageryLODManager {
     radius: number
   ): { x: number; y: number; dist: number }[] {
     const list: { x: number; y: number; dist: number }[] = [];
-    const maxCoord = (2 ** zoom) - 1;
+    const maxCoord = 2 ** zoom - 1;
 
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -670,14 +1023,12 @@ export class ImageryLODManager {
       }
     }
 
-    // Sort priority: center tiles first, expanding outward (Section 30)
     list.sort((a, b) => a.dist - b.dist);
     return list;
   }
 
   /**
    * Reconciles desired candidate tiles against active and pending tiles.
-   * Cancels consumer subscriptions for obsolete requests without aborting useful shared work.
    */
   private reconcileDesiredTiles(
     candidates: { x: number; y: number; zoom?: number; dist: number }[],
@@ -690,7 +1041,7 @@ export class ImageryLODManager {
 
     for (const c of candidates) {
       const z = c.zoom ?? defaultZoom;
-      const key = `${this.currentTextureStyle}:${z}:${c.x}:${c.y}`;
+      const key = getTileKey(this.currentTextureStyle, z, c.x, c.y);
       newDesiredKeys.add(key);
       candidateMap.set(key, { ...c, zoom: z });
     }
@@ -732,11 +1083,80 @@ export class ImageryLODManager {
     // Priority sort: lowest distance from view center first
     this.requestQueue.sort((a, b) => a.dist - b.dist);
 
-    // 4. Drain queue up to concurrency limit
+    // 4. Update parent/child visibility
+    this.updatePatchVisibility();
+
+    // 5. Drain queue up to concurrency limit
     this.drainQueue(provider);
 
-    // 5. Prune expired or distant patches exceeding budget
+    // 6. Prune expired or distant patches exceeding budget
     this.prunePatches(newDesiredKeys);
+  }
+
+  /**
+   * Evaluates visibility for all ready patches according to explicit parent/child replacement rules (Sections 40, 41, 63):
+   * - A parent remains visible until ALL its required children in desiredTileKeys are ready.
+   * - Ready children remain hidden (visible = false) until ALL required sibling children are ready.
+   * - When all required children are ready:
+   *   - Children become visible.
+   *   - Parent becomes hidden (visible = false) once children are fully opaque (or immediately if fade is off).
+   * - Zooming out reverses this coherently.
+   */
+  public updatePatchVisibility(): void {
+    // 1. Group desired high-res children by their parent key
+    const requiredChildrenByParent = new Map<string, string[]>();
+
+    for (const key of this.desiredTileKeys) {
+      const parsed = parseTileKey(key);
+      const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      if (parentKey) {
+        let list = requiredChildrenByParent.get(parentKey);
+        if (!list) {
+          list = [];
+          requiredChildrenByParent.set(parentKey, list);
+        }
+        list.push(key);
+      }
+    }
+
+    // 2. Determine which parent keys have all required children ready
+    const parentFullyReplaced = new Set<string>();
+    const parentChildrenFading = new Set<string>();
+
+    for (const [parentKey, childKeys] of requiredChildrenByParent.entries()) {
+      const allReady = childKeys.every((cKey) => this.patches.has(cKey));
+      if (allReady) {
+        parentFullyReplaced.add(parentKey);
+        const isAnyFading = this.enableFadeIn && childKeys.some((cKey) => this.patches.get(cKey)!.isFading);
+        if (isAnyFading) {
+          parentChildrenFading.add(parentKey);
+        }
+      }
+    }
+
+    // 3. Set visibility on each ready patch
+    for (const [key, patch] of this.patches.entries()) {
+      const parsed = parseTileKey(key);
+      const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+
+      if (parentKey && requiredChildrenByParent.has(parentKey)) {
+        // Child patch: visible only when all sibling children are ready
+        const isReadyToDisplay = parentFullyReplaced.has(parentKey);
+        patch.mesh.visible = isReadyToDisplay;
+      } else if (requiredChildrenByParent.has(key)) {
+        // Parent patch whose children are in desiredTileKeys
+        if (parentFullyReplaced.has(key)) {
+          // If children are fading, parent remains visible underneath; otherwise hidden
+          patch.mesh.visible = parentChildrenFading.has(key);
+        } else {
+          // Children are NOT all ready yet -> parent remains sole visible owner!
+          patch.mesh.visible = true;
+        }
+      } else {
+        // Normal patch (e.g. outer ring or base tile)
+        patch.mesh.visible = this.desiredTileKeys.has(key);
+      }
+    }
   }
 
   /**
@@ -815,6 +1235,7 @@ export class ImageryLODManager {
     const fadeDurationMs = isXRActive ? 150 : 250;
     const isFading = this.enableFadeIn;
 
+    // Depth-write disabled during fade-in, opaque depth-write on completion (Section 42)
     const mat = new THREE.MeshStandardMaterial({
       map: texture,
       roughness: 0.85,
@@ -825,6 +1246,8 @@ export class ImageryLODManager {
       polygonOffsetUnits: -1.0,
       transparent: isFading,
       opacity: isFading ? 0.0 : 1.0,
+      depthTest: true,
+      depthWrite: !isFading,
     });
 
     const mesh = new THREE.Mesh(geo, mat);
@@ -868,6 +1291,9 @@ export class ImageryLODManager {
     this.patches.set(key, patch);
     this.patchesCreatedTotal++;
 
+    // Update parent/child visibility
+    this.updatePatchVisibility();
+
     // Enforce patch budget
     if (this.patches.size > this.maxPatches) {
       this.evictFurthestPatch();
@@ -879,7 +1305,8 @@ export class ImageryLODManager {
     const nw = tb.nw;
     const se = tb.se;
 
-    const segments = 12; // 12x12 grid per tile
+    // Dynamic patch subdivision scaling (Section 44)
+    const segments = getPatchSubdivisionSegments(zoom);
     const numVerts = (segments + 1) * (segments + 1);
 
     const positions = new Float32Array(numVerts * 3);
@@ -972,12 +1399,23 @@ export class ImageryLODManager {
     return line;
   }
 
+  private hasPendingChildren(parentKey: string): boolean {
+    const parsed = parseTileKey(parentKey);
+    const childKeys = getChildTileKeys(parsed.style, parsed.zoom, parsed.x, parsed.y);
+    const desiredChildKeys = childKeys.filter((k) => this.desiredTileKeys.has(k));
+    if (desiredChildKeys.length === 0) return false;
+    const allReady = desiredChildKeys.every((k) => this.patches.has(k));
+    return !allReady;
+  }
+
   private prunePatches(activeKeys: Set<string>): void {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const RETENTION_MS = 6000; // Keep inactive patches for 6s before disposing
 
     // Dispose patches that have expired and are no longer desired
     for (const [key, patch] of this.patches.entries()) {
+      if (this.hasPendingChildren(key)) continue;
+
       if (!activeKeys.has(key) && now - patch.lastUsed > RETENTION_MS) {
         patch.dispose();
         this.patches.delete(key);
@@ -991,7 +1429,7 @@ export class ImageryLODManager {
       let maxDist = -1;
 
       for (const [key, patch] of this.patches.entries()) {
-        if (!activeKeys.has(key) && patch.centerDist > maxDist) {
+        if (!activeKeys.has(key) && !this.hasPendingChildren(key) && patch.centerDist > maxDist) {
           maxDist = patch.centerDist;
           candidateKey = key;
         }
@@ -1000,7 +1438,7 @@ export class ImageryLODManager {
       // If all are currently active, evict furthest active patch
       if (!candidateKey) {
         for (const [key, patch] of this.patches.entries()) {
-          if (patch.centerDist > maxDist) {
+          if (!this.hasPendingChildren(key) && patch.centerDist > maxDist) {
             maxDist = patch.centerDist;
             candidateKey = key;
           }
@@ -1016,6 +1454,8 @@ export class ImageryLODManager {
         break;
       }
     }
+
+    this.updatePatchVisibility();
   }
 
   private evictFurthestPatch(): void {
@@ -1023,7 +1463,7 @@ export class ImageryLODManager {
     let maxDist = -1;
 
     for (const [key, patch] of this.patches.entries()) {
-      if (!this.desiredTileKeys.has(key) && patch.centerDist > maxDist) {
+      if (!this.desiredTileKeys.has(key) && !this.hasPendingChildren(key) && patch.centerDist > maxDist) {
         maxDist = patch.centerDist;
         furthestKey = key;
       }
@@ -1031,7 +1471,7 @@ export class ImageryLODManager {
 
     if (!furthestKey) {
       for (const [key, patch] of this.patches.entries()) {
-        if (patch.centerDist > maxDist) {
+        if (!this.hasPendingChildren(key) && patch.centerDist > maxDist) {
           maxDist = patch.centerDist;
           furthestKey = key;
         }
@@ -1044,6 +1484,7 @@ export class ImageryLODManager {
         patch.dispose();
         this.patches.delete(furthestKey);
         this.patchesDisposedTotal++;
+        this.updatePatchVisibility();
       }
     }
   }

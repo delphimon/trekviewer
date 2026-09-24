@@ -761,7 +761,8 @@ class TrekViewerApp {
         activeCamera,
         this.sceneManager.dioramaRoot,
         isPresenting,
-        currentProgress
+        currentProgress,
+        this.sceneManager.renderer
       );
       // Update waypoint marker scale compensation & billboard labels (Sections 21, 24, 25)
       this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta);
@@ -797,6 +798,14 @@ class TrekViewerApp {
         const hudUploadRate = this.spatialHUD ? this.spatialHUD.getUploadRate() : 0;
         const terrainQuality = this.activeTrek?.terrainResult?.terrainQuality || 'unknown';
 
+        const lodVisibleStr =
+          lodStats && lodStats.visibleByZoom.size > 0
+            ? Array.from(lodStats.visibleByZoom.entries())
+                .sort(([a], [b]) => b - a)
+                .map(([z, c]) => `Z${z}: ${c}`)
+                .join(', ')
+            : 'Base only';
+
         const telemetryData = {
           sha: __APP_BUILD_INFO__.shortSha,
           label: __APP_BUILD_INFO__.label,
@@ -816,8 +825,11 @@ class TrekViewerApp {
           lodCalcZoom: lodStats ? lodStats.calculatedDesiredZoom : 0,
           lodProviderMax: lodStats ? lodStats.providerMaxZoom : 0,
           lodPatches: lodStats ? lodStats.activePatchesCount : 0,
+          lodVisible: lodStats ? lodStats.visibleCount : 0,
           lodQueue: lodStats ? lodStats.requestQueueLength : 0,
           lodInFlight: lodStats ? lodStats.inFlightRequests : 0,
+          lodReadyHighRes: lodStats ? `${lodStats.readyHighResCount}/${lodStats.totalDesiredHighResCount}` : '0/0',
+          lodVisibleByZoom: lodStats ? Object.fromEntries(lodStats.visibleByZoom) : {},
           tileCacheMB: Number((tileStats.decodedBytes / (1024 * 1024)).toFixed(1)),
           hudUploadRate,
           terrainQuality,
@@ -825,14 +837,14 @@ class TrekViewerApp {
 
         console.log(`[TELEMETRY]`, telemetryData);
 
-        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38)
+        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38 & Section 47)
         const badge = document.getElementById('buildBadge');
         if (badge) {
           badge.innerHTML = `
             <div style="font-weight:bold;color:#38bdf8;">${__APP_BUILD_INFO__.shortSha} • ${isPresenting ? 'XR ON' : 'XR OFF'} • ${this.currentViewMode} • ${terrainQuality}</div>
             <div>Pos: [${telemetryData.dioramaPos.join(', ')}] Rot: ${telemetryData.dioramaRotY} S: ${telemetryData.dioramaScale}</div>
             <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, in-flight: ${telemetryData.tileCacheInFlight})</div>
-            <div>LOD: Z${telemetryData.lodZoom} (max Z${telemetryData.lodProviderMax}), ${telemetryData.lodPatches} patches (q:${telemetryData.lodQueue}, req:${telemetryData.lodInFlight}) | HUD: ${hudUploadRate}/s</div>
+            <div>LOD: ${lodVisibleStr} (Base: rem) | Desired: Z${lodStats?.desiredZoom ?? 0} | Ready: ${telemetryData.lodReadyHighRes} | Pend: ${telemetryData.lodInFlight}</div>
           `.trim();
         }
       }
