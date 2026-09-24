@@ -62,8 +62,10 @@ export class ElevationTileService {
       let numTilesX = tileXMax - tileXMin + 1;
       let numTilesY = tileYMax - tileYMin + 1;
 
-      if (numTilesX * numTilesY > 25) {
-        zoom = Math.max(10, zoom - 1);
+      const MAX_DEM_TILES = 25;
+      const MIN_DEM_ZOOM = 10;
+      while (numTilesX * numTilesY > MAX_DEM_TILES && zoom > MIN_DEM_ZOOM) {
+        zoom--;
         const minT = latLonToTile(maxLat, minLon, zoom);
         const maxT = latLonToTile(minLat, maxLon, zoom);
         tileXMin = Math.min(minT.x, maxT.x);
@@ -86,41 +88,49 @@ export class ElevationTileService {
       let loadedTiles = 0;
       let successCount = 0;
 
-      const tilePromises: Promise<void>[] = [];
-
+      // Bound DEM request concurrency to a 6-worker pool (Requirement #100)
+      const CONCURRENCY = 6;
+      const tileTasks: { tx: number; ty: number; tileIdx: number }[] = [];
       for (let ty = tileYMin; ty <= tileYMax; ty++) {
         for (let tx = tileXMin; tx <= tileXMax; tx++) {
           const tileIdx = (ty - tileYMin) * numTilesX + (tx - tileXMin);
-
-          const promise = (async () => {
-            if (signal?.aborted) return;
-            try {
-              const img = await TileImageCache.loadTile(
-                this.elevationProvider,
-                zoom,
-                tx,
-                ty,
-                4000,
-                signal
-              );
-              const dx = (tx - tileXMin) * TILE_SIZE;
-              const dy = (ty - tileYMin) * TILE_SIZE;
-              ctx.drawImage(img, dx, dy);
-              tileValidity[tileIdx] = 1;
-              successCount++;
-            } catch {
-              // Mark tile as invalid; no drawing occurs
-              tileValidity[tileIdx] = 0;
-            } finally {
-              loadedTiles++;
-              onProgress?.(loadedTiles, totalTiles);
-            }
-          })();
-          tilePromises.push(promise);
+          tileTasks.push({ tx, ty, tileIdx });
         }
       }
 
-      await Promise.all(tilePromises);
+      let nextTaskIdx = 0;
+      const worker = async () => {
+        while (nextTaskIdx < tileTasks.length) {
+          if (signal?.aborted) return;
+          const task = tileTasks[nextTaskIdx++];
+          try {
+            const img = await TileImageCache.loadTile(
+              this.elevationProvider,
+              zoom,
+              task.tx,
+              task.ty,
+              4000,
+              signal
+            );
+            if (signal?.aborted) return;
+            const dx = (task.tx - tileXMin) * TILE_SIZE;
+            const dy = (task.ty - tileYMin) * TILE_SIZE;
+            ctx.drawImage(img, dx, dy);
+            tileValidity[task.tileIdx] = 1;
+            successCount++;
+          } catch {
+            // Mark tile as invalid; no drawing occurs
+            tileValidity[task.tileIdx] = 0;
+          } finally {
+            loadedTiles++;
+            onProgress?.(loadedTiles, totalTiles);
+          }
+        }
+      };
+
+      const workerCount = Math.min(CONCURRENCY, tileTasks.length);
+      const workers = Array.from({ length: workerCount }, () => worker());
+      await Promise.all(workers);
 
       if (signal?.aborted || successCount === 0) {
         return null;
@@ -229,24 +239,39 @@ export class ElevationTileService {
     const e01 = grid.data[y1 * grid.width + x0];
     const e11 = grid.data[y1 * grid.width + x1];
 
-    if (isNaN(e00) || isNaN(e10) || isNaN(e01) || isNaN(e11)) {
-      // Find at least one valid corner
-      const valid = [e00, e10, e01, e11].filter((e) => !isNaN(e));
-      if (valid.length === 0) {
-        return { elevation: NaN, isValid: false };
-      }
-      return { elevation: valid[0], isValid: true };
-    }
-
     const fx = gx - x0;
     const fy = gy - y0;
 
-    const elevation =
-      e00 * (1 - fx) * (1 - fy) +
-      e10 * fx * (1 - fy) +
-      e01 * (1 - fx) * fy +
-      e11 * fx * fy;
+    const w00 = (1 - fx) * (1 - fy);
+    const w10 = fx * (1 - fy);
+    const w01 = (1 - fx) * fy;
+    const w11 = fx * fy;
 
+    let sumWeight = 0;
+    let sumElevation = 0;
+
+    if (!isNaN(e00) && isFinite(e00)) {
+      sumWeight += w00;
+      sumElevation += w00 * e00;
+    }
+    if (!isNaN(e10) && isFinite(e10)) {
+      sumWeight += w10;
+      sumElevation += w10 * e10;
+    }
+    if (!isNaN(e01) && isFinite(e01)) {
+      sumWeight += w01;
+      sumElevation += w01 * e01;
+    }
+    if (!isNaN(e11) && isFinite(e11)) {
+      sumWeight += w11;
+      sumElevation += w11 * e11;
+    }
+
+    if (sumWeight <= 1e-6) {
+      return { elevation: NaN, isValid: false };
+    }
+
+    const elevation = sumElevation / sumWeight;
     return { elevation, isValid: true };
   }
 

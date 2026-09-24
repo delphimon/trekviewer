@@ -211,6 +211,9 @@ export class TrailMesh {
     };
 
     const dispose = () => {
+      if (group.parent) {
+        group.parent.remove(group);
+      }
       disposeObject3D(group);
       dioramaGeo.dispose();
       firstPersonGeo.dispose();

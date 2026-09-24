@@ -1024,6 +1024,9 @@ export class SpatialHUD {
   }
 
   public dispose(): void {
+    if (this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
     disposeObject3D(this.group);
     this.texture.dispose();
     this.canvas.width = 1;

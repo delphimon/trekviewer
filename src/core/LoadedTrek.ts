@@ -112,6 +112,9 @@ export class LoadedTrek {
     this.imageryLOD.dispose();
 
     // 6. Release diorama plinth and waypoint markers
+    if (this.dioramaBase.parent) {
+      this.dioramaBase.parent.remove(this.dioramaBase);
+    }
     disposeObject3D(this.dioramaBase);
 
     // 7. Recursively dispose and clear container group

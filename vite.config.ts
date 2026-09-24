@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE N (XR frame-rate independence & performance)',
+      label: 'STAGE O (Terrain, cache, and memory robustness)',
     }),
   },
   plugins: [
