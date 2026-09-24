@@ -40,7 +40,7 @@ export class LoadedTrek {
     this.imageryLOD =
       params.imageryLOD ||
       new ImageryLODManager({
-        terrainGeoBounds: params.track.bounds,
+        terrainGeoBounds: params.terrainResult.terrainGeoBounds || params.track.bounds,
         terrainBaseElevation: params.terrainResult.terrainBaseElevation,
         elevationSampler: params.terrainResult.elevationSampler,
         verticalExaggeration: 1.0,

@@ -25,7 +25,7 @@ export interface XRInteractionCallbacks {
   onFocusHiker?: () => void;
   onScrub?: (fraction: number) => void;
   onScrubDistance?: (metersDelta: number) => void;
-  onSelectWaypoint?: (name: string) => void;
+  onSelectWaypoint?: (name: string, lat?: number, lon?: number) => void;
 }
 
 export interface ActiveGrab {
@@ -1156,7 +1156,7 @@ export class XRManager {
 
               if (isTriggerDown && !state.prevButtons[0]) {
                 this.triggerHaptic(controllerIdx, 0.8, 50);
-                this.callbacks.onSelectWaypoint?.(wp.name);
+                this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
               }
               return;
             }

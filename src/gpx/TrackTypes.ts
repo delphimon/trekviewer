@@ -81,7 +81,7 @@ export interface TrackStats {
   landmarks: GPXWaypoint[];
   warnings: string[];
   elevationProvenanceStats?: ElevationProvenanceStats;
-  timingType?: 'recorded' | 'estimated';
+  timingType?: 'recorded' | 'mixed' | 'estimated';
 }
 
 export type ViewMode = 'diorama' | 'first-person';

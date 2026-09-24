@@ -439,8 +439,8 @@ export class ImageryLODManager {
         const lon = nw.lon + u * (se.lon - nw.lon);
 
         const loc = geoToLocalMeters(lat, lon, 0, centerLat, centerLon, baseElevation);
-        const groundEle = this.options.elevationSampler(loc.x, loc.z);
-        const yPos = (groundEle - baseElevation) * this.verticalExaggeration + 0.04;
+        const groundLocalY = this.options.elevationSampler(loc.x, loc.z);
+        const yPos = groundLocalY * this.verticalExaggeration + 0.04;
 
         positions[vIdx * 3] = loc.x;
         positions[vIdx * 3 + 1] = yPos;
@@ -476,13 +476,12 @@ export class ImageryLODManager {
 
   private updatePatchGeometryHeights(geo: THREE.BufferGeometry): void {
     const pos = geo.getAttribute('position') as THREE.BufferAttribute;
-    const baseElevation = this.options.terrainBaseElevation;
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      const groundEle = this.options.elevationSampler(x, z);
-      const y = (groundEle - baseElevation) * this.verticalExaggeration + 0.04;
+      const groundLocalY = this.options.elevationSampler(x, z);
+      const y = groundLocalY * this.verticalExaggeration + 0.04;
       pos.setY(i, y);
     }
     pos.needsUpdate = true;

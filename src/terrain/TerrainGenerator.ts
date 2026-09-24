@@ -19,6 +19,7 @@ export interface TerrainResult {
   terrainMesh: THREE.Mesh;
   skirtMesh: THREE.Mesh;
   bounds: GeoBounds;
+  terrainGeoBounds: GeoBounds;
   terrainBaseElevation: number;
   terrainQuality: TerrainQuality;
   demGrid: ElevationGrid | null;
@@ -452,6 +453,7 @@ export class TerrainGenerator {
       terrainMesh,
       skirtMesh,
       bounds,
+      terrainGeoBounds,
       terrainBaseElevation,
       terrainQuality,
       demGrid,

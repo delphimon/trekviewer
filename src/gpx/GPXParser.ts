@@ -454,9 +454,18 @@ export class GPXParser {
       landmarks,
       warnings: Array.from(new Set(allWarnings)),
       elevationProvenanceStats,
-      timingType: validatedSegments.some((seg) => seg.some((p) => p.time !== undefined))
-        ? 'recorded'
-        : 'estimated',
+      timingType: (() => {
+        let totalPts = 0;
+        let timedPts = 0;
+        for (const seg of validatedSegments) {
+          for (const p of seg) {
+            totalPts++;
+            if (p.time !== undefined) timedPts++;
+          }
+        }
+        const ratio = totalPts > 0 ? timedPts / totalPts : 0;
+        return ratio >= 0.9 ? 'recorded' : ratio > 0 ? 'mixed' : 'estimated';
+      })(),
     };
   }
 
@@ -668,7 +677,7 @@ export class GPXParser {
         ele: start.ele,
         name: 'Start',
         desc: `Beginning of route at ${Math.round(start.ele)} m (${Math.round(start.ele * 3.28084)} ft)`,
-        sym: 'Trailhead',
+        sym: 'Start',
         type: 'start',
         isDerivedLandmark: true,
       });
@@ -693,8 +702,8 @@ export class GPXParser {
           ele: maxPt.ele,
           name: 'High Point',
           desc: `Maximum route elevation: ${Math.round(maxPt.ele)} m (${Math.round(maxPt.ele * 3.28084)} ft)`,
-          sym: 'Summit',
-          type: 'summit',
+          sym: 'HighPoint',
+          type: 'high_point',
           isDerivedLandmark: true,
         });
       } else {

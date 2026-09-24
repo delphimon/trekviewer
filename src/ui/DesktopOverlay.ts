@@ -151,8 +151,9 @@ export class DesktopOverlay {
     }
 
     const isRecorded = track.timingType === 'recorded';
-    const timeLabel = isRecorded ? 'RECORDED TIME' : 'EST. TIME';
-    const timeSub = isRecorded ? 'GPS Timestamps' : 'Estimated (Tobler)';
+    const isMixed = track.timingType === 'mixed';
+    const timeLabel = isRecorded ? 'RECORDED TIME' : isMixed ? 'MIXED TIME' : 'EST. TIME';
+    const timeSub = isRecorded ? 'GPS Timestamps' : isMixed ? 'Partial GPS + Tobler' : 'Estimated (Tobler)';
 
     this.statsGrid.innerHTML = `
       <div class="stat-item">
@@ -671,7 +672,7 @@ export class DesktopOverlay {
 
     // 1. Derived landmarks (Summit / High Point, Start, Finish, Day Boundaries)
     for (const lm of track.landmarks || []) {
-      if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+      if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
         addLandmark(lm);
       }
     }

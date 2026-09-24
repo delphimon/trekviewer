@@ -164,7 +164,7 @@ export class DioramaBase {
     pin.userData = { waypoint: wp };
 
     const color =
-      wp.type === 'summit'
+      wp.type === 'summit' || wp.type === 'high_point'
         ? 0xf59e0b
         : wp.type === 'start'
         ? 0x10b981
@@ -221,11 +221,13 @@ export class DioramaBase {
   private static createWaypointLabel(wp: GPXWaypoint, accentColor: number): THREE.Sprite | null {
     const isKeyLandmark = Boolean(
       wp.type === 'summit' ||
+      wp.type === 'high_point' ||
       wp.type === 'start' ||
       wp.type === 'finish' ||
       wp.type === 'day_boundary' ||
       wp.sym?.toLowerCase().includes('summit') ||
-      wp.sym?.toLowerCase().includes('trailhead')
+      wp.sym?.toLowerCase().includes('trailhead') ||
+      wp.sym?.toLowerCase().includes('highpoint')
     );
 
     if (typeof document === 'undefined') return null;
