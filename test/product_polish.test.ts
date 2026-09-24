@@ -366,9 +366,10 @@ describe('Stage Q: Product Polish, Landmarks, and Diagnostics', () => {
       firstChip.click();
 
       assert.ok(selectedWaypoint, 'Clicking landmark chip should invoke onSelectWaypoint');
-      assert.ok(selectedWaypoint.name.length > 0);
-      assert.ok(typeof selectedWaypoint.lat === 'number');
-      assert.ok(typeof selectedWaypoint.lon === 'number');
+      const wp = selectedWaypoint as { name: string; lat: number; lon: number };
+      assert.ok(wp.name.length > 0);
+      assert.ok(typeof wp.lat === 'number');
+      assert.ok(typeof wp.lon === 'number');
     });
   });
 
