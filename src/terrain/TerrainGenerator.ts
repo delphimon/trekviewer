@@ -24,6 +24,8 @@ export interface TerrainResult {
   terrainQuality: TerrainQuality;
   demGrid: ElevationGrid | null;
   elevationSampler: (x: number, z: number) => number;
+  sampleDEMY: (x: number, z: number) => number;
+  sampleRenderedSurfaceY: (localX: number, localZ: number) => number;
   setTextureStyle: (style: TextureStyle) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
   dispose: () => void;
@@ -152,8 +154,8 @@ export class TerrainGenerator {
       onProgress?.('Synthesizing alpine topography from GPS survey...', 0.55);
     }
 
-    // Adaptive resolution based on terrain physical extent and device
-    const { segX, segZ } = TextureBudget.getTerrainMeshResolution(maxExtent, isXR);
+    // Adaptive, aspect-aware resolution based on terrain physical extent and device (Section 18)
+    const { segX, segZ } = TextureBudget.getTerrainMeshResolution(widthM, depthM, isXR);
 
     const planeGeo = new THREE.PlaneGeometry(widthM, depthM, segX, segZ);
     planeGeo.rotateX(-Math.PI / 2);
@@ -448,6 +450,45 @@ export class TerrainGenerator {
       topoTexture.dispose();
     };
 
+    // Rendered-surface sampler using exact barycentric interpolation within actual rendered triangles (Section 10)
+    const sampleRenderedSurfaceY = (localX: number, localZ: number): number => {
+      // Clamp to terrain mesh boundaries
+      const halfW = widthM * 0.5;
+      const halfD = depthM * 0.5;
+      const clampedX = Math.max(-halfW, Math.min(halfW, localX));
+      const clampedZ = Math.max(-halfD, Math.min(halfD, localZ));
+
+      // Grid coordinate space [0, segX] and [0, segZ]
+      const gx = ((clampedX + halfW) / widthM) * segX;
+      const gz = ((clampedZ + halfD) / depthM) * segZ;
+
+      const ix = Math.min(segX - 1, Math.max(0, Math.floor(gx)));
+      const iz = Math.min(segZ - 1, Math.max(0, Math.floor(gz)));
+
+      const u = Math.max(0, Math.min(1, gx - ix));
+      const v = Math.max(0, Math.min(1, gz - iz));
+
+      const rowStride = segX + 1;
+      const idxTL = iz * rowStride + ix;
+      const idxTR = idxTL + 1;
+      const idxBL = (iz + 1) * rowStride + ix;
+      const idxBR = idxBL + 1;
+
+      const hTL = unscaledHeights[idxTL];
+      const hTR = unscaledHeights[idxTR];
+      const hBL = unscaledHeights[idxBL];
+      const hBR = unscaledHeights[idxBR];
+
+      // Exact Three.js PlaneGeometry triangle split: diagonal from BL(0,1) to TR(1,0)
+      if (u + v <= 1) {
+        // Triangle 1: TL(0,0), BL(0,1), TR(1,0)
+        return (1 - u - v) * hTL + v * hBL + u * hTR;
+      } else {
+        // Triangle 2: BL(0,1), BR(1,1), TR(1,0)
+        return (1 - u) * hBL + (u + v - 1) * hBR + (1 - v) * hTR;
+      }
+    };
+
     return {
       group,
       terrainMesh,
@@ -458,6 +499,8 @@ export class TerrainGenerator {
       terrainQuality,
       demGrid,
       elevationSampler: sampleHeightAt,
+      sampleDEMY: sampleHeightAt,
+      sampleRenderedSurfaceY,
       setTextureStyle,
       setVerticalExaggeration,
       dispose,

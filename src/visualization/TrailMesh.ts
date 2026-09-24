@@ -32,6 +32,8 @@ export class TrailMesh {
     const maxDim = Math.max(track.bounds.widthMeters, track.bounds.depthMeters);
     const scaleFactor = Math.max(1.0, maxDim / 4000);
     const ribbonHalfWidth = Math.max(3.5, Math.min(80.0, maxDim / 850));
+
+    // Display-space lift target: ~1-3mm above terrain in room space (Section 16)
     const dioramaElevationOffset = Math.max(2.5, 2.0 * scaleFactor);
 
     // Construct pure RouteGeometry (analytical and ground DEM coordinates without diorama offsets)
@@ -45,24 +47,21 @@ export class TrailMesh {
     const primaryCurve = routeGeometry.segments[0]?.curve ||
       new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(0, 0, -10)]);
 
-    // Total ribbon segments
-    const totalSegments = Math.min(track.points.length * 3, 2400);
-
-    // 1. Build Multi-Segment Flat Ribbon Geometry for Tabletop Diorama
+    // 1. Build Multi-Segment Flat Ribbon Geometry for Tabletop Diorama with 8m station spacing (Section 14)
     const { geometry: dioramaGeo, unscaledGroundY } = this.buildMultiSegmentRibbon(
       routeGeometry,
       ribbonHalfWidth,
-      totalSegments,
+      8.0,
       dioramaElevationOffset,
       initialExaggeration,
       elevationSampler
     );
 
-    // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.08m ground clearance) (Section 11)
+    // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.08m ground clearance) (Section 11, 16)
     const { geometry: firstPersonGeo } = this.buildMultiSegmentRibbon(
       routeGeometry,
       0.35,
-      totalSegments,
+      8.0,
       0.08,
       1.0,
       elevationSampler
@@ -171,6 +170,10 @@ export class TrailMesh {
       emissive: new THREE.Color(0x223344),
       emissiveIntensity: 0.6,
       side: THREE.DoubleSide,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -4.0,
     });
 
     const trailMesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(dioramaGeo, dioramaMat);
@@ -310,7 +313,7 @@ export class TrailMesh {
   private static buildMultiSegmentRibbon(
     routeGeometry: RouteGeometry,
     halfWidth: number,
-    totalSegments: number,
+    stepMeters: number = 8.0,
     verticalOffset: number = 0,
     verticalExaggeration: number = 1.0,
     elevationSampler?: (x: number, z: number) => number
@@ -326,7 +329,8 @@ export class TrailMesh {
 
     for (const segGeom of routeGeometry.segments) {
       const segCurve = segGeom.curve;
-      const segPointsCount = Math.max(8, Math.round((segGeom.segment.distance / routeGeometry.totalDistance) * totalSegments));
+      // Station count determined strictly by physical route distance (Section 14)
+      const segPointsCount = Math.max(8, Math.min(8000, Math.ceil(segGeom.segment.distance / stepMeters)));
       const segStartDist = segGeom.segment.points[0]?.distanceFromStart ?? 0;
       const segDistSpan = segGeom.segment.distance;
 
@@ -346,27 +350,33 @@ export class TrailMesh {
           perpZ = 0;
         }
 
-        // DENSE TERRAIN REPROJECTION (Sections 5, 6, 10):
-        // Query elevationSampler directly at the exact X/Z coordinates of the centerline point!
-        // Never use interpolated spline Y as final ground height.
-        let groundY = pt.y;
+        const leftX = pt.x - perpX * halfWidth;
+        const leftZ = pt.z - perpZ * halfWidth;
+        const rightX = pt.x + perpX * halfWidth;
+        const rightZ = pt.z + perpZ * halfWidth;
+
+        // Sample BOTH left and right edges independently at rendered terrain surface (Section 13)
+        let leftGroundY = pt.y;
+        let rightGroundY = pt.y;
         if (elevationSampler) {
-          const sampled = elevationSampler(pt.x, pt.z);
-          if (!isNaN(sampled)) {
-            groundY = sampled;
-          }
+          const sL = elevationSampler(leftX, leftZ);
+          if (!isNaN(sL)) leftGroundY = sL;
+          const sR = elevationSampler(rightX, rightZ);
+          if (!isNaN(sR)) rightGroundY = sR;
         }
-        const finalY = groundY * verticalExaggeration + verticalOffset;
+
+        const leftFinalY = leftGroundY * verticalExaggeration + verticalOffset;
+        const rightFinalY = rightGroundY * verticalExaggeration + verticalOffset;
 
         // Left vertex
-        allPositions.push(pt.x - perpX * halfWidth, finalY, pt.z - perpZ * halfWidth);
+        allPositions.push(leftX, leftFinalY, leftZ);
         allNormals.push(0, 1, 0);
-        unscaledGroundYList.push(groundY);
+        unscaledGroundYList.push(leftGroundY);
 
         // Right vertex
-        allPositions.push(pt.x + perpX * halfWidth, finalY, pt.z + perpZ * halfWidth);
+        allPositions.push(rightX, rightFinalY, rightZ);
         allNormals.push(0, 1, 0);
-        unscaledGroundYList.push(groundY);
+        unscaledGroundYList.push(rightGroundY);
 
         // Track progress
         const dist = segStartDist + t * segDistSpan;

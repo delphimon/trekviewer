@@ -122,6 +122,8 @@ function createMockTerrainResult(baseElevation: number = 1400): TerrainResult {
     terrainQuality: 'dem' as TerrainQuality,
     demGrid: null,
     elevationSampler,
+    sampleDEMY: elevationSampler,
+    sampleRenderedSurfaceY: elevationSampler,
     setTextureStyle: vi.fn(async (style) => {
       currentStyle = style;
     }),
