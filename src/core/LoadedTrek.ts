@@ -49,6 +49,7 @@ export class LoadedTrek {
         textureStyle: 'satellite',
         maxPatches: 36,
         enableInXR: true, // Stage S2: Enabled in XR on Quest with conservative limits!
+        terrainMesh: params.terrainResult.terrainMesh,
       });
 
     this.group = new THREE.Group();
