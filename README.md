@@ -69,18 +69,21 @@ This uses Meta's official `ovr-platform-util` CLI tool (`create-pwa-package`) to
 
 TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers** simultaneously with zero mode switching and clean input ownership.
 
-### Controller Ownership & Bare Hand Outline Suppression (Stage T1)
-- When physical **Touch Plus Controllers** are held or active, hand tracking outlines are automatically suppressed to eliminate visual jitter and visual clutter.
-- When controllers are put down, **Bare Hand Outlines** smoothly activate for optical finger tracking.
+### Diorama Tabletop Positioning & Invariance
+- **Natural Room-Space Anchoring**: The tabletop diorama anchors rigidly at natural table height (**82 cm above the floor, 80 cm in front of the user**) in room space.
+- **World-Locked Invariance**: Head rotation and physical walking through room space never move or recenter the diorama.
+- **Diorama Sizing**: Scaled to fit comfortably on any standard table (**1.0 m maximum width**, nominal **0.85 m** target table diameter).
+- **Proximity Envelope**: Intuitive **18 cm reach envelope** around the 3D model and pedestal gates gestures and displays proximity feedback.
 
 ### Bare Hands (Natural Optical Tracking)
 - **Two-Handed Pinch & Stretch**: Pinch thumb and index on both hands and pull apart to **zoom in / scale up**.
 - **Two-Handed Pinch & Squeeze**: Pinch both hands and move closer together to **zoom out / scale down**.
 - **Two-Handed Steering Wheel**: Pinch both hands and rotate around vertical axis to **rotate the mountain**.
 - **Two-Handed Dual Pan**: Pinch both hands and move through room space to **translate the diorama in 3D**.
-- **One-Handed Pinch & Drag**: Pinch with one hand to **reposition the mountain** anywhere in your room.
+- **One-Handed Pinch & Drag**: Pinch with one hand within the 18 cm envelope to **reposition the mountain** anywhere in your room.
 - **One-Handed Wrist Twist**: Pinch and twist your wrist to **adjust terrain heading**.
-- **Direct Fingertip Poke**: Touch buttons and scrubber on the floating 3D Spatial HUD directly with your index finger.
+- **Direct Fingertip Touch**: Touch waypoint markers directly with your fingertip (within **~3.5 cm touch radius**) or poke floating Spatial HUD buttons.
+- **Controller Ownership**: When Touch Plus Controllers are held, hand tracking outlines are automatically suppressed to eliminate visual jitter.
 
 ### Touch Plus Controllers
 - **Left Thumbstick**: Pan diorama across room (Tabletop) / Walk trail forward and backward (1:1 mode).
@@ -88,28 +91,29 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 - **Grip Button**: Grab and move terrain or HUD handle in room space.
 - **A / X Button**: Toggle between Tabletop Mixed Reality and 1:1 First-Person Trail immersion.
 - **B / Y Button**: Play / pause GPS speed-scaled flyover.
-- **Trigger**: Laser pointer selection for waypoints, HUD buttons, and route scrubbing.
+- **Trigger**: Laser pointer selection for waypoints (with generous **5.0 cm world hit radius** / 10 cm diameter), HUD buttons, and route scrubbing.
 
 ---
 
-## 🧭 Route Fidelity, Telemetry & Trail Colors (Stage T2 & T3)
+## 🧭 Route Fidelity, Telemetry & Direction Model (Stages T & U)
 
-- **Solid High-Contrast Route Default**: Trails render by default in high-contrast cyan (`#38bdf8`) for crystal-clear readability against alpine terrain, snowfields, and rock.
-- **2D Spatial X/Z Smoothing**: Trackpoints undergo moving-window spatial smoothing to eliminate GPS jitter and jagged zigzag lines without modifying raw GPX analytics.
-- **GPS Spike Suppression**: Unrealistic GPS jump anomalies (> 60 km/h) are automatically filtered out.
-- **Dense Terrain Reprojection**: Trail geometry is densely resampled every 4 meters and draped precisely over high-resolution elevation data with dynamic lift, preventing trail clipping inside mountain ridges.
-- **Spatially Smoothed Grade & Pace**: Telemetry values are smoothed over distance windows and categorized into 5 broad color bands with 60-meter run-length filtering to eliminate high-frequency visual speckling:
-  - **Grade Bands**: Gentle (0–6%), Moderate (6–15%), Steep (15–25%), Very Steep (25–40%), Extreme (40%+).
-  - **Pace Bands**: Slow (< 1.1 mph), Moderate (1.1–2.2 mph), Standard (2.2–3.3 mph), Brisk (3.3–4.5 mph), Fast (4.5+ mph).
+- **Default Iconic Trek**: **Mount Rainier via Emmons Glacier** (**24.3 km** round trip distance, **3,097 m** total elevation gain, summit elevation 4,392 m / 14,411 ft).
+- **Authoritative Forward Convention**: Canonical mathematical forward convention where $0\text{ rad} = -Z$ (North), $\pi/2 = +X$ (East), $\pi = +Z$ (South), and $3\pi/2 = -X$ (West).
+- **Hiker Heading Arrow**: 3D forward-pointing indicator oriented along the exact route tangent vector at the user's current progress point.
+- **1:1 Room-Space Alignment**: Headset forward vector in first-person mode aligns 1:1 with real-world trail azimuth. Walking forward in your room moves forward along the mountain trail.
+- **Unified Rendered Terrain Surface**: Trail ribbon vertices sample both left and right edges directly from the rendered terrain mesh triangle barycentric coordinates (`sampleRenderedSurfaceY`), preventing half-buried ribbon edges on steep slopes.
+- **Solid High-Contrast Route Default**: Trails render in high-contrast cyan (`#38bdf8`) with dense 4-meter resampling and dynamic lift.
+- **Spatially Smoothed Grade & Pace**: Telemetry values are smoothed over distance windows and categorized into 5 broad color bands with 60-meter run-length filtering.
 
 ---
 
-## 📍 Waypoint Marker Redesign & Landmark UX (Stage T4)
+## 📍 Waypoint Marker Redesign & Landmark UX (Stages T4 & U3)
 
-- **Compact Visual Markers & Scale Compensation**: Replaced oversized legacy markers with sleek diamond beacons (`~2.2 cm` apparent world size across all diorama scales from 0.1x to 10x).
-- **Invisible Laser Hit Targets**: A 24-meter radius invisible hit sphere surrounds each marker, enabling effortless Quest 3 laser pointing without requiring millimeter precision on the visual pin.
-- **Billboard Text Cards**: Waypoint labels default to hidden to prevent cluttering the diorama. Labels automatically appear on hover (0.8s exit timeout) or selection (4.0s display timeout). Labels maintain a fixed readable angular size (~10° FOV) from near and far.
-- **Spatial HUD Row 3 Navigation**:
+- **Exact Visual Route Coincidence**: Canonical projection (`projectGeoPointToVisualRoute`) snaps waypoints within 75m directly onto the rendered trail centerline, guaranteeing zero horizontal gap for on-route camps (e.g. Camp 3 at **0.000 m** horizontal delta).
+- **World-Scale Compensated Markers**: Sleek diamond beacons scale dynamically to maintain a consistent **~2.5 cm world diameter** across all diorama scales.
+- **Multi-Modal Interaction**: Select waypoints via direct index fingertip touch (**~3.5 cm touch radius**), bare-hand pinch hover, or controller laser pointing (**5.0 cm world hit radius**).
+- **Billboard Text Cards**: Waypoint labels maintain a fixed readable angular size (~10° FOV) with active selection highlighting and hover halos.
+- **Spatial HUD Landmark Navigation**:
   - `◀ Prev Landmark`: Jump progress to previous landmark along route.
   - `📍 Current Landmark`: Displays nearest landmark with elevation and distance.
   - `Next Landmark ▶`: Advance progress to next landmark along route.
@@ -120,11 +124,17 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 
 ---
 
-## 🛰️ Imagery Quality & Satellite Providers (Stage T5)
+## 🛰️ Imagery Quality, Coherent LOD & Source Transparency (Stages T5, U4, U5)
 
-- **Active XR Camera Tracking**: The per-frame animation loop passes the active WebXR camera (`renderer.xr.getCamera()`) to `ImageryLODManager`, correctly tracking true 6DOF head movement in room coordinates rather than stationary desktop camera offsets.
-- **Provider Max Resolution (Zoom 19)**: In 1:1 first-person trail mode, inner detail zones reach provider maximum resolution (zoom 19, sub-meter per pixel on Esri World Imagery and Bing Aerial).
-- **Crisp Texture Filtering**: Tile patches use trilinear mipmapping (`LinearMipmapLinearFilter`) and maximum hardware anisotropy (up to 16x) for razor-sharp textures even at oblique viewing angles.
+- **Coherent LOD & Dynamic Subdivision**:
+  - High-detail patches ($z \ge 18$) use **4x4 segments**, mid zoom ($z \ge 16$) use **6x6**, and base zoom use **8x8**, optimizing vertex throughput on Quest 3.
+  - Nested refinement rings: contiguous $3 \times 3$ center at $Z_{high}$ and outer perimeter at $Z_{mid}$, eliminating checkerboard holes.
+  - Atomic parent/child replacement: parent tiles remain visible until all 4 child tiles are ready; depthWrite-safe opacity crossfading prevents visual pop.
+  - 500ms promotion dwell time prevents rapid LOD thrashing during fast head turns.
+- **Explicit Awaited Initialization**: Eliminates asynchronous startup races by awaiting provider environment configuration before route loading begins.
+- **Truthful Sources & Cache Isolation**: Cesium Bing provider requests only Bing URLs; per-tile fallback to Esri is eliminated, ensuring cache keys (`cesium-bing:z:x:y`) never contain mixed Esri imagery.
+- **UI Source Transparency**: Desktop and Spatial HUD clearly report active imagery provider and fallback status (e.g. `Bing Aerial via Cesium • up to Z19` or `Esri World Imagery • up to Z19 (fallback: Cesium unavailable)`).
+- **Diagnostics (`?debug=1`)**: Telemetry and on-screen `#buildBadge` monitor requested provider, active provider, initialized state, fallback reason, LOD visible counts by zoom, and tile cache failure counts.
 - **Configurable Satellite Provider**:
   ```bash
   # In .env or build environment:
@@ -132,8 +142,10 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
   VITE_CESIUM_ION_TOKEN=your_token   # Optional: Cesium Ion token for Microsoft Bing Aerial
   ```
   - **`esri`**: Global high-resolution Esri World Imagery (default, no token required).
-  - **`cesium-bing`**: Microsoft Bing Maps Aerial via Cesium Ion. Gracefully falls back to Esri World Imagery if token is missing or network fails.
+  - **`cesium-bing`**: Microsoft Bing Maps Aerial via Cesium Ion. Falls back to Esri World Imagery globally if token is missing or network fails.
   - **`auto`**: Uses Bing Aerial if a valid Cesium token is configured, otherwise Esri World Imagery.
+
+For detailed hardware observations and engineering verification results, see the [Stage U Comprehensive Engineering Regression Report](docs/STAGE_U_REGRESSION_REPORT.md).
 
 ---
 
