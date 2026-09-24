@@ -289,6 +289,7 @@ export class TerrainGenerator {
     });
 
     const terrainMesh = new THREE.Mesh(planeGeo, terrainMat);
+    terrainMesh.name = 'BaseTerrainMesh';
     terrainMesh.castShadow = true;
     terrainMesh.receiveShadow = true;
 

@@ -48,6 +48,7 @@ export interface ImageryLODManagerOptions {
   enableInXR?: boolean;
   enableFadeIn?: boolean;
   debugPatchBounds?: boolean;
+  terrainMesh?: THREE.Mesh;
 }
 
 export interface ImageryLODDiagnostics {
@@ -257,66 +258,79 @@ export function computeCoherentLODTiles(
   const zMid = zHigh - 1;
   const centerTile = latLonToTile(centerLat, centerLon, zHigh);
 
-  // Helper to generate a candidate ring set for a given center grid radius
-  function tryRingConfiguration(gridRadius: number): CoherentTileCandidate[] | null {
-    const highTiles: CoherentTileCandidate[] = [];
-    const minDx = gridRadius === 0.5 ? 0 : -gridRadius;
-    const maxDx = gridRadius === 0.5 ? 1 : gridRadius;
-    const minDy = gridRadius === 0.5 ? 0 : -gridRadius;
-    const maxDy = gridRadius === 0.5 ? 1 : gridRadius;
+  const centerParentX = Math.floor(centerTile.x / 2);
+  const centerParentY = Math.floor(centerTile.y / 2);
 
+  // Helper to generate a candidate ring set for complete parent quadtree units (Stage V4.1)
+  function tryParentConfiguration(parentRadius: number): CoherentTileCandidate[] | null {
+    const parentSet = new Set<string>();
+    const parentList: { px: number; py: number }[] = [];
+
+    const addParent = (px: number, py: number) => {
+      const key = `${px},${py}`;
+      if (!parentSet.has(key)) {
+        parentSet.add(key);
+        parentList.push({ px, py });
+      }
+    };
+
+    if (parentRadius === 0) {
+      // 1 parent tile: 4 children at zHigh (2x2 complete child unit)
+      addParent(centerParentX, centerParentY);
+    } else if (parentRadius === 0.5) {
+      // 2x2 parent tiles (4 parents) -> 16 children at zHigh
+      const subX = centerTile.x % 2 === 0 ? -1 : 1;
+      const subY = centerTile.y % 2 === 0 ? -1 : 1;
+      const minPx = Math.min(centerParentX, centerParentX + subX);
+      const maxPx = Math.max(centerParentX, centerParentX + subX);
+      const minPy = Math.min(centerParentY, centerParentY + subY);
+      const maxPy = Math.max(centerParentY, centerParentY + subY);
+      for (let py = minPy; py <= maxPy; py++) {
+        for (let px = minPx; px <= maxPx; px++) {
+          addParent(px, py);
+        }
+      }
+    } else {
+      const r = Math.round(parentRadius);
+      for (let dpy = -r; dpy <= r; dpy++) {
+        for (let dpx = -r; dpx <= r; dpx++) {
+          addParent(centerParentX + dpx, centerParentY + dpy);
+        }
+      }
+    }
+
+    if (secondaryCenterGeo) {
+      const secCenterTile = latLonToTile(secondaryCenterGeo.lat, secondaryCenterGeo.lon, zHigh);
+      const secParentX = Math.floor(secCenterTile.x / 2);
+      const secParentY = Math.floor(secCenterTile.y / 2);
+      addParent(secParentX, secParentY);
+    }
+
+    // High-resolution tiles: all 4 children per parent (Stage V4.1)
+    const highTiles: CoherentTileCandidate[] = [];
     let pMinX = Infinity;
     let pMaxX = -Infinity;
     let pMinY = Infinity;
     let pMaxY = -Infinity;
 
-    // Collect primary center high-res tiles
-    for (let dy = minDy; dy <= maxDy; dy++) {
-      for (let dx = minDx; dx <= maxDx; dx++) {
-        const tx = centerTile.x + dx;
-        const ty = centerTile.y + dy;
-        if (ImageryLODManager.tileIntersectsBounds(tx, ty, zHigh, bounds)) {
-          highTiles.push({
-            x: tx,
-            y: ty,
-            zoom: zHigh,
-            dist: Math.hypot(dx, dy),
-            isHighRes: true,
-          });
-          const px = Math.floor(tx / 2);
-          const py = Math.floor(ty / 2);
-          if (px < pMinX) pMinX = px;
-          if (px > pMaxX) pMaxX = px;
-          if (py < pMinY) pMinY = py;
-          if (py > pMaxY) pMaxY = py;
-        }
-      }
-    }
+    for (const { px, py } of parentList) {
+      if (px < pMinX) pMinX = px;
+      if (px > pMaxX) pMaxX = px;
+      if (py < pMinY) pMinY = py;
+      if (py > pMaxY) pMaxY = py;
 
-    // Include secondary center if provided (e.g. forward prefetch in 1:1 trail mode)
-    if (secondaryCenterGeo) {
-      const secCenterTile = latLonToTile(secondaryCenterGeo.lat, secondaryCenterGeo.lon, zHigh);
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const tx = secCenterTile.x + dx;
-          const ty = secCenterTile.y + dy;
-          if (
-            ImageryLODManager.tileIntersectsBounds(tx, ty, zHigh, bounds) &&
-            !highTiles.some((t) => t.x === tx && t.y === ty)
-          ) {
+      for (let dy = 0; dy <= 1; dy++) {
+        for (let dx = 0; dx <= 1; dx++) {
+          const cx = px * 2 + dx;
+          const cy = py * 2 + dy;
+          if (ImageryLODManager.tileIntersectsBounds(cx, cy, zHigh, bounds)) {
             highTiles.push({
-              x: tx,
-              y: ty,
+              x: cx,
+              y: cy,
               zoom: zHigh,
-              dist: Math.hypot(dx, dy) + 1.2,
+              dist: Math.hypot(cx - centerTile.x, cy - centerTile.y),
               isHighRes: true,
             });
-            const px = Math.floor(tx / 2);
-            const py = Math.floor(ty / 2);
-            if (px < pMinX) pMinX = px;
-            if (px > pMaxX) pMaxX = px;
-            if (py < pMinY) pMinY = py;
-            if (py > pMaxY) pMaxY = py;
           }
         }
       }
@@ -324,12 +338,11 @@ export function computeCoherentLODTiles(
 
     if (highTiles.length === 0) return [];
 
-    // Outer coherent 1-tile ring at zMid surrounding the parent footprint
+    // Outer coherent perimeter ring at zMid surrounding the parent footprint
     const midTiles: CoherentTileCandidate[] = [];
     for (let py = pMinY - 1; py <= pMaxY + 1; py++) {
       for (let px = pMinX - 1; px <= pMaxX + 1; px++) {
-        // Exclude inner parent footprint
-        if (px >= pMinX && px <= pMaxX && py >= pMinY && py <= pMaxY) continue;
+        if (parentSet.has(`${px},${py}`)) continue;
         if (ImageryLODManager.tileIntersectsBounds(px, py, zMid, bounds)) {
           midTiles.push({
             x: px,
@@ -348,15 +361,15 @@ export function computeCoherentLODTiles(
     return null;
   }
 
-  // 1. Try 3x3 at zHigh + surrounding zMid ring (gridRadius = 1) (Section 39)
-  if (maxPatches >= 21) {
-    const config3x3 = tryRingConfiguration(1);
-    if (config3x3) return config3x3;
+  // 1. Try 2x2 parents (16 children at zHigh) if budget allows (e.g. maxPatches >= 28)
+  if (maxPatches >= 28) {
+    const config2x2 = tryParentConfiguration(0.5);
+    if (config2x2) return config2x2;
   }
 
-  // 2. If 3x3 exceeds budget, coherently shrink center to 2x2 (gridRadius = 0.5) (Section 38)
-  const config2x2 = tryRingConfiguration(0.5);
-  if (config2x2) return config2x2;
+  // 2. Try 1 parent (4 children at zHigh) + 8 surrounding zMid ring (total ~12 tiles)
+  const config1 = tryParentConfiguration(0);
+  if (config1) return config1;
 
   // 3. If even 2x2 exceeds budget, lower entire region coherently to zMid (Section 38)
   const midCenterTile = latLonToTile(centerLat, centerLon, zMid);
@@ -819,17 +832,80 @@ export class ImageryLODManager {
     this.providerMaxZoom = provider.maxZoom;
     const centerLat = this.options.terrainGeoBounds.centerLat;
 
-    // Estimate distance to diorama center in world space using accurate XR view metrics (Section 45)
     const metrics = getViewMetrics(camera, renderer);
     const dioramaWorldPos = new THREE.Vector3();
     dioramaRoot.getWorldPosition(dioramaWorldPos);
-    const camDist = Math.max(metrics.worldPosition.distanceTo(dioramaWorldPos), 0.2);
+    const dioramaWorldQuat = new THREE.Quaternion();
+    dioramaRoot.getWorldQuaternion(dioramaWorldQuat);
     const dioramaScale = dioramaRoot.scale.x;
+
+    // 1. Raycast actual rendered terrain surface from the active XR camera view (Stage V5.1)
+    const raycaster = new THREE.Raycaster(metrics.worldPosition, metrics.forward);
+    let hitWorldPos: THREE.Vector3 | null = null;
+
+    let terrainMesh = this.options.terrainMesh;
+    if (!terrainMesh) {
+      dioramaRoot.traverse((obj) => {
+        if (
+          !terrainMesh &&
+          (obj as THREE.Mesh).isMesh &&
+          !(obj as any).isLine &&
+          obj.name !== 'WaypointHaloMesh' &&
+          !obj.name.startsWith('ImageryPatch_')
+        ) {
+          const parentName = obj.parent?.name;
+          if (parentName === 'TerrainGroup' || obj.name === 'BaseTerrainMesh' || obj.name === 'TerrainMesh') {
+            terrainMesh = obj as THREE.Mesh;
+          }
+        }
+      });
+    }
+
+    if (terrainMesh) {
+      const hits = raycaster.intersectObject(terrainMesh, false);
+      if (hits.length > 0) {
+        hitWorldPos = hits[0].point;
+      }
+    }
+
+    if (!hitWorldPos) {
+      // Fallback: Plane transformed by the diorama's ACTUAL world transform (not fixed horizontal plane!) (Stage V5.1)
+      const dioramaPlaneNormal = new THREE.Vector3(0, 1, 0).applyQuaternion(dioramaWorldQuat).normalize();
+      const dioramaPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(dioramaPlaneNormal, dioramaWorldPos);
+      const planeHit = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(dioramaPlane, planeHit)) {
+        hitWorldPos = planeHit;
+      }
+    }
+
+    // Determine target geographic center point from the terrain hit
+    let targetGeo = { lat: centerLat, lon: this.options.terrainGeoBounds.centerLon };
+    if (hitWorldPos) {
+      const localHit = hitWorldPos.clone();
+      dioramaRoot.worldToLocal(localHit);
+
+      const halfW = (this.options.terrainGeoBounds.widthMeters * 1.5) / 2;
+      const halfD = (this.options.terrainGeoBounds.depthMeters * 1.5) / 2;
+      if (Math.abs(localHit.x) <= halfW && Math.abs(localHit.z) <= halfD) {
+        targetGeo = localMetersToGeo(
+          localHit.x,
+          localHit.z,
+          centerLat,
+          this.options.terrainGeoBounds.centerLon
+        );
+      }
+    }
+
+    // 2. Compute LOD resolution using viewed-region geometry (Stage V5.2)
+    // Distance from active camera to actual viewed terrain hit (or diorama center if missed)
+    const camDist = hitWorldPos
+      ? Math.max(metrics.worldPosition.distanceTo(hitWorldPos), 0.2)
+      : Math.max(metrics.worldPosition.distanceTo(dioramaWorldPos), 0.2);
 
     const rawTargetZoom = ImageryLODManager.calculateTargetZoom(
       camDist,
       dioramaScale,
-      centerLat,
+      targetGeo.lat,
       metrics.verticalFov,
       metrics.viewportHeightPx,
       provider.maxZoom,
@@ -861,29 +937,6 @@ export class ImageryLODManager {
     }
 
     const effectiveTargetZoom = this.currentTargetZoom;
-
-    // Determine target center point on the diorama
-    const ray = new THREE.Ray(metrics.worldPosition, metrics.forward);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dioramaWorldPos.y);
-    const hit = new THREE.Vector3();
-
-    let targetGeo = { lat: centerLat, lon: this.options.terrainGeoBounds.centerLon };
-
-    if (ray.intersectPlane(plane, hit)) {
-      const localHit = hit.clone();
-      dioramaRoot.worldToLocal(localHit);
-
-      const halfW = (this.options.terrainGeoBounds.widthMeters * 1.5) / 2;
-      const halfD = (this.options.terrainGeoBounds.depthMeters * 1.5) / 2;
-      if (Math.abs(localHit.x) <= halfW && Math.abs(localHit.z) <= halfD) {
-        targetGeo = localMetersToGeo(
-          localHit.x,
-          localHit.z,
-          centerLat,
-          this.options.terrainGeoBounds.centerLon
-        );
-      }
-    }
 
     // Coherent refinement rings (Sections 38, 39, 62)
     const candidates = computeCoherentLODTiles(
@@ -1103,58 +1156,66 @@ export class ImageryLODManager {
    * - Zooming out reverses this coherently.
    */
   public updatePatchVisibility(): void {
-    // 1. Group desired high-res children by their parent key
-    const requiredChildrenByParent = new Map<string, string[]>();
-
-    for (const key of this.desiredTileKeys) {
-      const parsed = parseTileKey(key);
-      const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
-      if (parentKey) {
-        let list = requiredChildrenByParent.get(parentKey);
-        if (!list) {
-          list = [];
-          requiredChildrenByParent.set(parentKey, list);
-        }
-        list.push(key);
-      }
-    }
-
-    // 2. Determine which parent keys have all required children ready
+    // 1. Determine which loaded parents are being refined to children
+    // A parent is replaced IF AND ONLY IF:
+    // (a) Its children are desired
+    // (b) ALL 4 quadtree children are ready in this.patches (Stage V4.1, V4.3)
     const parentFullyReplaced = new Set<string>();
     const parentChildrenFading = new Set<string>();
 
-    for (const [parentKey, childKeys] of requiredChildrenByParent.entries()) {
-      const allReady = childKeys.every((cKey) => this.patches.has(cKey));
-      if (allReady) {
-        parentFullyReplaced.add(parentKey);
-        const isAnyFading = this.enableFadeIn && childKeys.some((cKey) => this.patches.get(cKey)!.isFading);
-        if (isAnyFading) {
-          parentChildrenFading.add(parentKey);
+    for (const [key] of this.patches.entries()) {
+      const parsed = parseTileKey(key);
+      const all4Children = getChildTileKeys(
+        parsed.style,
+        parsed.zoom,
+        parsed.x,
+        parsed.y
+      );
+
+      // Check if any child is desired
+      const anyChildDesired = all4Children.some((cKey) => this.desiredTileKeys.has(cKey));
+      if (anyChildDesired) {
+        const all4Ready = all4Children.every((cKey) => this.patches.has(cKey));
+        if (all4Ready) {
+          parentFullyReplaced.add(key);
+          const isAnyFading =
+            this.enableFadeIn && all4Children.some((cKey) => this.patches.get(cKey)!.isFading);
+          if (isAnyFading) {
+            parentChildrenFading.add(key);
+          }
         }
       }
     }
 
-    // 3. Set visibility on each ready patch
+    // 2. Set visibility on each loaded patch (Stage V4.2, V4.3)
     for (const [key, patch] of this.patches.entries()) {
       const parsed = parseTileKey(key);
       const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
 
-      if (parentKey && requiredChildrenByParent.has(parentKey)) {
-        // Child patch: visible only when all sibling children are ready
-        const isReadyToDisplay = parentFullyReplaced.has(parentKey);
-        patch.mesh.visible = isReadyToDisplay;
-      } else if (requiredChildrenByParent.has(key)) {
-        // Parent patch whose children are in desiredTileKeys
-        if (parentFullyReplaced.has(key)) {
-          // If children are fading, parent remains visible underneath; otherwise hidden
-          patch.mesh.visible = parentChildrenFading.has(key);
+      if (parentKey && this.patches.has(parentKey)) {
+        // This patch has a parent currently loaded in memory.
+        if (parentFullyReplaced.has(parentKey)) {
+          // Parent is fully replaced by all 4 children!
+          // But is THIS patch itself replaced by its own children?
+          if (parentFullyReplaced.has(key)) {
+            patch.mesh.visible = parentChildrenFading.has(key);
+          } else {
+            patch.mesh.visible = true;
+          }
         } else {
-          // Children are NOT all ready yet -> parent remains sole visible owner!
-          patch.mesh.visible = true;
+          // Parent is NOT fully replaced (0/4, 1/4, 2/4, 3/4 children ready).
+          // To prevent holes, parent remains the visible surface and ready children stay hidden!
+          patch.mesh.visible = false;
         }
       } else {
-        // Normal patch (e.g. outer ring or base tile)
-        patch.mesh.visible = this.desiredTileKeys.has(key);
+        // This patch has NO loaded parent in memory.
+        // It is the coarsest representation available for this area.
+        if (parentFullyReplaced.has(key)) {
+          // It is fully replaced by all 4 of its children
+          patch.mesh.visible = parentChildrenFading.has(key);
+        } else {
+          patch.mesh.visible = true;
+        }
       }
     }
   }
