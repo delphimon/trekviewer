@@ -166,6 +166,7 @@ class TrekViewerApp {
       },
       onSetTextureStyle: (style) => this.setTextureStyle(style),
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
+      onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
     });
 
     // 5. Transactional Route Loader (Stage F & G)
@@ -219,6 +220,8 @@ class TrekViewerApp {
       if (state.verticalExaggeration !== prev.verticalExaggeration) {
         this.activeTrek?.setVerticalExaggeration(state.verticalExaggeration);
         this.xrManager.setVerticalExaggeration(state.verticalExaggeration);
+        this.overlay.setVerticalExaggeration(state.verticalExaggeration);
+        this.spatialHUD?.setVerticalExaggeration(state.verticalExaggeration);
       }
       if (state.attribution !== prev.attribution || state.terrainQuality !== prev.terrainQuality) {
         this.overlay.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats);
@@ -299,7 +302,9 @@ class TrekViewerApp {
     this.overlay.setTextureStyle(state.textureStyle);
     this.overlay.setTrailColorMode(state.trailColorMode);
     this.overlay.setPlaybackSpeed(state.playbackSpeed);
+    this.overlay.setVerticalExaggeration(state.verticalExaggeration);
     this.overlay.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats);
+    this.spatialHUD?.setVerticalExaggeration(state.verticalExaggeration);
     this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats);
   }
 
@@ -347,6 +352,7 @@ class TrekViewerApp {
             : 'solid';
         this.setTrailColorMode(next);
       },
+      onSetVerticalExaggeration: (factor) => this.session.setVerticalExaggeration(factor),
       onReset: () => this.resetPosition(),
       onExitMR: () => this.exitMR(),
       onScrub: (progress) => {
@@ -444,8 +450,9 @@ class TrekViewerApp {
       s.isPlaying,
       s.viewMode,
       s.textureStyle,
-      undefined,
-      s.trailColorMode
+      s.playbackSpeed,
+      s.trailColorMode,
+      s.verticalExaggeration
     );
   }
 
@@ -619,6 +626,9 @@ class TrekViewerApp {
       this.spatialHUD.group.position.copy(this.sceneManager.camera.position).add(forward);
       this.spatialHUD.group.quaternion.copy(this.sceneManager.camera.quaternion);
     }
+
+    // Flush any throttled HUD updates when due
+    this.spatialHUD?.update();
 
     // 5. Render Scene
     this.sceneManager.render();

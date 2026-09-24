@@ -99,7 +99,7 @@ export class FlyoverController {
    * Steps forward/backward by a duration scaled to the trek's total time.
    */
   public stepSeconds(seconds: number): void {
-    const timeDelta = seconds * (this.totalPlaybackSeconds / this.baseDurationSeconds) * this.playbackSpeed;
+    const timeDelta = seconds * this.playbackSpeed;
     const newTime = Math.max(0, Math.min(this.totalPlaybackSeconds, this.playbackTime + timeDelta));
     this.playbackTime = newTime;
     this.progress = this.timeToProgress(newTime);
@@ -127,8 +127,8 @@ export class FlyoverController {
     isWebXRPresenting: boolean = false
   ): void {
     if (this.isPlaying) {
-      // Advance simulated GPS playback time proportionally to actual speed & duration
-      const simRate = (this.totalPlaybackSeconds / this.baseDurationSeconds) * this.playbackSpeed;
+      // True temporal multiplier: 1x = 1 real second per trek second (e.g. 20x advances 20 trek seconds per second)
+      const simRate = this.playbackSpeed;
       this.playbackTime += deltaSeconds * simRate;
 
       if (this.playbackTime >= this.totalPlaybackSeconds) {

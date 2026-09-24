@@ -81,6 +81,7 @@ export interface TrackStats {
   landmarks: GPXWaypoint[];
   warnings: string[];
   elevationProvenanceStats?: ElevationProvenanceStats;
+  timingType?: 'recorded' | 'estimated';
 }
 
 export type ViewMode = 'diorama' | 'first-person' | 'flyover';

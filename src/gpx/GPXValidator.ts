@@ -45,7 +45,7 @@ export class GPXValidator {
 
     // 2. Extremely large tracks warning (> 20,000 points)
     if (rawPoints.length > 20000) {
-      warnings.push(`Extremely dense survey (${rawPoints.length.toLocaleString()} points). Decimating for Quest rendering efficiency.`);
+      warnings.push(`High point count (${rawPoints.length.toLocaleString()} points). Rendering full-fidelity track.`);
     }
 
     // 3. Coordinate validation and sanitization

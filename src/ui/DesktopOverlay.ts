@@ -11,6 +11,7 @@ export interface OverlayCallbacks {
   onScrub: (progress: number) => void;
   onSetTextureStyle: (style: TextureStyle) => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
+  onSetVerticalExaggeration?: (val: number) => void;
 }
 
 export class DesktopOverlay {
@@ -23,6 +24,11 @@ export class DesktopOverlay {
   private viewMode: ViewMode = 'diorama';
   private textureStyle: TextureStyle = 'satellite';
   private trailColorMode: TrailColorMode = 'grade';
+  private verticalExaggeration: number = 1.0;
+
+  // Cached elevation profile for high-performance scrubbing
+  private cachedElevationSamples: { elevation: number; distance: number }[] = [];
+  private staticChartCanvas: HTMLCanvasElement | null = null;
 
   // DOM elements
   private statsTitle!: HTMLElement;
@@ -124,7 +130,11 @@ export class DesktopOverlay {
   public updateTrack(track: TrackStats): void {
     this.currentTrack = track;
     this.statsTitle.textContent = track.name;
-    this.statsSubtitle.textContent = `High Point: ${Math.round(track.maxElevation)} m (${Math.round(track.maxElevation * 3.28084)} ft) • Total Vert: +${Math.round(track.elevationGain)} m`;
+
+    const warningsPill = (track.warnings && track.warnings.length > 0)
+      ? ` <span class="data-quality-pill" title="${track.warnings.join(' • ')}" style="display:inline-block;padding:2px 8px;font-size:11px;background:rgba(245,158,11,0.2);color:#f59e0b;border:1px solid rgba(245,158,11,0.4);border-radius:12px;margin-left:6px;cursor:help;">⚠ Data Notes (${track.warnings.length})</span>`
+      : '';
+    this.statsSubtitle.innerHTML = `High Point: ${Math.round(track.maxElevation)} m (${Math.round(track.maxElevation * 3.28084)} ft) • Total Vert: +${Math.round(track.elevationGain)} m${warningsPill}`;
 
     const distKm = (track.totalDistance / 1000).toFixed(1);
     const distMi = (track.totalDistance * 0.000621371).toFixed(1);
@@ -138,6 +148,10 @@ export class DesktopOverlay {
       const mins = Math.floor((track.movingTime % 3600) / 60);
       timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
     }
+
+    const isRecorded = track.timingType === 'recorded';
+    const timeLabel = isRecorded ? 'RECORDED TIME' : 'EST. TIME';
+    const timeSub = isRecorded ? 'GPS Timestamps' : 'Estimated (Tobler)';
 
     this.statsGrid.innerHTML = `
       <div class="stat-item">
@@ -156,14 +170,63 @@ export class DesktopOverlay {
         <span class="stat-sub">-${lossM.toLocaleString()} m</span>
       </div>
       <div class="stat-item">
-        <span class="stat-label">EST. TIME</span>
+        <span class="stat-label">${timeLabel}</span>
         <span class="stat-value">${timeStr}</span>
-        <span class="stat-sub">Moving Time</span>
+        <span class="stat-sub">${timeSub}</span>
       </div>
     `;
 
-    this.drawElevationChart();
+    // Cache elevation profile once per track change
+    this.cachedElevationSamples = GPXParser.sampleElevationProfile(track.points, 180);
+    this.renderStaticChartBackground();
     this.updateScrubber(0, track.points[0]?.ele || track.minElevation);
+  }
+
+  private renderStaticChartBackground(): void {
+    if (!this.currentTrack || this.cachedElevationSamples.length < 2) return;
+    const w = this.canvasChart.width;
+    const h = this.canvasChart.height;
+
+    if (!this.staticChartCanvas) {
+      this.staticChartCanvas = document.createElement('canvas');
+    }
+    this.staticChartCanvas.width = w;
+    this.staticChartCanvas.height = h;
+
+    const ctx = this.staticChartCanvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const samples = this.cachedElevationSamples;
+    const minE = this.currentTrack.minElevation;
+    const maxE = this.currentTrack.maxElevation;
+    const spanE = Math.max(maxE - minE, 10);
+
+    // Profile Line
+    ctx.beginPath();
+    for (let i = 0; i < samples.length; i++) {
+      const s = samples[i];
+      const px = (i / (samples.length - 1)) * w;
+      const py = h - 6 - ((s.elevation - minE) / spanE) * (h - 16);
+
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+
+    // Gradient fill under curve
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+    grad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
   }
 
   public updateScrubber(progress: number, currentElevation: number): void {
@@ -198,37 +261,9 @@ export class DesktopOverlay {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    const samples = GPXParser.sampleElevationProfile(this.currentTrack.points, 180);
-    if (samples.length < 2) return;
-
-    const minE = this.currentTrack.minElevation;
-    const maxE = this.currentTrack.maxElevation;
-    const spanE = Math.max(maxE - minE, 10);
-
-    // Profile Line
-    ctx.beginPath();
-    for (let i = 0; i < samples.length; i++) {
-      const s = samples[i];
-      const px = (i / (samples.length - 1)) * w;
-      const py = h - 6 - ((s.elevation - minE) / spanE) * (h - 16);
-
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    if (this.staticChartCanvas) {
+      ctx.drawImage(this.staticChartCanvas, 0, 0);
     }
-
-    // Gradient fill under curve
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-    grad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
 
     // Progress scrub line
     const scrubX = this.currentProgress * w;
@@ -305,6 +340,14 @@ export class DesktopOverlay {
               <button id="btnColorSpeed" class="btn btn-sm">🏃 Pace</button>
               <button id="btnColorEle" class="btn btn-sm">📈 Altitude</button>
             </div>
+
+            <h3>Vertical Exaggeration</h3>
+            <div class="btn-group" id="groupExag">
+              <button class="btn btn-sm btn-exag btn-active" data-exag="1">1.0x</button>
+              <button class="btn btn-sm btn-exag" data-exag="1.5">1.5x</button>
+              <button class="btn btn-sm btn-exag" data-exag="2">2.0x</button>
+              <button class="btn btn-sm btn-exag" data-exag="3">3.0x</button>
+            </div>
           </div>
 
           <!-- Meta Quest 3 Controller Help -->
@@ -380,11 +423,18 @@ export class DesktopOverlay {
       if (selected) this.callbacks.onSelectRoute(selected);
     });
 
-    // File Upload
+    // File Upload (with 25 MB pre-read guard)
+    const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
     const fileInput = document.getElementById('gpxUploadInput') as HTMLInputElement;
     fileInput.addEventListener('change', (e) => {
       const file = fileInput.files?.[0];
       if (file) {
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          const mb = (file.size / (1024 * 1024)).toFixed(1);
+          this.showStatus(`File "${file.name}" exceeds 25 MB limit (${mb} MB).`, true);
+          fileInput.value = '';
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (evt) => {
           const content = evt.target?.result as string;
@@ -396,12 +446,17 @@ export class DesktopOverlay {
       }
     });
 
-    // Drag and Drop GPX onto window
+    // Drag and Drop GPX onto window (with 25 MB pre-read guard)
     window.addEventListener('dragover', (e) => e.preventDefault());
     window.addEventListener('drop', (e) => {
       e.preventDefault();
       const file = e.dataTransfer?.files[0];
       if (file && file.name.toLowerCase().endsWith('.gpx')) {
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          const mb = (file.size / (1024 * 1024)).toFixed(1);
+          this.showStatus(`File "${file.name}" exceeds 25 MB limit (${mb} MB).`, true);
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (evt) => {
           const content = evt.target?.result as string;
@@ -500,6 +555,24 @@ export class DesktopOverlay {
       clearColActive();
       btnColEle.classList.add('btn-active');
       this.callbacks.onSetTrailColorMode('elevation');
+    });
+
+    // Vertical Exaggeration Buttons
+    document.querySelectorAll('.btn-exag').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-exag').forEach((b) => b.classList.remove('btn-active'));
+        btn.classList.add('btn-active');
+        const factor = parseFloat(btn.getAttribute('data-exag') || '1');
+        this.callbacks.onSetVerticalExaggeration?.(factor);
+      });
+    });
+  }
+
+  public setVerticalExaggeration(factor: number): void {
+    this.verticalExaggeration = factor;
+    document.querySelectorAll('.btn-exag').forEach((btn) => {
+      const f = parseFloat(btn.getAttribute('data-exag') || '1');
+      btn.classList.toggle('btn-active', Math.abs(f - factor) < 0.05);
     });
   }
 

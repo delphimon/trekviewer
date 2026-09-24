@@ -454,6 +454,9 @@ export class GPXParser {
       landmarks,
       warnings: Array.from(new Set(allWarnings)),
       elevationProvenanceStats,
+      timingType: validatedSegments.some((seg) => seg.some((p) => p.time !== undefined))
+        ? 'recorded'
+        : 'estimated',
     };
   }
 
