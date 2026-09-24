@@ -263,6 +263,7 @@ class TrekViewerApp {
   }
 
   private async initRoutes(): Promise<void> {
+    await TextureProvider.waitForInitialization();
     try {
       const resp = await fetch(resolveAssetUrl('/routes/manifest.json'));
       if (resp.ok) {
@@ -821,6 +822,7 @@ class TrekViewerApp {
           gpuTextures: memInfo.memory.textures,
           tileCacheCount: tileStats.entries,
           tileCacheInFlight: tileStats.inFlight,
+          tileCacheFailures: tileStats.failureCount,
           lodZoom: lodStats ? lodStats.targetZoom : 0,
           lodCalcZoom: lodStats ? lodStats.calculatedDesiredZoom : 0,
           lodProviderMax: lodStats ? lodStats.providerMaxZoom : 0,
@@ -833,18 +835,26 @@ class TrekViewerApp {
           tileCacheMB: Number((tileStats.decodedBytes / (1024 * 1024)).toFixed(1)),
           hudUploadRate,
           terrainQuality,
+          imageryRequestedProvider: TextureProvider.getProviderInitState().requestedProvider,
+          imageryActiveProvider: TextureProvider.getProviderInitState().activeProvider,
+          imageryInitialized: TextureProvider.getProviderInitState().initialized,
+          imageryFallbackReason: TextureProvider.getProviderInitState().fallbackReason ?? null,
+          lodProvider: TextureProvider.getActiveSatelliteProvider().id,
         };
 
         console.log(`[TELEMETRY]`, telemetryData);
 
-        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38 & Section 47)
+        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38 & Section 47 & Section 53)
         const badge = document.getElementById('buildBadge');
         if (badge) {
+          const pState = TextureProvider.getProviderInitState();
+          const fallbackStr = pState.fallbackReason ? ` (fallback: ${pState.fallbackReason})` : '';
           badge.innerHTML = `
             <div style="font-weight:bold;color:#38bdf8;">${__APP_BUILD_INFO__.shortSha} • ${isPresenting ? 'XR ON' : 'XR OFF'} • ${this.currentViewMode} • ${terrainQuality}</div>
             <div>Pos: [${telemetryData.dioramaPos.join(', ')}] Rot: ${telemetryData.dioramaRotY} S: ${telemetryData.dioramaScale}</div>
-            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, in-flight: ${telemetryData.tileCacheInFlight})</div>
+            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, in-flight: ${telemetryData.tileCacheInFlight}, fails: ${tileStats.failureCount})</div>
             <div>LOD: ${lodVisibleStr} (Base: rem) | Desired: Z${lodStats?.desiredZoom ?? 0} | Ready: ${telemetryData.lodReadyHighRes} | Pend: ${telemetryData.lodInFlight}</div>
+            <div>Imagery: ${pState.activeProvider} (req: ${pState.requestedProvider}, init: ${pState.initialized}${fallbackStr})</div>
           `.trim();
         }
       }
@@ -860,8 +870,9 @@ class TrekViewerApp {
   }
 }
 
-// Initialize on DOM load
-window.addEventListener('DOMContentLoaded', () => {
+// Initialize on DOM load with explicit provider environment resolution (Section 48)
+window.addEventListener('DOMContentLoaded', async () => {
+  await TextureProvider.initializeFromEnvironment();
   new TrekViewerApp();
 });
 

@@ -82,8 +82,6 @@ export class CesiumBingImageryProvider implements ImageryProvider {
       const sub = this.metadata.subdomains[(x + y) % this.metadata.subdomains.length];
       urls.push(this.metadata.urlTemplate.replace('{subdomain}', sub).replace('{quadkey}', qk));
     }
-    // Fallback to Esri World Imagery
-    urls.push(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`);
     return urls;
   }
 }

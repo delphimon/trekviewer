@@ -21,6 +21,16 @@ export interface TileGridBounds {
   numTilesY: number;
 }
 
+export interface ProviderInitState {
+  requestedProvider: 'auto' | 'esri' | 'cesium-bing';
+  activeProvider: string; // e.g. 'cesium-bing' or 'esri-satellite'
+  initialized: boolean;
+  fallbackReason?: string;
+  displayName: string;
+  maxZoom: number;
+  attribution: string;
+}
+
 export class TextureProvider {
   private static esriSatelliteProvider = new EsriWorldImageryProvider();
   private static usgsTopoProvider = new USGSTopoProvider();
@@ -28,6 +38,10 @@ export class TextureProvider {
   private static cesiumProvider: CesiumBingImageryProvider | null = null;
   private static activeSatelliteProvider: ImageryProvider = TextureProvider.esriSatelliteProvider;
   private static maxAnisotropy: number = 4; // Bounded default for non-WebGL/test environments
+
+  private static initialized: boolean = false;
+  private static fallbackReason: string | undefined = undefined;
+  private static initPromise: Promise<boolean> | null = null;
 
   public static readonly UPLOAD_THROTTLE_MS: number = 600; // Req #26: Throttle whole-route composite canvas uploads (500-1000ms)
   public static readonly TILE_BATCH_THRESHOLD: number = 8; // Req #26: Or every N tiles, whichever happens first
@@ -74,6 +88,54 @@ export class TextureProvider {
   }
 
   /**
+   * Explicitly initializes the satellite imagery provider from environment settings (Section 48).
+   * Awaited before any route loading to eliminate the unawaited asynchronous race.
+   */
+  public static async initializeFromEnvironment(): Promise<boolean> {
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    const providerSetting = this.getEnvProviderSetting();
+    const token = this.getEnvToken();
+    this.initPromise = this.setSatelliteProvider(providerSetting, token);
+    return this.initPromise;
+  }
+
+  /**
+   * Ensures provider initialization has completed before route tiles are requested.
+   */
+  public static async waitForInitialization(): Promise<void> {
+    await this.initializeFromEnvironment();
+  }
+
+  /**
+   * Returns the current provider initialization and fallback state (Section 49).
+   */
+  public static getProviderInitState(): ProviderInitState {
+    return {
+      requestedProvider: this.satelliteProviderSetting,
+      activeProvider: this.activeSatelliteProvider.id,
+      initialized: this.initialized,
+      fallbackReason: this.fallbackReason,
+      displayName: this.activeSatelliteProvider.displayName,
+      maxZoom: this.activeSatelliteProvider.maxZoom,
+      attribution: this.activeSatelliteProvider.attribution,
+    };
+  }
+
+  /**
+   * Resets provider configuration and state (useful for deterministic unit tests).
+   */
+  public static resetForTesting(): void {
+    this.satelliteProviderSetting = 'auto';
+    this.activeSatelliteProvider = this.esriSatelliteProvider;
+    this.cesiumProvider = null;
+    this.initialized = false;
+    this.fallbackReason = undefined;
+    this.initPromise = null;
+  }
+
+  /**
    * Sets or switches the active satellite imagery provider at runtime (Sections 32, 33).
    * Supports 'auto' (Bing if valid token, else Esri), 'esri' (explicit), or 'cesium-bing'.
    * Gracefully falls back to Esri World Imagery if Cesium fails or token is missing.
@@ -86,15 +148,22 @@ export class TextureProvider {
 
     if (providerType === 'esri') {
       this.activeSatelliteProvider = this.esriSatelliteProvider;
+      this.fallbackReason = undefined;
+      this.initialized = true;
       return true;
     }
 
-    const resolvedToken = token || this.getEnvToken();
+    const resolvedToken = token !== undefined ? token : this.getEnvToken();
     if (!resolvedToken || resolvedToken.trim().length <= 10) {
       if (providerType === 'cesium-bing') {
         console.warn('[TextureProvider] Cesium Bing provider requested but no valid Cesium Ion token found. Falling back to Esri World Imagery.');
+        this.fallbackReason = 'Missing or invalid Cesium ion token';
+      } else {
+        // 'auto' mode without token defaults cleanly to Esri without error
+        this.fallbackReason = undefined;
       }
       this.activeSatelliteProvider = this.esriSatelliteProvider;
+      this.initialized = true;
       return false;
     }
 
@@ -103,23 +172,23 @@ export class TextureProvider {
       const success = await this.cesiumProvider.init();
       if (success) {
         this.activeSatelliteProvider = this.cesiumProvider;
+        this.fallbackReason = undefined;
+        this.initialized = true;
         return true;
       } else {
         console.warn('[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to Esri World Imagery.');
+        this.fallbackReason = 'Cesium unavailable';
         this.activeSatelliteProvider = this.esriSatelliteProvider;
+        this.initialized = true;
         return false;
       }
     } catch (err) {
       console.warn('[TextureProvider] Error initializing Cesium provider:', err);
+      this.fallbackReason = 'Cesium unavailable';
       this.activeSatelliteProvider = this.esriSatelliteProvider;
+      this.initialized = true;
       return false;
     }
-  }
-
-  static {
-    const providerSetting = this.getEnvProviderSetting();
-    const token = this.getEnvToken();
-    this.setSatelliteProvider(providerSetting, token).catch(() => {});
   }
 
   public static getActiveSatelliteProvider(): ImageryProvider {
@@ -142,13 +211,22 @@ export class TextureProvider {
   }
 
   public static getAttributionForStyle(style: string): string {
+    const fallbackSuffix = this.fallbackReason ? ` (fallback: ${this.fallbackReason})` : '';
     switch (style) {
       case 'satellite':
-        return this.activeSatelliteProvider.attribution;
+        if (this.activeSatelliteProvider.id === 'cesium-bing') {
+          return `Bing Aerial via Cesium • up to Z${this.activeSatelliteProvider.maxZoom}`;
+        } else {
+          return `Esri World Imagery • up to Z${this.activeSatelliteProvider.maxZoom}${fallbackSuffix}`;
+        }
       case 'hybrid':
-        return `${this.activeSatelliteProvider.attribution} | ${this.referenceOverlayProvider.attribution}`;
+        if (this.activeSatelliteProvider.id === 'cesium-bing') {
+          return `Bing Aerial via Cesium • up to Z${this.activeSatelliteProvider.maxZoom} | ${this.referenceOverlayProvider.attribution}`;
+        } else {
+          return `Esri World Imagery • up to Z${this.activeSatelliteProvider.maxZoom}${fallbackSuffix} | ${this.referenceOverlayProvider.attribution}`;
+        }
       case 'topo':
-        return this.usgsTopoProvider.attribution;
+        return `${this.usgsTopoProvider.displayName} • up to Z${this.usgsTopoProvider.maxZoom}`;
       default:
         return 'Map data: Esri, USGS, AWS Open Data';
     }
