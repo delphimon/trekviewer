@@ -14,6 +14,7 @@ export interface VisualRouteStation {
   groundY: number;
   forwardX: number;
   forwardZ: number;
+  segmentIndex?: number;
 }
 
 const _v1 = new THREE.Vector3();
@@ -303,7 +304,8 @@ export function generateVisualRouteStations(
   curve: THREE.CatmullRomCurve3,
   elevationSampler?: (x: number, z: number) => number,
   stepMeters: number = 8.0,
-  lookaheadMeters: number = 10.0
+  lookaheadMeters: number = 10.0,
+  segmentIndex?: number
 ): VisualRouteStation[] {
   const stations: VisualRouteStation[] = [];
   const segPoints = segment.points;
@@ -323,6 +325,7 @@ export function generateVisualRouteStations(
       groundY: isNaN(groundY) ? 0 : groundY,
       forwardX: 0,
       forwardZ: -1,
+      segmentIndex,
     });
     return stations;
   }
@@ -368,6 +371,7 @@ export function generateVisualRouteStations(
       groundY: isNaN(groundY) ? 0 : groundY,
       forwardX: fx,
       forwardZ: fz,
+      segmentIndex,
     });
   }
 

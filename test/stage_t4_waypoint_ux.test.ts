@@ -120,7 +120,7 @@ describe('Stage T4: Waypoint Marker Redesign & Landmark UX', () => {
       expect(label.visible).toBe(false);
     });
 
-    it('compensates marker local scale across diorama zoom levels to maintain ~2.2cm apparent size (Section 21)', () => {
+    it('compensates marker local scale across diorama zoom levels to maintain ~2.5cm actual geometry bounds (Section 21, 29)', () => {
       const diorama = DioramaBase.create(mockBounds, -80, sampleWaypoints, 1650, undefined, 1.0);
       const wpGroup = diorama.getObjectByName('Waypoints') as THREE.Group;
       const camera = new THREE.PerspectiveCamera(60, 1.0, 0.1, 100);
@@ -128,18 +128,24 @@ describe('Stage T4: Waypoint Marker Redesign & Landmark UX', () => {
 
       const testScales = [0.1, 0.5, 1.0, 2.5, 5.0];
       for (const dScale of testScales) {
+        diorama.scale.setScalar(dScale);
+        diorama.updateMatrixWorld(true);
         DioramaBase.updateWaypoints(diorama, camera, dScale, 0.016);
+        diorama.updateMatrixWorld(true);
         for (const child of wpGroup.children) {
           const pin = child as THREE.Group;
-          const apparentWorldSize = pin.scale.x * dScale;
-          // Target apparent world size is ~0.022m (between 0.015m and 0.03m)
-          expect(apparentWorldSize).toBeGreaterThanOrEqual(0.015);
-          expect(apparentWorldSize).toBeLessThanOrEqual(0.03);
+          const diamond = pin.getObjectByName('WaypointPinMesh') as THREE.Mesh;
+          const box = new THREE.Box3().setFromObject(diamond);
+          const size = box.getSize(new THREE.Vector3());
+          const actualDiameter = Math.max(size.x, size.y, size.z);
+          // Target apparent world size is ~0.025m (between 0.02m and 0.04m) (Section 29)
+          expect(actualDiameter).toBeGreaterThanOrEqual(0.02);
+          expect(actualDiameter).toBeLessThanOrEqual(0.04);
         }
       }
     });
 
-    it('handles hover and select lifecycle with timeouts and automatic hide (Section 27)', () => {
+    it('handles hover and select lifecycle with timeouts and automatic hide (Sections 27, 35)', () => {
       const diorama = DioramaBase.create(mockBounds, -80, sampleWaypoints, 1650, undefined, 1.0);
       const wpGroup = diorama.getObjectByName('Waypoints') as THREE.Group;
       const camera = new THREE.PerspectiveCamera(60, 1.0, 0.1, 100);
@@ -168,19 +174,19 @@ describe('Stage T4: Waypoint Marker Redesign & Landmark UX', () => {
       DioramaBase.updateWaypoints(diorama, camera, 1.0, 0.4);
       expect(label0.visible).toBe(false);
 
-      // 4. Select pin by name: sets 4.0s timeout and shows label
+      // 4. Select pin by name: sets 12.0s timeout and shows label (Section 35)
       DioramaBase.selectWaypointByName(diorama, 'Camp Muir');
       const muirPin = wpGroup.children.find((c) => c.userData.waypoint.name === 'Camp Muir') as THREE.Group;
       const muirLabel = muirPin.getObjectByName('WaypointLabelSprite') as THREE.Sprite;
       expect(muirLabel.visible).toBe(true);
-      expect(muirPin.userData.selectTimeout).toBe(4.0);
+      expect(muirPin.userData.selectTimeout).toBe(12.0);
 
-      // Advance 3.0s: still visible
-      DioramaBase.updateWaypoints(diorama, camera, 1.0, 3.0);
+      // Advance 10.0s: still visible
+      DioramaBase.updateWaypoints(diorama, camera, 1.0, 10.0);
       expect(muirLabel.visible).toBe(true);
 
-      // Advance another 1.2s: expires (4.2s > 4.0s) -> hidden
-      DioramaBase.updateWaypoints(diorama, camera, 1.0, 1.2);
+      // Advance another 2.5s: expires (12.5s > 12.0s) -> hidden
+      DioramaBase.updateWaypoints(diorama, camera, 1.0, 2.5);
       expect(muirLabel.visible).toBe(false);
     });
   });

@@ -2,8 +2,15 @@ import * as THREE from 'three';
 import { GeoBounds, GPXWaypoint } from '../gpx/TrackTypes';
 import { geoToLocalMeters } from '../gpx/Coordinates';
 
+export const BASE_MARKER_DIAMETER_LOCAL = 12.0; // OctahedronGeometry(6, 0) bounding diameter = 12 units
+export const DESIRED_MARKER_DIAMETER_WORLD = 0.025; // 2.5 cm world diameter (Section 29)
+export const DESIRED_LASER_HIT_RADIUS_WORLD = 0.05; // 5.0 cm world radius (10 cm diameter) for controller raycast (Section 30)
+export const ON_ROUTE_THRESHOLD_METERS = 75.0; // 50-100m threshold to snap waypoint to visual route (Section 26)
+
 const _scratchCamPos = new THREE.Vector3();
 const _scratchLabelPos = new THREE.Vector3();
+const _scratchWorldScale = new THREE.Vector3();
+const _scratchPinWorldScale = new THREE.Vector3();
 
 export class DioramaBase {
   /**
@@ -58,7 +65,7 @@ export class DioramaBase {
     scaleBar.position.set(-widthM / 2 + 60, baseY + 2, depthM / 2 + 30);
     group.add(scaleBar);
 
-    // Waypoint Markers (Sections 20-27)
+    // Waypoint Markers (Sections 20-36)
     if (waypoints.length > 0) {
       const wpGroup = new THREE.Group();
       wpGroup.name = 'Waypoints';
@@ -71,15 +78,38 @@ export class DioramaBase {
           bounds.centerLon,
           baseElevation
         );
+        let finalX = loc.x;
+        let finalZ = loc.z;
         let baseYPos = loc.y;
-        if (elevationSampler) {
-          const sampleY = elevationSampler(loc.x, loc.z);
-          if (!isNaN(sampleY)) {
-            baseYPos = sampleY;
+
+        const proj = wp.projection;
+        const isOnRoute = Boolean(proj && proj.offRouteDistanceMeters <= ON_ROUTE_THRESHOLD_METERS);
+
+        if (isOnRoute && proj) {
+          // Snapped directly to visual route line segment (Section 26)
+          finalX = proj.visualPosition.x;
+          finalZ = proj.visualPosition.z;
+          baseYPos = proj.visualPosition.y;
+        } else {
+          // Genuinely off-route: true geographic position (Section 27)
+          if (elevationSampler) {
+            const sampleY = elevationSampler(loc.x, loc.z);
+            if (!isNaN(sampleY)) {
+              baseYPos = sampleY;
+            }
           }
         }
-        const distanceMeters = (wp as any).distanceMeters;
-        const marker = this.createWaypointPin(wp, distanceMeters);
+
+        const distanceMeters = (wp as any).distanceMeters ?? proj?.routeDistanceMeters;
+        const marker = this.createWaypointPin(
+          wp,
+          distanceMeters,
+          isOnRoute,
+          proj,
+          loc,
+          baseYPos,
+          initialExaggeration
+        );
         marker.userData = {
           waypoint: wp,
           baseY: baseYPos,
@@ -87,8 +117,11 @@ export class DioramaBase {
           selectTimeout: 0,
           isHovered: false,
           isSelected: false,
+          isOnRoute,
+          projection: proj,
+          rawLocalPos: loc,
         };
-        marker.position.set(loc.x, baseYPos * initialExaggeration + 8, loc.z);
+        marker.position.set(finalX, baseYPos * initialExaggeration + 8, finalZ);
         wpGroup.add(marker);
       }
       group.add(wpGroup);
@@ -166,7 +199,15 @@ export class DioramaBase {
     return group;
   }
 
-  private static createWaypointPin(wp: GPXWaypoint, distanceMeters?: number): THREE.Group {
+  private static createWaypointPin(
+    wp: GPXWaypoint,
+    distanceMeters?: number,
+    isOnRoute: boolean = true,
+    proj?: import('./RouteGeometry').RouteProjectionResult,
+    rawLocal?: { x: number; y: number; z: number },
+    baseYPos: number = 0,
+    initialExaggeration: number = 1.0
+  ): THREE.Group {
     const pin = new THREE.Group();
     pin.name = `Waypoint_${wp.name}`;
     pin.userData = {
@@ -175,6 +216,8 @@ export class DioramaBase {
       selectTimeout: 0,
       isHovered: false,
       isSelected: false,
+      isOnRoute,
+      projection: proj,
     };
 
     const color =
@@ -188,8 +231,9 @@ export class DioramaBase {
         ? 0x8b5cf6
         : 0x38bdf8;
 
-    // Visual Marker (Unobtrusive Diamond, Apparent Size ~2.2 cm) (Sections 21, 26)
+    // Visual Marker (Unobtrusive Diamond, Apparent World Diameter ~2.5 cm) (Sections 21, 29)
     const octGeo = new THREE.OctahedronGeometry(6, 0);
+    octGeo.computeBoundingBox();
     const octMat = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
@@ -220,11 +264,27 @@ export class DioramaBase {
       opacity: 0.7,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.name = 'WaypointRingMesh';
     ring.userData = { waypoint: wp };
     ring.position.y = 0.5;
     pin.add(ring);
 
-    // Invisible Interaction Hit Target Sphere (~5 cm apparent diameter) (Section 26)
+    // Bright luminous halo ring around diamond (shown on hover/select) (Section 32)
+    const haloGeo = new THREE.RingGeometry(8, 12, 24);
+    haloGeo.rotateX(-Math.PI / 2);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.name = 'WaypointHaloMesh';
+    halo.position.y = 12;
+    halo.visible = false;
+    pin.add(halo);
+
+    // Invisible Interaction Hit Target Sphere (~5 cm world radius / 10 cm world diameter) (Section 30)
     const hitGeo = new THREE.SphereGeometry(24, 12, 12);
     const hitMat = new THREE.MeshBasicMaterial({
       visible: false,
@@ -238,8 +298,30 @@ export class DioramaBase {
     hitTarget.userData = { waypoint: wp, parentPin: pin };
     pin.add(hitTarget);
 
-    // Billboard Text Label (Hidden by default, shown on hover/select) (Sections 22, 23, 24)
-    const label = this.createWaypointLabel(wp, color, distanceMeters);
+    // Subtle connector line for genuinely off-route waypoints (Section 27)
+    if (!isOnRoute && proj && rawLocal) {
+      const connPoints = [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(
+          proj.visualPosition.x - rawLocal.x,
+          (proj.visualPosition.y - baseYPos) * initialExaggeration,
+          proj.visualPosition.z - rawLocal.z
+        ),
+      ];
+      const connGeo = new THREE.BufferGeometry().setFromPoints(connPoints);
+      const connMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.65,
+      });
+      const connLine = new THREE.Line(connGeo, connMat);
+      connLine.name = 'WaypointConnectorLine';
+      connLine.visible = false;
+      pin.add(connLine);
+    }
+
+    // Billboard Text Label (Hidden by default, shown on hover/select) (Sections 22, 23, 24, 33)
+    const label = this.createWaypointLabel(wp, color, distanceMeters, isOnRoute, proj?.offRouteDistanceMeters);
     if (label) {
       pin.add(label);
     }
@@ -250,7 +332,9 @@ export class DioramaBase {
   private static createWaypointLabel(
     wp: GPXWaypoint,
     accentColor: number,
-    distanceMeters?: number
+    distanceMeters?: number,
+    isOnRoute: boolean = true,
+    offRouteDistanceMeters?: number
   ): THREE.Sprite | null {
     if (typeof document === 'undefined') return null;
 
@@ -284,7 +368,7 @@ export class DioramaBase {
     if (nameText.length > 22) nameText = nameText.substring(0, 20) + '…';
     ctx.fillText(nameText, 192, 42);
 
-    // Line 2: Elevation & distance (Sections 23, 24)
+    // Line 2: Elevation & distance (Sections 23, 24, 27)
     ctx.fillStyle = '#94a3b8';
     ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     const eleFt = wp.ele !== undefined ? Math.round(wp.ele * 3.28084) : null;
@@ -298,6 +382,11 @@ export class DioramaBase {
       const distKm = (distanceMeters / 1000).toFixed(1);
       if (detail.length > 0) detail += ' • ';
       detail += `${distMi} mi (${distKm} km)`;
+    }
+    if (!isOnRoute && offRouteDistanceMeters !== undefined && offRouteDistanceMeters > 0) {
+      const offM = Math.round(offRouteDistanceMeters);
+      if (detail.length > 0) detail += ' • ';
+      detail += `${offM}m off route`;
     }
     if (detail.length === 0) {
       detail = 'Landmark';
@@ -323,7 +412,7 @@ export class DioramaBase {
   }
 
   /**
-   * Updates marker scale compensation and billboard label sizing/orientation each frame (Sections 21, 24, 25).
+   * Updates marker scale compensation and billboard label sizing/orientation each frame (Sections 21, 29, 32, 33, 34).
    */
   public static updateWaypoints(
     baseGroup: THREE.Group,
@@ -334,18 +423,19 @@ export class DioramaBase {
     const wpGroup = baseGroup.getObjectByName('Waypoints');
     if (!wpGroup || wpGroup.children.length === 0) return;
 
-    // Target apparent world size: ~2.2 cm (0.022 m) across all tabletop zoom levels (Section 21)
-    const safeScale = Math.max(dioramaScale, 1e-6);
-    const targetMarkerScale = Math.max(0.001, Math.min(2.0, 0.022 / safeScale));
+    // Use actual parent world scale (Section 29, 34)
+    const parentWorldScaleVec = _scratchWorldScale;
+    wpGroup.getWorldScale(parentWorldScaleVec);
+    const parentWorldScale = Math.max(parentWorldScaleVec.x, 1e-6);
+    const baseMarkerScale = DESIRED_MARKER_DIAMETER_WORLD / (BASE_MARKER_DIAMETER_LOCAL * parentWorldScale);
 
     const camWorldPos = _scratchCamPos;
     camera.getWorldPosition(camWorldPos);
 
     for (const child of wpGroup.children) {
       const pin = child as THREE.Group;
-      pin.scale.setScalar(targetMarkerScale);
-
       const uData = pin.userData;
+
       if (uData.selectTimeout > 0) {
         uData.selectTimeout -= delta;
         if (uData.selectTimeout <= 0) {
@@ -359,27 +449,49 @@ export class DioramaBase {
         }
       }
 
+      const isHovered = Boolean(uData.isHovered);
+      const isSelected = Boolean(uData.isSelected);
+      const isActive = isHovered || isSelected;
+
+      // Enlarge marker slightly on hover/select (1.3x) (Section 32)
+      const scaleMult = isActive ? 1.3 : 1.0;
+      pin.scale.setScalar(baseMarkerScale * scaleMult);
+
+      // Visual feedback: bright halo/ring and luminous emissive intensity (Section 32)
+      const diamond = pin.getObjectByName('WaypointPinMesh') as THREE.Mesh | null;
+      if (diamond && (diamond.material as THREE.MeshStandardMaterial)) {
+        (diamond.material as THREE.MeshStandardMaterial).emissiveIntensity = isSelected ? 1.6 : (isHovered ? 1.3 : 0.8);
+      }
+      const halo = pin.getObjectByName('WaypointHaloMesh');
+      if (halo) halo.visible = isActive;
+
+      const connector = pin.getObjectByName('WaypointConnectorLine');
+      if (connector) connector.visible = isActive;
+
       const label = pin.getObjectByName('WaypointLabelSprite') as THREE.Sprite | null;
       if (label) {
-        const shouldBeVisible = Boolean(uData.isHovered || uData.isSelected);
-        label.visible = shouldBeVisible;
-
-        if (shouldBeVisible) {
-          // Calculate readable angular size (8-14 deg horizontal FOV) (Section 24)
+        label.visible = isActive;
+        if (isActive) {
+          // Angular size: 8-12 deg horizontal visual angle, practical world bounds [0.12m, 0.85m] (Section 33)
           const labelWorldPos = _scratchLabelPos;
           label.getWorldPosition(labelWorldPos);
           const distToCam = labelWorldPos.distanceTo(camWorldPos);
-          const desiredWorldWidth = Math.max(0.08, Math.min(0.35, distToCam * 0.18));
+          const desiredWorldWidth = Math.max(0.12, Math.min(0.85, distToCam * 0.175));
           const desiredWorldHeight = desiredWorldWidth * (128 / 384);
-          const netScale = safeScale * targetMarkerScale;
-          label.scale.set(desiredWorldWidth / netScale, desiredWorldHeight / netScale, 1);
+
+          // Robust local scale from pin world scale (Section 34)
+          const pinWorldScale = _scratchPinWorldScale;
+          pin.getWorldScale(pinWorldScale);
+          const netPinScaleX = Math.max(pinWorldScale.x, 1e-6);
+          const netPinScaleY = Math.max(pinWorldScale.y, 1e-6);
+          label.scale.set(desiredWorldWidth / netPinScaleX, desiredWorldHeight / netPinScaleY, 1);
         }
       }
     }
   }
 
   /**
-   * Activates hover label immediately (Section 27).
+   * Activates hover label immediately (Section 27, 32).
    */
   public static onHoverWaypoint(baseGroup: THREE.Group, pinOrTarget: THREE.Object3D): void {
     let pin: THREE.Object3D | null = pinOrTarget;
@@ -391,6 +503,10 @@ export class DioramaBase {
     pin.userData.hoverTimeout = 0;
     const label = pin.getObjectByName('WaypointLabelSprite');
     if (label) label.visible = true;
+    const halo = pin.getObjectByName('WaypointHaloMesh');
+    if (halo) halo.visible = true;
+    const connector = pin.getObjectByName('WaypointConnectorLine');
+    if (connector) connector.visible = true;
   }
 
   /**
@@ -407,7 +523,7 @@ export class DioramaBase {
   }
 
   /**
-   * Selects a waypoint pin and shows label for 4.0 seconds (Section 27).
+   * Selects a waypoint pin and shows label for 12.0 seconds (Sections 27, 35).
    */
   public static onSelectWaypoint(baseGroup: THREE.Group, pinOrTarget: THREE.Object3D): void {
     let pin: THREE.Object3D | null = pinOrTarget;
@@ -416,7 +532,7 @@ export class DioramaBase {
     }
     if (!pin) return;
 
-    // Close any other active label selections (Section 27)
+    // Close any other active label selections (Section 27, 35)
     const wpGroup = baseGroup.getObjectByName('Waypoints');
     if (wpGroup) {
       for (const child of wpGroup.children) {
@@ -425,14 +541,22 @@ export class DioramaBase {
           child.userData.selectTimeout = 0;
           const lbl = child.getObjectByName('WaypointLabelSprite');
           if (lbl && !child.userData.isHovered) lbl.visible = false;
+          const hlo = child.getObjectByName('WaypointHaloMesh');
+          if (hlo && !child.userData.isHovered) hlo.visible = false;
+          const conn = child.getObjectByName('WaypointConnectorLine');
+          if (conn && !child.userData.isHovered) conn.visible = false;
         }
       }
     }
 
     pin.userData.isSelected = true;
-    pin.userData.selectTimeout = 4.0;
+    pin.userData.selectTimeout = 12.0; // 12.0s persistent timeout (Section 35)
     const label = pin.getObjectByName('WaypointLabelSprite');
     if (label) label.visible = true;
+    const halo = pin.getObjectByName('WaypointHaloMesh');
+    if (halo) halo.visible = true;
+    const connector = pin.getObjectByName('WaypointConnectorLine');
+    if (connector) connector.visible = true;
   }
 
   /**

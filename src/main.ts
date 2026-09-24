@@ -588,24 +588,33 @@ class TrekViewerApp {
       return;
     }
 
-    const progress = this.findClosestTrackProgress(
-      this.currentTrack.points,
-      targetLat,
-      targetLon,
-      this.currentTrack.totalDistance
-    );
+    let progress = 0;
+    let curEle = this.currentTrack.minElevation;
+    let curDist = 0;
+    let curPoint: any = null;
+
+    if (this.activeTrek?.trailResult.routeGeometry) {
+      const proj = this.activeTrek.trailResult.routeGeometry.projectGeoPointToVisualRoute(targetLat, targetLon);
+      progress = proj.progress;
+      curDist = proj.routeDistanceMeters;
+      const telemetry = this.activeTrek.trailResult.routeGeometry.getTelemetryAtDistance(curDist);
+      curEle = telemetry?.position.y ?? telemetry?.currentPoint.ele ?? this.currentTrack.minElevation;
+      curPoint = telemetry?.currentPoint ?? null;
+    } else {
+      progress = this.findClosestTrackProgress(
+        this.currentTrack.points,
+        targetLat,
+        targetLon,
+        this.currentTrack.totalDistance
+      );
+      curDist = progress * this.currentTrack.totalDistance;
+    }
 
     // Sync flyover controller
     if (this.flyoverController) {
       this.flyoverController.pause();
       this.flyoverController.setProgress(progress);
     }
-
-    // Use analytical RouteGeometry telemetry for exact elevation, distance, and current point
-    const telemetry = this.activeTrek?.trailResult.routeGeometry.getTelemetryAtProgress(progress);
-    const curEle = telemetry?.currentPoint.ele ?? this.currentTrack.minElevation;
-    const curDist = telemetry?.currentPoint.distanceFromStart ?? progress * this.currentTrack.totalDistance;
-    const curPoint = telemetry?.currentPoint ?? null;
 
     this.session.setProgress(progress, curEle, curDist, curPoint);
     DioramaBase.selectWaypointByName(this.sceneManager.dioramaRoot, name);
@@ -620,6 +629,9 @@ class TrekViewerApp {
     lon: number,
     totalDistance: number
   ): number {
+    if (this.activeTrek?.trailResult.routeGeometry) {
+      return this.activeTrek.trailResult.routeGeometry.projectGeoPointToVisualRoute(lat, lon).progress;
+    }
     if (!points || points.length === 0 || totalDistance <= 0) return 0;
 
     let bestIdx = 0;

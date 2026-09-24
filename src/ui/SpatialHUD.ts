@@ -111,21 +111,30 @@ export class SpatialHUD {
       }
     }
     for (const lm of rawLandmarks) {
-      let bestDistSq = Infinity;
-      let bestDistFromStart = 0;
+      let prog = 0;
       let bestEle = lm.ele ?? track.minElevation;
-      const cosLat = Math.cos((lm.lat * Math.PI) / 180);
-      for (const p of track.points) {
-        const dLat = (p.lat - lm.lat) * 111320;
-        const dLon = (p.lon - lm.lon) * 111320 * cosLat;
-        const d = dLat * dLat + dLon * dLon;
-        if (d < bestDistSq) {
-          bestDistSq = d;
-          bestDistFromStart = p.distanceFromStart;
-          bestEle = p.ele;
+
+      if (lm.projection) {
+        prog = lm.projection.progress;
+      } else if (lm.distanceMeters !== undefined && track.totalDistance > 0) {
+        prog = Math.min(1, Math.max(0, lm.distanceMeters / track.totalDistance));
+      } else {
+        let bestDistSq = Infinity;
+        let bestDistFromStart = 0;
+        const cosLat = Math.cos((lm.lat * Math.PI) / 180);
+        for (const p of track.points) {
+          const dLat = (p.lat - lm.lat) * 111320;
+          const dLon = (p.lon - lm.lon) * 111320 * cosLat;
+          const d = dLat * dLat + dLon * dLon;
+          if (d < bestDistSq) {
+            bestDistSq = d;
+            bestDistFromStart = p.distanceFromStart;
+            bestEle = p.ele;
+          }
         }
+        prog = track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / track.totalDistance)) : 0;
       }
-      const prog = track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / track.totalDistance)) : 0;
+
       landmarksList.push({
         name: lm.name,
         lat: lm.lat,
@@ -832,21 +841,28 @@ export class SpatialHUD {
       }
 
       for (const lm of allLandmarks) {
-        let bestDistSq = Infinity;
-        let bestDistFromStart = 0;
+        let prog = 0;
         let bestEle = lm.ele ?? minE;
-        for (const p of this.track.points) {
-          const dLat = p.lat - lm.lat;
-          const dLon = (p.lon - lm.lon) * Math.cos((lm.lat * Math.PI) / 180);
-          const d = dLat * dLat + dLon * dLon;
-          if (d < bestDistSq) {
-            bestDistSq = d;
-            bestDistFromStart = p.distanceFromStart;
-            bestEle = p.ele;
-          }
-        }
 
-        const prog = this.track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / this.track.totalDistance)) : 0;
+        if (lm.projection) {
+          prog = lm.projection.progress;
+        } else if (lm.distanceMeters !== undefined && this.track.totalDistance > 0) {
+          prog = Math.min(1, Math.max(0, lm.distanceMeters / this.track.totalDistance));
+        } else {
+          let bestDistSq = Infinity;
+          let bestDistFromStart = 0;
+          for (const p of this.track.points) {
+            const dLat = p.lat - lm.lat;
+            const dLon = (p.lon - lm.lon) * Math.cos((lm.lat * Math.PI) / 180);
+            const d = dLat * dLat + dLon * dLon;
+            if (d < bestDistSq) {
+              bestDistSq = d;
+              bestDistFromStart = p.distanceFromStart;
+              bestEle = p.ele;
+            }
+          }
+          prog = this.track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / this.track.totalDistance)) : 0;
+        }
         const lx = chartX + 18 + prog * (chartW - 36);
         const normH = (bestEle - minE) / spanE;
         const ly = chartY + chartH - 24 - normH * (chartH - 48);
