@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE M (Adaptive high-resolution imagery LOD)',
+      label: 'STAGE N (XR frame-rate independence & performance)',
     }),
   },
   plugins: [

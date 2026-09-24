@@ -2,6 +2,20 @@ import * as THREE from 'three';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
 import type { GeoBounds } from '../gpx/TrackTypes.ts';
+import {
+  ALL_HAND_JOINTS,
+  BONE_CONNECTIONS,
+  evaluatePinchState,
+  applyBimanualTransform,
+  applyOneHandedManipulation,
+  clampDeltaSeconds,
+  computeThumbstickWalkDelta,
+  computeThumbstickPan,
+  computeThumbstickRotation,
+  computeThumbstickZoomFactor,
+} from '../xr/GestureMath.ts';
+
+export { ALL_HAND_JOINTS, BONE_CONNECTIONS };
 
 export interface XRInteractionCallbacks {
   onToggleViewMode?: () => void;
@@ -23,76 +37,6 @@ export interface ActiveGrab {
   prevWristQuat?: THREE.Quaternion;
 }
 
-export const ALL_HAND_JOINTS: string[] = [
-  'wrist',
-  'thumb-metacarpal',
-  'thumb-phalanx-proximal',
-  'thumb-phalanx-distal',
-  'thumb-tip',
-  'index-finger-metacarpal',
-  'index-finger-phalanx-proximal',
-  'index-finger-phalanx-intermediate',
-  'index-finger-phalanx-distal',
-  'index-finger-tip',
-  'middle-finger-metacarpal',
-  'middle-finger-phalanx-proximal',
-  'middle-finger-phalanx-intermediate',
-  'middle-finger-phalanx-distal',
-  'middle-finger-tip',
-  'ring-finger-metacarpal',
-  'ring-finger-phalanx-proximal',
-  'ring-finger-phalanx-intermediate',
-  'ring-finger-phalanx-distal',
-  'ring-finger-tip',
-  'pinky-finger-metacarpal',
-  'pinky-finger-phalanx-proximal',
-  'pinky-finger-phalanx-intermediate',
-  'pinky-finger-phalanx-distal',
-  'pinky-finger-tip',
-];
-
-export const BONE_CONNECTIONS: [string, string][] = [
-  // Thumb
-  ['wrist', 'thumb-metacarpal'],
-  ['thumb-metacarpal', 'thumb-phalanx-proximal'],
-  ['thumb-phalanx-proximal', 'thumb-phalanx-distal'],
-  ['thumb-phalanx-distal', 'thumb-tip'],
-
-  // Index
-  ['wrist', 'index-finger-metacarpal'],
-  ['index-finger-metacarpal', 'index-finger-phalanx-proximal'],
-  ['index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate'],
-  ['index-finger-phalanx-intermediate', 'index-finger-phalanx-distal'],
-  ['index-finger-phalanx-distal', 'index-finger-tip'],
-
-  // Middle
-  ['wrist', 'middle-finger-metacarpal'],
-  ['middle-finger-metacarpal', 'middle-finger-phalanx-proximal'],
-  ['middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate'],
-  ['middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal'],
-  ['middle-finger-phalanx-distal', 'middle-finger-tip'],
-
-  // Ring
-  ['wrist', 'ring-finger-metacarpal'],
-  ['ring-finger-metacarpal', 'ring-finger-phalanx-proximal'],
-  ['ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate'],
-  ['ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal'],
-  ['ring-finger-phalanx-distal', 'ring-finger-tip'],
-
-  // Pinky
-  ['wrist', 'pinky-finger-metacarpal'],
-  ['pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal'],
-  ['pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate'],
-  ['pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal'],
-  ['pinky-finger-phalanx-distal', 'pinky-finger-tip'],
-
-  // Knuckle transverse arch across palm
-  ['thumb-metacarpal', 'index-finger-metacarpal'],
-  ['index-finger-metacarpal', 'middle-finger-metacarpal'],
-  ['middle-finger-metacarpal', 'ring-finger-metacarpal'],
-  ['ring-finger-metacarpal', 'pinky-finger-metacarpal'],
-];
-
 export interface HandVisualOutline {
   group: THREE.Group;
   jointMeshes: Map<string, THREE.Mesh>;
@@ -111,6 +55,14 @@ const _scratchV2D2 = new THREE.Vector2();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchQuatIdentity = new THREE.Quaternion();
 const _scratchScale = new THREE.Vector3();
+
+// Hot-path scratch objects to eliminate per-frame allocations at 72/90/120 Hz
+const _scratchRayMatrix = new THREE.Matrix4();
+const _scratchRayOrigin = new THREE.Vector3();
+const _scratchRayDir = new THREE.Vector3();
+const _scratchGripPos = new THREE.Vector3();
+const _scratchGripQuat = new THREE.Quaternion();
+const _scratchPlaneNormal = new THREE.Vector3();
 
 export interface HandState {
   hand: THREE.XRHandSpace;
@@ -489,9 +441,12 @@ export class XRManager {
     }
   }
 
-  public update(): void {
+  public update(deltaSeconds: number = 1 / 72): void {
+    if (this.isDisposed) return;
     const session = this.renderer.xr.getSession();
     if (!session) return;
+
+    const dt = clampDeltaSeconds(deltaSeconds);
 
     // 0. Update Bare Hand Tracking joint data, bone skeleton, and pinch state
     this.updateHandTracking();
@@ -538,9 +493,9 @@ export class XRManager {
       const buttons = source.gamepad.buttons;
 
       // Current controller world position for natural 1:1 grip movement
-      const currentGripWorld = new THREE.Vector3().setFromMatrixPosition(state.grip.matrixWorld);
+      _scratchGripPos.setFromMatrixPosition(state.grip.matrixWorld);
 
-      // 1. Thumbstick Navigation
+      // 1. Thumbstick Navigation (Frame-rate independent rates per second)
       if (axes.length >= 4) {
         const stickX = axes[2];
         const stickY = axes[3];
@@ -548,10 +503,9 @@ export class XRManager {
         // --- Left Controller: TRAIL HIKE & SCRUB IN 1:1 / PAN IN DIORAMA ---
         if (source.handedness === 'left') {
           if (this.currentViewMode === 'first-person') {
-            if (Math.abs(stickY) > 0.1) {
-              const isTurbo = buttons[0]?.pressed || false;
-              const baseSpeedMps = isTurbo ? 75.0 : 18.0;
-              const metersDelta = -stickY * baseSpeedMps * (1 / 60);
+            const isTurbo = buttons[0]?.pressed || false;
+            const metersDelta = computeThumbstickWalkDelta(stickY, isTurbo, dt);
+            if (metersDelta !== 0) {
               this.callbacks.onScrubDistance?.(metersDelta);
 
               this.hapticDistanceAccumulator += Math.abs(metersDelta);
@@ -561,25 +515,28 @@ export class XRManager {
               }
             }
           } else {
-            if (Math.abs(stickX) > 0.1 || Math.abs(stickY) > 0.1) {
-              const isTurbo = buttons[0]?.pressed || false;
-              const panSpeed = isTurbo ? 0.35 : 0.16;
-              this.sceneManager.dioramaRoot.position.x -= stickX * panSpeed;
-              this.sceneManager.dioramaRoot.position.z -= stickY * panSpeed;
+            const isTurbo = buttons[0]?.pressed || false;
+            const pan = computeThumbstickPan(stickX, stickY, isTurbo, dt);
+            if (pan.dx !== 0 || pan.dz !== 0) {
+              this.sceneManager.dioramaRoot.position.x -= pan.dx;
+              this.sceneManager.dioramaRoot.position.z -= pan.dz;
             }
           }
         }
 
         // --- Right Controller: ROTATE & ZOOM ---
         if (source.handedness === 'right' || source.handedness === 'none') {
-          if (Math.abs(stickX) > 0.12) {
-            this.sceneManager.dioramaRoot.rotation.y -= stickX * 0.035;
+          const rotY = computeThumbstickRotation(stickX, dt);
+          if (rotY !== 0) {
+            this.sceneManager.dioramaRoot.rotation.y -= rotY;
           }
-          if (this.currentViewMode === 'diorama' && Math.abs(stickY) > 0.12) {
-            const currentScale = this.sceneManager.dioramaRoot.scale.x;
-            const factor = 1 - stickY * 0.035;
-            const newScale = Math.max(0.000005, Math.min(0.05, currentScale * factor));
-            this.sceneManager.dioramaRoot.scale.set(newScale, newScale, newScale);
+          if (this.currentViewMode === 'diorama') {
+            const zoomFactor = computeThumbstickZoomFactor(stickY, dt);
+            if (zoomFactor !== 1.0) {
+              const currentScale = this.sceneManager.dioramaRoot.scale.x;
+              const newScale = Math.max(0.000005, Math.min(0.05, currentScale * zoomFactor));
+              this.sceneManager.dioramaRoot.scale.set(newScale, newScale, newScale);
+            }
           }
         }
       }
@@ -593,25 +550,25 @@ export class XRManager {
 
       // Controller Grip Interaction
       if (b1_grip) {
-        const gripQuat = new THREE.Quaternion().setFromRotationMatrix(state.grip.matrixWorld);
+        _scratchGripQuat.setFromRotationMatrix(state.grip.matrixWorld);
         if (!state.isGripping) {
           state.isGripping = true;
-          state.prevGripWorldPos.copy(currentGripWorld);
-          state.prevGripWorldQuat.copy(gripQuat);
+          state.prevGripWorldPos.copy(_scratchGripPos);
+          state.prevGripWorldQuat.copy(_scratchGripQuat);
           this.triggerHaptic(i, 0.7, 35);
         }
 
         activeGrabs.push({
           id: `controller_${i}`,
           source: 'controller',
-          worldPos: currentGripWorld.clone(),
+          worldPos: _scratchGripPos.clone(),
           prevWorldPos: state.prevGripWorldPos.clone(),
-          wristQuat: gripQuat,
+          wristQuat: _scratchGripQuat.clone(),
           prevWristQuat: state.prevGripWorldQuat.clone(),
         });
 
-        state.prevGripWorldPos.copy(currentGripWorld);
-        state.prevGripWorldQuat.copy(gripQuat);
+        state.prevGripWorldPos.copy(_scratchGripPos);
+        state.prevGripWorldQuat.copy(_scratchGripQuat);
       } else {
         if (state.isGripping) {
           state.isGripping = false;
@@ -643,7 +600,7 @@ export class XRManager {
       state.prevButtons[3] = b3_stickClick;
       state.prevButtons[4] = b4_primary;
       state.prevButtons[5] = b5_secondary;
-      state.prevGripWorldPos.copy(currentGripWorld);
+      state.prevGripWorldPos.copy(_scratchGripPos);
     }
 
     // 2. WebXR Bare Hand Tracking & Pinch Detection
@@ -773,9 +730,7 @@ export class XRManager {
         state.indexTipWorldPos.copy(indexTipPos);
 
         const pinchDist = thumbTipPos.distanceTo(indexTipPos);
-        const isPinchingNow = state.isPinching
-          ? pinchDist <= 0.045
-          : pinchDist <= 0.032;
+        const isPinchingNow = evaluatePinchState(pinchDist, state.isPinching);
 
         _scratchV1.copy(thumbTipPos).add(indexTipPos).multiplyScalar(0.5);
         state.pinchWorldPos.copy(_scratchV1);
@@ -978,172 +933,28 @@ export class XRManager {
     if (this.currentViewMode !== 'diorama') return;
 
     if (grabs.length >= 2) {
-      // --- TWO-HANDED 6DOF MANIPULATION (SCALE, ROTATE, TRANSLATE & PITCH ALONG INTER-HAND LINE) ---
       const g0 = grabs[0];
       const g1 = grabs[1];
-
-      const p0 = g0.worldPos;
-      const p1 = g1.worldPos;
-      const p0Prev = g0.prevWorldPos;
-      const p1Prev = g1.prevWorldPos;
-
-      const currentDist = p0.distanceTo(p1);
-      const prevDist = p0Prev.distanceTo(p1Prev);
-
-      const currentMid = _scratchV1.copy(p0).add(p1).multiplyScalar(0.5);
-      const prevMid = _scratchV2.copy(p0Prev).add(p1Prev).multiplyScalar(0.5);
-
-      // 1. Scale factor (stretch hands apart to expand/zoom in, squeeze hands together to shrink/zoom out)
-      let scaleFactor = 1.0;
-      if (prevDist > 0.03 && currentDist > 0.03) {
-        const rawFactor = currentDist / prevDist;
-        scaleFactor = Math.max(0.65, Math.min(1.5, rawFactor));
-      }
-
-      // 2. 3D Rotation of the inter-hand line
-      const vPrev = _scratchV3.copy(p1Prev).sub(p0Prev);
-      const vCurr = p1.clone().sub(p0);
-
-      const qLine = new THREE.Quaternion();
-      if (vPrev.lengthSq() > 1e-6 && vCurr.lengthSq() > 1e-6) {
-        const uPrev = vPrev.normalize();
-        const uCurr = vCurr.clone().normalize();
-        if (uPrev.dot(uCurr) > -0.999) {
-          qLine.setFromUnitVectors(uPrev, uCurr);
-        }
-      }
-
-      // 3. Wrist twist along the inter-hand line (handlebar tilt)
-      const qTwist = new THREE.Quaternion();
-      if (vCurr.lengthSq() > 1e-6) {
-        const uLine = vCurr.clone().normalize();
-        let twistAccum = 0;
-        let twistCount = 0;
-
-        for (const g of [g0, g1]) {
-          if (g.wristQuat && g.prevWristQuat) {
-            const dq = g.wristQuat.clone().multiply(g.prevWristQuat.clone().invert());
-            if (dq.w < 0) {
-              dq.x = -dq.x;
-              dq.y = -dq.y;
-              dq.z = -dq.z;
-              dq.w = -dq.w;
-            }
-            const rotVec = new THREE.Vector3(dq.x * 2, dq.y * 2, dq.z * 2);
-            const twistAngle = rotVec.dot(uLine);
-            if (Math.abs(twistAngle) > 0.002 && Math.abs(twistAngle) < 0.3) {
-              twistAccum += twistAngle;
-              twistCount++;
-            }
-          }
-        }
-
-        if (twistCount > 0) {
-          const avgTwist = twistAccum / twistCount;
-          qTwist.setFromAxisAngle(uLine, avgTwist * 0.85);
-        }
-      }
-
-      // Combined 3D rotation
-      const qRot = qTwist.multiply(qLine);
-
-      // Guard against upside-down inversion: diorama up vector must maintain y >= 0.15
-      const diorama = this.sceneManager.dioramaRoot;
-      const testQuat = qRot.clone().multiply(diorama.quaternion);
-      const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
-      if (upVector.y < 0.15) {
-        // Exceeds pitch limit: restrict to yaw rotation around vertical axis only
-        const vPrevHoriz = new THREE.Vector3(p1Prev.x - p0Prev.x, 0, p1Prev.z - p0Prev.z);
-        const vCurrHoriz = new THREE.Vector3(p1.x - p0.x, 0, p1.z - p0.z);
-        if (vPrevHoriz.lengthSq() > 1e-6 && vCurrHoriz.lengthSq() > 1e-6) {
-          qRot.setFromUnitVectors(vPrevHoriz.normalize(), vCurrHoriz.normalize());
-        } else {
-          qRot.identity();
-        }
-      }
-
-      // 4. Scale calculation
-      const currentScale = diorama.scale.x;
-      const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
-      const effectiveScale = targetScale / currentScale;
-
-      // 5. Physical anchored transform around hands' midpoint
-      // Invariant: Grab points P0 and P1 stay glued to the inter-hand line with zero slippage
-      const offset = diorama.position.clone().sub(prevMid);
-      offset.multiplyScalar(effectiveScale);
-      offset.applyQuaternion(qRot);
-
-      // Update diorama position, orientation, scale
-      diorama.position.copy(currentMid).add(offset);
-      diorama.quaternion.premultiply(qRot);
-      diorama.scale.set(targetScale, targetScale, targetScale);
-
+      applyBimanualTransform(
+        this.sceneManager.dioramaRoot,
+        g0.prevWorldPos,
+        g1.prevWorldPos,
+        g0.worldPos,
+        g1.worldPos,
+        g0.prevWristQuat,
+        g0.wristQuat,
+        g1.prevWristQuat,
+        g1.wristQuat
+      );
     } else if (grabs.length === 1) {
-      // --- ONE-HANDED CONTACT-ANCHORED 6DOF MANIPULATION (TRANSLATE + PIVOT YAW/PITCH) ---
       const g = grabs[0];
-      const pPrev = g.prevWorldPos;
-      const pCurr = g.worldPos;
-      const diorama = this.sceneManager.dioramaRoot;
-
-      let rotDelta = new THREE.Quaternion(); // Identity
-
-      if (g.wristQuat && g.prevWristQuat) {
-        // Extract forward direction of hand in world space
-        const fPrev = _scratchV1.set(0, 0, -1).applyQuaternion(g.prevWristQuat);
-        const fCurr = _scratchV2.set(0, 0, -1).applyQuaternion(g.wristQuat);
-
-        // Yaw angle delta (rotation around world vertical Y axis)
-        const yawPrev = Math.atan2(fPrev.x, fPrev.z);
-        const yawCurr = Math.atan2(fCurr.x, fCurr.z);
-        let deltaYaw = yawCurr - yawPrev;
-        while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
-        while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
-
-        // Pitch angle delta (tilt up/down along hand's horizontal lateral axis)
-        const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
-        const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
-        const deltaPitch = pitchCurr - pitchPrev;
-
-        // Yaw quaternion around world vertical Y axis
-        const qYaw = new THREE.Quaternion();
-        if (Math.abs(deltaYaw) > 0.0005 && Math.abs(deltaYaw) < 0.5) {
-          qYaw.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaYaw);
-        }
-
-        // Lateral axis perpendicular to hand forward direction on the horizontal plane
-        const qPitch = new THREE.Quaternion();
-        if (Math.abs(deltaPitch) > 0.0005 && Math.abs(deltaPitch) < 0.5) {
-          const fHoriz = _scratchV3.set(fCurr.x, 0, fCurr.z);
-          if (fHoriz.lengthSq() > 1e-4) {
-            fHoriz.normalize();
-          } else {
-            fHoriz.set(0, 0, -1);
-          }
-          const rightAxis = new THREE.Vector3().crossVectors(fHoriz, new THREE.Vector3(0, 1, 0)).normalize();
-          qPitch.setFromAxisAngle(rightAxis, deltaPitch);
-        }
-
-        // Combined yaw + pitch rotation
-        const qCombined = qYaw.clone().multiply(qPitch);
-
-        // Guard against upside-down inversion: diorama up vector must maintain y >= 0.15
-        const testQuat = qCombined.clone().multiply(diorama.quaternion);
-        const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
-        if (upVector.y >= 0.15) {
-          rotDelta = qCombined;
-        } else {
-          // Exceeds pitch limit: keep yaw only so user can still rotate and position
-          rotDelta = qYaw;
-        }
-      }
-
-      // Physical pivot transformation around contact point:
-      // Invariant: The virtual point on the diorama being held under pPrev lands exactly at pCurr
-      const r = diorama.position.clone().sub(pPrev);
-      r.applyQuaternion(rotDelta);
-
-      diorama.position.copy(pCurr).add(r);
-      diorama.quaternion.premultiply(rotDelta);
+      applyOneHandedManipulation(
+        this.sceneManager.dioramaRoot,
+        g.prevWorldPos,
+        g.worldPos,
+        g.prevWristQuat,
+        g.wristQuat
+      );
     }
   }
 
@@ -1167,17 +978,16 @@ export class XRManager {
       }
     }
 
-    const tempMatrix = new THREE.Matrix4();
-    tempMatrix.identity().extractRotation(state.controller.matrixWorld);
+    _scratchRayMatrix.identity().extractRotation(state.controller.matrixWorld);
 
-    const rayOrigin = new THREE.Vector3().setFromMatrixPosition(state.controller.matrixWorld);
-    const rayDir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix).normalize();
+    _scratchRayOrigin.setFromMatrixPosition(state.controller.matrixWorld);
+    _scratchRayDir.set(0, 0, -1).applyMatrix4(_scratchRayMatrix).normalize();
 
     // 1. If currently dragging the HUD in 3D room space (supports both hands and physical controllers)
     if (state.isDraggingHUD && this.spatialHUD) {
       if (isTriggerDown) {
-        const targetPos = rayOrigin.clone().addScaledVector(rayDir, state.hudDragDistance);
-        this.spatialHUD.group.position.copy(targetPos);
+        _scratchV1.copy(_scratchRayOrigin).addScaledVector(_scratchRayDir, state.hudDragDistance);
+        this.spatialHUD.group.position.copy(_scratchV1);
         const camPos = this.sceneManager.camera.position;
         this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
         this.spatialHUD.group.updateMatrixWorld(true);
@@ -1204,10 +1014,10 @@ export class XRManager {
       if (isTriggerDown) {
         const planeY = this.sceneManager.dioramaRoot.position.y;
         let newHit: THREE.Vector3 | null = null;
-        if (rayDir.y < -0.01) {
-          const t = (planeY - rayOrigin.y) / rayDir.y;
+        if (_scratchRayDir.y < -0.01) {
+          const t = (planeY - _scratchRayOrigin.y) / _scratchRayDir.y;
           if (t > 0 && t < 15) {
-            newHit = rayOrigin.clone().addScaledVector(rayDir, t);
+            newHit = _scratchV1.copy(_scratchRayOrigin).addScaledVector(_scratchRayDir, t);
           }
         }
 
@@ -1217,7 +1027,7 @@ export class XRManager {
           this.sceneManager.dioramaRoot.position.x = state.terrainDragStartDioramaPos.x + deltaX;
           this.sceneManager.dioramaRoot.position.z = state.terrainDragStartDioramaPos.z + deltaZ;
 
-          const dist = rayOrigin.distanceTo(newHit);
+          const dist = _scratchRayOrigin.distanceTo(newHit);
           state.rayLine.geometry.setFromPoints([
             new THREE.Vector3(0, 0, 0),
             new THREE.Vector3(0, 0, -dist),
@@ -1234,7 +1044,7 @@ export class XRManager {
     }
 
     // 3. Normal Raycasting against HUD
-    this.raycaster.set(rayOrigin, rayDir);
+    this.raycaster.set(_scratchRayOrigin, _scratchRayDir);
     let hudHit: THREE.Intersection | null = null;
     let isHitGrabMesh = false;
 
@@ -1264,7 +1074,8 @@ export class XRManager {
       state.reticle.visible = true;
       state.reticle.position.copy(hudHit.point);
       if (hudHit.face) {
-        state.reticle.lookAt(hudHit.point.clone().add(hudHit.face.normal));
+        _scratchV1.copy(hudHit.point).add(hudHit.face.normal);
+        state.reticle.lookAt(_scratchV1);
       }
 
       // Check if hitting HUD drag handle: grab cylinder or top drag handle bar on card
@@ -1322,15 +1133,15 @@ export class XRManager {
     if (this.currentViewMode === 'diorama') {
       const planeY = this.sceneManager.dioramaRoot.position.y;
       let tableHit: THREE.Vector3 | null = null;
-      if (rayDir.y < -0.01) {
-        const t = (planeY - rayOrigin.y) / rayDir.y;
+      if (_scratchRayDir.y < -0.01) {
+        const t = (planeY - _scratchRayOrigin.y) / _scratchRayDir.y;
         if (t > 0 && t < 12) {
-          tableHit = rayOrigin.clone().addScaledVector(rayDir, t);
+          tableHit = _scratchV1.copy(_scratchRayOrigin).addScaledVector(_scratchRayDir, t);
         }
       }
 
       if (tableHit) {
-        const dist = rayOrigin.distanceTo(tableHit);
+        const dist = _scratchRayOrigin.distanceTo(tableHit);
         state.rayLine.geometry.setFromPoints([
           new THREE.Vector3(0, 0, 0),
           new THREE.Vector3(0, 0, -dist),
@@ -1338,7 +1149,8 @@ export class XRManager {
         state.rayLine.visible = true;
         state.reticle.visible = true;
         state.reticle.position.copy(tableHit);
-        state.reticle.lookAt(tableHit.clone().add(new THREE.Vector3(0, 1, 0)));
+        _scratchV2.set(0, 1, 0).add(tableHit);
+        state.reticle.lookAt(_scratchV2);
 
         if (isTriggerDown && !state.prevButtons[0]) {
           state.isDraggingTerrain = true;
@@ -1374,5 +1186,84 @@ export class XRManager {
     ) {
       source.gamepad.hapticActuators[0].pulse(intensity, durationMs);
     }
+  }
+
+  private isDisposed: boolean = false;
+
+  public dispose(): void {
+    if (this.isDisposed) return;
+    this.isDisposed = true;
+
+    this.resetInteractionState();
+
+    // 1. Dispose physical/laser controllers
+    for (const ctrl of this.controllers) {
+      if (ctrl.controller.parent) {
+        ctrl.controller.parent.remove(ctrl.controller);
+      }
+      if (ctrl.grip.parent) {
+        ctrl.grip.parent.remove(ctrl.grip);
+      }
+      if (ctrl.rayLine.geometry) {
+        ctrl.rayLine.geometry.dispose();
+      }
+      if (ctrl.rayLine.material instanceof THREE.Material) {
+        ctrl.rayLine.material.dispose();
+      }
+      if (ctrl.reticle.parent) {
+        ctrl.reticle.parent.remove(ctrl.reticle);
+      }
+      if (ctrl.reticle.geometry) {
+        ctrl.reticle.geometry.dispose();
+      }
+      if (ctrl.reticle.material instanceof THREE.Material) {
+        ctrl.reticle.material.dispose();
+      }
+    }
+    this.controllers = [];
+
+    // 2. Dispose bare hand tracking meshes and materials
+    for (const hand of this.hands) {
+      if (hand.hand.parent) {
+        hand.hand.parent.remove(hand.hand);
+      }
+      if (hand.pinchReticle.parent) {
+        hand.pinchReticle.parent.remove(hand.pinchReticle);
+      }
+      if (hand.pinchReticle.geometry) {
+        hand.pinchReticle.geometry.dispose();
+      }
+      if (hand.pinchReticle.material instanceof THREE.Material) {
+        hand.pinchReticle.material.dispose();
+      }
+
+      const vo = hand.visualOutline;
+      if (vo.group.parent) {
+        vo.group.parent.remove(vo.group);
+      }
+      if (vo.boneMesh.geometry) {
+        vo.boneMesh.geometry.dispose();
+      }
+      if (vo.boneMesh.material instanceof THREE.Material) {
+        vo.boneMesh.material.dispose();
+      }
+      if (vo.jointMesh.geometry) {
+        vo.jointMesh.geometry.dispose();
+      }
+      if (vo.jointMesh.material instanceof THREE.Material) {
+        vo.jointMesh.material.dispose();
+      }
+      if (vo.boneLines.geometry) {
+        vo.boneLines.geometry.dispose();
+      }
+      if (vo.boneLines.material instanceof THREE.Material) {
+        vo.boneLines.material.dispose();
+      }
+    }
+    this.hands = [];
+
+    this.callbacks = {};
+    this.spatialHUD = null;
+    this.dioramaElevationSampler = null;
   }
 }

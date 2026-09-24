@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import assert from 'node:assert';
 import { describe, it } from 'vitest';
-import { ALL_HAND_JOINTS, BONE_CONNECTIONS } from '../src/core/XRManager.ts';
+import {
+  ALL_HAND_JOINTS,
+  BONE_CONNECTIONS,
+  evaluatePinchState,
+  applyBimanualTransform,
+  applyOneHandedManipulation,
+  type TestDioramaTransform as DioramaTransform,
+} from '../src/xr/GestureMath.ts';
 
 describe('Hand Tracking & 6DOF Manipulation Gestures', () => {
   it('evaluates gestures, isolation, and 6DOF manipulation', () => {
@@ -10,13 +17,6 @@ describe('Hand Tracking & 6DOF Manipulation Gestures', () => {
 // 1. Pinch Detection & Hysteresis Logic Test
 // =========================================================================
 console.log('Testing pinch detection and hysteresis thresholds...');
-
-function evaluatePinchState(currentDist: number, wasPinching: boolean): boolean {
-  // Logic matching XRManager.ts:
-  // Engage threshold: 3.2cm (0.032m)
-  // Release threshold: 4.5cm (0.045m)
-  return wasPinching ? currentDist <= 0.045 : currentDist <= 0.032;
-}
 
 let isPinching = false;
 
@@ -47,127 +47,6 @@ console.log('✓ Pinch hysteresis thresholds (<3.2cm engage, >4.5cm release) ver
 // 2. Bimanual (Two-Handed) 6DOF Manipulation Math
 // =========================================================================
 console.log('Testing two-handed 6DOF manipulation math...');
-
-interface DioramaTransform {
-  position: THREE.Vector3;
-  quaternion?: THREE.Quaternion;
-  rotationY: number;
-  rotationX?: number;
-  scale: number;
-}
-
-function applyBimanualTransform(
-  diorama: DioramaTransform,
-  p0Prev: THREE.Vector3,
-  p1Prev: THREE.Vector3,
-  p0Curr: THREE.Vector3,
-  p1Curr: THREE.Vector3,
-  wrist0Prev?: THREE.Quaternion,
-  wrist0Curr?: THREE.Quaternion,
-  wrist1Prev?: THREE.Quaternion,
-  wrist1Curr?: THREE.Quaternion
-): void {
-  if (!diorama.quaternion) {
-    const euler = new THREE.Euler(diorama.rotationX || 0, diorama.rotationY || 0, 0, 'YXZ');
-    diorama.quaternion = new THREE.Quaternion().setFromEuler(euler);
-  }
-
-  const prevDist = p0Prev.distanceTo(p1Prev);
-  const currDist = p0Curr.distanceTo(p1Curr);
-
-  const prevMid = p0Prev.clone().add(p1Prev).multiplyScalar(0.5);
-  const currMid = p0Curr.clone().add(p1Curr).multiplyScalar(0.5);
-
-  // 1. Scale factor with clamping
-  let scaleFactor = 1.0;
-  if (prevDist > 0.03 && currDist > 0.03) {
-    const rawFactor = currDist / prevDist;
-    scaleFactor = Math.max(0.65, Math.min(1.5, rawFactor));
-  }
-
-  // 2. 3D Rotation of the inter-hand line
-  const vPrev = p1Prev.clone().sub(p0Prev);
-  const vCurr = p1Curr.clone().sub(p0Curr);
-
-  const qLine = new THREE.Quaternion();
-  if (vPrev.lengthSq() > 1e-6 && vCurr.lengthSq() > 1e-6) {
-    const uPrev = vPrev.clone().normalize();
-    const uCurr = vCurr.clone().normalize();
-    if (uPrev.dot(uCurr) > -0.999) {
-      qLine.setFromUnitVectors(uPrev, uCurr);
-    }
-  }
-
-  // 3. Wrist twist along the inter-hand line (handlebar tilt)
-  const qTwist = new THREE.Quaternion();
-  if (vCurr.lengthSq() > 1e-6) {
-    const uLine = vCurr.clone().normalize();
-    let twistAccum = 0;
-    let twistCount = 0;
-
-    const wristPairs = [
-      { prev: wrist0Prev, curr: wrist0Curr },
-      { prev: wrist1Prev, curr: wrist1Curr },
-    ];
-    for (const pair of wristPairs) {
-      if (pair.prev && pair.curr) {
-        const dq = pair.curr.clone().multiply(pair.prev.clone().invert());
-        if (dq.w < 0) {
-          dq.x = -dq.x;
-          dq.y = -dq.y;
-          dq.z = -dq.z;
-          dq.w = -dq.w;
-        }
-        const rotVec = new THREE.Vector3(dq.x * 2, dq.y * 2, dq.z * 2);
-        const twistAngle = rotVec.dot(uLine);
-        if (Math.abs(twistAngle) > 0.002 && Math.abs(twistAngle) < 0.3) {
-          twistAccum += twistAngle;
-          twistCount++;
-        }
-      }
-    }
-
-    if (twistCount > 0) {
-      const avgTwist = twistAccum / twistCount;
-      qTwist.setFromAxisAngle(uLine, avgTwist * 0.85);
-    }
-  }
-
-  // Combined 3D rotation
-  let qRot = qTwist.multiply(qLine);
-
-  // Guard against upside-down inversion: diorama up vector must maintain y >= 0.15
-  const testQuat = qRot.clone().multiply(diorama.quaternion);
-  const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
-  if (upVector.y < 0.15) {
-    const vPrevHoriz = new THREE.Vector3(p1Prev.x - p0Prev.x, 0, p1Prev.z - p0Prev.z);
-    const vCurrHoriz = new THREE.Vector3(p1Curr.x - p0Curr.x, 0, p1Curr.z - p0Curr.z);
-    if (vPrevHoriz.lengthSq() > 1e-6 && vCurrHoriz.lengthSq() > 1e-6) {
-      qRot = new THREE.Quaternion().setFromUnitVectors(vPrevHoriz.normalize(), vCurrHoriz.normalize());
-    } else {
-      qRot = new THREE.Quaternion();
-    }
-  }
-
-  // 4. Scale calculation
-  const currentScale = diorama.scale;
-  const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
-  const effectiveScale = targetScale / currentScale;
-
-  // 5. Anchored 6DOF transform around hands' midpoint
-  const offset = diorama.position.clone().sub(prevMid);
-  offset.multiplyScalar(effectiveScale);
-  offset.applyQuaternion(qRot);
-
-  diorama.position.copy(currMid).add(offset);
-  diorama.quaternion.premultiply(qRot);
-  diorama.scale = targetScale;
-
-  // Sync Euler angles for test inspection
-  const eulerOut = new THREE.Euler().setFromQuaternion(diorama.quaternion, 'YXZ');
-  diorama.rotationY = eulerOut.y;
-  diorama.rotationX = eulerOut.x;
-}
 
 // 2A. Stretch hands apart -> Scale increases (Zoom In)
 {
@@ -389,74 +268,6 @@ function applyBimanualTransform(
 // 3. One-Handed Direct Manipulation (1:1 Drag, Contact-Point Wrist Twist Yaw & Pitch)
 // =========================================================================
 console.log('Testing one-handed direct manipulation...');
-
-function applyOneHandedManipulation(
-  diorama: DioramaTransform,
-  prevHandPos: THREE.Vector3,
-  currHandPos: THREE.Vector3,
-  prevWristQuat: THREE.Quaternion,
-  currWristQuat: THREE.Quaternion
-): void {
-  if (!diorama.quaternion) {
-    const euler = new THREE.Euler(diorama.rotationX || 0, diorama.rotationY || 0, 0, 'YXZ');
-    diorama.quaternion = new THREE.Quaternion().setFromEuler(euler);
-  }
-
-  let rotDelta = new THREE.Quaternion();
-
-  if (prevWristQuat && currWristQuat) {
-    const fPrev = new THREE.Vector3(0, 0, -1).applyQuaternion(prevWristQuat);
-    const fCurr = new THREE.Vector3(0, 0, -1).applyQuaternion(currWristQuat);
-
-    const yawPrev = Math.atan2(fPrev.x, fPrev.z);
-    const yawCurr = Math.atan2(fCurr.x, fCurr.z);
-    let deltaYaw = yawCurr - yawPrev;
-    while (deltaYaw > Math.PI) deltaYaw -= 2 * Math.PI;
-    while (deltaYaw < -Math.PI) deltaYaw += 2 * Math.PI;
-
-    const pitchPrev = Math.asin(Math.max(-1, Math.min(1, fPrev.y)));
-    const pitchCurr = Math.asin(Math.max(-1, Math.min(1, fCurr.y)));
-    const deltaPitch = pitchCurr - pitchPrev;
-
-    const qYaw = new THREE.Quaternion();
-    if (Math.abs(deltaYaw) > 0.0005 && Math.abs(deltaYaw) < 0.5) {
-      qYaw.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaYaw);
-    }
-
-    const qPitch = new THREE.Quaternion();
-    if (Math.abs(deltaPitch) > 0.0005 && Math.abs(deltaPitch) < 0.5) {
-      const fHoriz = new THREE.Vector3(fCurr.x, 0, fCurr.z);
-      if (fHoriz.lengthSq() > 1e-4) {
-        fHoriz.normalize();
-      } else {
-        fHoriz.set(0, 0, -1);
-      }
-      const rightAxis = new THREE.Vector3().crossVectors(fHoriz, new THREE.Vector3(0, 1, 0)).normalize();
-      qPitch.setFromAxisAngle(rightAxis, deltaPitch);
-    }
-
-    const qCombined = qYaw.clone().multiply(qPitch);
-
-    const testQuat = qCombined.clone().multiply(diorama.quaternion);
-    const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(testQuat);
-    if (upVector.y >= 0.15) {
-      rotDelta = qCombined;
-    } else {
-      rotDelta = qYaw;
-    }
-  }
-
-  // Physical pivot transformation around contact point
-  const r = diorama.position.clone().sub(prevHandPos);
-  r.applyQuaternion(rotDelta);
-
-  diorama.position.copy(currHandPos).add(r);
-  diorama.quaternion.premultiply(rotDelta);
-
-  const eulerOut = new THREE.Euler().setFromQuaternion(diorama.quaternion, 'YXZ');
-  diorama.rotationY = eulerOut.y;
-  diorama.rotationX = eulerOut.x;
-}
 
 // 3A. Center Grab 1:1 Translation and Wrist Twist Yaw & Pitch
 {
