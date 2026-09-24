@@ -177,6 +177,14 @@ body, html {
   padding: 9px 18px;
 }
 
+.xr-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  box-shadow: none !important;
+  transform: none !important;
+}
+
 /* Status & Progress Banner */
 .status-banner {
   position: absolute;

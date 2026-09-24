@@ -225,7 +225,7 @@ class TrekViewerApp {
         this.spatialHUD?.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats);
       }
       if (state.loadingPhase !== prev.loadingPhase) {
-        this.overlay.setXREnabled(state.loadingPhase === 'ready');
+        this.overlay.setXREnabled(state.loadingPhase === 'ready' || this.activeTrek !== null);
       }
       if (state.loadingMessage !== prev.loadingMessage || state.loadingProgress !== prev.loadingProgress) {
         if (state.loadingPhase === 'error') {
@@ -379,6 +379,7 @@ class TrekViewerApp {
     // 6. Update 2D Overlay
     this.overlay.clearStatus();
     this.overlay.updateTrack(track);
+    this.overlay.setXREnabled(true);
     const distMi = (track.totalDistance * 0.000621371).toFixed(1);
     const gainFt = Math.round(track.elevationGain * 3.28084);
     this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
@@ -549,12 +550,12 @@ class TrekViewerApp {
 
   private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
     if (!('xr' in navigator)) {
-      alert('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!');
+      this.overlay.showStatus('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!', true);
       return;
     }
 
-    if (!this.activeTrek || this.session.getState().loadingPhase !== 'ready') {
-      alert('Please wait for the trek to finish loading before entering VR/MR.');
+    if (!this.activeTrek) {
+      this.overlay.showStatus('Please wait for the trek to finish loading before entering VR/MR.', false);
       return;
     }
 
@@ -564,7 +565,7 @@ class TrekViewerApp {
         // Fallback to immersive-vr if immersive-ar isn't directly advertised
         const vrSupported = await (navigator as any).xr.isSessionSupported('immersive-vr');
         if (!vrSupported) {
-          alert(`WebXR ${mode} is not supported on this device.`);
+          this.overlay.showStatus(`WebXR ${mode} is not supported on this device.`, true);
           return;
         }
         mode = 'immersive-vr';
@@ -585,7 +586,7 @@ class TrekViewerApp {
       }
     } catch (e: any) {
       console.error('Failed to start WebXR session:', e);
-      alert(`Could not start WebXR session: ${e.message}`);
+      this.overlay.showStatus(`Could not start WebXR session: ${e.message}`, true);
     }
   }
 

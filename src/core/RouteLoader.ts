@@ -183,7 +183,11 @@ export class RouteLoader {
         track,
         (msg, progress) => {
           if (!this.isStale(context!)) {
-            this.options.session?.setLoadingStatus('terrain', msg, progress);
+            // Only update session loading status if this trek has not yet been committed to scene.
+            // Post-commit background satellite streaming must not regress loadingPhase from 'ready' to 'terrain'.
+            if (this.activeTrek !== trek) {
+              this.options.session?.setLoadingStatus('terrain', msg, progress);
+            }
             this.options.onProgress?.(msg, progress);
           }
         },

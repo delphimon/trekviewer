@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE K (two-phase elevation pipeline)',
+      label: 'FIX (WebXR entry & button lifecycle)',
     }),
   },
   plugins: [
