@@ -43,6 +43,8 @@ export class LoadedTrek {
         terrainGeoBounds: params.terrainResult.terrainGeoBounds || params.track.bounds,
         terrainBaseElevation: params.terrainResult.terrainBaseElevation,
         elevationSampler: params.terrainResult.elevationSampler,
+        routeGeometry: params.trailResult.routeGeometry,
+        track: params.track,
         verticalExaggeration: 1.0,
         textureStyle: 'satellite',
         maxPatches: 36,
@@ -88,6 +90,7 @@ export class LoadedTrek {
     if (this._isDisposed) return;
     this.trailResult.setViewMode(mode);
     this.flyoverController.setViewMode(mode);
+    this.imageryLOD.setViewMode(mode);
   }
 
   public dispose(): void {
