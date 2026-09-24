@@ -35,6 +35,7 @@ export interface GPXWaypoint {
   type?: string;
   isDerivedLandmark?: boolean;
   distanceMeters?: number;
+  projection?: import('../visualization/RouteGeometry').RouteProjectionResult;
 }
 
 export interface GeoBounds {

@@ -71,8 +71,10 @@ export interface HandState {
   pinchReticle: THREE.Mesh;
   visualOutline: HandVisualOutline;
   isPinching: boolean;
+  prevPinching: boolean;
   isClickingHUD: boolean;
-  activeInteraction: 'none' | 'hud' | 'diorama';
+  activeInteraction: 'none' | 'hud' | 'diorama' | 'waypoint';
+  isHoveringWaypoint?: boolean;
   jointPosMap: Map<string, THREE.Vector3>;
   pinchWorldPos: THREE.Vector3;
   prevPinchWorldPos: THREE.Vector3;
@@ -417,6 +419,7 @@ export class XRManager {
           jointMesh,
         },
         isPinching: false,
+        prevPinching: false,
         isClickingHUD: false,
         activeInteraction: 'none',
         jointPosMap,
@@ -815,8 +818,10 @@ export class XRManager {
           }
         }
 
+        state.prevPinching = state.isPinching;
         state.isPinching = isPinchingNow;
       } else {
+        state.prevPinching = state.isPinching;
         state.isPinching = false;
       }
     }
@@ -847,6 +852,9 @@ export class XRManager {
 
       const isEngagedWithHUD = isDirectTouchHUD || isLaserHUD;
 
+      // 3. Check direct fingertip hover / touch on Waypoints (Section 31)
+      const isEngagedWithWaypoint = this.checkHandWaypointInteraction(state, indexTipPos, state.isPinching);
+
       // Check whether hand is virtually touching the tabletop diorama
       const proximity = this.getDioramaProximity(state.pinchWorldPos);
       const indexProximity = this.getDioramaProximity(state.indexTipWorldPos);
@@ -854,12 +862,18 @@ export class XRManager {
       const proximityFactor = Math.max(proximity.proximityFactor, indexProximity.proximityFactor);
 
       if (!state.isPinching) {
-        state.activeInteraction = 'none';
+        if (state.activeInteraction === 'diorama') {
+          state.activeInteraction = 'none';
+        } else if (!isEngagedWithWaypoint && !isEngagedWithHUD) {
+          state.activeInteraction = 'none';
+        }
       } else {
         if (state.activeInteraction === 'none') {
           // Gesture initiated this frame: claim ownership
           if (isEngagedWithHUD) {
             state.activeInteraction = 'hud';
+          } else if (isEngagedWithWaypoint) {
+            state.activeInteraction = 'waypoint';
           } else if (isTouchingDiorama) {
             // ONLY grab diorama if virtually touching it!
             state.activeInteraction = 'diorama';
@@ -870,7 +884,7 @@ export class XRManager {
           // If pinching in midair away from HUD and diorama, activeInteraction remains 'none'
         }
 
-        // EXCLUSIVITY: If hand gesture belongs to HUD, do NOT grab or drag the diorama!
+        // EXCLUSIVITY: If hand gesture belongs to HUD or Waypoint, do NOT grab or drag the diorama!
         if (state.activeInteraction === 'diorama') {
           activeGrabs.push({
             id: `hand_${i}`,
@@ -1001,6 +1015,72 @@ export class XRManager {
       }
       return true; // Hand is engaged with HUD
     }
+    return false;
+  }
+
+  private checkHandWaypointInteraction(
+    state: HandState,
+    fingerPos: THREE.Vector3,
+    isPinching: boolean
+  ): boolean {
+    if (this.currentViewMode !== 'diorama') return false;
+    const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
+    if (!wpGroup || wpGroup.children.length === 0) return false;
+
+    const HOVER_RADIUS = 0.08; // 8 cm world radius (within 6-10 cm) (Section 30)
+    const TOUCH_RADIUS = 0.035; // 3.5 cm world radius (within 2-4 cm) (Section 30)
+
+    let closestPin: THREE.Group | null = null;
+    let closestDist = Infinity;
+
+    for (const child of wpGroup.children) {
+      const pin = child as THREE.Group;
+      const hitTarget = pin.getObjectByName('WaypointHitTarget') || pin;
+      hitTarget.getWorldPosition(_scratchV1);
+
+      const distIndex = _scratchV1.distanceTo(fingerPos);
+      const distPinch = _scratchV1.distanceTo(state.pinchWorldPos);
+      const dist = Math.min(distIndex, distPinch);
+
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestPin = pin;
+      }
+    }
+
+    if (closestPin && closestDist <= HOVER_RADIUS) {
+      const wp = closestPin.userData?.waypoint;
+      state.isHoveringWaypoint = true;
+
+      // Immediate visual hover feedback: halo, enlarged marker, readable label (Section 32)
+      DioramaBase.onHoverWaypoint(this.sceneManager.dioramaRoot, closestPin);
+
+      // Direct fingertip touch (<= 3.5cm) OR pinch initiated while hovering (Section 31)
+      const isTouch = closestDist <= TOUCH_RADIUS;
+      const isPinchSelect = isPinching && !state.prevPinching;
+
+      if (isTouch || isPinchSelect) {
+        DioramaBase.onSelectWaypoint(this.sceneManager.dioramaRoot, closestPin);
+        if (wp) {
+          this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
+        }
+        state.activeInteraction = 'waypoint';
+        return true;
+      }
+
+      if (isPinching) {
+        state.activeInteraction = 'waypoint';
+        return true;
+      }
+
+      return true;
+    }
+
+    if (state.isHoveringWaypoint) {
+      state.isHoveringWaypoint = false;
+      DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+    }
+
     return false;
   }
 
