@@ -90,12 +90,87 @@ export const BONE_CONNECTIONS: [string, string][] = [
 ];
 
 /**
- * Evaluates pinch engage/release hysteresis.
- * Engage threshold: 3.2cm (0.032m).
- * Release threshold: 4.5cm (0.045m).
+ * Strict physical fingertip contact thresholds for Quest 3 optical hand tracking (Stage V1).
+ * Normal human thumb/index fingertip contact occurs around 18-22mm center-to-center.
+ * A relaxed hand hanging at the user's side is typically 30-45mm separation.
  */
-export function evaluatePinchState(currentDist: number, wasPinching: boolean): boolean {
-  return wasPinching ? currentDist <= 0.045 : currentDist <= 0.032;
+export const PINCH_ENGAGE_DISTANCE = 0.020; // 20 mm: requires actual fingertip contact/near-contact
+export const PINCH_RELEASE_DISTANCE = 0.028; // 28 mm: modest hysteresis release, drops immediately if fingers open
+export const PINCH_CONFIRMATION_FRAMES = 3; // ~40ms at 72Hz: suppresses 1-frame tracking noise
+
+export type PinchPhase = 'open' | 'candidate' | 'pinching' | 'released';
+
+export interface PinchTracker {
+  phase: PinchPhase;
+  contactFrames: number;
+  isPinching: boolean;
+  justPinched: boolean; // Fresh pinch-down edge in this frame
+  justReleased: boolean; // Fresh release edge in this frame
+}
+
+export function createPinchTracker(): PinchTracker {
+  return {
+    phase: 'open',
+    contactFrames: 0,
+    isPinching: false,
+    justPinched: false,
+    justReleased: false,
+  };
+}
+
+/**
+ * Updates a persistent pinch tracker with current thumb-index separation.
+ * Requires sustained contact for PINCH_CONFIRMATION_FRAMES before transitioning to 'pinching' (justPinched edge).
+ * Releases immediately once separation exceeds PINCH_RELEASE_DISTANCE.
+ */
+export function updatePinchTracker(
+  tracker: PinchTracker,
+  currentDist: number,
+  confirmationFrames: number = PINCH_CONFIRMATION_FRAMES
+): PinchTracker {
+  tracker.justPinched = false;
+  tracker.justReleased = false;
+
+  if (tracker.isPinching) {
+    if (currentDist > PINCH_RELEASE_DISTANCE) {
+      tracker.phase = 'released';
+      tracker.isPinching = false;
+      tracker.contactFrames = 0;
+      tracker.justReleased = true;
+    } else {
+      tracker.phase = 'pinching';
+    }
+  } else {
+    if (currentDist <= PINCH_ENGAGE_DISTANCE) {
+      tracker.contactFrames++;
+      if (tracker.contactFrames >= confirmationFrames) {
+        tracker.phase = 'pinching';
+        tracker.isPinching = true;
+        tracker.justPinched = true;
+      } else {
+        tracker.phase = 'candidate';
+      }
+    } else {
+      tracker.phase = 'open';
+      tracker.contactFrames = 0;
+    }
+  }
+
+  return tracker;
+}
+
+/**
+ * Evaluates pinch engage/release hysteresis with strict physical contact thresholds.
+ * Engage threshold: 2.0cm (0.020m).
+ * Release threshold: 2.8cm (0.028m).
+ */
+export function evaluatePinchState(
+  currentDist: number,
+  wasPinching: boolean,
+  engageDist: number = PINCH_ENGAGE_DISTANCE,
+  releaseDist: number = PINCH_RELEASE_DISTANCE
+): boolean {
+  return wasPinching ? currentDist <= releaseDist : currentDist <= engageDist;
 }
 
 // Module-scoped scratch instances for hot-loop manipulation math to avoid allocations

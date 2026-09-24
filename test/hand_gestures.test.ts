@@ -24,24 +24,24 @@ let isPinching = false;
 isPinching = evaluatePinchState(0.06, isPinching);
 assert.strictEqual(isPinching, false, '6cm distance should not pinch');
 
-// Case 2: Approaching (distance = 3.8cm, above 3.2cm engage threshold)
-isPinching = evaluatePinchState(0.038, isPinching);
-assert.strictEqual(isPinching, false, '3.8cm distance should not trigger initial pinch');
+// Case 2: Approaching (distance = 2.5cm, above 2.0cm engage threshold)
+isPinching = evaluatePinchState(0.025, isPinching);
+assert.strictEqual(isPinching, false, '2.5cm distance should not trigger initial pinch');
 
-// Case 3: Pinch contact (distance = 2.8cm, below 3.2cm)
-isPinching = evaluatePinchState(0.028, isPinching);
-assert.strictEqual(isPinching, true, '2.8cm distance must trigger pinch engage');
+// Case 3: Pinch contact (distance = 1.8cm, below 2.0cm)
+isPinching = evaluatePinchState(0.018, isPinching);
+assert.strictEqual(isPinching, true, '1.8cm distance must trigger pinch engage');
 
-// Case 4: Slight finger opening during manipulation (distance = 4.0cm, below 4.5cm release)
+// Case 4: Slight finger opening during manipulation (distance = 2.5cm, below 2.8cm release)
 // Hysteresis prevents accidental drops while moving/scaling
-isPinching = evaluatePinchState(0.040, isPinching);
-assert.strictEqual(isPinching, true, '4.0cm distance must stay pinching due to hysteresis');
+isPinching = evaluatePinchState(0.025, isPinching);
+assert.strictEqual(isPinching, true, '2.5cm distance must stay pinching due to hysteresis');
 
-// Case 5: Full release (distance = 5.0cm, above 4.5cm release threshold)
-isPinching = evaluatePinchState(0.050, isPinching);
-assert.strictEqual(isPinching, false, '5.0cm distance must release pinch');
+// Case 5: Full release (distance = 3.5cm, above 2.8cm release threshold)
+isPinching = evaluatePinchState(0.035, isPinching);
+assert.strictEqual(isPinching, false, '3.5cm distance must release pinch');
 
-console.log('✓ Pinch hysteresis thresholds (<3.2cm engage, >4.5cm release) verified successfully');
+console.log('✓ Strict pinch hysteresis thresholds (<=20mm engage, >28mm release) verified successfully');
 
 // =========================================================================
 // 2. Bimanual (Two-Handed) 6DOF Manipulation Math

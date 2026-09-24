@@ -7,6 +7,11 @@ import {
   ALL_HAND_JOINTS,
   BONE_CONNECTIONS,
   evaluatePinchState,
+  PinchTracker,
+  createPinchTracker,
+  updatePinchTracker,
+  PINCH_ENGAGE_DISTANCE,
+  PINCH_RELEASE_DISTANCE,
   applyBimanualTransform,
   applyOneHandedManipulation,
   clampDeltaSeconds,
@@ -70,6 +75,7 @@ export interface HandState {
   inputSource: any;
   pinchReticle: THREE.Mesh;
   visualOutline: HandVisualOutline;
+  pinchTracker: PinchTracker;
   isPinching: boolean;
   prevPinching: boolean;
   isClickingHUD: boolean;
@@ -169,7 +175,9 @@ export class XRManager {
   public resetInteractionState(): void {
     for (const hand of this.hands) {
       hand.activeInteraction = 'none';
+      hand.pinchTracker = createPinchTracker();
       hand.isPinching = false;
+      hand.prevPinching = false;
       hand.isClickingHUD = false;
       hand.pinchReticle.visible = false;
       hand.visualOutline.group.visible = false;
@@ -418,6 +426,7 @@ export class XRManager {
           boneMesh,
           jointMesh,
         },
+        pinchTracker: createPinchTracker(),
         isPinching: false,
         prevPinching: false,
         isClickingHUD: false,
@@ -439,7 +448,9 @@ export class XRManager {
 
       hand.addEventListener('disconnected', () => {
         state.inputSource = null;
+        state.pinchTracker = createPinchTracker();
         state.isPinching = false;
+        state.prevPinching = false;
         state.activeInteraction = 'none';
         state.pinchReticle.visible = false;
         state.visualOutline.group.visible = false;
@@ -664,7 +675,9 @@ export class XRManager {
         state.hand.visible = false;
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
+        state.pinchTracker = createPinchTracker();
         state.isPinching = false;
+        state.prevPinching = false;
         state.isClickingHUD = false;
         state.activeInteraction = 'none';
       }
@@ -684,7 +697,9 @@ export class XRManager {
         state.hand.visible = false;
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
+        state.pinchTracker = createPinchTracker();
         state.isPinching = false;
+        state.prevPinching = false;
         state.isClickingHUD = false;
         state.activeInteraction = 'none';
         continue;
@@ -695,7 +710,9 @@ export class XRManager {
       if (!joints) {
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
+        state.pinchTracker = createPinchTracker();
         state.isPinching = false;
+        state.prevPinching = false;
         state.activeInteraction = 'none';
         continue;
       }
@@ -713,7 +730,9 @@ export class XRManager {
       if (!hasTrackedJoint) {
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
+        state.pinchTracker = createPinchTracker();
         state.isPinching = false;
+        state.prevPinching = false;
         state.activeInteraction = 'none';
         continue;
       }
@@ -801,12 +820,18 @@ export class XRManager {
       const indexTipPos = state.jointPosMap.get('index-finger-tip');
       const wrist = joints['wrist'];
       const wristPos = state.jointPosMap.get('wrist');
+      const thumbJoint = joints['thumb-tip'];
+      const indexJoint = joints['index-finger-tip'];
 
-      if (thumbTipPos && indexTipPos) {
+      const tipsTracked = thumbTipPos && indexTipPos &&
+        (!thumbJoint || thumbJoint.visible !== false) &&
+        (!indexJoint || indexJoint.visible !== false);
+
+      if (tipsTracked) {
         state.indexTipWorldPos.copy(indexTipPos);
 
         const pinchDist = thumbTipPos.distanceTo(indexTipPos);
-        const isPinchingNow = evaluatePinchState(pinchDist, state.isPinching);
+        updatePinchTracker(state.pinchTracker, pinchDist);
 
         _scratchV1.copy(thumbTipPos).add(indexTipPos).multiplyScalar(0.5);
         state.pinchWorldPos.copy(_scratchV1);
@@ -819,10 +844,15 @@ export class XRManager {
         }
 
         state.prevPinching = state.isPinching;
-        state.isPinching = isPinchingNow;
+        state.isPinching = state.pinchTracker.isPinching;
       } else {
+        // Tip tracking lost: cancel pinch and active diorama manipulation immediately (Stage V1)
+        state.pinchTracker = createPinchTracker();
         state.prevPinching = state.isPinching;
         state.isPinching = false;
+        if (state.activeInteraction === 'diorama') {
+          state.activeInteraction = 'none';
+        }
       }
     }
   }
@@ -874,8 +904,8 @@ export class XRManager {
             state.activeInteraction = 'hud';
           } else if (isEngagedWithWaypoint) {
             state.activeInteraction = 'waypoint';
-          } else if (isTouchingDiorama) {
-            // ONLY grab diorama if virtually touching it!
+          } else if (isTouchingDiorama && state.pinchTracker.justPinched) {
+            // Stage V1: ONLY grab diorama if virtually touching it AND fresh confirmed pinch edge!
             state.activeInteraction = 'diorama';
             state.prevPinchWorldPos.copy(state.pinchWorldPos);
             state.prevWristWorldPos.copy(state.wristWorldPos);
