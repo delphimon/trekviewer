@@ -27,6 +27,10 @@ export interface ImageryPatch {
   texture: THREE.Texture;
   lastUsed: number;
   centerDist: number;
+  creationTime: number;
+  isFading: boolean;
+  fadeDurationMs: number;
+  outlineMesh?: THREE.LineSegments;
   dispose: () => void;
 }
 
@@ -42,6 +46,8 @@ export interface ImageryLODManagerOptions {
   maxPatches?: number;
   maxConcurrency?: number;
   enableInXR?: boolean;
+  enableFadeIn?: boolean;
+  debugPatchBounds?: boolean;
 }
 
 export interface ImageryLODDiagnostics {
@@ -58,6 +64,7 @@ export interface ImageryLODDiagnostics {
   generation: number;
   viewMode?: ViewMode;
   currentProgress?: number;
+  debugPatchBounds?: boolean;
 }
 
 interface PendingTileRequest {
@@ -108,6 +115,9 @@ export class ImageryLODManager {
   private maxPatches: number;
   private maxConcurrency: number;
   private enableInXR: boolean;
+  private enableFadeIn: boolean;
+  private debugPatchBounds: boolean;
+  private lastIsXR: boolean = false;
 
   // Reconciliation state (Section 14 & 30)
   private desiredTileKeys: Set<string> = new Set();
@@ -143,6 +153,8 @@ export class ImageryLODManager {
     this.maxPatches = options.maxPatches ?? 36;
     this.maxConcurrency = options.maxConcurrency ?? 6;
     this.enableInXR = options.enableInXR ?? true;
+    this.enableFadeIn = options.enableFadeIn ?? true;
+    this.debugPatchBounds = options.debugPatchBounds ?? false;
     this.viewMode = options.viewMode || 'diorama';
     this.routeGeometry = options.routeGeometry;
 
@@ -165,7 +177,26 @@ export class ImageryLODManager {
       generation: this.currentGeneration,
       viewMode: this.viewMode,
       currentProgress: this.currentProgress,
+      debugPatchBounds: this.debugPatchBounds,
     };
+  }
+
+  public setDebugPatchBounds(enabled: boolean): void {
+    if (this.isDisposed || this.debugPatchBounds === enabled) return;
+    this.debugPatchBounds = enabled;
+
+    for (const patch of this.patches.values()) {
+      if (enabled && !patch.outlineMesh) {
+        const outline = this.buildPatchOutline(patch.mesh.geometry as THREE.BufferGeometry);
+        patch.outlineMesh = outline;
+        patch.mesh.add(outline);
+      } else if (!enabled && patch.outlineMesh) {
+        patch.mesh.remove(patch.outlineMesh);
+        patch.outlineMesh.geometry.dispose();
+        (patch.outlineMesh.material as THREE.Material)?.dispose();
+        patch.outlineMesh = undefined;
+      }
+    }
   }
 
   public setViewMode(mode: ViewMode): void {
@@ -211,7 +242,7 @@ export class ImageryLODManager {
 
     // Update heights on all active patches
     for (const patch of this.patches.values()) {
-      this.updatePatchGeometryHeights(patch.mesh.geometry as THREE.BufferGeometry);
+      this.updatePatchGeometryHeights(patch.mesh.geometry as THREE.BufferGeometry, patch);
     }
   }
 
@@ -245,6 +276,8 @@ export class ImageryLODManager {
   ): void {
     if (this.isDisposed || !ENABLE_ADAPTIVE_IMAGERY_LOD) return;
 
+    this.lastIsXR = isXR;
+
     if (routeProgress !== undefined) {
       this.currentProgress = Math.max(0, Math.min(1, routeProgress));
     }
@@ -261,6 +294,23 @@ export class ImageryLODManager {
     }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    // Smooth crossfade/fade-in animation tick for active patches (Stage S3)
+    for (const patch of this.patches.values()) {
+      if (patch.isFading) {
+        const elapsed = now - patch.creationTime;
+        const t = Math.min(1.0, elapsed / Math.max(patch.fadeDurationMs, 1));
+        const mat = patch.mesh.material as THREE.MeshStandardMaterial;
+        mat.opacity = t;
+        if (t >= 1.0) {
+          mat.opacity = 1.0;
+          mat.transparent = false;
+          mat.needsUpdate = true;
+          patch.isFading = false;
+        }
+      }
+    }
+
     if (this.lastEvalTime !== 0 && now - this.lastEvalTime < this.EVAL_INTERVAL_MS) {
       return;
     }
@@ -756,6 +806,10 @@ export class ImageryLODManager {
     // Build conforming terrain geometry with true local Y datum
     const geo = this.buildPatchGeometry(zoom, x, y);
 
+    const isXRActive = this.lastIsXR;
+    const fadeDurationMs = isXRActive ? 150 : 250;
+    const isFading = this.enableFadeIn;
+
     const mat = new THREE.MeshStandardMaterial({
       map: texture,
       roughness: 0.85,
@@ -764,10 +818,19 @@ export class ImageryLODManager {
       polygonOffset: true,
       polygonOffsetFactor: -1.0,
       polygonOffsetUnits: -1.0,
+      transparent: isFading,
+      opacity: isFading ? 0.0 : 1.0,
     });
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = `ImageryPatch_${key}`;
+
+    let outlineMesh: THREE.LineSegments | undefined;
+    if (this.debugPatchBounds) {
+      outlineMesh = this.buildPatchOutline(geo);
+      mesh.add(outlineMesh);
+    }
+
     this.group.add(mesh);
 
     const patch: ImageryPatch = {
@@ -779,7 +842,17 @@ export class ImageryLODManager {
       texture,
       lastUsed: now,
       centerDist: dist,
+      creationTime: now,
+      isFading,
+      fadeDurationMs,
+      outlineMesh,
       dispose: () => {
+        if (patch.outlineMesh) {
+          mesh.remove(patch.outlineMesh);
+          patch.outlineMesh.geometry.dispose();
+          (patch.outlineMesh.material as THREE.Material)?.dispose();
+          patch.outlineMesh = undefined;
+        }
         this.group.remove(mesh);
         geo.dispose();
         mat.dispose();
@@ -860,7 +933,7 @@ export class ImageryLODManager {
     return geo;
   }
 
-  private updatePatchGeometryHeights(geo: THREE.BufferGeometry): void {
+  private updatePatchGeometryHeights(geo: THREE.BufferGeometry, patch?: ImageryPatch): void {
     const pos = geo.getAttribute('position') as THREE.BufferAttribute;
 
     for (let i = 0; i < pos.count; i++) {
@@ -872,6 +945,26 @@ export class ImageryLODManager {
     }
     pos.needsUpdate = true;
     geo.computeVertexNormals();
+
+    if (patch && patch.outlineMesh) {
+      patch.mesh.remove(patch.outlineMesh);
+      patch.outlineMesh.geometry.dispose();
+      (patch.outlineMesh.material as THREE.Material)?.dispose();
+      patch.outlineMesh = this.buildPatchOutline(geo);
+      patch.mesh.add(patch.outlineMesh);
+    }
+  }
+
+  private buildPatchOutline(geo: THREE.BufferGeometry): THREE.LineSegments {
+    const edges = new THREE.EdgesGeometry(geo, 40);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.65,
+    });
+    const line = new THREE.LineSegments(edges, lineMat);
+    line.name = 'DebugPatchBoundary';
+    return line;
   }
 
   private prunePatches(activeKeys: Set<string>): void {

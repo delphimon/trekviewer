@@ -299,6 +299,10 @@ class TrekViewerApp {
       state.verticalExaggeration
     );
 
+    if (this.isDebugMode) {
+      newTrek.setDebugPatchBounds(true);
+    }
+
     newTrek.flyoverController.setSpeed(state.playbackSpeed);
     newTrek.flyoverController.setProgress(0);
     newTrek.flyoverController.pause();

@@ -93,6 +93,11 @@ export class LoadedTrek {
     this.imageryLOD.setViewMode(mode);
   }
 
+  public setDebugPatchBounds(enabled: boolean): void {
+    if (this._isDisposed) return;
+    this.imageryLOD.setDebugPatchBounds(enabled);
+  }
+
   public dispose(): void {
     if (this._isDisposed) return;
     this._isDisposed = true;
