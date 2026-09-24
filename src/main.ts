@@ -16,6 +16,8 @@ import { TextureProvider } from './terrain/TextureProvider';
 import { TileImageCache } from './terrain/TileImageCache';
 import { resolveAssetUrl } from './utils/AssetUrl';
 
+const _scratchV3 = new THREE.Vector3();
+
 export class TrekViewerApp {
   private sceneManager: SceneManager;
   private xrManager: XRManager;
@@ -287,18 +289,21 @@ export class TrekViewerApp {
     const state = this.session.getState();
     const track = newTrek.track;
 
+    // Natural 1x vertical exaggeration in first-person mode; tabletop exaggeration preference in diorama (Stage V9)
+    const effectiveExaggeration = state.viewMode === 'first-person' ? 1.0 : state.verticalExaggeration;
+
     newTrek.setViewMode(state.viewMode);
     this.xrManager.setViewMode(state.viewMode);
     newTrek.setTextureStyle(state.textureStyle);
     newTrek.setTrailColorMode(state.trailColorMode);
-    newTrek.setVerticalExaggeration(state.verticalExaggeration);
-    this.xrManager.setVerticalExaggeration(state.verticalExaggeration);
+    newTrek.setVerticalExaggeration(effectiveExaggeration);
+    this.xrManager.setVerticalExaggeration(effectiveExaggeration);
 
     this.xrManager.setDioramaContext(
       track.bounds,
       newTrek.terrainResult.elevationSampler,
       newTrek.terrainResult.terrainBaseElevation,
-      state.verticalExaggeration
+      effectiveExaggeration
     );
 
     if (this.isDebugMode) {
@@ -436,7 +441,12 @@ export class TrekViewerApp {
     if (!this.spatialHUD) return;
     this.spatialHUD.setDockSide(side);
 
-    const camPos = this.sceneManager.camera.position;
+    const isPresenting = this.sceneManager.renderer.xr.isPresenting;
+    const activeCamera = isPresenting
+      ? this.sceneManager.renderer.xr.getCamera()
+      : this.sceneManager.camera;
+    const camPos = _scratchV3;
+    activeCamera.getWorldPosition(camPos);
 
     if (this.currentViewMode === 'first-person') {
       this.spatialHUD.group.position.set(0, 1.25, -1.2);
