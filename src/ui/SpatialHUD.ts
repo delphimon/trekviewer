@@ -605,7 +605,8 @@ export class SpatialHUD {
 
     // Subtitle with Timing Type
     const isRecorded = this.track.timingType === 'recorded';
-    const timeLabel = isRecorded ? 'GPS Timed' : 'Est. Pace';
+    const isMixed = this.track.timingType === 'mixed';
+    const timeLabel = isRecorded ? 'GPS Timed' : isMixed ? 'Mixed Timing' : 'Est. Pace';
     ctx.fillStyle = '#38bdf8';
     ctx.font = '600 15px sans-serif';
     ctx.fillText(`⛰️ Meta Quest 3 • 3D Trek Explorer • ${timeLabel}`, 40, 84);
@@ -705,7 +706,7 @@ export class SpatialHUD {
       // Draw landmark markers directly on elevation curve (Requirement #117, #118)
       const allLandmarks = [...(this.track.waypoints || [])];
       for (const lm of this.track.landmarks || []) {
-        if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+        if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
           if (!allLandmarks.some((w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005)) {
             allLandmarks.push(lm);
           }
@@ -732,7 +733,7 @@ export class SpatialHUD {
         const normH = (bestEle - minE) / spanE;
         const ly = chartY + chartH - 24 - normH * (chartH - 48);
 
-        const pinColor = lm.type === 'summit'
+        const pinColor = lm.type === 'summit' || lm.type === 'high_point'
           ? '#f59e0b'
           : lm.type === 'start'
           ? '#10b981'

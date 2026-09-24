@@ -221,7 +221,7 @@ export class RouteLoader {
       // Combine explicit waypoints with prominent derived landmarks (Start, Summit/High Point, Finish) (Requirement #117)
       const allWaypoints = [...track.waypoints];
       for (const lm of track.landmarks) {
-        if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+        if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
           const isDuplicate = allWaypoints.some(
             (w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005
           );

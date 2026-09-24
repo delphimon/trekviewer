@@ -157,7 +157,7 @@ class TrekViewerApp {
           this.flyoverController.stepDistanceMeters(meters);
         }
       },
-      onSelectWaypoint: (name) => this.jumpToWaypoint(name),
+      onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
     });
 
     // 4. Desktop & Quest 2D Overlay
@@ -212,11 +212,11 @@ class TrekViewerApp {
         this.syncHUDState();
       }
       if (state.viewMode !== prev.viewMode) {
-        this.applyViewMode(state.viewMode);
+        this.applyViewMode(state.viewMode, prev.viewMode);
       }
       if (state.textureStyle !== prev.textureStyle) {
         this.overlay.setTextureStyle(state.textureStyle);
-        this.terrainResult?.setTextureStyle(state.textureStyle);
+        this.activeTrek?.setTextureStyle(state.textureStyle);
         const attr = TextureProvider.getAttributionForStyle(state.textureStyle);
         this.session.setAttribution(attr);
         this.syncHUDState();
@@ -227,8 +227,9 @@ class TrekViewerApp {
         this.syncHUDState();
       }
       if (state.verticalExaggeration !== prev.verticalExaggeration) {
-        this.activeTrek?.setVerticalExaggeration(state.verticalExaggeration);
-        this.xrManager.setVerticalExaggeration(state.verticalExaggeration);
+        const effectiveExaggeration = this.currentViewMode === 'first-person' ? 1.0 : state.verticalExaggeration;
+        this.activeTrek?.setVerticalExaggeration(effectiveExaggeration);
+        this.xrManager.setVerticalExaggeration(effectiveExaggeration);
         this.overlay.setVerticalExaggeration(state.verticalExaggeration);
         this.spatialHUD?.setVerticalExaggeration(state.verticalExaggeration);
       }
@@ -475,10 +476,10 @@ class TrekViewerApp {
     this.session.setViewMode(mode);
   }
 
-  private applyViewMode(mode: ViewMode): void {
-    const prevMode = this.session.getState().viewMode;
+  private applyViewMode(mode: ViewMode, prevMode?: ViewMode): void {
+    const priorMode = prevMode ?? (mode === 'first-person' ? 'diorama' : 'first-person');
     // Save tabletop transform when transitioning away from diorama
-    if (prevMode === 'diorama' && mode === 'first-person') {
+    if (priorMode === 'diorama' && mode === 'first-person') {
       const root = this.sceneManager.dioramaRoot;
       this.savedTabletopTransform = {
         position: root.position.clone(),
@@ -486,6 +487,11 @@ class TrekViewerApp {
         scale: root.scale.clone(),
       };
     }
+
+    // Natural 1x vertical exaggeration in first-person mode; restore user preference in diorama
+    const effectiveExaggeration = mode === 'first-person' ? 1.0 : this.session.getState().verticalExaggeration;
+    this.activeTrek?.setVerticalExaggeration(effectiveExaggeration);
+    this.xrManager.setVerticalExaggeration(effectiveExaggeration);
 
     this.flyoverController?.setViewMode(mode);
     this.trailResult?.setViewMode(mode);
@@ -582,33 +588,19 @@ class TrekViewerApp {
       this.currentTrack.totalDistance
     );
 
-    // Sync session and flyover controller
-    this.session.setProgress(progress);
+    // Sync flyover controller
     if (this.flyoverController) {
       this.flyoverController.pause();
       this.flyoverController.setProgress(progress);
     }
 
-    // Get closest point elevation
-    const ptIdx = Math.min(
-      Math.floor(progress * (this.currentTrack.points.length - 1)),
-      this.currentTrack.points.length - 1
-    );
-    const curEle = this.currentTrack.points[ptIdx]?.ele ?? this.currentTrack.minElevation;
+    // Use analytical RouteGeometry telemetry for exact elevation, distance, and current point
+    const telemetry = this.activeTrek?.trailResult.routeGeometry.getTelemetryAtProgress(progress);
+    const curEle = telemetry?.currentPoint.ele ?? this.currentTrack.minElevation;
+    const curDist = telemetry?.currentPoint.distanceFromStart ?? progress * this.currentTrack.totalDistance;
+    const curPoint = telemetry?.currentPoint ?? null;
 
-    // Update overlay & HUD
-    this.overlay.setPlaying(false);
-    this.overlay.updateScrubber(progress, curEle);
-    this.spatialHUD?.updateState(
-      progress,
-      curEle,
-      false,
-      this.currentViewMode,
-      this.currentTextureStyle,
-      this.session.getState().playbackSpeed,
-      this.currentTrailColorMode,
-      this.session.getState().verticalExaggeration
-    );
+    this.session.setProgress(progress, curEle, curDist, curPoint);
 
     this.overlay.showStatus(`Jumped to: ${name}`);
     this.spatialHUD?.showStatus(`Jumped to: ${name}`);
