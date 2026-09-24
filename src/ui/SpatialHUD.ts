@@ -48,6 +48,9 @@ export class SpatialHUD {
   private lastTextureUploadTime: number = 0;
   // ~11.7 Hz (target 8-12 uploads/sec during active playback)
   private readonly UPLOAD_INTERVAL_MS: number = 85;
+  private uploadCountInCurrentSecond: number = 0;
+  private recentUploadsPerSecond: number = 0;
+  private lastUploadRateCalcTime: number = 0;
 
   private currentProgress: number = 0;
   private currentElevation: number = 0;
@@ -231,6 +234,16 @@ export class SpatialHUD {
     this.verticalExaggeration = nextVal;
     this.callbacks.onSetVerticalExaggeration?.(nextVal);
     this.drawHUD(true);
+  }
+
+  public getUploadRate(): number {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.lastUploadRateCalcTime >= 1000) {
+      this.recentUploadsPerSecond = this.uploadCountInCurrentSecond;
+      this.uploadCountInCurrentSecond = 0;
+      this.lastUploadRateCalcTime = now;
+    }
+    return this.recentUploadsPerSecond;
   }
 
   private setupInteractiveAreas(): void {
@@ -439,6 +452,7 @@ export class SpatialHUD {
       if (now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
         this.renderDynamicLayer();
         this.texture.needsUpdate = true;
+        this.uploadCountInCurrentSecond++;
         this.lastTextureUploadTime = now;
         this.dynamicDirty = false;
       }
@@ -540,6 +554,7 @@ export class SpatialHUD {
     if (force || now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
       this.renderDynamicLayer();
       this.texture.needsUpdate = true;
+      this.uploadCountInCurrentSecond++;
       this.lastTextureUploadTime = now;
       this.dynamicDirty = false;
     } else {
@@ -686,6 +701,65 @@ export class SpatialHUD {
       ctx.lineTo(chartX + 18, chartY + chartH - 24);
       ctx.closePath();
       ctx.fill();
+
+      // Draw landmark markers directly on elevation curve (Requirement #117, #118)
+      const allLandmarks = [...(this.track.waypoints || [])];
+      for (const lm of this.track.landmarks || []) {
+        if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+          if (!allLandmarks.some((w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005)) {
+            allLandmarks.push(lm);
+          }
+        }
+      }
+
+      for (const lm of allLandmarks) {
+        let bestDistSq = Infinity;
+        let bestDistFromStart = 0;
+        let bestEle = lm.ele ?? minE;
+        for (const p of this.track.points) {
+          const dLat = p.lat - lm.lat;
+          const dLon = (p.lon - lm.lon) * Math.cos((lm.lat * Math.PI) / 180);
+          const d = dLat * dLat + dLon * dLon;
+          if (d < bestDistSq) {
+            bestDistSq = d;
+            bestDistFromStart = p.distanceFromStart;
+            bestEle = p.ele;
+          }
+        }
+
+        const prog = this.track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / this.track.totalDistance)) : 0;
+        const lx = chartX + 18 + prog * (chartW - 36);
+        const normH = (bestEle - minE) / spanE;
+        const ly = chartY + chartH - 24 - normH * (chartH - 48);
+
+        const pinColor = lm.type === 'summit'
+          ? '#f59e0b'
+          : lm.type === 'start'
+          ? '#10b981'
+          : lm.type === 'finish'
+          ? '#ef4444'
+          : lm.type === 'day_boundary'
+          ? '#8b5cf6'
+          : '#38bdf8';
+
+        ctx.fillStyle = pinColor;
+        ctx.beginPath();
+        ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish') {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          let shortName = lm.name;
+          if (shortName.length > 10) shortName = shortName.substring(0, 9) + '…';
+          ctx.fillText(shortName, lx, ly - 8);
+          ctx.textAlign = 'left';
+        }
+      }
     }
 
     // 4. Footer Controller & Hand Gestures Guide
@@ -829,11 +903,25 @@ export class SpatialHUD {
         const spdMph = pt?.speed ? (pt.speed * 2.23694).toFixed(1) : (this.track.avgSpeed * 0.621371).toFixed(1);
         tipDetail = ` • ${spdMph} mph`;
       }
-      const tipText = `${curEleFt.toLocaleString()} ft • ${curDistMi} mi${tipDetail}`;
+      // Check if near landmark
+      let nearLandmark = '';
+      if (pt) {
+        const allLm = (this.track.landmarks || []).concat(this.track.waypoints || []);
+        for (const lm of allLm) {
+          const d = Math.hypot(pt.lat - lm.lat, (pt.lon - lm.lon) * Math.cos((pt.lat * Math.PI) / 180)) * 111320;
+          if (d < 150) {
+            nearLandmark = `${lm.name} • `;
+            break;
+          }
+        }
+      }
+
+      const tipText = `${nearLandmark}${curEleFt.toLocaleString()} ft • ${curDistMi} mi${tipDetail}`;
+      const boxW = Math.max(140, tipText.length * 7.5 + 20);
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
       ctx.beginPath();
-      ctx.roundRect(scrubX - 70, scrubY - 36, 140, 26, 6);
+      ctx.roundRect(scrubX - boxW / 2, scrubY - 36, boxW, 26, 6);
       ctx.fill();
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 1;

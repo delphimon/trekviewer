@@ -84,8 +84,8 @@ export interface TrackStats {
   timingType?: 'recorded' | 'estimated';
 }
 
-export type ViewMode = 'diorama' | 'first-person' | 'flyover';
-export type TextureStyle = 'satellite' | 'topo' | 'elevation-ramp' | 'hybrid';
+export type ViewMode = 'diorama' | 'first-person';
+export type TextureStyle = 'satellite' | 'topo' | 'hybrid';
 export type TrailColorMode = 'elevation' | 'grade' | 'speed' | 'solid';
 
 export interface RouteManifestItem {
