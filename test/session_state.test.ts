@@ -10,7 +10,7 @@ describe('TrekSession Authoritative State Store (Stage G)', () => {
 
     assert.strictEqual(state.viewMode, 'diorama');
     assert.strictEqual(state.textureStyle, 'satellite');
-    assert.strictEqual(state.trailColorMode, 'grade');
+    assert.strictEqual(state.trailColorMode, 'solid');
     assert.strictEqual(state.verticalExaggeration, 1.0);
     assert.strictEqual(state.isPlaying, false);
     assert.strictEqual(state.playbackSpeed, 1.0);

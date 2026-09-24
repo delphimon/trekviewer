@@ -59,7 +59,7 @@ export class SpatialHUD {
   private currentSpeed: number = 1.0;
   private currentViewMode: ViewMode = 'diorama';
   private currentTextureStyle: TextureStyle = 'satellite';
-  private currentTrailColorMode: TrailColorMode = 'grade';
+  private currentTrailColorMode: TrailColorMode = 'solid';
   private verticalExaggeration: number = 1.0;
   private currentDockSide: 'left' | 'right' | 'center' = 'left';
   private attribution: string = '';
@@ -1055,9 +1055,11 @@ export class SpatialHUD {
       : '🗺 Topo Map';
     ctx.fillText(texLabel, 415 + 90, 521);
 
-    // 4. Trail Color Style (Grade ⇄ Speed ⇄ Elev) (x: 605, w: 180)
+    // 4. Trail Color Style (Solid ⇄ Grade ⇄ Speed ⇄ Elev) (x: 605, w: 180)
     const colHover = this.hoveredAreaId === 'btn-color';
-    ctx.fillStyle = colHover ? '#059669' : '#047857';
+    ctx.fillStyle = this.currentTrailColorMode === 'solid'
+      ? (colHover ? '#0284c7' : '#0369a1')
+      : (colHover ? '#059669' : '#047857');
     ctx.beginPath();
     ctx.roundRect(605, 485, 180, 58, 12);
     ctx.fill();
@@ -1066,10 +1068,12 @@ export class SpatialHUD {
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
-    const colLabel = this.currentTrailColorMode === 'grade'
-      ? '⛰ Steepness'
+    const colLabel = this.currentTrailColorMode === 'solid'
+      ? '🧭 Solid Route'
+      : this.currentTrailColorMode === 'grade'
+      ? '⛰ Smoothed Grade'
       : this.currentTrailColorMode === 'speed'
-      ? '🏃 Pace / Speed'
+      ? '🏃 Smoothed Pace'
       : '📈 Altitude';
     ctx.fillText(colLabel, 605 + 90, 521);
 

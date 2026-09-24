@@ -33,7 +33,21 @@ for (let i = 0; i < colorAttr.count; i += 100) {
     throw new Error(`Invalid RGB vertex color at index ${i}: (${r}, ${g}, ${b})`);
   }
 }
-console.log('✓ Trail ribbon vertex colors initialized properly (Grade / Steepness mode default)');
+console.log('✓ Trail ribbon vertex colors initialized properly (Solid mode default)');
+
+// Verify initial solid color is high-contrast cyan (#38bdf8)
+const solidColor = new THREE.Color(0x38bdf8);
+const initialR = colorAttr.getX(0);
+const initialG = colorAttr.getY(0);
+const initialB = colorAttr.getZ(0);
+if (Math.abs(initialR - solidColor.r) > 0.05 || Math.abs(initialG - solidColor.g) > 0.05 || Math.abs(initialB - solidColor.b) > 0.05) {
+  throw new Error(`Expected initial solid cyan color, got (${initialR}, ${initialG}, ${initialB})`);
+}
+
+// Test cycling to 'grade' mode
+trailResult.setColorMode('grade');
+const gradeColorSample = [colorAttr.getX(50), colorAttr.getY(50), colorAttr.getZ(50)];
+console.log(`Sample Grade RGB at segment 50: (${gradeColorSample.map(v => v.toFixed(3)).join(', ')})`);
 
 // Test cycling to 'speed' (Pace) mode
 trailResult.setColorMode('speed');
@@ -45,9 +59,9 @@ trailResult.setColorMode('elevation');
 const eleColorSample = [colorAttr.getX(50), colorAttr.getY(50), colorAttr.getZ(50)];
 console.log(`Sample Elevation RGB at segment 50: (${eleColorSample.map(v => v.toFixed(3)).join(', ')})`);
 
-// Return to 'grade' mode
-trailResult.setColorMode('grade');
-console.log('✓ Trail color mode successfully toggled between Grade, Speed/Pace, and Elevation');
+// Return to 'solid' mode
+trailResult.setColorMode('solid');
+console.log('✓ Trail color mode successfully toggled between Solid, Grade, Speed/Pace, and Elevation');
 
 // 3. Test Radiant Hiker Beacon Prominence
 const marker = trailResult.hikerMarker;
