@@ -204,8 +204,9 @@ export class RouteLoader {
         return null;
       }
 
-      // 2. Generate 3D Trail Mesh off-scene
-      trail = TrailMesh.create(track, terrain.elevationSampler, terrain.terrainBaseElevation);
+      // 2. Generate 3D Trail Mesh off-scene attached directly to rendered terrain surface (Section 12)
+      const surfaceSampler = terrain.sampleRenderedSurfaceY || terrain.elevationSampler;
+      trail = TrailMesh.create(track, surfaceSampler, terrain.terrainBaseElevation);
       const trailColorMode = this.options.getCurrentTrailColorMode
         ? this.options.getCurrentTrailColorMode()
         : 'grade';
@@ -254,7 +255,7 @@ export class RouteLoader {
         -80,
         allWaypoints,
         terrain.terrainBaseElevation,
-        terrain.elevationSampler,
+        surfaceSampler,
         1.0
       );
 

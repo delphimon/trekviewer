@@ -35,25 +35,49 @@ export class TextureBudget {
   }
 
   /**
-   * Adaptive segment count for the 3D terrain plane mesh based on terrain physical extent.
+   * Adaptive, aspect-aware segment count for the 3D terrain plane mesh based on terrain physical dimensions (Section 18).
+   * Maintains approximately 1:1 cell aspect ratio (dx ~= dz) with target cell spacing and bounded vertex budget.
    */
   public static getTerrainMeshResolution(
-    extentMeters: number,
-    _isXRPresenting: boolean = false
+    widthOrExtentMeters: number,
+    depthMeters?: number,
+    isXRPresenting: boolean = false
   ): { segX: number; segZ: number } {
-    // Target ~80m - 120m per cell for small alpine zones, ~150m - 200m for massive traverses
-    if (extentMeters <= 8000) {
-      // Small peak / climb (e.g. Putrid Pete P3: ~4km): crisp 128x128
-      return { segX: 128, segZ: 128 };
-    } else if (extentMeters <= 20000) {
-      // Standard mountain massif (e.g. Rainier, Baker: 15-20km): 128x128
-      return { segX: 128, segZ: 128 };
-    } else if (extentMeters <= 40000) {
-      // Extended ridge / traverse: 112x112
-      return { segX: 112, segZ: 112 };
-    } else {
-      // Massive multi-day expedition (e.g. Bailey Range: 50km+): 96x96
-      return { segX: 96, segZ: 96 };
+    // Backward-compatibility: if only 1 argument is provided, use legacy fixed square resolution
+    if (depthMeters === undefined) {
+      const extentMeters = widthOrExtentMeters;
+      if (extentMeters <= 8000) {
+        return { segX: 128, segZ: 128 };
+      } else if (extentMeters <= 20000) {
+        return { segX: 128, segZ: 128 };
+      } else if (extentMeters <= 40000) {
+        return { segX: 112, segZ: 112 };
+      } else {
+        return { segX: 96, segZ: 96 };
+      }
     }
+
+    const widthMeters = Math.max(1000, widthOrExtentMeters);
+    const depthM = Math.max(1000, depthMeters);
+
+    const isConstrained = isXRPresenting || this.isQuestHeadset();
+
+    // Target cell size: ~120m for Quest (100-150m), ~75m for desktop (60-100m)
+    const targetCellSize = isConstrained ? 120 : 75;
+    // Maximum vertex budget: ~125k vertices on Quest (within 100k-150k budget), ~200k on desktop
+    const maxVertices = isConstrained ? 125000 : 200000;
+
+    let segX = Math.max(32, Math.ceil(widthMeters / targetCellSize));
+    let segZ = Math.max(32, Math.ceil(depthM / targetCellSize));
+
+    const totalVertices = (segX + 1) * (segZ + 1);
+
+    if (totalVertices > maxVertices) {
+      const scale = Math.sqrt(maxVertices / totalVertices);
+      segX = Math.max(32, Math.floor(segX * scale));
+      segZ = Math.max(32, Math.floor(segZ * scale));
+    }
+
+    return { segX, segZ };
   }
 }

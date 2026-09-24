@@ -205,12 +205,11 @@ describe('Stage T2: Route Fidelity, Terrain Alignment & GPS Smoothing', () => {
           const cy = (ly + ry) * 0.5;
           const cz = (lz + rz) * 0.5;
 
-          // Terrain elevation at exact centerline (cx, cz)
-          const expectedTerrainY = elevationSampler(cx, cz);
-          const expectedRouteY = expectedTerrainY * exag + expectedOffset;
-
-          // Assert zero deviation: spline interpolation never cuts through or hovers!
-          expect(cy).toBeCloseTo(expectedRouteY, 1);
+          // Left and right edge elevations match rendered surface sampler (Stage U2 dual-edge sampling)
+          const expectedLeftY = elevationSampler(lx, lz) * exag + expectedOffset;
+          const expectedRightY = elevationSampler(rx, rz) * exag + expectedOffset;
+          expect(ly).toBeCloseTo(expectedLeftY, 1);
+          expect(ry).toBeCloseTo(expectedRightY, 1);
         }
 
         trailResult.dispose();
@@ -273,10 +272,11 @@ describe('Stage T2: Route Fidelity, Terrain Alignment & GPS Smoothing', () => {
         const cy = (ly + ry) * 0.5;
         const cz = (lz + rz) * 0.5;
 
-        const expectedTerrainY = elevationSampler(cx, cz);
-        const expectedRouteY = expectedTerrainY * 2.5 + expectedOffset;
-
-        expect(cy).toBeCloseTo(expectedRouteY, 1);
+        // Left and right edge elevations update strictly with exaggeration
+        const expectedLeftY = elevationSampler(lx, lz) * 2.5 + expectedOffset;
+        const expectedRightY = elevationSampler(rx, rz) * 2.5 + expectedOffset;
+        expect(ly).toBeCloseTo(expectedLeftY, 1);
+        expect(ry).toBeCloseTo(expectedRightY, 1);
       }
 
       trailResult.dispose();
