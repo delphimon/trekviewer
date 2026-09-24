@@ -70,6 +70,10 @@ const _scratchGripPos = new THREE.Vector3();
 const _scratchGripQuat = new THREE.Quaternion();
 const _scratchPlaneNormal = new THREE.Vector3();
 
+export const WAYPOINT_HOVER_RADIUS = 0.08; // 8 cm world radius (within 6-10 cm)
+export const WAYPOINT_TOUCH_RADIUS = 0.035; // 3.5 cm world radius (touch latch engage)
+export const WAYPOINT_REARM_RADIUS = 0.050; // 5.0 cm world radius (rearm hysteresis)
+
 export interface HandState {
   hand: THREE.XRHandSpace;
   inputSource: any;
@@ -81,6 +85,8 @@ export interface HandState {
   isClickingHUD: boolean;
   activeInteraction: 'none' | 'hud' | 'diorama' | 'waypoint';
   isHoveringWaypoint?: boolean;
+  isTouchingWaypoint?: boolean;
+  latchedWaypointPin?: THREE.Group | null;
   jointPosMap: Map<string, THREE.Vector3>;
   pinchWorldPos: THREE.Vector3;
   prevPinchWorldPos: THREE.Vector3;
@@ -179,6 +185,9 @@ export class XRManager {
       hand.isPinching = false;
       hand.prevPinching = false;
       hand.isClickingHUD = false;
+      hand.isHoveringWaypoint = false;
+      hand.isTouchingWaypoint = false;
+      hand.latchedWaypointPin = null;
       hand.pinchReticle.visible = false;
       hand.visualOutline.group.visible = false;
     }
@@ -431,6 +440,9 @@ export class XRManager {
         prevPinching: false,
         isClickingHUD: false,
         activeInteraction: 'none',
+        isHoveringWaypoint: false,
+        isTouchingWaypoint: false,
+        latchedWaypointPin: null,
         jointPosMap,
         pinchWorldPos: new THREE.Vector3(),
         prevPinchWorldPos: new THREE.Vector3(),
@@ -452,6 +464,9 @@ export class XRManager {
         state.isPinching = false;
         state.prevPinching = false;
         state.activeInteraction = 'none';
+        state.isHoveringWaypoint = false;
+        state.isTouchingWaypoint = false;
+        state.latchedWaypointPin = null;
         state.pinchReticle.visible = false;
         state.visualOutline.group.visible = false;
       });
@@ -1053,12 +1068,25 @@ export class XRManager {
     fingerPos: THREE.Vector3,
     isPinching: boolean
   ): boolean {
-    if (this.currentViewMode !== 'diorama') return false;
+    if (this.currentViewMode !== 'diorama') {
+      if (state.isHoveringWaypoint) {
+        state.isHoveringWaypoint = false;
+        DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+      }
+      state.isTouchingWaypoint = false;
+      state.latchedWaypointPin = null;
+      return false;
+    }
     const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
-    if (!wpGroup || wpGroup.children.length === 0) return false;
-
-    const HOVER_RADIUS = 0.08; // 8 cm world radius (within 6-10 cm) (Section 30)
-    const TOUCH_RADIUS = 0.035; // 3.5 cm world radius (within 2-4 cm) (Section 30)
+    if (!wpGroup || wpGroup.children.length === 0) {
+      if (state.isHoveringWaypoint) {
+        state.isHoveringWaypoint = false;
+        DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+      }
+      state.isTouchingWaypoint = false;
+      state.latchedWaypointPin = null;
+      return false;
+    }
 
     let closestPin: THREE.Group | null = null;
     let closestDist = Infinity;
@@ -1078,18 +1106,39 @@ export class XRManager {
       }
     }
 
-    if (closestPin && closestDist <= HOVER_RADIUS) {
+    if (closestPin && closestDist <= WAYPOINT_HOVER_RADIUS) {
       const wp = closestPin.userData?.waypoint;
       state.isHoveringWaypoint = true;
 
       // Immediate visual hover feedback: halo, enlarged marker, readable label (Section 32)
+      // Automatically clears hover on any other waypoint pins
       DioramaBase.onHoverWaypoint(this.sceneManager.dioramaRoot, closestPin);
 
-      // Direct fingertip touch (<= 3.5cm) OR pinch initiated while hovering (Section 31)
-      const isTouch = closestDist <= TOUCH_RADIUS;
-      const isPinchSelect = isPinching && !state.prevPinching;
+      // Rearm hysteresis: if finger has moved beyond REARM_RADIUS (5.0 cm), rearm touch
+      if (state.isTouchingWaypoint && closestDist >= WAYPOINT_REARM_RADIUS) {
+        state.isTouchingWaypoint = false;
+        state.latchedWaypointPin = null;
+      }
 
-      if (isTouch || isPinchSelect) {
+      // Direct fingertip touch (<= 3.5cm) with latching
+      const isTouch = closestDist <= WAYPOINT_TOUCH_RADIUS;
+      const isPinchSelect = (isPinching && !state.prevPinching) || (state.pinchTracker?.justPinched ?? false);
+
+      if (isTouch) {
+        // Touch latching: only fire selection once per deliberate contact
+        if (!state.isTouchingWaypoint || state.latchedWaypointPin !== closestPin) {
+          state.isTouchingWaypoint = true;
+          state.latchedWaypointPin = closestPin;
+          DioramaBase.onSelectWaypoint(this.sceneManager.dioramaRoot, closestPin);
+          if (wp) {
+            this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
+          }
+        }
+        state.activeInteraction = 'waypoint';
+        return true;
+      } else if (isPinchSelect) {
+        state.isTouchingWaypoint = true;
+        state.latchedWaypointPin = closestPin;
         DioramaBase.onSelectWaypoint(this.sceneManager.dioramaRoot, closestPin);
         if (wp) {
           this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
@@ -1110,6 +1159,8 @@ export class XRManager {
       state.isHoveringWaypoint = false;
       DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
     }
+    state.isTouchingWaypoint = false;
+    state.latchedWaypointPin = null;
 
     return false;
   }
