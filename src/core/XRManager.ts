@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
+import { DioramaBase } from '../visualization/DioramaBase.ts';
 import type { GeoBounds, ViewMode } from '../gpx/TrackTypes.ts';
 import {
   ALL_HAND_JOINTS,
@@ -1203,14 +1204,14 @@ export class XRManager {
       try {
         const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
         if (wpGroup && wpGroup.children.length > 0) {
-          // Raycast only meshes within wpGroup, strictly excluding sprites
-          const pinMeshes: THREE.Mesh[] = [];
+          // Raycast meshes within wpGroup, prioritizing WaypointHitTarget (Section 26)
+          const hitMeshes: THREE.Mesh[] = [];
           wpGroup.traverse((obj) => {
             if ((obj as THREE.Mesh).isMesh && !(obj as any).isSprite) {
-              pinMeshes.push(obj as THREE.Mesh);
+              hitMeshes.push(obj as THREE.Mesh);
             }
           });
-          const wpHits = this.raycaster.intersectObjects(pinMeshes, false);
+          const wpHits = this.raycaster.intersectObjects(hitMeshes, false);
           if (wpHits.length > 0) {
             const hitWp = wpHits[0];
             let curr: THREE.Object3D | null = hitWp.object;
@@ -1219,6 +1220,9 @@ export class XRManager {
             }
             if (curr && curr.userData && curr.userData.waypoint) {
               const wp = curr.userData.waypoint;
+              // Trigger immediate hover label display (Sections 23, 27)
+              DioramaBase.onHoverWaypoint(this.sceneManager.dioramaRoot, curr);
+
               const dist = hitWp.distance;
               state.rayLine.geometry.setFromPoints([
                 new THREE.Vector3(0, 0, 0),
@@ -1230,10 +1234,13 @@ export class XRManager {
 
               if (isTriggerDown && !state.prevButtons[0]) {
                 this.triggerHaptic(controllerIdx, 0.8, 50);
+                DioramaBase.onSelectWaypoint(this.sceneManager.dioramaRoot, curr);
                 this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
               }
               return;
             }
+          } else {
+            DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
           }
         }
       } catch (err) {

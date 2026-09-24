@@ -6,6 +6,7 @@ import { XRManager } from './core/XRManager';
 import { TerrainResult } from './terrain/TerrainGenerator';
 import { TrailResult } from './visualization/TrailMesh';
 import { FlyoverController } from './visualization/FlyoverController';
+import { DioramaBase } from './visualization/DioramaBase';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
@@ -377,6 +378,7 @@ class TrekViewerApp {
       onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
       onFocusHiker: () => this.focusOnHiker(),
       onDockHUD: (side) => this.dockHUD(side),
+      onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
     });
 
     // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
@@ -606,6 +608,7 @@ class TrekViewerApp {
     const curPoint = telemetry?.currentPoint ?? null;
 
     this.session.setProgress(progress, curEle, curDist, curPoint);
+    DioramaBase.selectWaypointByName(this.sceneManager.dioramaRoot, name);
 
     this.overlay.showStatus(`Jumped to: ${name}`);
     this.spatialHUD?.showStatus(`Jumped to: ${name}`);
@@ -739,6 +742,11 @@ class TrekViewerApp {
         this.sceneManager.renderer.xr.isPresenting,
         currentProgress
       );
+      // Update waypoint marker scale compensation & billboard labels (Sections 21, 24, 25)
+      const activeCamera = this.sceneManager.renderer.xr.isPresenting
+        ? this.sceneManager.renderer.xr.getCamera()
+        : this.sceneManager.camera;
+      this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta);
     }
 
     // 6. Render Scene

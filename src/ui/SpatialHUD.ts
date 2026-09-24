@@ -16,6 +16,7 @@ export interface SpatialHUDCallbacks {
   onStepSeconds: (seconds: number) => void;
   onFocusHiker: () => void;
   onDockHUD?: (side: 'left' | 'right' | 'center') => void;
+  onSelectWaypoint?: (name: string, lat?: number, lon?: number) => void;
 }
 
 interface InteractiveArea {
@@ -71,6 +72,14 @@ export class SpatialHUD {
   private hoveredAreaId: string | null = null;
   private interactiveAreas: InteractiveArea[] = [];
   private isDraggingScrubber: boolean = false;
+  private allLandmarksSorted: {
+    name: string;
+    lat: number;
+    lon: number;
+    ele: number;
+    type?: string;
+    progress: number;
+  }[] = [];
 
   constructor(track: TrackStats, callbacks: SpatialHUDCallbacks) {
     this.track = track;
@@ -92,6 +101,42 @@ export class SpatialHUD {
 
     // Cache elevation profile samples once upon construction
     this.cachedElevationSamples = GPXParser.sampleElevationProfile(track.points, 140);
+
+    // Extract, resolve route distance, and sort landmarks along route (Sections 28, 29)
+    const landmarksList: { name: string; lat: number; lon: number; ele: number; type?: string; progress: number }[] = [];
+    const rawLandmarks = [...(track.waypoints || [])];
+    for (const lm of track.landmarks || []) {
+      if (!rawLandmarks.some((w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005)) {
+        rawLandmarks.push(lm);
+      }
+    }
+    for (const lm of rawLandmarks) {
+      let bestDistSq = Infinity;
+      let bestDistFromStart = 0;
+      let bestEle = lm.ele ?? track.minElevation;
+      const cosLat = Math.cos((lm.lat * Math.PI) / 180);
+      for (const p of track.points) {
+        const dLat = (p.lat - lm.lat) * 111320;
+        const dLon = (p.lon - lm.lon) * 111320 * cosLat;
+        const d = dLat * dLat + dLon * dLon;
+        if (d < bestDistSq) {
+          bestDistSq = d;
+          bestDistFromStart = p.distanceFromStart;
+          bestEle = p.ele;
+        }
+      }
+      const prog = track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / track.totalDistance)) : 0;
+      landmarksList.push({
+        name: lm.name,
+        lat: lm.lat,
+        lon: lm.lon,
+        ele: bestEle,
+        type: lm.type,
+        progress: prog,
+      });
+    }
+    landmarksList.sort((a, b) => a.progress - b.progress);
+    this.allLandmarksSorted = landmarksList;
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.minFilter = THREE.LinearFilter;
@@ -412,7 +457,80 @@ export class SpatialHUD {
         h: 58,
         action: () => this.cycleVerticalExaggeration(),
       },
+      // Row 3: Landmark Navigation (Previous, Current, Next) (Sections 28, 29)
+      {
+        id: 'btn-prev-landmark',
+        x: 35,
+        y: 552,
+        w: 220,
+        h: 50,
+        action: () => this.jumpToPreviousLandmark(),
+      },
+      {
+        id: 'btn-curr-landmark',
+        x: 270,
+        y: 552,
+        w: 480,
+        h: 50,
+        action: () => this.jumpToCurrentLandmark(),
+      },
+      {
+        id: 'btn-next-landmark',
+        x: 765,
+        y: 552,
+        w: 225,
+        h: 50,
+        action: () => this.jumpToNextLandmark(),
+      },
     ];
+  }
+
+  public jumpToPreviousLandmark(): void {
+    if (this.allLandmarksSorted.length === 0) return;
+    const curP = this.currentProgress;
+    let target = this.allLandmarksSorted[this.allLandmarksSorted.length - 1];
+    for (let i = this.allLandmarksSorted.length - 1; i >= 0; i--) {
+      if (this.allLandmarksSorted[i].progress < curP - 0.005) {
+        target = this.allLandmarksSorted[i];
+        break;
+      }
+    }
+    this.callbacks.onSelectWaypoint?.(target.name, target.lat, target.lon);
+  }
+
+  public jumpToNextLandmark(): void {
+    if (this.allLandmarksSorted.length === 0) return;
+    const curP = this.currentProgress;
+    let target = this.allLandmarksSorted[0];
+    for (let i = 0; i < this.allLandmarksSorted.length; i++) {
+      if (this.allLandmarksSorted[i].progress > curP + 0.005) {
+        target = this.allLandmarksSorted[i];
+        break;
+      }
+    }
+    this.callbacks.onSelectWaypoint?.(target.name, target.lat, target.lon);
+  }
+
+  public jumpToCurrentLandmark(): void {
+    if (this.allLandmarksSorted.length === 0) return;
+    const nearest = this.getNearestLandmark();
+    if (nearest) {
+      this.callbacks.onSelectWaypoint?.(nearest.name, nearest.lat, nearest.lon);
+    }
+  }
+
+  public getNearestLandmark(): { name: string; lat: number; lon: number; ele: number; progress: number } | null {
+    if (this.allLandmarksSorted.length === 0) return null;
+    let nearest = this.allLandmarksSorted[0];
+    let minDiff = Math.abs(nearest.progress - this.currentProgress);
+    for (let i = 1; i < this.allLandmarksSorted.length; i++) {
+      const diff = Math.abs(this.allLandmarksSorted[i].progress - this.currentProgress);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = this.allLandmarksSorted[i];
+      }
+    }
+    return nearest;
   }
 
   public updateState(
@@ -765,9 +883,9 @@ export class SpatialHUD {
 
     // 4. Footer Controller & Hand Gestures Guide
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '13px sans-serif';
-    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 565);
-    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 583);
+    ctx.font = '12px sans-serif';
+    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 620);
+    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 638);
 
     // Compact Attribution & Elevation quality badge
     const qualityLabel = this.terrainQuality === 'dem' ? 'DEM' : this.terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
@@ -776,8 +894,8 @@ export class SpatialHUD {
       : '';
     const metaStr = `Elevation: ${qualityLabel}${provStr}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
     ctx.fillStyle = '#64748b';
-    ctx.font = '12px sans-serif';
-    ctx.fillText(metaStr, 45, 601);
+    ctx.font = '11px sans-serif';
+    ctx.fillText(metaStr, 45, 656);
   }
 
   private renderDynamicLayer(): void {
@@ -863,6 +981,27 @@ export class SpatialHUD {
       ctx.lineTo(scrubX, chartY + chartH - 24);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Glowing halo around active / nearest landmark on elevation profile (Section 29)
+      const nearestLm = this.getNearestLandmark();
+      if (nearestLm) {
+        const nX = chartX + 18 + nearestLm.progress * (chartW - 36);
+        const nNormH = (nearestLm.ele - minE) / spanE;
+        const nY = chartY + chartH - 24 - nNormH * (chartH - 48);
+
+        if (ctx.save) ctx.save();
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
+        ctx.beginPath();
+        ctx.arc(nX, nY, 13, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(nX, nY, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        if (ctx.restore) ctx.restore();
+      }
 
       // Scrubber handle dot (Prominent multi-ring beacon marker)
       const currNorm = (this.currentElevation - minE) / spanE;
@@ -1091,10 +1230,69 @@ export class SpatialHUD {
     ctx.fillText(`⛰️ ${this.verticalExaggeration.toFixed(1)}x Exag`, 795 + 97, 521);
     ctx.textAlign = 'left';
 
-    // 8. Bottom Non-Intrusive Status & Progress Pill (never blocks header or controls)
+    // 8. Row 3: Landmark Navigation (Previous, Current, Next) (Sections 28, 29)
+    const prevHover = this.hoveredAreaId === 'btn-prev-landmark';
+    const currHover = this.hoveredAreaId === 'btn-curr-landmark';
+    const nextHover = this.hoveredAreaId === 'btn-next-landmark';
+    const hasLandmarks = this.allLandmarksSorted.length > 0;
+
+    // 1. Previous Landmark Button (x: 35, w: 220, y: 552, h: 50)
+    ctx.fillStyle = prevHover ? '#0284c7' : 'rgba(30, 41, 59, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(35, 552, 220, 50, 10);
+    ctx.fill();
+    ctx.strokeStyle = prevHover ? '#ffffff' : 'rgba(56, 189, 248, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = hasLandmarks ? '#ffffff' : '#64748b';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('◀ Prev Landmark', 35 + 110, 583);
+
+    // 2. Current Landmark Center Card (x: 270, w: 480, y: 552, h: 50)
+    ctx.fillStyle = currHover ? '#0f766e' : 'rgba(15, 23, 42, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(270, 552, 480, 50, 10);
+    ctx.fill();
+    ctx.strokeStyle = currHover ? '#38bdf8' : 'rgba(56, 189, 248, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const nearestCard = this.getNearestLandmark();
+    if (nearestCard) {
+      let displayName = nearestCard.name;
+      if (displayName.length > 26) displayName = displayName.substring(0, 24) + '…';
+      const eleFt = Math.round(nearestCard.ele * 3.28084);
+      const distMi = (this.track.totalDistance * nearestCard.progress * 0.000621371).toFixed(1);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText(`📍 ${displayName}`, 270 + 240, 572);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`${eleFt.toLocaleString()} ft • ${distMi} mi`, 270 + 240, 591);
+    } else {
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('📍 No Landmarks on Track', 270 + 240, 583);
+    }
+
+    // 3. Next Landmark Button (x: 765, w: 225, y: 552, h: 50)
+    ctx.fillStyle = nextHover ? '#0284c7' : 'rgba(30, 41, 59, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(765, 552, 225, 50, 10);
+    ctx.fill();
+    ctx.strokeStyle = nextHover ? '#ffffff' : 'rgba(56, 189, 248, 0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = hasLandmarks ? '#ffffff' : '#64748b';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('Next Landmark ▶', 765 + 112, 583);
+    ctx.textAlign = 'left';
+
+    // 9. Bottom Non-Intrusive Status & Progress Pill (never blocks header or controls)
     if (this.statusMessage) {
-      const pillY = 620;
-      const pillH = 38;
+      const pillY = 612;
+      const pillH = 48;
       ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
       ctx.beginPath();
       ctx.roundRect(35, pillY, w - 70, pillH, 10);
@@ -1105,13 +1303,13 @@ export class SpatialHUD {
 
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 15px sans-serif';
-      ctx.fillText(this.statusMessage, 55, pillY + 24);
+      ctx.fillText(this.statusMessage, 55, pillY + 28);
 
       if (this.statusProgress > 0) {
         ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
-        ctx.fillRect(45, pillY + 31, w - 90, 4);
+        ctx.fillRect(45, pillY + 36, w - 90, 4);
         ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(45, pillY + 31, Math.max(8, (w - 90) * this.statusProgress), 4);
+        ctx.fillRect(45, pillY + 36, Math.max(8, (w - 90) * this.statusProgress), 4);
       }
     }
   }

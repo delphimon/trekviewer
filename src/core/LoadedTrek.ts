@@ -98,6 +98,11 @@ export class LoadedTrek {
     this.imageryLOD.setDebugPatchBounds(enabled);
   }
 
+  public updateWaypoints(camera: THREE.Camera, dioramaScale: number, delta: number): void {
+    if (this._isDisposed) return;
+    DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta);
+  }
+
   public dispose(): void {
     if (this._isDisposed) return;
     this._isDisposed = true;

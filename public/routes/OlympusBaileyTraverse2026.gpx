@@ -1,5 +1,182 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/1" xmlns:onx="http://www.onxmaps.com" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd " version="1.1" creator="onXmaps backcountry ios">
+	<wpt lat="47.930391" lon="-123.738499">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Sol Duc River</name>
+		<extensions>
+			<onx:icon>Location</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.799016" lon="-123.682923">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Glacier Pass</name>
+		<extensions>
+			<onx:icon>Location</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.839576" lon="-123.57645">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Ferry Basin</name>
+		<extensions>
+			<onx:icon>Camp Backcountry</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.954884" lon="-123.834929">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>FINISH</name>
+		<extensions>
+			<onx:icon>Trailhead</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.82399" lon="-123.681679">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Blue Glacier Moraine</name>
+		<extensions>
+			<onx:icon>Hazard</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.909784" lon="-123.733606">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Heart Lake</name>
+		<extensions>
+			<onx:icon>Water Source</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.800876" lon="-123.633184">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Aphrodite Canyon</name>
+		<extensions>
+			<onx:icon>Location</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.891025" lon="-123.669705">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Catwalk</name>
+		<extensions>
+			<onx:icon>Mountaineer</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.860398" lon="-123.934568">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>START</name>
+		<extensions>
+			<onx:icon>Trailhead</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.876462" lon="-123.694639">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>High Hoh Bridge</name>
+		<extensions>
+			<onx:icon>Footbridge</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.798829" lon="-123.586621">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Bear Pass</name>
+		<extensions>
+			<onx:icon>Location</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.794686" lon="-123.677766">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Hoh Glacier</name>
+		<extensions>
+			<onx:icon>Location</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.797215" lon="-123.664684">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Camp Pan</name>
+		<extensions>
+			<onx:icon>Camp Backcountry</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.890988" lon="-123.664591">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Boston Charlie's Camp</name>
+		<desc>Boston Charlie's Camp is a campsite inside of Olympic National Park.Amenities: campsite</desc>
+		<extensions>
+			<onx:icon>Camp Backcountry</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.832693" lon="-123.691788">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Glacier Meadows Camp</name>
+		<extensions>
+			<onx:icon>Camp</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.801376" lon="-123.71084">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Mount Olympus</name>
+		<extensions>
+			<onx:icon>Summit</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.796253" lon="-123.650895">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Point 6270</name>
+		<extensions>
+			<onx:icon>Summit</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.807496" lon="-123.585437">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Camp 3</name>
+		<extensions>
+			<onx:icon>Camp Backcountry</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.882545" lon="-123.637629">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Camp 4</name>
+		<extensions>
+			<onx:icon>Camp Backcountry</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.888405" lon="-123.652983">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Andrew's Gully of Doom</name>
+		<extensions>
+			<onx:icon>Couloir</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.836774" lon="-123.692856">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Washout Ladder</name>
+		<extensions>
+			<onx:icon>Washout</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
+	<wpt lat="47.812175" lon="-123.702398">
+		<time>2026-09-24T18:09:47Z</time>
+		<name>Snow Dome</name>
+		<extensions>
+			<onx:icon>Location</onx:icon>
+			<onx:color>rgba(8, 122, 255, 1)</onx:color>
+		</extensions>
+	</wpt>
 	<trk>
 		<name>Olympus and Bailey Range June 2026</name>
 		<extensions>

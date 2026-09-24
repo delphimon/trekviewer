@@ -230,6 +230,24 @@ export class RouteLoader {
           }
         }
       }
+      // Compute distance along route for each waypoint (Sections 23, 28)
+      for (const wp of allWaypoints) {
+        if ((wp as any).distanceMeters === undefined && track.points.length > 0) {
+          let bestDistSq = Infinity;
+          let bestDist = 0;
+          const cosLat = Math.cos((wp.lat * Math.PI) / 180);
+          for (const p of track.points) {
+            const dLat = (p.lat - wp.lat) * 111320;
+            const dLon = (p.lon - wp.lon) * 111320 * cosLat;
+            const distSq = dLat * dLat + dLon * dLon;
+            if (distSq < bestDistSq) {
+              bestDistSq = distSq;
+              bestDist = p.distanceFromStart;
+            }
+          }
+          (wp as any).distanceMeters = bestDist;
+        }
+      }
 
       base = DioramaBase.create(
         track.bounds,
