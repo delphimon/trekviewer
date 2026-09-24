@@ -10,6 +10,7 @@ try {
 } catch {}
 
 const buildTimestamp = new Date().toISOString();
+const buildLabel = process.env.APP_BUILD_LABEL || `TrekViewer 1.0.0 • ${gitSha.substring(0, 7)}`;
 
 export default defineConfig({
   base: './',
@@ -19,7 +20,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'STAGE O (Terrain, cache, and memory robustness)',
+      label: buildLabel,
     }),
   },
   plugins: [
