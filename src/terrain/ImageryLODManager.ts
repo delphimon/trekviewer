@@ -542,6 +542,9 @@ export class ImageryLODManager {
     this.abortController = null;
 
     this.clearAllPatches();
+    if (this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
     disposeObject3D(this.group);
   }
 }

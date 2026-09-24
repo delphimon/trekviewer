@@ -12,6 +12,7 @@ import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
 import { TrekSession } from './core/TrekSession';
 import { TextureProvider } from './terrain/TextureProvider';
+import { TileImageCache } from './terrain/TileImageCache';
 
 class TrekViewerApp {
   private sceneManager: SceneManager;
@@ -87,6 +88,10 @@ class TrekViewerApp {
 
     const canvasContainer = document.getElementById('canvas-container')!;
     const uiContainer = document.getElementById('ui-container')!;
+
+    // Configure tile cache limits for target device (Requirement #105)
+    const isQuest = typeof navigator !== 'undefined' && /Quest|OculusBrowser/i.test(navigator.userAgent);
+    TileImageCache.setTargetDevice(isQuest);
 
     this.lastTimestamp = performance.now();
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
+import { TextureProvider } from '../terrain/TextureProvider.ts';
 
 export class SceneManager {
   public scene: THREE.Scene;
@@ -51,6 +52,7 @@ export class SceneManager {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.xr.enabled = true;
     container.appendChild(this.renderer.domElement);
+    TextureProvider.setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
 
     // 5. Lighting
     this.hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.2);

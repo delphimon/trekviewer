@@ -437,6 +437,9 @@ export class TerrainGenerator {
       if (isDisposed) return;
       isDisposed = true;
       textureRequestGeneration++;
+      if (group.parent) {
+        group.parent.remove(group);
+      }
       disposeObject3D(group);
       satelliteTexture?.dispose();
       hybridTexture?.dispose();

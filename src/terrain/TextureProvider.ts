@@ -27,6 +27,17 @@ export class TextureProvider {
   private static referenceOverlayProvider = new EsriReferenceOverlayProvider();
   private static cesiumProvider: CesiumBingImageryProvider | null = null;
   private static activeSatelliteProvider: ImageryProvider = TextureProvider.esriSatelliteProvider;
+  private static maxAnisotropy: number = 4; // Bounded default for non-WebGL/test environments
+
+  public static setMaxAnisotropy(anisotropy: number): void {
+    if (typeof anisotropy === 'number' && !isNaN(anisotropy) && anisotropy >= 0) {
+      this.maxAnisotropy = Math.max(1, Math.min(16, anisotropy));
+    }
+  }
+
+  public static getMaxAnisotropy(): number {
+    return this.maxAnisotropy;
+  }
 
   static {
     // Check if Cesium token is configured in Vite environment
@@ -179,7 +190,7 @@ export class TextureProvider {
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = 16;
+      texture.anisotropy = this.maxAnisotropy;
       texture.generateMipmaps = true;
 
       const provider = this.activeSatelliteProvider;
@@ -273,7 +284,7 @@ export class TextureProvider {
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = 16;
+      texture.anisotropy = this.maxAnisotropy;
       texture.generateMipmaps = true;
 
       const satProvider = this.activeSatelliteProvider;
@@ -383,7 +394,7 @@ export class TextureProvider {
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = 16;
+      texture.anisotropy = this.maxAnisotropy;
       texture.generateMipmaps = true;
 
       const provider = this.usgsTopoProvider;
@@ -512,7 +523,7 @@ export class TextureProvider {
           b = Math.max(0, b - 35);
         } else if (contour100 < 3) {
           r = Math.max(0, r - 18);
-          g = Math.max(0, r - 18);
+          g = Math.max(0, g - 18);
           b = Math.max(0, b - 18);
         }
 
@@ -531,7 +542,7 @@ export class TextureProvider {
     texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = 16;
+    texture.anisotropy = this.maxAnisotropy;
     texture.generateMipmaps = true;
     texture.needsUpdate = true;
     return texture;
