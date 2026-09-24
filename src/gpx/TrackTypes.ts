@@ -34,6 +34,7 @@ export interface GPXWaypoint {
   sym?: string;
   type?: string;
   isDerivedLandmark?: boolean;
+  distanceMeters?: number;
 }
 
 export interface GeoBounds {

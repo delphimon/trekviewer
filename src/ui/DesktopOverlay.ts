@@ -30,6 +30,7 @@ export class DesktopOverlay {
   // Cached elevation profile for high-performance scrubbing
   private cachedElevationSamples: { elevation: number; distance: number }[] = [];
   private staticChartCanvas: HTMLCanvasElement | null = null;
+  private chartLandmarks: { x: number; y: number; radius: number; landmark: { name: string; lat: number; lon: number } }[] = [];
 
   // DOM elements
   private statsTitle!: HTMLElement;
@@ -231,6 +232,74 @@ export class DesktopOverlay {
     ctx.closePath();
     ctx.fillStyle = grad;
     ctx.fill();
+
+    // Draw landmark markers along the elevation profile (Section 30)
+    this.chartLandmarks = [];
+    const allLandmarks: { name: string; lat: number; lon: number; ele?: number; type?: string }[] = [];
+    const seen = new Set<string>();
+    const addLm = (item: { name: string; lat: number; lon: number; ele?: number; type?: string }) => {
+      const k = `${item.lat.toFixed(3)},${item.lon.toFixed(3)}`;
+      const nameKey = item.name.toLowerCase().trim();
+      if (seen.has(k) || seen.has(nameKey)) return;
+      seen.add(k);
+      seen.add(nameKey);
+      allLandmarks.push(item);
+    };
+
+    for (const lm of this.currentTrack.landmarks || []) {
+      if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
+        addLm(lm);
+      }
+    }
+    for (const wp of this.currentTrack.waypoints || []) {
+      addLm(wp);
+    }
+
+    for (const lm of allLandmarks) {
+      let bestDistSq = Infinity;
+      let bestDistFromStart = 0;
+      let bestEle = lm.ele ?? minE;
+      const cosLat = Math.cos((lm.lat * Math.PI) / 180);
+      for (const p of this.currentTrack.points) {
+        const dLat = (p.lat - lm.lat) * 111320;
+        const dLon = (p.lon - lm.lon) * 111320 * cosLat;
+        const d = dLat * dLat + dLon * dLon;
+        if (d < bestDistSq) {
+          bestDistSq = d;
+          bestDistFromStart = p.distanceFromStart;
+          bestEle = p.ele;
+        }
+      }
+
+      const prog = this.currentTrack.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / this.currentTrack.totalDistance)) : 0;
+      const lx = prog * w;
+      const ly = h - 6 - ((bestEle - minE) / spanE) * (h - 16);
+
+      const pinColor = lm.type === 'summit' || lm.type === 'high_point'
+        ? '#f59e0b'
+        : lm.type === 'start'
+        ? '#10b981'
+        : lm.type === 'finish'
+        ? '#ef4444'
+        : lm.type === 'day_boundary'
+        ? '#8b5cf6'
+        : '#38bdf8';
+
+      ctx.fillStyle = pinColor;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      this.chartLandmarks.push({
+        x: lx,
+        y: ly,
+        radius: 12,
+        landmark: { name: lm.name, lat: lm.lat, lon: lm.lon },
+      });
+    }
   }
 
   public updateScrubber(progress: number, currentElevation: number): void {
@@ -363,7 +432,12 @@ export class DesktopOverlay {
             </div>
 
             <div class="landmarks-section" id="landmarksSection" style="display:none;">
-              <h3>Key Landmarks</h3>
+              <div class="landmarks-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 style="margin:0;">Key Landmarks</h3>
+                <select id="selectLandmark" class="select-landmark styled-select" style="font-size:12px; padding:4px 8px; max-width:180px;">
+                  <option value="" disabled selected>Jump to Landmark ▾</option>
+                </select>
+              </div>
               <div class="landmarks-list" id="landmarksList"></div>
             </div>
           </div>
@@ -591,6 +665,53 @@ export class DesktopOverlay {
         this.callbacks.onSetVerticalExaggeration?.(factor);
       });
     });
+
+    // Landmark Dropdown Selection (Section 28)
+    const selectLandmark = document.getElementById('selectLandmark') as HTMLSelectElement | null;
+    selectLandmark?.addEventListener('change', () => {
+      const val = selectLandmark.value;
+      if (!val) return;
+      const [latStr, lonStr] = val.split(',');
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+      const selectedOpt = selectLandmark.options[selectLandmark.selectedIndex];
+      let name = selectedOpt ? selectedOpt.textContent || '' : '';
+      const parenIdx = name.lastIndexOf(' (');
+      if (parenIdx > 0) {
+        name = name.substring(0, parenIdx).trim();
+      }
+      this.callbacks.onSelectWaypoint?.(name, lat, lon);
+      selectLandmark.selectedIndex = 0;
+    });
+
+    // Elevation Profile Interactive Click (Jump to Landmark or Scrub) (Section 30)
+    this.canvasChart.addEventListener('click', (e) => {
+      const rect = this.canvasChart.getBoundingClientRect();
+      const scaleX = this.canvasChart.width / (rect.width || 1);
+      const scaleY = this.canvasChart.height / (rect.height || 1);
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      // Check if clicked near a landmark pin on the elevation chart
+      let hitLandmark: { name: string; lat: number; lon: number } | null = null;
+      let bestDistSq = Infinity;
+      for (const cl of this.chartLandmarks) {
+        const dx = cl.x - clickX;
+        const dy = cl.y - clickY;
+        const distSq = dx * dx + dy * dy;
+        if (distSq <= cl.radius * cl.radius && distSq < bestDistSq) {
+          bestDistSq = distSq;
+          hitLandmark = cl.landmark;
+        }
+      }
+
+      if (hitLandmark) {
+        this.callbacks.onSelectWaypoint?.(hitLandmark.name, hitLandmark.lat, hitLandmark.lon);
+      } else {
+        const progress = Math.min(Math.max(clickX / this.canvasChart.width, 0), 1);
+        this.callbacks.onScrub(progress);
+      }
+    });
   }
 
   public setVerticalExaggeration(factor: number): void {
@@ -692,14 +813,19 @@ export class DesktopOverlay {
       addLandmark(wp);
     }
 
+    const selectEl = document.getElementById('selectLandmark') as HTMLSelectElement | null;
     if (landmarks.length === 0) {
       section.style.display = 'none';
       list.innerHTML = '';
+      if (selectEl) selectEl.innerHTML = '<option value="" disabled selected>Jump to Landmark ▾</option>';
       return;
     }
 
     section.style.display = 'block';
     list.innerHTML = '';
+    if (selectEl) {
+      selectEl.innerHTML = '<option value="" disabled selected>Jump to Landmark ▾</option>';
+    }
 
     for (const lm of landmarks) {
       const chip = document.createElement('button');
@@ -726,6 +852,13 @@ export class DesktopOverlay {
       });
 
       list.appendChild(chip);
+
+      if (selectEl) {
+        const opt = document.createElement('option');
+        opt.value = `${lm.lat},${lm.lon}`;
+        opt.textContent = `${lm.name}${eleText}`;
+        selectEl.appendChild(opt);
+      }
     }
   }
 
