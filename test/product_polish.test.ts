@@ -275,6 +275,35 @@ describe('Stage Q: Product Polish, Landmarks, and Diagnostics', () => {
       const diamond2 = pin2.children[0] as THREE.Mesh;
       const mat2 = diamond2.material as THREE.MeshStandardMaterial;
       assert.strictEqual(mat2.color.getHex(), 0xf59e0b); // Summit is gold
+
+      // Verify diamond mesh metadata for XR pointer hit detection
+      assert.strictEqual(diamond0.name, 'WaypointPinMesh');
+      assert.strictEqual(diamond0.userData.waypoint.name, 'Trailhead Parking');
+
+      // Verify sprite billboard label has raycast disabled to prevent Three.js null-camera crashes in WebXR
+      const sprites = pin0.children.filter((c) => (c as any).isSprite);
+      assert.strictEqual(sprites.length, 1);
+      const sprite = sprites[0] as THREE.Sprite;
+      assert.ok(sprite.isSprite);
+
+      // Raycaster with null camera must NOT throw when intersecting wpGroup hierarchy
+      const nullCamRaycaster = new THREE.Raycaster(new THREE.Vector3(0, 100, 0), new THREE.Vector3(0, -1, 0));
+      assert.strictEqual(nullCamRaycaster.camera, null);
+      assert.doesNotThrow(() => {
+        nullCamRaycaster.intersectObjects(wpGroup.children, true);
+      }, 'Raycaster with null camera must not throw on wpGroup children');
+
+      // Filtering to meshes safely identifies waypoint without touching sprites
+      const pinMeshes: THREE.Mesh[] = [];
+      wpGroup.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh && !(obj as any).isSprite) {
+          pinMeshes.push(obj as THREE.Mesh);
+        }
+      });
+      assert.ok(pinMeshes.length >= 3, 'Must find at least 3 pin meshes (diamond, stalk, ring per pin)');
+      assert.doesNotThrow(() => {
+        nullCamRaycaster.intersectObjects(pinMeshes, false);
+      });
     });
   });
 

@@ -702,7 +702,11 @@ class TrekViewerApp {
     this.lastTimestamp = now;
 
     // 1. Update WebXR inputs (Touch Plus controllers, gestures, diorama grab)
-    this.xrManager.update(delta);
+    try {
+      this.xrManager.update(delta);
+    } catch (e) {
+      console.warn('[TrekViewerApp] Error in xrManager.update:', e);
+    }
 
     // 2. Update OrbitControls on desktop when not in XR or first-person
     if (this.controls.enabled && this.currentViewMode === 'diorama') {

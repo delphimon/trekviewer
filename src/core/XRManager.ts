@@ -1045,6 +1045,9 @@ export class XRManager {
 
     // 3. Normal Raycasting against HUD
     this.raycaster.set(_scratchRayOrigin, _scratchRayDir);
+    this.raycaster.camera = this.sceneManager.renderer.xr.isPresenting
+      ? this.sceneManager.renderer.xr.getCamera()
+      : this.sceneManager.camera;
     let hudHit: THREE.Intersection | null = null;
     let isHitGrabMesh = false;
 
@@ -1123,33 +1126,44 @@ export class XRManager {
 
     // 4. Raycast against Waypoint Pins in diorama mode (Controllers & Hands pointing)
     if (this.currentViewMode === 'diorama') {
-      const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
-      if (wpGroup && wpGroup.children.length > 0) {
-        const wpHits = this.raycaster.intersectObjects(wpGroup.children, true);
-        if (wpHits.length > 0) {
-          const hitWp = wpHits[0];
-          let curr: THREE.Object3D | null = hitWp.object;
-          while (curr && (!curr.userData || !curr.userData.waypoint)) {
-            curr = curr.parent;
-          }
-          if (curr && curr.userData && curr.userData.waypoint) {
-            const wp = curr.userData.waypoint;
-            const dist = hitWp.distance;
-            state.rayLine.geometry.setFromPoints([
-              new THREE.Vector3(0, 0, 0),
-              new THREE.Vector3(0, 0, -dist),
-            ]);
-            state.rayLine.visible = true;
-            state.reticle.visible = true;
-            state.reticle.position.copy(hitWp.point);
-
-            if (isTriggerDown && !state.prevButtons[0]) {
-              this.triggerHaptic(controllerIdx, 0.8, 50);
-              this.callbacks.onSelectWaypoint?.(wp.name);
+      try {
+        const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
+        if (wpGroup && wpGroup.children.length > 0) {
+          // Raycast only meshes within wpGroup, strictly excluding sprites
+          const pinMeshes: THREE.Mesh[] = [];
+          wpGroup.traverse((obj) => {
+            if ((obj as THREE.Mesh).isMesh && !(obj as any).isSprite) {
+              pinMeshes.push(obj as THREE.Mesh);
             }
-            return;
+          });
+          const wpHits = this.raycaster.intersectObjects(pinMeshes, false);
+          if (wpHits.length > 0) {
+            const hitWp = wpHits[0];
+            let curr: THREE.Object3D | null = hitWp.object;
+            while (curr && (!curr.userData || !curr.userData.waypoint)) {
+              curr = curr.parent;
+            }
+            if (curr && curr.userData && curr.userData.waypoint) {
+              const wp = curr.userData.waypoint;
+              const dist = hitWp.distance;
+              state.rayLine.geometry.setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -dist),
+              ]);
+              state.rayLine.visible = true;
+              state.reticle.visible = true;
+              state.reticle.position.copy(hitWp.point);
+
+              if (isTriggerDown && !state.prevButtons[0]) {
+                this.triggerHaptic(controllerIdx, 0.8, 50);
+                this.callbacks.onSelectWaypoint?.(wp.name);
+              }
+              return;
+            }
           }
         }
+      } catch (err) {
+        console.warn('[XRManager] Waypoint raycasting error:', err);
       }
     }
 
