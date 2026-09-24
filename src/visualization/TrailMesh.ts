@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/TrackTypes.ts';
-import { RouteGeometry } from './RouteGeometry.ts';
+import { RouteGeometry, yawForForwardVector } from './RouteGeometry.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
 export interface TrailResult {
@@ -222,8 +222,9 @@ export class TrailMesh {
       const hikerY = hikerGroundY * currentExaggeration + dioramaElevationOffset;
       hikerMarker.position.set(telemetry.position.x, hikerY, telemetry.position.z);
 
-      // Keep hiker beacon upright to gravity while aligning yaw with heading
-      const yaw = Math.atan2(telemetry.tangent.x, -telemetry.tangent.z);
+      // Keep hiker beacon upright to gravity while aligning yaw with route forward (Sections 4, 5)
+      const forward = routeGeometry.getRouteForwardAtProgress(progress);
+      const yaw = yawForForwardVector(forward);
       hikerMarker.rotation.set(0, yaw, 0);
 
       return {
@@ -640,9 +641,9 @@ export class TrailMesh {
     outerRing.renderOrder = 6;
     group.add(outerRing);
 
-    // 4. Directional Forward Chevron Arrow
+    // 4. Directional Forward Chevron Arrow (pointing along local -Z per Section 4)
     const arrowGeo = new THREE.ConeGeometry(6 * s, 18 * s, 4);
-    arrowGeo.rotateX(Math.PI / 2);
+    arrowGeo.rotateX(-Math.PI / 2);
     const arrowMat = new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
       emissive: 0x0284c7,

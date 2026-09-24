@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GPXPoint, TrackStats, ViewMode } from '../gpx/TrackTypes.ts';
 import type { TrailResult } from './TrailMesh.ts';
+import { headingForForwardVector } from './RouteGeometry.ts';
 
 export interface FlyoverUpdate {
   progress: number;
@@ -142,17 +143,17 @@ export class FlyoverController {
       this.updatePosition();
     }
 
-    // 1:1 First-Person Trail Mode
+    // 1:1 First-Person Trail Mode (Sections 6, 7)
     if (this.viewMode === 'first-person') {
       const telemetry = this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress);
       const pos = telemetry.position;
-      const tangent = telemetry.tangent;
+      const forward = this.trailResult.routeGeometry.getRouteForwardAtProgress(this.progress);
 
       if (isWebXRPresenting && dioramaRoot) {
         // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)
-        // Rotate so trail heading points forward (-Z) towards direction of travel in room space
-        const trailHeading = Math.atan2(tangent.x, -tangent.z);
-        const rotY = -trailHeading + Math.PI;
+        // Rotate so increasing route direction points forward (-Z) in room space (Section 6)
+        const trailHeading = headingForForwardVector(forward);
+        const rotY = trailHeading;
         dioramaRoot.rotation.set(0, rotY, 0);
 
         // Apply rotated offset to place current trail point at origin
@@ -161,9 +162,9 @@ export class FlyoverController {
         dioramaRoot.position.copy(offset);
         dioramaRoot.scale.set(1, 1, 1);
       } else if (camera) {
-        // Desktop fallback: place camera at eye level (+2m above trail) looking forward
+        // Desktop fallback: place camera at eye level (+2m above trail) looking forward (Section 7)
         camera.position.set(pos.x, pos.y + 2.0, pos.z);
-        const lookTarget = pos.clone().add(tangent.clone().multiplyScalar(40)).add(new THREE.Vector3(0, 1.2, 0));
+        const lookTarget = pos.clone().add(forward.clone().multiplyScalar(40)).add(new THREE.Vector3(0, 1.2, 0));
         camera.lookAt(lookTarget);
       }
     }
