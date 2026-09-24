@@ -51,6 +51,21 @@ export class TextureProvider {
     return this.activeSatelliteProvider;
   }
 
+  public static getReferenceOverlayProvider(): ImageryProvider {
+    return this.referenceOverlayProvider;
+  }
+
+  public static getProviderForStyle(style: string): ImageryProvider {
+    switch (style) {
+      case 'topo':
+        return this.usgsTopoProvider;
+      case 'satellite':
+      case 'hybrid':
+      default:
+        return this.activeSatelliteProvider;
+    }
+  }
+
   public static getAttributionForStyle(style: string): string {
     switch (style) {
       case 'satellite':

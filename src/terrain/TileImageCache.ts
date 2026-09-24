@@ -2,6 +2,7 @@ import type { ImageryProvider } from './providers/ImageryProvider.ts';
 
 export class TileImageCache {
   private static cache: Map<string, HTMLImageElement> = new Map();
+  private static inFlight: Map<string, Promise<HTMLImageElement>> = new Map();
   private static maxEntries: number = 400;
 
   public static getTileKey(providerId: string, zoom: number, x: number, y: number): string {
@@ -42,14 +43,19 @@ export class TileImageCache {
       img.src = '';
     }
     this.cache.clear();
+    this.inFlight.clear();
   }
 
   public static size(): number {
     return this.cache.size;
   }
 
+  public static getInFlightCount(): number {
+    return this.inFlight.size;
+  }
+
   /**
-   * Loads a tile from cache or network, trying fallback URLs.
+   * Loads a tile from cache or network, with in-flight deduplication and fallback URLs.
    */
   public static async loadTile(
     provider: ImageryProvider,
@@ -69,21 +75,36 @@ export class TileImageCache {
       throw new Error('Tile load aborted');
     }
 
-    const urls = provider.getTileUrls(zoom, x, y);
-    let lastError: any = null;
-
-    for (const url of urls) {
-      if (signal?.aborted) break;
-      try {
-        const img = await this.loadImageWithTimeout(url, timeoutMs, signal);
-        this.set(key, img);
-        return img;
-      } catch (err) {
-        lastError = err;
-      }
+    // In-flight request deduplication (Requirement #77)
+    const existing = this.inFlight.get(key);
+    if (existing) {
+      return existing;
     }
 
-    throw lastError || new Error(`Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`);
+    const loadPromise = (async () => {
+      const urls = provider.getTileUrls(zoom, x, y);
+      let lastError: any = null;
+
+      for (const url of urls) {
+        if (signal?.aborted) break;
+        try {
+          const img = await this.loadImageWithTimeout(url, timeoutMs, signal);
+          this.set(key, img);
+          return img;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw lastError || new Error(`Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`);
+    })();
+
+    this.inFlight.set(key, loadPromise);
+    try {
+      return await loadPromise;
+    } finally {
+      this.inFlight.delete(key);
+    }
   }
 
   private static loadImageWithTimeout(
@@ -100,7 +121,7 @@ export class TileImageCache {
       const img = new Image();
       img.crossOrigin = 'anonymous';
 
-      let timer: number | null = window.setTimeout(() => {
+      let timer: any = setTimeout(() => {
         timer = null;
         cleanup();
         img.src = '';

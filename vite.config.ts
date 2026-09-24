@@ -19,7 +19,7 @@ export default defineConfig({
       shortSha: gitSha.substring(0, 7),
       branch: gitBranch,
       builtAt: buildTimestamp,
-      label: 'FIX (WebXR entry & button lifecycle)',
+      label: 'STAGE M (Adaptive high-resolution imagery LOD)',
     }),
   },
   plugins: [

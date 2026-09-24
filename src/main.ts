@@ -630,7 +630,16 @@ class TrekViewerApp {
     // Flush any throttled HUD updates when due
     this.spatialHUD?.update();
 
-    // 5. Render Scene
+    // 5. Update Adaptive Imagery LOD (Stage M)
+    if (this.activeTrek && !this.activeTrek.isDisposed) {
+      this.activeTrek.imageryLOD.update(
+        this.sceneManager.camera,
+        this.sceneManager.dioramaRoot,
+        this.sceneManager.renderer.xr.isPresenting
+      );
+    }
+
+    // 6. Render Scene
     this.sceneManager.render();
 
     // 6. Diagnostic Telemetry (?debug=1)

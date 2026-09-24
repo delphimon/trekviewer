@@ -4,6 +4,7 @@ import type { TerrainResult } from '../terrain/TerrainGenerator.ts';
 import type { TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
+import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 
 export interface LoadedTrekParams {
@@ -12,6 +13,7 @@ export interface LoadedTrekParams {
   trailResult: TrailResult;
   dioramaBase: THREE.Group;
   flyoverController: FlyoverController;
+  imageryLOD?: ImageryLODManager;
 }
 
 /**
@@ -24,6 +26,7 @@ export class LoadedTrek {
   public readonly trailResult: TrailResult;
   public readonly dioramaBase: THREE.Group;
   public readonly flyoverController: FlyoverController;
+  public readonly imageryLOD: ImageryLODManager;
   public readonly group: THREE.Group;
   private _isDisposed: boolean = false;
 
@@ -34,11 +37,24 @@ export class LoadedTrek {
     this.dioramaBase = params.dioramaBase;
     this.flyoverController = params.flyoverController;
 
+    this.imageryLOD =
+      params.imageryLOD ||
+      new ImageryLODManager({
+        terrainGeoBounds: params.track.bounds,
+        terrainBaseElevation: params.terrainResult.terrainBaseElevation,
+        elevationSampler: params.terrainResult.elevationSampler,
+        verticalExaggeration: 1.0,
+        textureStyle: 'satellite',
+        maxPatches: 36,
+        enableInXR: false, // Desktop first!
+      });
+
     this.group = new THREE.Group();
     this.group.name = `LoadedTrek_${params.track.name || 'unnamed'}`;
 
     // Assemble all diorama 3D components under this trek's isolated group
     this.group.add(this.terrainResult.group);
+    this.group.add(this.imageryLOD.group);
     this.group.add(this.trailResult.group);
     this.group.add(this.dioramaBase);
   }
@@ -50,13 +66,17 @@ export class LoadedTrek {
   public setVerticalExaggeration(factor: number): void {
     if (this._isDisposed) return;
     this.terrainResult.setVerticalExaggeration(factor);
+    this.imageryLOD.setVerticalExaggeration(factor);
     this.trailResult.setVerticalExaggeration(factor);
     DioramaBase.setVerticalExaggeration(this.dioramaBase, factor);
   }
 
   public async setTextureStyle(style: TextureStyle): Promise<void> {
     if (this._isDisposed) return;
-    await this.terrainResult.setTextureStyle(style);
+    await Promise.all([
+      this.terrainResult.setTextureStyle(style),
+      this.imageryLOD.setTextureStyle(style),
+    ]);
   }
 
   public setTrailColorMode(mode: TrailColorMode): void {
@@ -88,10 +108,13 @@ export class LoadedTrek {
     // 4. Release terrain mesh, DEM tiles, and textures
     this.terrainResult.dispose();
 
-    // 5. Release diorama plinth and waypoint markers
+    // 5. Release imagery LOD patches and abort in-flight requests
+    this.imageryLOD.dispose();
+
+    // 6. Release diorama plinth and waypoint markers
     disposeObject3D(this.dioramaBase);
 
-    // 6. Recursively dispose and clear container group
+    // 7. Recursively dispose and clear container group
     disposeObject3D(this.group);
     while (this.group.children.length > 0) {
       this.group.remove(this.group.children[0]);
