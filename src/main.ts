@@ -603,7 +603,7 @@ class TrekViewerApp {
     this.lastTimestamp = now;
 
     // 1. Update WebXR inputs (Touch Plus controllers, gestures, diorama grab)
-    this.xrManager.update();
+    this.xrManager.update(delta);
 
     // 2. Update OrbitControls on desktop when not in XR or first-person
     if (this.controls.enabled && this.currentViewMode === 'diorama') {
@@ -684,6 +684,7 @@ class TrekViewerApp {
 
   public dispose(): void {
     this.disposeCurrentTrek();
+    this.xrManager.dispose();
     this.controls.dispose();
     this.overlay.dispose();
     this.sceneManager.dispose();
