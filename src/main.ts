@@ -701,6 +701,11 @@ class TrekViewerApp {
     const delta = Math.min((now - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = now;
 
+    const isPresenting = this.sceneManager.renderer.xr.isPresenting;
+    const activeCamera = isPresenting
+      ? this.sceneManager.renderer.xr.getCamera()
+      : this.sceneManager.camera;
+
     // 1. Update WebXR inputs (Touch Plus controllers, gestures, diorama grab)
     try {
       this.xrManager.update(delta);
@@ -717,35 +722,36 @@ class TrekViewerApp {
     if (this.flyoverController) {
       this.flyoverController.update(
         delta,
-        this.sceneManager.camera,
+        activeCamera,
         this.sceneManager.dioramaRoot,
-        this.sceneManager.renderer.xr.isPresenting
+        isPresenting
       );
     }
 
     // 4. In First-Person mode, keep HUD floating comfortably in front of user
     if (this.currentViewMode === 'first-person' && this.spatialHUD) {
-      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(this.sceneManager.camera.quaternion);
-      this.spatialHUD.group.position.copy(this.sceneManager.camera.position).add(forward);
-      this.spatialHUD.group.quaternion.copy(this.sceneManager.camera.quaternion);
+      const camPos = new THREE.Vector3();
+      activeCamera.getWorldPosition(camPos);
+      const camQuat = new THREE.Quaternion();
+      activeCamera.getWorldQuaternion(camQuat);
+      const forward = new THREE.Vector3(0, -0.15, -1.2).applyQuaternion(camQuat);
+      this.spatialHUD.group.position.copy(camPos).add(forward);
+      this.spatialHUD.group.quaternion.copy(camQuat);
     }
 
     // Flush any throttled HUD updates when due
     this.spatialHUD?.update();
 
-    // 5. Update Adaptive Imagery LOD (Stage M)
+    // 5. Update Adaptive Imagery LOD (Stage M & Stage T5)
     if (this.activeTrek && !this.activeTrek.isDisposed) {
       const currentProgress = this.flyoverController?.getProgress() ?? this.session.getState().progress;
       this.activeTrek.imageryLOD.update(
-        this.sceneManager.camera,
+        activeCamera,
         this.sceneManager.dioramaRoot,
-        this.sceneManager.renderer.xr.isPresenting,
+        isPresenting,
         currentProgress
       );
       // Update waypoint marker scale compensation & billboard labels (Sections 21, 24, 25)
-      const activeCamera = this.sceneManager.renderer.xr.isPresenting
-        ? this.sceneManager.renderer.xr.getCamera()
-        : this.sceneManager.camera;
       this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta);
     }
 
