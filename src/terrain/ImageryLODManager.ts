@@ -400,6 +400,233 @@ export function computeCoherentLODTiles(
 }
 
 /**
+ * Selects coherent refinement rings for 1:1 first-person view (Stage V6).
+ * Eliminates partial-parent holes and checkerboard artifacts along the trail:
+ * - Hiker route position / gaze is promoted in atomic 2x2 child blocks under parent tiles.
+ * - Surrounding perimeter at zMid provides unbroken background coverage.
+ * - Directional forward prefetch (~250m ahead) is promoted as an atomic parent block.
+ * - Bounded strictly to maxPatches without slicing quadtrees.
+ */
+export function computeFirstPersonCoherentLODTiles(
+  hikerLat: number,
+  hikerLon: number,
+  forwardLat: number,
+  forwardLon: number,
+  innerZoom: number,
+  maxPatches: number,
+  bounds: GeoBounds
+): CoherentTileCandidate[] {
+  const zHigh = innerZoom;
+  const zMid = Math.max(13, zHigh - 1);
+
+  if (zHigh <= 13) {
+    const centerTile = latLonToTile(hikerLat, hikerLon, zHigh);
+    const candidates: CoherentTileCandidate[] = [];
+    let r = 0;
+    while (candidates.length < maxPatches && r <= 6) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const tx = centerTile.x + dx;
+          const ty = centerTile.y + dy;
+          if (ImageryLODManager.tileIntersectsBounds(tx, ty, zHigh, bounds)) {
+            candidates.push({
+              x: tx,
+              y: ty,
+              zoom: zHigh,
+              dist: Math.hypot(dx, dy),
+            });
+            if (candidates.length >= maxPatches) break;
+          }
+        }
+        if (candidates.length >= maxPatches) break;
+      }
+      r++;
+    }
+    return candidates;
+  }
+
+  const hikerTile = latLonToTile(hikerLat, hikerLon, zHigh);
+  const hikerPx = Math.floor(hikerTile.x / 2);
+  const hikerPy = Math.floor(hikerTile.y / 2);
+
+  const fwdTile = latLonToTile(forwardLat, forwardLon, zHigh);
+  const fwdPx = Math.floor(fwdTile.x / 2);
+  const fwdPy = Math.floor(fwdTile.y / 2);
+
+  const subX = hikerTile.x % 2 === 0 ? -1 : 1;
+  const subY = hikerTile.y % 2 === 0 ? -1 : 1;
+  const minPx = Math.min(hikerPx, hikerPx + subX);
+  const maxPx = Math.max(hikerPx, hikerPx + subX);
+  const minPy = Math.min(hikerPy, hikerPy + subY);
+  const maxPy = Math.max(hikerPy, hikerPy + subY);
+
+  const hiker2x2Parents: { px: number; py: number }[] = [];
+  for (let py = minPy; py <= maxPy; py++) {
+    for (let px = minPx; px <= maxPx; px++) {
+      hiker2x2Parents.push({ px, py });
+    }
+  }
+
+  function evaluateParentSet(parents: { px: number; py: number }[]): CoherentTileCandidate[] | null {
+    const parentSet = new Set<string>();
+    for (const p of parents) {
+      parentSet.add(`${p.px},${p.py}`);
+    }
+
+    const highTiles: CoherentTileCandidate[] = [];
+    let pMinX = Infinity;
+    let pMaxX = -Infinity;
+    let pMinY = Infinity;
+    let pMaxY = -Infinity;
+
+    for (const { px, py } of parents) {
+      if (px < pMinX) pMinX = px;
+      if (px > pMaxX) pMaxX = px;
+      if (py < pMinY) pMinY = py;
+      if (py > pMaxY) pMaxY = py;
+
+      // Every parent promoted to zHigh receives all 4 children (Stage V6)
+      for (let dy = 0; dy <= 1; dy++) {
+        for (let dx = 0; dx <= 1; dx++) {
+          const cx = px * 2 + dx;
+          const cy = py * 2 + dy;
+          if (ImageryLODManager.tileIntersectsBounds(cx, cy, zHigh, bounds)) {
+            highTiles.push({
+              x: cx,
+              y: cy,
+              zoom: zHigh,
+              dist: Math.hypot(cx - hikerTile.x, cy - hikerTile.y),
+              isHighRes: true,
+            });
+          }
+        }
+      }
+    }
+
+    if (highTiles.length === 0) return null;
+
+    // Surrounding perimeter ring at zMid (8-way neighbors of the active parent footprint)
+    const midSet = new Set<string>();
+    const midTiles: CoherentTileCandidate[] = [];
+
+    for (const { px, py } of parents) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const mx = px + dx;
+          const my = py + dy;
+          const mKey = `${mx},${my}`;
+          if (parentSet.has(mKey) || midSet.has(mKey)) continue;
+          midSet.add(mKey);
+          if (ImageryLODManager.tileIntersectsBounds(mx, my, zMid, bounds)) {
+            midTiles.push({
+              x: mx,
+              y: my,
+              zoom: zMid,
+              dist: Math.hypot((mx - hikerPx) * 2, (my - hikerPy) * 2) + 2.0,
+              isHighRes: false,
+            });
+          }
+        }
+      }
+    }
+
+    if (highTiles.length + midTiles.length <= maxPatches) {
+      return [...highTiles, ...midTiles];
+    }
+    return null;
+  }
+
+  // 1. Build prioritized candidate parents list along route and gaze:
+  // Hiker parent is #1
+  // Forward prefetch parent is #2
+  // Intermediate parents between hiker and forward are #3
+  // 2x2 cluster around hiker is #4
+  // 2x2 cluster around forward is #5
+  const priorityParents: { px: number; py: number }[] = [];
+  const visited = new Set<string>();
+
+  const addPriority = (px: number, py: number) => {
+    const k = `${px},${py}`;
+    if (!visited.has(k)) {
+      visited.add(k);
+      priorityParents.push({ px, py });
+    }
+  };
+
+  addPriority(hikerPx, hikerPy);
+  addPriority(fwdPx, fwdPy);
+
+  // Intermediate parents along line from hiker to forward prefetch
+  const steps = Math.max(Math.abs(fwdPx - hikerPx), Math.abs(fwdPy - hikerPy));
+  for (let s = 1; s < steps; s++) {
+    const ipx = Math.round(hikerPx + (s / steps) * (fwdPx - hikerPx));
+    const ipy = Math.round(hikerPy + (s / steps) * (fwdPy - hikerPy));
+    addPriority(ipx, ipy);
+  }
+
+  // 2x2 cluster around hiker
+  for (let py = minPy; py <= maxPy; py++) {
+    for (let px = minPx; px <= maxPx; px++) {
+      addPriority(px, py);
+    }
+  }
+
+  // 2x2 cluster around forward prefetch
+  const fsubX = fwdTile.x % 2 === 0 ? -1 : 1;
+  const fsubY = fwdTile.y % 2 === 0 ? -1 : 1;
+  for (let py = Math.min(fwdPy, fwdPy + fsubY); py <= Math.max(fwdPy, fwdPy + fsubY); py++) {
+    for (let px = Math.min(fwdPx, fwdPx + fsubX); px <= Math.max(fwdPx, fwdPx + fsubX); px++) {
+      addPriority(px, py);
+    }
+  }
+
+  // Greedy parent promotion: add parents in priority order as long as 4-child block + mid ring fits
+  let activeParents: { px: number; py: number }[] = [];
+  let bestResult: CoherentTileCandidate[] | null = null;
+
+  for (const cand of priorityParents) {
+    const nextParents = [...activeParents, cand];
+    const evalResult = evaluateParentSet(nextParents);
+    if (evalResult) {
+      activeParents = nextParents;
+      bestResult = evalResult;
+    }
+  }
+
+  if (bestResult) {
+    return bestResult;
+  }
+
+  // 5. Demote to pure zMid if budget cannot accommodate zHigh
+  const midCenterTile = latLonToTile(hikerLat, hikerLon, zMid);
+  const midOnlyCandidates: CoherentTileCandidate[] = [];
+  let r = 0;
+  while (midOnlyCandidates.length < maxPatches && r <= 6) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const tx = midCenterTile.x + dx;
+        const ty = midCenterTile.y + dy;
+        if (ImageryLODManager.tileIntersectsBounds(tx, ty, zMid, bounds)) {
+          midOnlyCandidates.push({
+            x: tx,
+            y: ty,
+            zoom: zMid,
+            dist: Math.hypot(dx, dy),
+            isHighRes: false,
+          });
+          if (midOnlyCandidates.length >= maxPatches) break;
+        }
+      }
+      if (midOnlyCandidates.length >= maxPatches) break;
+    }
+    r++;
+  }
+  return midOnlyCandidates;
+}
+
+/**
  * ImageryLODManager
  *
  * Implements Stage R2, S1-S3, T5, and Stage U4: Coherent Adaptive High-Resolution Map Imagery.
@@ -1004,80 +1231,18 @@ export class ImageryLODManager {
       }
     }
 
-    // 1. Inner zone: ~300-750m high detail around hiker (Section 11)
-    const innerCenterTile = latLonToTile(hikerLat, hikerLon, innerZoom);
-    const innerCandidates = this.collectCandidateTiles(innerCenterTile.x, innerCenterTile.y, innerZoom, 1);
-
-    // 2. Forward prefetch: tiles ahead along route (Section 12)
-    const forwardCenterTile = latLonToTile(forwardLat, forwardLon, innerZoom);
-    const forwardCandidates = this.collectCandidateTiles(forwardCenterTile.x, forwardCenterTile.y, innerZoom, 1);
-
-    // 3. Middle zone: ~750-1500m medium detail (Section 11)
-    const midCenterTile = latLonToTile(hikerLat, hikerLon, midZoom);
-    const midCandidates = this.collectCandidateTiles(midCenterTile.x, midCenterTile.y, midZoom, 2);
-
-    // Deduplicate candidates by tile key, prioritizing inner zone, then forward prefetch, then middle zone
-    const candidateMap = new Map<string, { x: number; y: number; zoom: number; dist: number }>();
-
-    for (const c of innerCandidates) {
-      const key = getTileKey(this.currentTextureStyle, innerZoom, c.x, c.y);
-      if (!candidateMap.has(key)) {
-        candidateMap.set(key, { ...c, zoom: innerZoom, dist: c.dist });
-      }
-    }
-
-    for (const c of forwardCandidates) {
-      const key = getTileKey(this.currentTextureStyle, innerZoom, c.x, c.y);
-      if (!candidateMap.has(key)) {
-        candidateMap.set(key, { ...c, zoom: innerZoom, dist: c.dist + 1.2 });
-      }
-    }
-
-    for (const c of midCandidates) {
-      const key = getTileKey(this.currentTextureStyle, midZoom, c.x, c.y);
-      if (!candidateMap.has(key)) {
-        candidateMap.set(key, { ...c, zoom: midZoom, dist: c.dist + 4.0 });
-      }
-    }
-
-    const validCandidates = Array.from(candidateMap.values()).filter((c) =>
-      ImageryLODManager.tileIntersectsBounds(c.x, c.y, c.zoom, this.options.terrainGeoBounds)
+    // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6)
+    const candidates = computeFirstPersonCoherentLODTiles(
+      hikerLat,
+      hikerLon,
+      forwardLat,
+      forwardLon,
+      innerZoom,
+      this.maxPatches,
+      this.options.terrainGeoBounds
     );
 
-    validCandidates.sort((a, b) => a.dist - b.dist);
-    const budgetedCandidates = validCandidates.slice(0, this.maxPatches);
-
-    this.reconcileDesiredTiles(budgetedCandidates, provider, innerZoom);
-  }
-
-  private collectCandidateTiles(
-    cx: number,
-    cy: number,
-    zoom: number,
-    radius: number
-  ): { x: number; y: number; dist: number }[] {
-    const list: { x: number; y: number; dist: number }[] = [];
-    const maxCoord = 2 ** zoom - 1;
-
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        const dist = Math.hypot(dx, dy);
-        if (dist <= radius + 0.5) {
-          const tx = cx + dx;
-          const ty = cy + dy;
-          if (tx >= 0 && tx <= maxCoord && ty >= 0 && ty <= maxCoord) {
-            list.push({
-              x: tx,
-              y: ty,
-              dist,
-            });
-          }
-        }
-      }
-    }
-
-    list.sort((a, b) => a.dist - b.dist);
-    return list;
+    this.reconcileDesiredTiles(candidates, provider, innerZoom);
   }
 
   /**
