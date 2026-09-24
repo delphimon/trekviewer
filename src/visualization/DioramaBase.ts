@@ -174,7 +174,6 @@ export class DioramaBase {
         ? 0x8b5cf6
         : 0x38bdf8;
 
-    // Diamond jewel
     const octGeo = new THREE.OctahedronGeometry(6, 0);
     const octMat = new THREE.MeshStandardMaterial({
       color,
@@ -183,6 +182,8 @@ export class DioramaBase {
       roughness: 0.2,
     });
     const diamond = new THREE.Mesh(octGeo, octMat);
+    diamond.name = 'WaypointPinMesh';
+    diamond.userData = { waypoint: wp };
     diamond.position.y = 12;
     pin.add(diamond);
 
@@ -190,6 +191,7 @@ export class DioramaBase {
     const stalkGeo = new THREE.CylinderGeometry(0.8, 0.8, 12, 8);
     const stalkMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
     const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+    stalk.userData = { waypoint: wp };
     stalk.position.y = 6;
     pin.add(stalk);
 
@@ -203,6 +205,7 @@ export class DioramaBase {
       opacity: 0.7,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.userData = { waypoint: wp };
     ring.position.y = 0.5;
     pin.add(ring);
 
@@ -268,6 +271,8 @@ export class DioramaBase {
     sprite.scale.set(40, 10, 1);
     sprite.position.y = 24;
     sprite.visible = isKeyLandmark;
+    // Explicitly disable raycasting on billboard sprites to prevent Three.js null-camera raycast exceptions
+    sprite.raycast = () => {};
     return sprite;
   }
 
