@@ -174,7 +174,7 @@ describe('Vertical Exaggeration Alignment (Terrain, Trail & Waypoints)', () => {
     assert.strictEqual(trailResult.finishBeacon.visible, false);
 
     const fpPosAttr = trailResult.trailMesh.geometry.getAttribute('position') as THREE.BufferAttribute;
-    const expectedFpY = fixedGroundEle * 1.0 + 0.05; // 0.05m ground clearance
+    const expectedFpY = fixedGroundEle * 1.0 + 0.08; // 0.08m ground clearance (Section 11)
     for (let i = 0; i < Math.min(100, fpPosAttr.count); i++) {
       const vy = fpPosAttr.getY(i);
       assert(
@@ -182,7 +182,7 @@ describe('Vertical Exaggeration Alignment (Terrain, Trail & Waypoints)', () => {
         `First-person path vertex Y should be ${expectedFpY.toFixed(2)}, got ${vy.toFixed(2)}`
       );
     }
-    console.log('✓ First-person 1:1 path correctly sits 0.05m above DEM ground elevation');
+    console.log('✓ First-person 1:1 path correctly sits 0.08m above DEM ground elevation');
 
     trailResult.setViewMode('diorama');
     assert.strictEqual(trailResult.hikerMarker.visible, true);

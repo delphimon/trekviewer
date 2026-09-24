@@ -54,16 +54,18 @@ export class TrailMesh {
       ribbonHalfWidth,
       totalSegments,
       dioramaElevationOffset,
-      initialExaggeration
+      initialExaggeration,
+      elevationSampler
     );
 
-    // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.05m ground clearance)
+    // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.08m ground clearance) (Section 11)
     const { geometry: firstPersonGeo } = this.buildMultiSegmentRibbon(
       routeGeometry,
       0.35,
       totalSegments,
-      0.05,
-      1.0
+      0.08,
+      1.0,
+      elevationSampler
     );
 
     // Color application helper
@@ -158,7 +160,14 @@ export class TrailMesh {
     ): { currentPoint: GPXPoint; position: THREE.Vector3 } => {
       currentProgress = progress;
       const telemetry = routeGeometry.getTelemetryAtProgress(progress);
-      const hikerY = telemetry.position.y * currentExaggeration + dioramaElevationOffset;
+      let hikerGroundY = telemetry.position.y;
+      if (elevationSampler) {
+        const sampled = elevationSampler(telemetry.position.x, telemetry.position.z);
+        if (!isNaN(sampled)) {
+          hikerGroundY = sampled;
+        }
+      }
+      const hikerY = hikerGroundY * currentExaggeration + dioramaElevationOffset;
       hikerMarker.position.set(telemetry.position.x, hikerY, telemetry.position.z);
 
       // Keep hiker beacon upright to gravity while aligning yaw with heading
@@ -205,9 +214,16 @@ export class TrailMesh {
       startBeacon.position.y = startGroundY * factor + 8.0;
       finishBeacon.position.y = finishGroundY * factor + 8.0;
 
-      // Update hiker marker position
+      // Update hiker marker position with terrain elevation
       const telemetry = routeGeometry.getTelemetryAtProgress(currentProgress);
-      hikerMarker.position.y = telemetry.position.y * factor + dioramaElevationOffset;
+      let hikerGroundY = telemetry.position.y;
+      if (elevationSampler) {
+        const sampled = elevationSampler(telemetry.position.x, telemetry.position.z);
+        if (!isNaN(sampled)) {
+          hikerGroundY = sampled;
+        }
+      }
+      hikerMarker.position.y = hikerGroundY * factor + dioramaElevationOffset;
     };
 
     const dispose = () => {
@@ -243,7 +259,8 @@ export class TrailMesh {
     halfWidth: number,
     totalSegments: number,
     verticalOffset: number = 0,
-    verticalExaggeration: number = 1.0
+    verticalExaggeration: number = 1.0,
+    elevationSampler?: (x: number, z: number) => number
   ): { geometry: THREE.BufferGeometry; unscaledGroundY: Float32Array } {
     const geo = new THREE.BufferGeometry();
     const allPositions: number[] = [];
@@ -276,7 +293,16 @@ export class TrailMesh {
           perpZ = 0;
         }
 
-        const groundY = pt.y;
+        // DENSE TERRAIN REPROJECTION (Sections 5, 6, 10):
+        // Query elevationSampler directly at the exact X/Z coordinates of the centerline point!
+        // Never use interpolated spline Y as final ground height.
+        let groundY = pt.y;
+        if (elevationSampler) {
+          const sampled = elevationSampler(pt.x, pt.z);
+          if (!isNaN(sampled)) {
+            groundY = sampled;
+          }
+        }
         const finalY = groundY * verticalExaggeration + verticalOffset;
 
         // Left vertex
