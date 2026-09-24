@@ -65,9 +65,13 @@ This uses Meta's official `ovr-platform-util` CLI tool (`create-pwa-package`) to
 
 ---
 
-## 🖐️ Controls & Hand Tracking Guide
+## 🖐️ Controls & Mixed Reality Interactions
 
-TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers** simultaneously with zero mode switching.
+TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers** simultaneously with zero mode switching and clean input ownership.
+
+### Controller Ownership & Bare Hand Outline Suppression (Stage T1)
+- When physical **Touch Plus Controllers** are held or active, hand tracking outlines are automatically suppressed to eliminate visual jitter and visual clutter.
+- When controllers are put down, **Bare Hand Outlines** smoothly activate for optical finger tracking.
 
 ### Bare Hands (Natural Optical Tracking)
 - **Two-Handed Pinch & Stretch**: Pinch thumb and index on both hands and pull apart to **zoom in / scale up**.
@@ -81,10 +85,55 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 ### Touch Plus Controllers
 - **Left Thumbstick**: Pan diorama across room (Tabletop) / Walk trail forward and backward (1:1 mode).
 - **Right Thumbstick**: Rotate and zoom terrain.
-- **Grip Button**: Grab and move terrain or HUD handle.
+- **Grip Button**: Grab and move terrain or HUD handle in room space.
 - **A / X Button**: Toggle between Tabletop Mixed Reality and 1:1 First-Person Trail immersion.
 - **B / Y Button**: Play / pause GPS speed-scaled flyover.
-- **Trigger**: Laser pointer selection.
+- **Trigger**: Laser pointer selection for waypoints, HUD buttons, and route scrubbing.
+
+---
+
+## 🧭 Route Fidelity, Telemetry & Trail Colors (Stage T2 & T3)
+
+- **Solid High-Contrast Route Default**: Trails render by default in high-contrast cyan (`#38bdf8`) for crystal-clear readability against alpine terrain, snowfields, and rock.
+- **2D Spatial X/Z Smoothing**: Trackpoints undergo moving-window spatial smoothing to eliminate GPS jitter and jagged zigzag lines without modifying raw GPX analytics.
+- **GPS Spike Suppression**: Unrealistic GPS jump anomalies (> 60 km/h) are automatically filtered out.
+- **Dense Terrain Reprojection**: Trail geometry is densely resampled every 4 meters and draped precisely over high-resolution elevation data with dynamic lift, preventing trail clipping inside mountain ridges.
+- **Spatially Smoothed Grade & Pace**: Telemetry values are smoothed over distance windows and categorized into 5 broad color bands with 60-meter run-length filtering to eliminate high-frequency visual speckling:
+  - **Grade Bands**: Gentle (0–6%), Moderate (6–15%), Steep (15–25%), Very Steep (25–40%), Extreme (40%+).
+  - **Pace Bands**: Slow (< 1.1 mph), Moderate (1.1–2.2 mph), Standard (2.2–3.3 mph), Brisk (3.3–4.5 mph), Fast (4.5+ mph).
+
+---
+
+## 📍 Waypoint Marker Redesign & Landmark UX (Stage T4)
+
+- **Compact Visual Markers & Scale Compensation**: Replaced oversized legacy markers with sleek diamond beacons (`~2.2 cm` apparent world size across all diorama scales from 0.1x to 10x).
+- **Invisible Laser Hit Targets**: A 24-meter radius invisible hit sphere surrounds each marker, enabling effortless Quest 3 laser pointing without requiring millimeter precision on the visual pin.
+- **Billboard Text Cards**: Waypoint labels default to hidden to prevent cluttering the diorama. Labels automatically appear on hover (0.8s exit timeout) or selection (4.0s display timeout). Labels maintain a fixed readable angular size (~10° FOV) from near and far.
+- **Spatial HUD Row 3 Navigation**:
+  - `◀ Prev Landmark`: Jump progress to previous landmark along route.
+  - `📍 Current Landmark`: Displays nearest landmark with elevation and distance.
+  - `Next Landmark ▶`: Advance progress to next landmark along route.
+  - **Profile Halo**: Active/nearest landmark is highlighted with an amber glowing ring on the HUD elevation chart.
+- **Desktop Landmark Controls**:
+  - **"Jump to Landmark ▾"** dropdown in the landmarks panel.
+  - **Elevation Profile Click Jump**: Clicking on or near a landmark marker on the elevation profile immediately jumps progress to that waypoint.
+
+---
+
+## 🛰️ Imagery Quality & Satellite Providers (Stage T5)
+
+- **Active XR Camera Tracking**: The per-frame animation loop passes the active WebXR camera (`renderer.xr.getCamera()`) to `ImageryLODManager`, correctly tracking true 6DOF head movement in room coordinates rather than stationary desktop camera offsets.
+- **Provider Max Resolution (Zoom 19)**: In 1:1 first-person trail mode, inner detail zones reach provider maximum resolution (zoom 19, sub-meter per pixel on Esri World Imagery and Bing Aerial).
+- **Crisp Texture Filtering**: Tile patches use trilinear mipmapping (`LinearMipmapLinearFilter`) and maximum hardware anisotropy (up to 16x) for razor-sharp textures even at oblique viewing angles.
+- **Configurable Satellite Provider**:
+  ```bash
+  # In .env or build environment:
+  VITE_SATELLITE_PROVIDER=auto       # 'auto' (default), 'esri', or 'cesium-bing'
+  VITE_CESIUM_ION_TOKEN=your_token   # Optional: Cesium Ion token for Microsoft Bing Aerial
+  ```
+  - **`esri`**: Global high-resolution Esri World Imagery (default, no token required).
+  - **`cesium-bing`**: Microsoft Bing Maps Aerial via Cesium Ion. Gracefully falls back to Esri World Imagery if token is missing or network fails.
+  - **`auto`**: Uses Bing Aerial if a valid Cesium token is configured, otherwise Esri World Imagery.
 
 ---
 
