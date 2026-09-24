@@ -202,6 +202,13 @@ export class XRManager {
     }
   }
 
+  public getActiveCamera(): THREE.Camera {
+    if (this.sceneManager.renderer.xr.isPresenting) {
+      return this.sceneManager.renderer.xr.getCamera();
+    }
+    return this.sceneManager.camera;
+  }
+
 
   public getDioramaProximity(handWorldPos: THREE.Vector3): { isTouching: boolean; proximityFactor: number } {
     if (this.currentViewMode !== 'diorama') return { isTouching: false, proximityFactor: 0 };
@@ -1031,9 +1038,10 @@ export class XRManager {
     // 1. Check if user is grabbing the HUD top grab bar / handle
     const isNearGrabHandle = local.y >= 0.18 && local.y <= 0.38 && Math.abs(local.x) <= 0.38 && Math.abs(local.z) < 0.08;
     if (isNearGrabHandle && isPinching) {
-      const camPos = this.sceneManager.camera.position;
+      const activeCam = this.getActiveCamera();
+      activeCam.getWorldPosition(_scratchV3);
       this.spatialHUD.group.position.copy(fingerPos).add(_scratchV2.set(0, -0.26, 0.05));
-      this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+      this.spatialHUD.group.lookAt(_scratchV3.x, this.spatialHUD.group.position.y, _scratchV3.z);
       return true; // Exclude from diorama grab
     }
 
@@ -1224,8 +1232,9 @@ export class XRManager {
       if (isTriggerDown) {
         _scratchV1.copy(_scratchRayOrigin).addScaledVector(_scratchRayDir, state.hudDragDistance);
         this.spatialHUD.group.position.copy(_scratchV1);
-        const camPos = this.sceneManager.camera.position;
-        this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+        const activeCam = this.getActiveCamera();
+        activeCam.getWorldPosition(_scratchV3);
+        this.spatialHUD.group.lookAt(_scratchV3.x, this.spatialHUD.group.position.y, _scratchV3.z);
         this.spatialHUD.group.updateMatrixWorld(true);
 
         state.rayLine.geometry.setFromPoints([
@@ -1281,9 +1290,7 @@ export class XRManager {
 
     // 3. Normal Raycasting against HUD
     this.raycaster.set(_scratchRayOrigin, _scratchRayDir);
-    this.raycaster.camera = this.sceneManager.renderer.xr.isPresenting
-      ? this.sceneManager.renderer.xr.getCamera()
-      : this.sceneManager.camera;
+    this.raycaster.camera = this.getActiveCamera();
     let hudHit: THREE.Intersection | null = null;
     let isHitGrabMesh = false;
 
