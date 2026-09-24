@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GPXPoint, TrackStats, TrackSegment } from '../gpx/TrackTypes.ts';
 import { geoToLocalMeters } from '../gpx/Coordinates.ts';
+import { generateVisualRouteCurve } from './VisualRoute.ts';
 
 export interface RouteTelemetry {
   position: THREE.Vector3;
@@ -97,18 +98,14 @@ export class RouteGeometry {
 
       if (groundVectors.length < 2) continue;
 
-      // Visual route: RDP simplification with 6m tolerance to preserve tight switchbacks
-      const visualVectors = simplifyPointsRDP(groundVectors, 6.0);
-      const splinePoints = visualVectors.length >= 2 ? visualVectors : groundVectors;
-
-      // Conservative Catmull-Rom tension (0.15) to prevent cutting corners on alpine hairpins
-      const curve = new THREE.CatmullRomCurve3(splinePoints, false, 'catmullrom', 0.15);
+      // Visual route: X/Z resampling, GPS spike filtering, gentle smoothing, and centripetal curve (Sections 6-9)
+      const { visualPoints, curve } = generateVisualRouteCurve(groundVectors);
 
       this.segments.push({
         segment: seg,
         groundVectors,
         localVectors: groundVectors,
-        visualVectors: splinePoints,
+        visualVectors: visualPoints,
         curve,
       });
     }
@@ -126,7 +123,7 @@ export class RouteGeometry {
         }
         return new THREE.Vector3(loc.x, groundY, loc.z);
       });
-      const curve = new THREE.CatmullRomCurve3(fallbackGround, false, 'catmullrom', 0.15);
+      const { visualPoints, curve } = generateVisualRouteCurve(fallbackGround);
       this.segments.push({
         segment: {
           points: track.points,
@@ -138,7 +135,7 @@ export class RouteGeometry {
         },
         groundVectors: fallbackGround,
         localVectors: fallbackGround,
-        visualVectors: fallbackGround,
+        visualVectors: visualPoints,
         curve,
       });
     }
