@@ -1,11 +1,36 @@
 import * as THREE from 'three';
 import type { GPXPoint, TrackStats, TrackSegment } from '../gpx/TrackTypes.ts';
 import { geoToLocalMeters } from '../gpx/Coordinates.ts';
-import { generateVisualRouteCurve } from './VisualRoute.ts';
+import {
+  generateVisualRouteCurve,
+  generateVisualRouteStations,
+  type VisualRouteStation,
+} from './VisualRoute.ts';
+
+/**
+ * Canonical navigational heading (radians):
+ * 0 = -Z (North)
+ * +PI/2 = +X (East)
+ * PI = +Z (South)
+ * -PI/2 = -X (West)
+ */
+export function headingForForwardVector(forward: { x: number; z: number }): number {
+  return Math.atan2(forward.x, -forward.z);
+}
+
+/**
+ * Three.js Y-rotation Euler angle (yaw) to orient an object with local forward -Z
+ * to point toward the given forward vector.
+ * In Three.js: yaw = -heading = Math.atan2(-forward.x, -forward.z).
+ */
+export function yawForForwardVector(forward: { x: number; z: number }): number {
+  return Math.atan2(-forward.x, -forward.z);
+}
 
 export interface RouteTelemetry {
   position: THREE.Vector3;
   tangent: THREE.Vector3;
+  forward: THREE.Vector3;
   currentPoint: GPXPoint;
   segmentIndex: number;
   smoothedGrade?: number;
@@ -18,6 +43,7 @@ export interface SegmentGeometry {
   localVectors: THREE.Vector3[];
   visualVectors: THREE.Vector3[];
   curve: THREE.CatmullRomCurve3;
+  stations: VisualRouteStation[];
 }
 
 const _v1 = new THREE.Vector3();
@@ -70,6 +96,7 @@ export class RouteGeometry {
   public segments: SegmentGeometry[] = [];
   public track: TrackStats;
   public totalDistance: number;
+  public stations: VisualRouteStation[] = [];
 
   constructor(
     track: TrackStats,
@@ -102,6 +129,8 @@ export class RouteGeometry {
 
       // Visual route: X/Z resampling, GPS spike filtering, gentle smoothing, and centripetal curve (Sections 6-9)
       const { visualPoints, curve } = generateVisualRouteCurve(groundVectors);
+      const stations = generateVisualRouteStations(seg, curve, elevationSampler, 8.0, 10.0);
+      this.stations.push(...stations);
 
       this.segments.push({
         segment: seg,
@@ -109,6 +138,7 @@ export class RouteGeometry {
         localVectors: groundVectors,
         visualVectors: visualPoints,
         curve,
+        stations,
       });
     }
 
@@ -125,22 +155,122 @@ export class RouteGeometry {
         }
         return new THREE.Vector3(loc.x, groundY, loc.z);
       });
+      const fallbackSeg = {
+        points: track.points,
+        distance: track.totalDistance,
+        elevationGain: track.elevationGain,
+        elevationLoss: track.elevationLoss,
+        startIndex: 0,
+        endIndex: track.points.length - 1,
+      };
       const { visualPoints, curve } = generateVisualRouteCurve(fallbackGround);
+      const stations = generateVisualRouteStations(fallbackSeg, curve, elevationSampler, 8.0, 10.0);
+      this.stations.push(...stations);
+
       this.segments.push({
-        segment: {
-          points: track.points,
-          distance: track.totalDistance,
-          elevationGain: track.elevationGain,
-          elevationLoss: track.elevationLoss,
-          startIndex: 0,
-          endIndex: track.points.length - 1,
-        },
+        segment: fallbackSeg,
         groundVectors: fallbackGround,
         localVectors: fallbackGround,
         visualVectors: visualPoints,
         curve,
+        stations,
       });
     }
+
+    if (this.stations.length === 0) {
+      this.stations.push({
+        routeDistance: 0,
+        x: 0,
+        z: 0,
+        groundY: 0,
+        forwardX: 0,
+        forwardZ: -1,
+      });
+    }
+
+    // Ensure stations are strictly sorted by route distance
+    this.stations.sort((a, b) => a.routeDistance - b.routeDistance);
+  }
+
+  /**
+   * Retrieves horizontal position and ground elevation on the visual route by route distance (Section 23).
+   * Binary-searches the distance-indexed stations.
+   */
+  public getVisualPositionAtDistance(
+    distanceMeters: number,
+    target: THREE.Vector3 = new THREE.Vector3()
+  ): THREE.Vector3 {
+    const stations = this.stations;
+    if (stations.length === 0) return target.set(0, 0, 0);
+    if (stations.length === 1) return target.set(stations[0].x, stations[0].groundY, stations[0].z);
+
+    const dClamped = Math.max(0, Math.min(this.totalDistance, distanceMeters));
+    let low = 0;
+    let high = stations.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (stations[mid].routeDistance < dClamped) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    const idx0 = Math.max(0, Math.min(stations.length - 2, low - 1));
+    const s0 = stations[idx0];
+    const s1 = stations[idx0 + 1];
+    const span = s1.routeDistance - s0.routeDistance;
+    const alpha = span > 1e-4 ? (dClamped - s0.routeDistance) / span : 0;
+
+    const x = s0.x + alpha * (s1.x - s0.x);
+    const z = s0.z + alpha * (s1.z - s0.z);
+    const y = s0.groundY + alpha * (s1.groundY - s0.groundY);
+    return target.set(x, y, z);
+  }
+
+  /**
+   * Computes normalized route forward vector (in horizontal X/Z plane) pointing toward increasing route distance (Sections 2, 3).
+   */
+  public getRouteForwardAtDistance(
+    distanceMeters: number,
+    target: THREE.Vector3 = new THREE.Vector3()
+  ): THREE.Vector3 {
+    const stations = this.stations;
+    if (stations.length === 0) return target.set(0, 0, -1);
+    if (stations.length === 1) return target.set(stations[0].forwardX, 0, stations[0].forwardZ);
+
+    const dClamped = Math.max(0, Math.min(this.totalDistance, distanceMeters));
+    let low = 0;
+    let high = stations.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (stations[mid].routeDistance < dClamped) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    const idx0 = Math.max(0, Math.min(stations.length - 2, low - 1));
+    const s0 = stations[idx0];
+    const s1 = stations[idx0 + 1];
+    const span = s1.routeDistance - s0.routeDistance;
+    const alpha = span > 1e-4 ? (dClamped - s0.routeDistance) / span : 0;
+
+    const fx = s0.forwardX + alpha * (s1.forwardX - s0.forwardX);
+    const fz = s0.forwardZ + alpha * (s1.forwardZ - s0.forwardZ);
+    const len = Math.hypot(fx, fz);
+    if (len > 1e-5) {
+      return target.set(fx / len, 0, fz / len);
+    }
+    return target.set(s0.forwardX, 0, s0.forwardZ);
+  }
+
+  public getRouteForwardAtProgress(
+    progress: number,
+    target: THREE.Vector3 = new THREE.Vector3()
+  ): THREE.Vector3 {
+    return this.getRouteForwardAtDistance(progress * this.totalDistance, target);
   }
 
   /**
@@ -156,6 +286,7 @@ export class RouteGeometry {
       return {
         position: new THREE.Vector3(),
         tangent: new THREE.Vector3(0, 0, -1),
+        forward: new THREE.Vector3(0, 0, -1),
         currentPoint: {
           lat: 0,
           lon: 0,
@@ -214,21 +345,10 @@ export class RouteGeometry {
       segmentIndex: p0.segmentIndex,
     };
 
-    // Locate segment and curve for smooth visual representation
     const segIdx = p0.segmentIndex ?? 0;
-    const segGeom = this.segments[Math.min(segIdx, this.segments.length - 1)];
-
-    let position = new THREE.Vector3();
-    let tangent = new THREE.Vector3(0, 0, -1);
-
-    if (segGeom && segGeom.segment.distance > 0) {
-      const segDist = Math.max(0, targetDist - segGeom.segment.points[0].distanceFromStart);
-      const segT = Math.min(1, Math.max(0, segDist / segGeom.segment.distance));
-      position = segGeom.curve.getPointAt(segT);
-      tangent = segGeom.curve.getTangentAt(segT);
-    } else if (segGeom && segGeom.localVectors.length > 0) {
-      position = segGeom.localVectors[0].clone();
-    }
+    const position = this.getVisualPositionAtDistance(targetDist);
+    const forward = this.getRouteForwardAtDistance(targetDist);
+    const tangent = forward.clone();
 
     const smoothedGrade = this.getSmoothedGradeAtDistance(targetDist);
     const smoothedSpeed = this.getSmoothedSpeedAtDistance(targetDist);
@@ -236,6 +356,7 @@ export class RouteGeometry {
     return {
       position,
       tangent,
+      forward,
       currentPoint,
       segmentIndex: segIdx,
       smoothedGrade,

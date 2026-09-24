@@ -7,6 +7,15 @@ export interface VisualRouteOptions {
   maxLateralDeviationMeters?: number;
 }
 
+export interface VisualRouteStation {
+  routeDistance: number;
+  x: number;
+  z: number;
+  groundY: number;
+  forwardX: number;
+  forwardZ: number;
+}
+
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();
@@ -20,15 +29,15 @@ export function distanceXZ(a: THREE.Vector3, b: THREE.Vector3): number {
 
 /**
  * Resamples a path evenly in the horizontal X/Z plane at approximately stepMeters spacing.
- * Preserves the exact start and end points.
+ * Preserves the exact start and end points with y = 0 (Section 22).
  */
 export function resamplePathXZ(
   points: THREE.Vector3[],
   stepMeters: number = 7.0
 ): THREE.Vector3[] {
-  if (points.length <= 2) return points.map((p) => p.clone());
+  if (points.length <= 2) return points.map((p) => new THREE.Vector3(p.x, 0, p.z));
 
-  const result: THREE.Vector3[] = [points[0].clone()];
+  const result: THREE.Vector3[] = [new THREE.Vector3(points[0].x, 0, points[0].z)];
   let accumulatedDist = 0;
   let targetDist = stepMeters;
 
@@ -44,7 +53,7 @@ export function resamplePathXZ(
       result.push(
         new THREE.Vector3(
           p0.x + t * (p1.x - p0.x),
-          p0.y + t * (p1.y - p0.y),
+          0,
           p0.z + t * (p1.z - p0.z)
         )
       );
@@ -57,10 +66,10 @@ export function resamplePathXZ(
   // Always append exact last point if not coincident
   const lastPoint = points[points.length - 1];
   if (distanceXZ(result[result.length - 1], lastPoint) > 0.5) {
-    result.push(new THREE.Vector3(lastPoint.x, lastPoint.y, lastPoint.z));
+    result.push(new THREE.Vector3(lastPoint.x, 0, lastPoint.z));
   } else {
     result[result.length - 1].x = lastPoint.x;
-    result[result.length - 1].y = lastPoint.y;
+    result[result.length - 1].y = 0;
     result[result.length - 1].z = lastPoint.z;
   }
 
@@ -76,9 +85,9 @@ export function filterGPSSpikesXZ(
   points: THREE.Vector3[],
   spikeThresholdMeters: number = 14.0
 ): THREE.Vector3[] {
-  if (points.length < 4) return points.map((p) => p.clone());
+  if (points.length < 4) return points.map((p) => new THREE.Vector3(p.x, 0, p.z));
 
-  const result: THREE.Vector3[] = points.map((p) => p.clone());
+  const result: THREE.Vector3[] = points.map((p) => new THREE.Vector3(p.x, 0, p.z));
 
   for (let i = 1; i < result.length - 2; i++) {
     const prev = result[i - 1];
@@ -127,7 +136,7 @@ export function filterGPSSpikesXZ(
       if (!isSwitchback) {
         // Isolated spike: clamp to midpoint of adjacent samples
         cur.x = (prev.x + next.x) * 0.5;
-        cur.y = (prev.y + next.y) * 0.5;
+        cur.y = 0;
         cur.z = (prev.z + next.z) * 0.5;
       }
     }
@@ -145,7 +154,7 @@ export function smoothPathXZ(
   windowMeters: number = 20.0,
   maxLateralDeviationMeters: number = 5.0
 ): THREE.Vector3[] {
-  if (points.length <= 2) return points.map((p) => p.clone());
+  if (points.length <= 2) return points.map((p) => new THREE.Vector3(p.x, 0, p.z));
 
   const result: THREE.Vector3[] = [];
   const n = points.length;
@@ -162,7 +171,7 @@ export function smoothPathXZ(
   for (let i = 0; i < n; i++) {
     // Preserve exact start and end anchors
     if (i === 0 || i === n - 1) {
-      result.push(points[i].clone());
+      result.push(new THREE.Vector3(points[i].x, 0, points[i].z));
       continue;
     }
 
@@ -189,7 +198,7 @@ export function smoothPathXZ(
 
     // Preserve switchback apexes without smoothing them away
     if (isSharpApex) {
-      result.push(orig.clone());
+      result.push(new THREE.Vector3(orig.x, 0, orig.z));
       continue;
     }
 
@@ -230,7 +239,7 @@ export function smoothPathXZ(
       smoothZ = orig.z + (smoothZ - orig.z) * ratio;
     }
 
-    result.push(new THREE.Vector3(smoothX, orig.y, smoothZ));
+    result.push(new THREE.Vector3(smoothX, 0, smoothZ));
   }
 
   return result;
@@ -238,10 +247,10 @@ export function smoothPathXZ(
 
 /**
  * Builds the complete visual route representation for a segment:
- * 1. Resample segment at 7m spacing in X/Z.
+ * 1. Resample segment at 7m spacing in X/Z with y = 0.
  * 2. Reject isolated lateral GPS spikes while preserving real switchbacks.
  * 3. Smooth horizontally within 20m window, clamped to max 5m lateral deviation.
- * 4. Generate centripetal Catmull-Rom curve in X/Z.
+ * 4. Generate centripetal Catmull-Rom curve in purely horizontal X/Z (Section 22).
  */
 export function generateVisualRouteCurve(
   groundPoints: THREE.Vector3[],
@@ -250,8 +259,12 @@ export function generateVisualRouteCurve(
   visualPoints: THREE.Vector3[];
   curve: THREE.CatmullRomCurve3;
 } {
-  if (groundPoints.length < 2) {
-    const fallback = groundPoints.length === 1 ? [groundPoints[0], groundPoints[0]] : [new THREE.Vector3(), new THREE.Vector3(0, 0, 1)];
+  const horizontalPoints = groundPoints.map((p) => new THREE.Vector3(p.x, 0, p.z));
+
+  if (horizontalPoints.length < 2) {
+    const fallback = horizontalPoints.length === 1
+      ? [horizontalPoints[0], horizontalPoints[0]]
+      : [new THREE.Vector3(), new THREE.Vector3(0, 0, -1)];
     return {
       visualPoints: fallback,
       curve: new THREE.CatmullRomCurve3(fallback, false, 'centripetal'),
@@ -263,8 +276,8 @@ export function generateVisualRouteCurve(
   const smoothWindow = options?.smoothingWindowMeters ?? 20.0;
   const maxLateralDev = options?.maxLateralDeviationMeters ?? 5.0;
 
-  // Step 1: Resample path in X/Z
-  const resampled = resamplePathXZ(groundPoints, resampleStep);
+  // Step 1: Resample path in X/Z (y=0)
+  const resampled = resamplePathXZ(horizontalPoints, resampleStep);
 
   // Step 2: Filter isolated GPS spikes
   const debiased = filterGPSSpikesXZ(resampled, spikeThreshold);
@@ -279,4 +292,84 @@ export function generateVisualRouteCurve(
     visualPoints: smoothed,
     curve,
   };
+}
+
+/**
+ * Generates distance-indexed visual route stations in route-distance order (Section 23).
+ * Route forward vector uses distance-oriented lookahead / lookbehind within segment boundaries (Section 3).
+ */
+export function generateVisualRouteStations(
+  segment: { points: { distanceFromStart: number }[]; distance: number },
+  curve: THREE.CatmullRomCurve3,
+  elevationSampler?: (x: number, z: number) => number,
+  stepMeters: number = 8.0,
+  lookaheadMeters: number = 10.0
+): VisualRouteStation[] {
+  const stations: VisualRouteStation[] = [];
+  const segPoints = segment.points;
+  if (!segPoints || segPoints.length === 0) return stations;
+
+  const segStartDist = segPoints[0].distanceFromStart;
+  const segEndDist = segPoints[segPoints.length - 1].distanceFromStart;
+  const segDistSpan = Math.max(0, segment.distance);
+
+  if (segDistSpan < 1e-3 || segPoints.length < 2) {
+    const p = curve.getPointAt(0);
+    const groundY = elevationSampler ? elevationSampler(p.x, p.z) : 0;
+    stations.push({
+      routeDistance: segStartDist,
+      x: p.x,
+      z: p.z,
+      groundY: isNaN(groundY) ? 0 : groundY,
+      forwardX: 0,
+      forwardZ: -1,
+    });
+    return stations;
+  }
+
+  const numSteps = Math.max(2, Math.ceil(segDistSpan / stepMeters));
+  for (let i = 0; i <= numSteps; i++) {
+    const d = segStartDist + (i / numSteps) * segDistSpan;
+    const t = Math.max(0, Math.min(1, (d - segStartDist) / segDistSpan));
+    const p = curve.getPointAt(t);
+
+    // Compute route forward vector using distance lookahead / lookbehind (Section 3)
+    const dPrev = Math.max(segStartDist, d - lookaheadMeters);
+    const dNext = Math.min(segEndDist, d + lookaheadMeters);
+    let fx = 0;
+    let fz = -1;
+
+    if (dNext - dPrev > 1e-3) {
+      const tPrev = (dPrev - segStartDist) / segDistSpan;
+      const tNext = (dNext - segStartDist) / segDistSpan;
+      const pPrev = curve.getPointAt(tPrev);
+      const pNext = curve.getPointAt(tNext);
+      const dx = pNext.x - pPrev.x;
+      const dz = pNext.z - pPrev.z;
+      const len = Math.hypot(dx, dz);
+      if (len > 1e-5) {
+        fx = dx / len;
+        fz = dz / len;
+      }
+    } else {
+      const tangent = curve.getTangentAt(t);
+      const len = Math.hypot(tangent.x, tangent.z);
+      if (len > 1e-5) {
+        fx = tangent.x / len;
+        fz = tangent.z / len;
+      }
+    }
+
+    const groundY = elevationSampler ? elevationSampler(p.x, p.z) : 0;
+    stations.push({
+      routeDistance: d,
+      x: p.x,
+      z: p.z,
+      groundY: isNaN(groundY) ? 0 : groundY,
+      forwardX: fx,
+      forwardZ: fz,
+    });
+  }
+
+  return stations;
 }
