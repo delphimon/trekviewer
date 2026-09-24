@@ -6,12 +6,14 @@ export interface TileCacheStats {
   decodedBytes: number;
   maxDecodedBytes: number;
   inFlight: number;
+  failureCount: number;
 }
 
 export class TileImageCache {
   private static cache: Map<string, HTMLImageElement> = new Map();
   private static entryBytes: Map<string, number> = new Map();
   private static inFlight: Map<string, Promise<HTMLImageElement>> = new Map();
+  private static failureCount: number = 0;
 
   // Desktop defaults (80MB / 300 tiles)
   private static maxEntries: number = 300;
@@ -49,6 +51,10 @@ export class TileImageCache {
     return this.totalDecodedBytes;
   }
 
+  public static getFailureCount(): number {
+    return this.failureCount;
+  }
+
   public static getStats(): TileCacheStats {
     return {
       entries: this.cache.size,
@@ -56,6 +62,7 @@ export class TileImageCache {
       decodedBytes: this.totalDecodedBytes,
       maxDecodedBytes: this.maxDecodedBytes,
       inFlight: this.inFlight.size,
+      failureCount: this.failureCount,
     };
   }
 
@@ -139,6 +146,7 @@ export class TileImageCache {
     this.entryBytes.clear();
     this.inFlight.clear();
     this.totalDecodedBytes = 0;
+    this.failureCount = 0;
   }
 
   public static size(): number {
@@ -188,6 +196,7 @@ export class TileImageCache {
           }
         }
 
+        this.failureCount++;
         throw lastError || new Error(`Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`);
       })();
 
