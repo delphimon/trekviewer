@@ -69,7 +69,7 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
     promotionDwellMs: 150,
     demotionDwellMs: 4000,
     promotionZoomBias: 0.85,
-    firstPersonEvalDistM: 10,
+    firstPersonEvalDistM: 15,
     firstPersonPrefetchAheadM: 750,
     firstPersonRetainBehindM: 400,
     localTerrainRadiusM: 1500,
