@@ -1894,75 +1894,97 @@ export class ImageryLODManager {
     return !allReady;
   }
 
+  /**
+   * Calculates a multi-factor importance score for a patch (Stage W5).
+   * Higher score = more important (retain in warm set).
+   * Lower score = least important (evict first under memory pressure).
+   */
+  public calculatePatchImportanceScore(
+    patch: ImageryPatch,
+    activeKeys: Set<string>,
+    now: number
+  ): number {
+    let score = 0;
+
+    // 1. Active / Desired Status
+    const isActive = activeKeys.has(patch.key);
+    if (isActive) {
+      score += 10000;
+    }
+    if (this.hasPendingChildren(patch.key)) {
+      score += 5000;
+    }
+
+    // 2. Recency (time since last used)
+    const ageSeconds = Math.max(0, (now - patch.lastUsed) / 1000);
+    const retentionSeconds = this.warmRetentionMs / 1000;
+    const recencyRatio = Math.max(0, 1 - ageSeconds / Math.max(1, retentionSeconds));
+    score += recencyRatio * 2000;
+
+    // 3. Spatial Proximity / Route Corridor
+    if (this.viewMode === 'first-person') {
+      if (this.routeGeometry) {
+        const b = tileBounds(patch.x, patch.y, patch.zoom);
+        const patchLat = (b.minLat + b.maxLat) / 2;
+        const patchLon = (b.minLon + b.maxLon) / 2;
+        const hikerTele = this.routeGeometry.getTelemetryAtProgress(this.currentProgress);
+        const hikerPt = hikerTele.currentPoint;
+        const latDiff = (patchLat - hikerPt.lat) * 111320;
+        const lonDiff = (patchLon - hikerPt.lon) * 111320 * Math.cos((hikerPt.lat * Math.PI) / 180);
+        const distToHiker = Math.hypot(latDiff, lonDiff);
+
+        // Corridor envelope bonus (retained behind and prefetched ahead)
+        const corridorMax = Math.max(this.firstPersonRetainBehindM, this.firstPersonPrefetchAheadM);
+        if (distToHiker <= corridorMax) {
+          score += 3000;
+        }
+        score += Math.max(0, 2000 - distToHiker * 2);
+      }
+    } else {
+      // Tabletop mode: proximity to current viewed terrain hit / diorama center
+      score += Math.max(0, 3000 - patch.centerDist * 300);
+    }
+
+    return score;
+  }
+
   private prunePatches(activeKeys: Set<string>): void {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const retentionMs = this.warmRetentionMs;
 
-    const isProtectedFirstPersonPatch = (patch: ImageryPatch): boolean => {
-      if (this.viewMode !== 'first-person' || !this.routeGeometry) return false;
-      const b = tileBounds(patch.x, patch.y, patch.zoom);
-      const patchLat = (b.minLat + b.maxLat) / 2;
-      const patchLon = (b.minLon + b.maxLon) / 2;
-      const hikerTele = this.routeGeometry.getTelemetryAtProgress(this.currentProgress);
-      const hikerPt = hikerTele.currentPoint;
-      const latDiff = (patchLat - hikerPt.lat) * 111320;
-      const lonDiff = (patchLon - hikerPt.lon) * 111320 * Math.cos((hikerPt.lat * Math.PI) / 180);
-      const distToHiker = Math.hypot(latDiff, lonDiff);
-      // Protect tiles within retention corridor (Stage W4)
-      return distToHiker <= Math.max(this.firstPersonRetainBehindM, this.firstPersonPrefetchAheadM);
-    };
-
-    // Dispose patches that have expired and are no longer desired
+    // 1. Retain warm tiles until budget is actually exceeded (Stage W5).
+    // Stale cold tiles (> warmRetentionMs * 2) with low score (< 500) can be gently pruned
+    const coldThresholdMs = this.warmRetentionMs * 2;
     for (const [key, patch] of this.patches.entries()) {
-      if (this.hasPendingChildren(key)) continue;
+      if (this.hasPendingChildren(key) || activeKeys.has(key)) continue;
 
-      if (!activeKeys.has(key)) {
-        if (isProtectedFirstPersonPatch(patch)) continue;
-        if (now - patch.lastUsed > retentionMs) {
-          patch.dispose();
-          this.patches.delete(key);
-          this.patchesDisposedTotal++;
-        }
+      const score = this.calculatePatchImportanceScore(patch, activeKeys, now);
+      if (now - patch.lastUsed > coldThresholdMs && score < 500) {
+        patch.dispose();
+        this.patches.delete(key);
+        this.patchesDisposedTotal++;
       }
     }
 
-    // If still exceeding budget, evict furthest inactive patches first (non-protected preferred)
+    // 2. Memory-pressure driven eviction: when patch count exceeds maxPatches,
+    // evict the lowest scoring tiles first (Stage W5)
     while (this.patches.size > this.maxPatches) {
-      let candidateKey: string | null = null;
-      let maxDist = -1;
+      let lowestScore = Infinity;
+      let victimKey: string | null = null;
 
-      // Pass 1: Inactive, not pending children, not protected
       for (const [key, patch] of this.patches.entries()) {
-        if (!activeKeys.has(key) && !this.hasPendingChildren(key) && !isProtectedFirstPersonPatch(patch) && patch.centerDist > maxDist) {
-          maxDist = patch.centerDist;
-          candidateKey = key;
+        if (this.hasPendingChildren(key)) continue;
+
+        const score = this.calculatePatchImportanceScore(patch, activeKeys, now);
+        if (score < lowestScore) {
+          lowestScore = score;
+          victimKey = key;
         }
       }
 
-      // Pass 2: Inactive, not pending children (even if protected)
-      if (!candidateKey) {
-        for (const [key, patch] of this.patches.entries()) {
-          if (!activeKeys.has(key) && !this.hasPendingChildren(key) && patch.centerDist > maxDist) {
-            maxDist = patch.centerDist;
-            candidateKey = key;
-          }
-        }
-      }
-
-      // Pass 3: If all are active, evict furthest active patch
-      if (!candidateKey) {
-        for (const [key, patch] of this.patches.entries()) {
-          if (!this.hasPendingChildren(key) && patch.centerDist > maxDist) {
-            maxDist = patch.centerDist;
-            candidateKey = key;
-          }
-        }
-      }
-
-      if (candidateKey) {
-        const patch = this.patches.get(candidateKey);
+      if (victimKey) {
+        const patch = this.patches.get(victimKey);
         patch?.dispose();
-        this.patches.delete(candidateKey);
+        this.patches.delete(victimKey);
         this.patchesDisposedTotal++;
       } else {
         break;
@@ -1973,30 +1995,25 @@ export class ImageryLODManager {
   }
 
   private evictFurthestPatch(): void {
-    let furthestKey: string | null = null;
-    let maxDist = -1;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    let lowestScore = Infinity;
+    let victimKey: string | null = null;
 
     for (const [key, patch] of this.patches.entries()) {
-      if (!this.desiredTileKeys.has(key) && !this.hasPendingChildren(key) && patch.centerDist > maxDist) {
-        maxDist = patch.centerDist;
-        furthestKey = key;
+      if (this.hasPendingChildren(key)) continue;
+
+      const score = this.calculatePatchImportanceScore(patch, this.desiredTileKeys, now);
+      if (score < lowestScore) {
+        lowestScore = score;
+        victimKey = key;
       }
     }
 
-    if (!furthestKey) {
-      for (const [key, patch] of this.patches.entries()) {
-        if (!this.hasPendingChildren(key) && patch.centerDist > maxDist) {
-          maxDist = patch.centerDist;
-          furthestKey = key;
-        }
-      }
-    }
-
-    if (furthestKey) {
-      const patch = this.patches.get(furthestKey);
+    if (victimKey) {
+      const patch = this.patches.get(victimKey);
       if (patch) {
         patch.dispose();
-        this.patches.delete(furthestKey);
+        this.patches.delete(victimKey);
         this.patchesDisposedTotal++;
         this.updatePatchVisibility();
       }
