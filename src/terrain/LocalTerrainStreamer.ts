@@ -1,5 +1,5 @@
 import type { TerrainResult } from './TerrainGenerator.ts';
-import type { ElevationGrid } from './ElevationTiles.ts';
+import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
@@ -15,19 +15,15 @@ export interface LocalTerrainStreamerOptions {
 }
 
 /**
- * LocalTerrainStreamer (Stage W6)
+ * LocalTerrainStreamer (Stage W6 & X2)
  *
  * Implements rolling multi-chunk streaming of high-resolution local DEM geometry
  * (1000–1500m radius) along the active hiking route without geometry seams.
  *
- * Architecture:
- * - Maintains 2-3 overlapping LocalTerrainChunk instances positioned at:
- *   1. Behind hiker (retention corridor)
- *   2. Current hiker position
- *   3. Ahead of hiker (forward prefetch corridor)
- * - Seamless edge blending via Hermite smoothstep to base terrain elevation.
- * - Dynamic rolling eviction: oldest/furthest chunks are smoothly detached and disposed
- *   as the hiker progresses along the route.
+ * Stage X2:
+ * - Asynchronously acquires real high-resolution DEM tiles (prefer Terrarium z15, fallback z14).
+ * - Caches and reuses DEM tiles and grids across stations.
+ * - Prefetches ahead station DEM in background before hiker arrival.
  */
 export class LocalTerrainStreamer {
   public readonly terrainResult: TerrainResult;
@@ -42,6 +38,8 @@ export class LocalTerrainStreamer {
   private lastEvalProgress: number = -1;
   private currentExaggeration: number = 1.0;
   private isDisposed: boolean = false;
+  private stationDemCache: Map<string, ElevationGrid> = new Map();
+  private pendingFetches: Map<string, Promise<ElevationGrid | null>> = new Map();
 
   constructor(options: LocalTerrainStreamerOptions) {
     this.terrainResult = options.terrainResult;
@@ -57,6 +55,54 @@ export class LocalTerrainStreamer {
 
   public get activeChunks(): readonly LocalTerrainChunk[] {
     return this.managedChunks;
+  }
+
+  public getStationKey(lat: number, lon: number): string {
+    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  }
+
+  /**
+   * Fetches real high-resolution local DEM for station coordinates (Stage X2).
+   */
+  public async fetchStationDEM(lat: number, lon: number): Promise<ElevationGrid | null> {
+    const key = this.getStationKey(lat, lon);
+    const cached = this.stationDemCache.get(key);
+    if (cached) return cached;
+
+    let pending = this.pendingFetches.get(key);
+    if (!pending) {
+      pending = ElevationTileService.fetchLocalElevationGrid(
+        lat,
+        lon,
+        this.chunkRadiusM,
+        this.qualityProfile.localDemZoom,
+        this.qualityProfile.localDemMaxTiles
+      ).then((grid) => {
+        if (grid) {
+          if (this.stationDemCache.size >= 16) {
+            const firstKey = this.stationDemCache.keys().next().value;
+            if (firstKey) this.stationDemCache.delete(firstKey);
+          }
+          this.stationDemCache.set(key, grid);
+        }
+        this.pendingFetches.delete(key);
+        return grid;
+      }).catch(() => {
+        this.pendingFetches.delete(key);
+        return null;
+      });
+      this.pendingFetches.set(key, pending);
+    }
+    return pending;
+  }
+
+  private fetchAndApplyStationDEM(chunk: LocalTerrainChunk, lat: number, lon: number): void {
+    this.fetchStationDEM(lat, lon).then((grid) => {
+      if (this.isDisposed || !grid) return;
+      if (this.managedChunks.includes(chunk)) {
+        chunk.updateElevationGrid(grid, (x, z) => this.terrainResult.elevationSampler(x, z));
+      }
+    });
   }
 
   public setQualityProfile(profile: QualityProfile): void {
@@ -148,9 +194,13 @@ export class LocalTerrainStreamer {
         neededChunks.push(availableChunks[bestIdx]);
         availableChunks.splice(bestIdx, 1);
       } else {
-        // Create new high-resolution chunk
+        // Create new chunk (using cached high-res DEM if available, or fallback to route demGrid)
+        const stationKey = this.getStationKey(station.lat, station.lon);
+        const cachedGrid = this.stationDemCache.get(stationKey);
+        const initialGrid = cachedGrid || this.demGrid;
+
         const newChunk = new LocalTerrainChunk({
-          localGrid: this.demGrid,
+          localGrid: initialGrid,
           centerLat: station.lat,
           centerLon: station.lon,
           referenceCenterLat:
@@ -159,6 +209,7 @@ export class LocalTerrainStreamer {
             this.terrainResult.terrainGeoBounds?.centerLon ?? station.lon,
           terrainBaseElevation: this.terrainResult.terrainBaseElevation,
           radiusMeters: this.chunkRadiusM,
+          segments: this.qualityProfile.localDemSegments,
           baseElevationSampler: (x, z) =>
             this.terrainResult.elevationSampler(x, z),
           initialExaggeration: this.currentExaggeration,
@@ -166,6 +217,19 @@ export class LocalTerrainStreamer {
 
         this.terrainResult.attachLocalChunk?.(newChunk);
         neededChunks.push(newChunk);
+
+        // Asynchronously fetch and apply real Terrarium high-res DEM (Stage X2)
+        if (!newChunk.isRealHighRes) {
+          this.fetchAndApplyStationDEM(newChunk, station.lat, station.lon);
+        }
+      }
+    }
+
+    // Prefetch real DEM for candidate stations along the corridor (including ahead of hiker)
+    for (const station of stationCoords) {
+      const key = this.getStationKey(station.lat, station.lon);
+      if (!this.stationDemCache.has(key) && !this.pendingFetches.has(key)) {
+        this.fetchStationDEM(station.lat, station.lon);
       }
     }
 
@@ -199,6 +263,8 @@ export class LocalTerrainStreamer {
   public dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    this.pendingFetches.clear();
+    this.stationDemCache.clear();
     for (const chunk of this.managedChunks) {
       this.terrainResult.detachLocalChunk?.(chunk);
     }
