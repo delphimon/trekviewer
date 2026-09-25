@@ -30,8 +30,10 @@ export interface TerrainResult {
   setTextureStyle: (style: TextureStyle) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
   localChunk?: LocalTerrainChunk | null;
+  localChunks?: LocalTerrainChunk[];
   attachLocalChunk?: (chunk: LocalTerrainChunk) => void;
-  detachLocalChunk?: () => void;
+  detachLocalChunk?: (chunk?: LocalTerrainChunk) => void;
+  detachAllLocalChunks?: () => void;
   dispose: () => void;
 }
 
@@ -427,7 +429,7 @@ export class TerrainGenerator {
       }
     };
 
-    let activeLocalChunk: LocalTerrainChunk | null = null;
+    const activeLocalChunks: LocalTerrainChunk[] = [];
 
     const setVerticalExaggeration = (factor: number) => {
       currentExaggeration = Math.max(1.0, Math.min(3.0, factor));
@@ -437,9 +439,9 @@ export class TerrainGenerator {
       posAttr.needsUpdate = true;
       planeGeo.computeVertexNormals();
 
-      // Update active local high-res chunk if attached (Stage V7)
-      if (activeLocalChunk) {
-        activeLocalChunk.setVerticalExaggeration(currentExaggeration);
+      // Update active local high-res chunks if attached (Stage V7, Stage W6)
+      for (const chunk of activeLocalChunks) {
+        chunk.setVerticalExaggeration(currentExaggeration);
       }
 
       // Recreate skirt geometry for new exaggeration
@@ -449,20 +451,34 @@ export class TerrainGenerator {
     };
 
     const attachLocalChunk = (chunk: LocalTerrainChunk) => {
-      if (activeLocalChunk && activeLocalChunk !== chunk) {
-        group.remove(activeLocalChunk.mesh);
-        activeLocalChunk.dispose();
+      const idx = activeLocalChunks.indexOf(chunk);
+      if (idx === -1) {
+        activeLocalChunks.push(chunk);
+        chunk.setVerticalExaggeration(currentExaggeration);
+        group.add(chunk.mesh);
       }
-      activeLocalChunk = chunk;
-      activeLocalChunk.setVerticalExaggeration(currentExaggeration);
-      group.add(activeLocalChunk.mesh);
     };
 
-    const detachLocalChunk = () => {
-      if (activeLocalChunk) {
-        group.remove(activeLocalChunk.mesh);
-        activeLocalChunk.dispose();
-        activeLocalChunk = null;
+    const detachLocalChunk = (chunk?: LocalTerrainChunk) => {
+      if (chunk) {
+        const idx = activeLocalChunks.indexOf(chunk);
+        if (idx !== -1) {
+          activeLocalChunks.splice(idx, 1);
+          group.remove(chunk.mesh);
+          chunk.dispose();
+        }
+      } else if (activeLocalChunks.length > 0) {
+        const removed = activeLocalChunks.shift()!;
+        group.remove(removed.mesh);
+        removed.dispose();
+      }
+    };
+
+    const detachAllLocalChunks = () => {
+      while (activeLocalChunks.length > 0) {
+        const chunk = activeLocalChunks.pop()!;
+        group.remove(chunk.mesh);
+        chunk.dispose();
       }
     };
 
@@ -470,10 +486,7 @@ export class TerrainGenerator {
       if (isDisposed) return;
       isDisposed = true;
       textureRequestGeneration++;
-      if (activeLocalChunk) {
-        activeLocalChunk.dispose();
-        activeLocalChunk = null;
-      }
+      detachAllLocalChunks();
       if (group.parent) {
         group.parent.remove(group);
       }
@@ -484,13 +497,31 @@ export class TerrainGenerator {
       topoTexture.dispose();
     };
 
-    // Rendered-surface sampler using exact barycentric interpolation within actual rendered triangles (Section 10, Stage V7)
+    // Rendered-surface sampler using exact barycentric interpolation within actual rendered triangles (Section 10, Stage V7, Stage W6)
     const sampleRenderedSurfaceY = (localX: number, localZ: number): number => {
-      // Prioritize fine-grained local high-res DEM geometry chunk if available (Stage V7)
-      if (activeLocalChunk) {
-        const localY = activeLocalChunk.sampleLocalSurfaceY(localX, localZ);
-        if (localY !== null && !isNaN(localY)) {
-          return localY;
+      // Prioritize fine-grained local high-res DEM geometry chunks if available (Stage V7, Stage W6)
+      if (activeLocalChunks.length > 0) {
+        let bestChunk: LocalTerrainChunk | null = null;
+        let bestDistSq = Infinity;
+
+        for (const chunk of activeLocalChunks) {
+          const sample = chunk.sampleLocalSurfaceY(localX, localZ);
+          if (sample !== null && !isNaN(sample)) {
+            const dx = localX - chunk.localCenter.x;
+            const dz = localZ - chunk.localCenter.z;
+            const distSq = dx * dx + dz * dz;
+            if (distSq < bestDistSq) {
+              bestDistSq = distSq;
+              bestChunk = chunk;
+            }
+          }
+        }
+
+        if (bestChunk) {
+          const localY = bestChunk.sampleLocalSurfaceY(localX, localZ);
+          if (localY !== null && !isNaN(localY)) {
+            return localY;
+          }
         }
       }
 
@@ -546,10 +577,14 @@ export class TerrainGenerator {
       setTextureStyle,
       setVerticalExaggeration,
       get localChunk() {
-        return activeLocalChunk;
+        return activeLocalChunks[0] || null;
+      },
+      get localChunks() {
+        return activeLocalChunks;
       },
       attachLocalChunk,
       detachLocalChunk,
+      detachAllLocalChunks,
       dispose,
     };
   }
