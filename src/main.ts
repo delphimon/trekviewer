@@ -14,6 +14,7 @@ import { RouteLoader } from './core/RouteLoader';
 import { TrekSession } from './core/TrekSession';
 import { TextureProvider } from './terrain/TextureProvider';
 import { TileImageCache } from './terrain/TileImageCache';
+import { QualityProfileManager } from './terrain/QualityProfile';
 import { resolveAssetUrl } from './utils/AssetUrl';
 
 const _scratchV3 = new THREE.Vector3();
@@ -94,9 +95,12 @@ export class TrekViewerApp {
     const canvasContainer = document.getElementById('canvas-container')!;
     const uiContainer = document.getElementById('ui-container')!;
 
-    // Configure tile cache limits for target device (Requirement #105)
+    // Configure quality profile and tile cache limits for target device (Stage X)
     const isQuest = typeof navigator !== 'undefined' && /Quest|OculusBrowser/i.test(navigator.userAgent);
-    TileImageCache.setTargetDevice(isQuest);
+    const initialProfile = QualityProfileManager.getDefaultProfile(isQuest);
+    QualityProfileManager.setActiveProfile(initialProfile);
+    TileImageCache.applyProfile(initialProfile);
+    this.session.setQualityProfile(initialProfile.name);
 
     this.lastTimestamp = performance.now();
 
@@ -179,7 +183,13 @@ export class TrekViewerApp {
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
       onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
       onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
+      onSetQualityMode: (mode) => {
+        const isQuest = typeof navigator !== 'undefined' && /Quest|OculusBrowser/i.test(navigator.userAgent);
+        const profileName = QualityProfileManager.resolveProfileName(mode, isQuest);
+        this.session.setQualityProfile(profileName);
+      },
     });
+    this.overlay.setQualityProfile(initialProfile.name);
 
     // 5. Transactional Route Loader (Stage F & G)
     this.routeLoader = new RouteLoader({
@@ -203,6 +213,15 @@ export class TrekViewerApp {
 
     // 6. Reactive State Subscriptions (Stage G)
     this.session.subscribe((state, prev) => {
+      if (state.qualityProfile !== prev.qualityProfile) {
+        const profile = QualityProfileManager.getProfile(state.qualityProfile);
+        if (profile) {
+          QualityProfileManager.setActiveProfile(profile);
+          TileImageCache.applyProfile(profile);
+          this.activeTrek?.setQualityProfile(profile);
+          this.overlay.setQualityProfile(state.qualityProfile);
+        }
+      }
       if (state.isPlaying !== prev.isPlaying) {
         this.overlay.setPlaying(state.isPlaying);
       }

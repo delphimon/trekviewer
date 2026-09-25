@@ -9,6 +9,7 @@ import { LoadedTrek } from './LoadedTrek.ts';
 import { TrekSession } from './TrekSession.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
+import { QualityProfileManager } from '../terrain/QualityProfile.ts';
 
 export interface RouteLoaderOptions {
   dioramaRoot: THREE.Group;
@@ -271,6 +272,7 @@ export class RouteLoader {
         trailResult: trail,
         dioramaBase: base,
         flyoverController,
+        qualityProfile: QualityProfileManager.getActiveProfile(),
       });
 
       if (this.isStale(context)) {

@@ -33,8 +33,8 @@ export class LocalTerrainStreamer {
   public readonly terrainResult: TerrainResult;
   public readonly routeGeometry: RouteGeometry;
   public readonly demGrid: ElevationGrid;
-  public readonly qualityProfile: QualityProfile;
-  public readonly chunkRadiusM: number;
+  public qualityProfile: QualityProfile;
+  public chunkRadiusM: number;
   public readonly maxChunks: number;
   public readonly evalThresholdM: number;
 
@@ -48,7 +48,7 @@ export class LocalTerrainStreamer {
     this.routeGeometry = options.routeGeometry;
     this.demGrid = options.demGrid;
     this.qualityProfile =
-      options.qualityProfile || QualityProfileManager.getDefaultProfile(false);
+      options.qualityProfile || QualityProfileManager.getActiveProfile();
     this.chunkRadiusM =
       options.chunkRadiusM ?? this.qualityProfile.localTerrainRadiusM;
     this.maxChunks = options.maxChunks ?? 3;
@@ -57,6 +57,16 @@ export class LocalTerrainStreamer {
 
   public get activeChunks(): readonly LocalTerrainChunk[] {
     return this.managedChunks;
+  }
+
+  public setQualityProfile(profile: QualityProfile): void {
+    if (this.isDisposed) return;
+    this.qualityProfile = profile;
+    this.chunkRadiusM = profile.localTerrainRadiusM;
+  }
+
+  public getQualityProfile(): QualityProfile {
+    return this.qualityProfile;
   }
 
   public setVerticalExaggeration(factor: number): void {

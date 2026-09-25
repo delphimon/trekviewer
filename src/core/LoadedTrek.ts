@@ -7,7 +7,7 @@ import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
 import { LocalTerrainStreamer } from '../terrain/LocalTerrainStreamer.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
-import type { QualityProfile } from '../terrain/QualityProfile.ts';
+import { type QualityProfile, QualityProfileManager } from '../terrain/QualityProfile.ts';
 
 export interface LoadedTrekParams {
   track: TrackStats;
@@ -16,6 +16,7 @@ export interface LoadedTrekParams {
   dioramaBase: THREE.Group;
   flyoverController: FlyoverController;
   imageryLOD?: ImageryLODManager;
+  qualityProfile?: QualityProfile;
 }
 
 /**
@@ -40,6 +41,8 @@ export class LoadedTrek {
     this.dioramaBase = params.dioramaBase;
     this.flyoverController = params.flyoverController;
 
+    const qualityProfile = params.qualityProfile || QualityProfileManager.getActiveProfile();
+
     this.imageryLOD =
       params.imageryLOD ||
       new ImageryLODManager({
@@ -50,8 +53,8 @@ export class LoadedTrek {
         track: params.track,
         verticalExaggeration: 1.0,
         textureStyle: 'satellite',
-        maxPatches: 36,
-        enableInXR: true, // Stage S2: Enabled in XR on Quest with conservative limits!
+        qualityProfile,
+        enableInXR: true,
         terrainMesh: params.terrainResult.terrainMesh,
       });
 
@@ -60,6 +63,7 @@ export class LoadedTrek {
         terrainResult: this.terrainResult,
         routeGeometry: this.trailResult.routeGeometry,
         demGrid: this.terrainResult.demGrid,
+        qualityProfile,
       });
       this.localTerrainStreamer.update(0);
     }
@@ -110,6 +114,7 @@ export class LoadedTrek {
   public setQualityProfile(profile: QualityProfile): void {
     if (this._isDisposed) return;
     this.imageryLOD.setQualityProfile(profile);
+    this.localTerrainStreamer?.setQualityProfile(profile);
   }
 
   public setDebugPatchBounds(enabled: boolean): void {

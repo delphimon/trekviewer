@@ -1,4 +1,5 @@
 export type QualityProfileName = 'quest-balanced' | 'quest-high' | 'desktop-high';
+export type QualityMode = 'high' | 'balanced';
 
 export interface QualityProfile {
   name: QualityProfileName;
@@ -17,12 +18,15 @@ export interface QualityProfile {
   firstPersonPrefetchAheadM: number;
   firstPersonRetainBehindM: number;
   localTerrainRadiusM: number;
+  localDemZoom: number;
+  localDemMaxTiles: number;
+  localDemSegments: number;
 }
 
 export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
   'quest-high': {
     name: 'quest-high',
-    displayName: 'Quest 3 High Quality (Stage W Default)',
+    displayName: 'Quest 3 High Quality (Stage X Default)',
     tabletopPatches: 48,
     firstPersonPatches: 64,
     concurrency: 6,
@@ -37,6 +41,9 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
     firstPersonPrefetchAheadM: 650,   // 500-750 m forward prefetch corridor
     firstPersonRetainBehindM: 300,    // 200-400 m warm retention corridor behind
     localTerrainRadiusM: 1250,        // 1000-1500 m local high-res DEM radius
+    localDemZoom: 15,                 // Terrarium zoom 15 local elevation
+    localDemMaxTiles: 16,             // ~16 z15 tiles on Quest-high
+    localDemSegments: 128,            // 128x128 grid resolution (~10-15m spacing)
   },
   'quest-balanced': {
     name: 'quest-balanced',
@@ -55,6 +62,9 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
     firstPersonPrefetchAheadM: 350,
     firstPersonRetainBehindM: 150,
     localTerrainRadiusM: 750,
+    localDemZoom: 15,
+    localDemMaxTiles: 8,
+    localDemSegments: 96,
   },
   'desktop-high': {
     name: 'desktop-high',
@@ -73,6 +83,9 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
     firstPersonPrefetchAheadM: 750,
     firstPersonRetainBehindM: 400,
     localTerrainRadiusM: 1500,
+    localDemZoom: 15,
+    localDemMaxTiles: 25,
+    localDemSegments: 160,
   },
 };
 
@@ -106,5 +119,17 @@ export class QualityProfileManager {
 
   public static getProfile(name: QualityProfileName): QualityProfile {
     return QUALITY_PROFILES[name];
+  }
+
+  public static resolveProfileName(mode: QualityMode, isQuest: boolean): QualityProfileName {
+    if (isQuest) {
+      return mode === 'high' ? 'quest-high' : 'quest-balanced';
+    } else {
+      return mode === 'high' ? 'desktop-high' : 'quest-balanced';
+    }
+  }
+
+  public static getQualityMode(profileName: QualityProfileName): QualityMode {
+    return profileName === 'quest-balanced' ? 'balanced' : 'high';
   }
 }
