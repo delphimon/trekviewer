@@ -687,6 +687,8 @@ export class ImageryLODManager {
   private warmRetentionMs: number = 30000;
   private pendingPromoteZoom: number | null = null;
   private promoteCandidateSince: number = 0;
+  private pendingDemoteZoom: number | null = null;
+  private demoteCandidateSince: number = 0;
 
   private lastCamPos: THREE.Vector3 = new THREE.Vector3();
   private lastCamDir: THREE.Vector3 = new THREE.Vector3();
@@ -957,8 +959,8 @@ export class ImageryLODManager {
 
       this.lastEvalProgress = this.currentProgress;
     } else {
-      const hasPendingPromotion = this.pendingPromoteZoom !== null;
-      if (!isFirstRun && !hasPendingPromotion && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
+      const hasPendingZoomChange = this.pendingPromoteZoom !== null || this.pendingDemoteZoom !== null;
+      if (!isFirstRun && !hasPendingZoomChange && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
         return;
       }
     }
@@ -991,7 +993,8 @@ export class ImageryLODManager {
     fovDeg: number = 60,
     viewportHeightPx: number = 1080,
     providerMaxZoom: number = 19,
-    currentZoom?: number
+    currentZoom?: number,
+    promotionZoomBias: number = 0.8
   ): number {
     const fovRad = degToRad(fovDeg);
     // Displayed metric extent per viewport pixel
@@ -1002,15 +1005,17 @@ export class ImageryLODManager {
     const earthCircumferenceMeters = 2 * Math.PI * 6378137 * Math.cos(latRad);
     const rawZoom = Math.log2((earthCircumferenceMeters / 256) / Math.max(localMetersPerPixel, 0.01));
 
-    // Quality multiplier 1.25 -> +0.32 in log2 space
-    const biasedZoom = rawZoom + 0.35;
+    // Quality multiplier driven by promotionZoomBias (+0.7 to +1.0 in Stage W)
+    const biasedZoom = rawZoom + promotionZoomBias;
     let targetZ = Math.round(biasedZoom);
 
-    // Zoom hysteresis (Section 31): require > 0.6 drift above or > 0.7 below to promote/demote
+    // Asymmetric zoom hysteresis (Stage W):
+    // Eager promotion (> +0.4 drift above current zoom promotes quickly)
+    // Conservative demotion (> -0.85 drift below current zoom required before demoting)
     if (currentZoom !== undefined) {
-      if (biasedZoom > currentZoom + 0.6) {
+      if (biasedZoom > currentZoom + 0.4) {
         targetZ = Math.round(biasedZoom);
-      } else if (biasedZoom < currentZoom - 0.7) {
+      } else if (biasedZoom < currentZoom - 0.85) {
         targetZ = Math.round(biasedZoom);
       } else {
         targetZ = currentZoom;
@@ -1169,16 +1174,24 @@ export class ImageryLODManager {
       metrics.verticalFov,
       metrics.viewportHeightPx,
       provider.maxZoom,
-      this.currentTargetZoom
+      this.currentTargetZoom,
+      this.promotionZoomBias
     );
 
     this.calculatedDesiredZoom = rawTargetZoom;
 
-    // Promotion dwell time (Section 46): require stable zoom for 500ms unless mountain moved significantly
+    // Asymmetric Promotion and Demotion dwell timers (Stage W):
+    // Eager promotion: 150-250ms dwell (or immediate if leaning in/scaling up)
+    // Conservative demotion: 2-5s dwell to prevent collapsing on momentary head movement
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const dioramaMovedSignificantly = isFirstRun || dioramaPosDelta > 0.10 || scaleRatio > 0.15;
 
-    if (rawTargetZoom > this.currentTargetZoom) {
+    if (isFirstRun) {
+      this.currentTargetZoom = rawTargetZoom;
+      this.pendingPromoteZoom = null;
+      this.pendingDemoteZoom = null;
+    } else if (rawTargetZoom > this.currentTargetZoom) {
+      this.pendingDemoteZoom = null;
       if (dioramaMovedSignificantly) {
         this.currentTargetZoom = rawTargetZoom;
         this.pendingPromoteZoom = null;
@@ -1191,9 +1204,18 @@ export class ImageryLODManager {
           this.pendingPromoteZoom = null;
         }
       }
-    } else {
-      this.currentTargetZoom = rawTargetZoom;
+    } else if (rawTargetZoom < this.currentTargetZoom) {
       this.pendingPromoteZoom = null;
+      if (this.pendingDemoteZoom !== rawTargetZoom) {
+        this.pendingDemoteZoom = rawTargetZoom;
+        this.demoteCandidateSince = now;
+      } else if (now - this.demoteCandidateSince >= this.DEMOTION_DWELL_MS) {
+        this.currentTargetZoom = rawTargetZoom;
+        this.pendingDemoteZoom = null;
+      }
+    } else {
+      this.pendingPromoteZoom = null;
+      this.pendingDemoteZoom = null;
     }
 
     const effectiveTargetZoom = this.currentTargetZoom;
@@ -1308,9 +1330,26 @@ export class ImageryLODManager {
       }
     }
 
-    // 2. Cancel pending requests no longer in desired set (Section 14)
+    // 2. Selective request cancellation (Stage W):
+    // Distinguish truly obsolete requests from near-future / warm working region requests.
     for (const [key, pending] of this.pendingRequests.entries()) {
       if (!newDesiredKeys.has(key)) {
+        const parsed = parseTileKey(key);
+        const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+        let hasLoadedSibling = false;
+        if (parentKey) {
+          const parentParsed = parseTileKey(parentKey);
+          const siblingKeys = getChildTileKeys(parentParsed.style, parentParsed.zoom, parentParsed.x, parentParsed.y);
+          hasLoadedSibling = siblingKeys.some((sk) => this.patches.has(sk));
+        }
+
+        const isNearWarmRegion = parsed.zoom >= defaultZoom - 1 && pending.dist < 3.5;
+        if (hasLoadedSibling || isNearWarmRegion) {
+          // Allow in-flight request to finish and enter warm resident cache
+          continue;
+        }
+
+        // Truly obsolete request -> abort
         pending.abortController.abort();
         this.pendingRequests.delete(key);
       }
@@ -1331,8 +1370,38 @@ export class ImageryLODManager {
       }
     }
 
-    // Priority sort: lowest distance from view center first
-    this.requestQueue.sort((a, b) => a.dist - b.dist);
+    // Priority sort (Stage W):
+    // Finishing an already-started 3/4 child group must outrank beginning an unrelated new group.
+    // Tier 0: Completing a 3/4 child group (3 siblings already loaded)
+    // Tier 1: 2 siblings already loaded
+    // Tier 2: 1 sibling already loaded
+    // Tier 3: High-res tiles (zoom >= defaultZoom)
+    // Tier 4: Medium-res outer perimeter ring
+    // Tie-breaker within tier: lowest distance from view center
+    const computeTilePriority = (q: QueuedTile): number => {
+      const parsed = parseTileKey(q.key);
+      const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      if (parentKey) {
+        const parentParsed = parseTileKey(parentKey);
+        const siblingKeys = getChildTileKeys(parentParsed.style, parentParsed.zoom, parentParsed.x, parentParsed.y);
+        let readySiblings = 0;
+        for (const sk of siblingKeys) {
+          if (this.patches.has(sk)) readySiblings++;
+        }
+        if (readySiblings === 3) return 0; // Completing 3/4 child group -> highest priority!
+        if (readySiblings === 2) return 1;
+        if (readySiblings === 1) return 2;
+      }
+      if (q.zoom >= defaultZoom) return 3;
+      return 4;
+    };
+
+    this.requestQueue.sort((a, b) => {
+      const pA = computeTilePriority(a);
+      const pB = computeTilePriority(b);
+      if (pA !== pB) return pA - pB;
+      return a.dist - b.dist;
+    });
 
     // 4. Update parent/child visibility
     this.updatePatchVisibility();
@@ -1451,7 +1520,7 @@ export class ImageryLODManager {
           if (
             !this.isDisposed &&
             !abortController.signal.aborted &&
-            this.desiredTileKeys.has(next.key) &&
+            (this.desiredTileKeys.has(next.key) || this.patches.size < this.maxPatches) &&
             this.currentTextureStyle === requestStyle
           ) {
             const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
