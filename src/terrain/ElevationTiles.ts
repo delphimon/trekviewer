@@ -1,5 +1,5 @@
 import type { GeoBounds } from '../gpx/TrackTypes.ts';
-import { latLonToTile } from '../gpx/Coordinates.ts';
+import { latLonToTile, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { AWSTerrariumElevationProvider } from './providers/ImageryProvider.ts';
 import { TileImageCache } from './TileImageCache.ts';
 
@@ -76,125 +76,236 @@ export class ElevationTileService {
         numTilesY = tileYMax - tileYMin + 1;
       }
 
-      const TILE_SIZE = 256;
-      const canvas = document.createElement('canvas');
-      canvas.width = numTilesX * TILE_SIZE;
-      canvas.height = numTilesY * TILE_SIZE;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return null;
-
-      const totalTiles = numTilesX * numTilesY;
-      const tileValidity = new Uint8Array(totalTiles);
-      let loadedTiles = 0;
-      let successCount = 0;
-
-      // Bound DEM request concurrency to a 6-worker pool (Requirement #100)
-      const CONCURRENCY = 6;
-      const tileTasks: { tx: number; ty: number; tileIdx: number }[] = [];
-      for (let ty = tileYMin; ty <= tileYMax; ty++) {
-        for (let tx = tileXMin; tx <= tileXMax; tx++) {
-          const tileIdx = (ty - tileYMin) * numTilesX + (tx - tileXMin);
-          tileTasks.push({ tx, ty, tileIdx });
-        }
-      }
-
-      let nextTaskIdx = 0;
-      const worker = async () => {
-        while (nextTaskIdx < tileTasks.length) {
-          if (signal?.aborted) return;
-          const task = tileTasks[nextTaskIdx++];
-          try {
-            const img = await TileImageCache.loadTile(
-              this.elevationProvider,
-              zoom,
-              task.tx,
-              task.ty,
-              4000,
-              signal
-            );
-            if (signal?.aborted) return;
-            const dx = (task.tx - tileXMin) * TILE_SIZE;
-            const dy = (task.ty - tileYMin) * TILE_SIZE;
-            ctx.drawImage(img, dx, dy);
-            tileValidity[task.tileIdx] = 1;
-            successCount++;
-          } catch {
-            // Mark tile as invalid; no drawing occurs
-            tileValidity[task.tileIdx] = 0;
-          } finally {
-            loadedTiles++;
-            onProgress?.(loadedTiles, totalTiles);
-          }
-        }
-      };
-
-      const workerCount = Math.min(CONCURRENCY, tileTasks.length);
-      const workers = Array.from({ length: workerCount }, () => worker());
-      await Promise.all(workers);
-
-      if (signal?.aborted || successCount === 0) {
-        return null;
-      }
-
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = imgData.data;
-      const gridW = canvas.width;
-      const gridH = canvas.height;
-      const data = new Float32Array(gridW * gridH);
-
-      let minEle = Infinity;
-      let maxEle = -Infinity;
-
-      // Decode Terrarium: elevation = (R * 256 + G + B / 256) - 32768
-      for (let py = 0; py < gridH; py++) {
-        const tyOffset = Math.floor(py / TILE_SIZE);
-        for (let px = 0; px < gridW; px++) {
-          const txOffset = Math.floor(px / TILE_SIZE);
-          const tileIdx = tyOffset * numTilesX + txOffset;
-          const idx = py * gridW + px;
-
-          if (tileValidity[tileIdx] === 0) {
-            // Missing tile: store NaN so it never acts as -32768m
-            data[idx] = NaN;
-            continue;
-          }
-
-          const r = pixels[idx * 4];
-          const g = pixels[idx * 4 + 1];
-          const b = pixels[idx * 4 + 2];
-          const decoded = (r * 256 + g + b / 256) - 32768;
-
-          // Black pixel guard: Terrarium (0,0,0) decodes to -32768
-          if (decoded < -1000) {
-            data[idx] = NaN;
-          } else {
-            data[idx] = decoded;
-            minEle = Math.min(minEle, decoded);
-            maxEle = Math.max(maxEle, decoded);
-          }
-        }
-      }
-
-      return {
-        width: gridW,
-        height: gridH,
+      return await this.decodeTileGrid(
         zoom,
         tileXMin,
         tileXMax,
         tileYMin,
         tileYMax,
-        numTilesX,
-        numTilesY,
-        data,
-        tileValidity,
-        minElevation: isFinite(minEle) ? minEle : bounds.minEle,
-        maxElevation: isFinite(maxEle) ? maxEle : bounds.maxEle,
-        isRealDEM: true,
-      };
+        bounds.minEle,
+        bounds.maxEle,
+        onProgress,
+        signal
+      );
     } catch (e) {
       console.warn('Failed to fetch elevation tiles:', e);
       return null;
     }
+  }
+
+  /**
+   * Fetches a bounded local high-resolution DEM chunk around a specific route coordinate (Stage V7).
+   * Used for high-fidelity terrain geometry and micro-terrain elevation sampling around 1:1 first-person view.
+   */
+  public static async fetchLocalElevationGrid(
+    centerLat: number,
+    centerLon: number,
+    radiusMeters: number = 750,
+    targetZoom: number = 14,
+    signal?: AbortSignal
+  ): Promise<ElevationGrid | null> {
+    try {
+      let zoom = Math.max(12, Math.min(15, targetZoom));
+      const nw = localMetersToGeo(-radiusMeters, -radiusMeters, centerLat, centerLon);
+      const se = localMetersToGeo(radiusMeters, radiusMeters, centerLat, centerLon);
+
+      const minLat = Math.min(nw.lat, se.lat);
+      const maxLat = Math.max(nw.lat, se.lat);
+      const minLon = Math.min(nw.lon, se.lon);
+      const maxLon = Math.max(nw.lon, se.lon);
+
+      let minTile = latLonToTile(maxLat, minLon, zoom);
+      let maxTile = latLonToTile(minLat, maxLon, zoom);
+      let tileXMin = Math.min(minTile.x, maxTile.x);
+      let tileXMax = Math.max(minTile.x, maxTile.x);
+      let tileYMin = Math.min(minTile.y, maxTile.y);
+      let tileYMax = Math.max(minTile.y, maxTile.y);
+
+      let numTilesX = tileXMax - tileXMin + 1;
+      let numTilesY = tileYMax - tileYMin + 1;
+
+      // Bound local chunk to at most 9 tiles (3x3 grid)
+      const MAX_LOCAL_TILES = 9;
+      while (numTilesX * numTilesY > MAX_LOCAL_TILES && zoom > 12) {
+        zoom--;
+        minTile = latLonToTile(maxLat, minLon, zoom);
+        maxTile = latLonToTile(minLat, maxLon, zoom);
+        tileXMin = Math.min(minTile.x, maxTile.x);
+        tileXMax = Math.max(minTile.x, maxTile.x);
+        tileYMin = Math.min(minTile.y, maxTile.y);
+        tileYMax = Math.max(minTile.y, maxTile.y);
+        numTilesX = tileXMax - tileXMin + 1;
+        numTilesY = tileYMax - tileYMin + 1;
+      }
+
+      return await this.decodeTileGrid(
+        zoom,
+        tileXMin,
+        tileXMax,
+        tileYMin,
+        tileYMax,
+        0,
+        4000,
+        undefined,
+        signal
+      );
+    } catch (e) {
+      console.warn('Failed to fetch local elevation chunk:', e);
+      return null;
+    }
+  }
+
+  private static async decodeTileGrid(
+    zoom: number,
+    tileXMin: number,
+    tileXMax: number,
+    tileYMin: number,
+    tileYMax: number,
+    fallbackMinEle: number,
+    fallbackMaxEle: number,
+    onProgress?: (loaded: number, total: number) => void,
+    signal?: AbortSignal
+  ): Promise<ElevationGrid | null> {
+    const numTilesX = tileXMax - tileXMin + 1;
+    const numTilesY = tileYMax - tileYMin + 1;
+
+    const TILE_SIZE = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = numTilesX * TILE_SIZE;
+    canvas.height = numTilesY * TILE_SIZE;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    const totalTiles = numTilesX * numTilesY;
+    const tileValidity = new Uint8Array(totalTiles);
+    let loadedTiles = 0;
+    let successCount = 0;
+
+    // Bound DEM request concurrency to a 6-worker pool (Requirement #100)
+    const CONCURRENCY = 6;
+    const tileTasks: { tx: number; ty: number; tileIdx: number }[] = [];
+    for (let ty = tileYMin; ty <= tileYMax; ty++) {
+      for (let tx = tileXMin; tx <= tileXMax; tx++) {
+        const tileIdx = (ty - tileYMin) * numTilesX + (tx - tileXMin);
+        tileTasks.push({ tx, ty, tileIdx });
+      }
+    }
+
+    let nextTaskIdx = 0;
+    const worker = async () => {
+      while (nextTaskIdx < tileTasks.length) {
+        if (signal?.aborted) return;
+        const task = tileTasks[nextTaskIdx++];
+        try {
+          const img = await TileImageCache.loadTile(
+            this.elevationProvider,
+            zoom,
+            task.tx,
+            task.ty,
+            4000,
+            signal
+          );
+          if (signal?.aborted) return;
+          const dx = (task.tx - tileXMin) * TILE_SIZE;
+          const dy = (task.ty - tileYMin) * TILE_SIZE;
+          ctx.drawImage(img, dx, dy);
+          tileValidity[task.tileIdx] = 1;
+          successCount++;
+        } catch {
+          // Mark tile as invalid; no drawing occurs
+          tileValidity[task.tileIdx] = 0;
+        } finally {
+          loadedTiles++;
+          onProgress?.(loadedTiles, totalTiles);
+        }
+      }
+    };
+
+    const workerCount = Math.min(CONCURRENCY, tileTasks.length);
+    const workers = Array.from({ length: workerCount }, () => worker());
+    await Promise.all(workers);
+
+    if (signal?.aborted || successCount === 0) {
+      return null;
+    }
+
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imgData.data;
+    const gridW = canvas.width;
+    const gridH = canvas.height;
+    const data = new Float32Array(gridW * gridH);
+
+    let minEle = Infinity;
+    let maxEle = -Infinity;
+
+    // Decode Terrarium: elevation = (R * 256 + G + B / 256) - 32768
+    for (let py = 0; py < gridH; py++) {
+      const tyOffset = Math.floor(py / TILE_SIZE);
+      for (let px = 0; px < gridW; px++) {
+        const txOffset = Math.floor(px / TILE_SIZE);
+        const tileIdx = tyOffset * numTilesX + txOffset;
+        const idx = py * gridW + px;
+
+        if (tileValidity[tileIdx] === 0) {
+          // Missing tile: store NaN so it never acts as -32768m
+          data[idx] = NaN;
+          continue;
+        }
+
+        const r = pixels[idx * 4];
+        const g = pixels[idx * 4 + 1];
+        const b = pixels[idx * 4 + 2];
+        const decoded = (r * 256 + g + b / 256) - 32768;
+
+        // Black pixel guard: Terrarium (0,0,0) decodes to -32768
+        if (decoded < -1000) {
+          data[idx] = NaN;
+        } else {
+          data[idx] = decoded;
+          minEle = Math.min(minEle, decoded);
+          maxEle = Math.max(maxEle, decoded);
+        }
+      }
+    }
+
+    return {
+      width: gridW,
+      height: gridH,
+      zoom,
+      tileXMin,
+      tileXMax,
+      tileYMin,
+      tileYMax,
+      numTilesX,
+      numTilesY,
+      data,
+      tileValidity,
+      minElevation: isFinite(minEle) ? minEle : fallbackMinEle,
+      maxElevation: isFinite(maxEle) ? maxEle : fallbackMaxEle,
+      isRealDEM: true,
+    };
+  }
+
+  /**
+   * Bilinearly samples elevation prioritizing a local high-resolution DEM grid,
+   * falling back to the base DEM grid if outside local coverage or invalid (Stage V7).
+   */
+  public static sampleElevationWithFallback(
+    localGrid: ElevationGrid | null | undefined,
+    baseGrid: ElevationGrid | null | undefined,
+    lat: number,
+    lon: number
+  ): ElevationSampleResult {
+    if (localGrid) {
+      const localSample = this.sampleElevation(localGrid, lat, lon);
+      if (localSample.isValid && !isNaN(localSample.elevation)) {
+        return localSample;
+      }
+    }
+    if (baseGrid) {
+      return this.sampleElevation(baseGrid, lat, lon);
+    }
+    return { elevation: NaN, isValid: false };
   }
 
   /**
