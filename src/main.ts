@@ -771,9 +771,11 @@ export class TrekViewerApp {
     // Flush any throttled HUD updates when due
     this.spatialHUD?.update();
 
-    // 5. Update Adaptive Imagery LOD (Stage M & Stage T5)
+    // 5. Update Adaptive Imagery LOD (Stage M & Stage T5, Stage W3)
     if (this.activeTrek && !this.activeTrek.isDisposed) {
       const currentProgress = this.flyoverController?.getProgress() ?? this.session.getState().progress;
+      const activeRay = this.xrManager.getActivePointerRay();
+      this.activeTrek.imageryLOD.setActiveInteractionRay(activeRay);
       this.activeTrek.imageryLOD.update(
         activeCamera,
         this.sceneManager.dioramaRoot,
