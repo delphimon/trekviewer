@@ -307,7 +307,8 @@ export class TextureProvider {
     grid: TileGridBounds,
     onProgressUpdate?: (texture: THREE.CanvasTexture, loadedCount: number, totalCount: number) => void,
     signal?: AbortSignal,
-    isXR: boolean = false
+    isXR: boolean = false,
+    fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
     try {
       const TILE_SIZE = 256;
@@ -323,6 +324,20 @@ export class TextureProvider {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
+
+      // Stage X3.1: Pre-populate composite canvas with complete fallback image.
+      // Every pixel is valid from millisecond 0; unloaded and failed tiles retain fallback imagery!
+      if (fallbackImage) {
+        try {
+          ctx.drawImage(fallbackImage, 0, 0, width, height);
+        } catch {
+          ctx.fillStyle = '#6b7280';
+          ctx.fillRect(0, 0, width, height);
+        }
+      } else {
+        ctx.fillStyle = '#6b7280';
+        ctx.fillRect(0, 0, width, height);
+      }
 
       const scaleX = canvas.width / (grid.numTilesX * TILE_SIZE);
       const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
@@ -413,7 +428,8 @@ export class TextureProvider {
     grid: TileGridBounds,
     onProgressUpdate?: (texture: THREE.CanvasTexture, loadedCount: number, totalCount: number) => void,
     signal?: AbortSignal,
-    isXR: boolean = false
+    isXR: boolean = false,
+    fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
     try {
       const TILE_SIZE = 256;
@@ -429,6 +445,19 @@ export class TextureProvider {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
+
+      // Stage X3.1: Pre-populate composite canvas with complete fallback image.
+      if (fallbackImage) {
+        try {
+          ctx.drawImage(fallbackImage, 0, 0, width, height);
+        } catch {
+          ctx.fillStyle = '#6b7280';
+          ctx.fillRect(0, 0, width, height);
+        }
+      } else {
+        ctx.fillStyle = '#6b7280';
+        ctx.fillRect(0, 0, width, height);
+      }
 
       const scaleX = canvas.width / (grid.numTilesX * TILE_SIZE);
       const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
@@ -535,7 +564,8 @@ export class TextureProvider {
     grid: TileGridBounds,
     onProgressUpdate?: (texture: THREE.CanvasTexture, loadedCount: number, totalCount: number) => void,
     signal?: AbortSignal,
-    isXR: boolean = false
+    isXR: boolean = false,
+    fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
     try {
       const TILE_SIZE = 256;
@@ -551,6 +581,19 @@ export class TextureProvider {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
+
+      // Stage X3.1: Pre-populate composite canvas with complete fallback image.
+      if (fallbackImage) {
+        try {
+          ctx.drawImage(fallbackImage, 0, 0, width, height);
+        } catch {
+          ctx.fillStyle = '#6b7280';
+          ctx.fillRect(0, 0, width, height);
+        }
+      } else {
+        ctx.fillStyle = '#6b7280';
+        ctx.fillRect(0, 0, width, height);
+      }
 
       const scaleX = canvas.width / (grid.numTilesX * TILE_SIZE);
       const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);

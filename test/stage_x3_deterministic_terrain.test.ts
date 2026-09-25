@@ -275,6 +275,7 @@ describe('Stage X3: Deterministic Local Terrain Ownership & Map Imagery Material
         chunkRadiusM: 800,
         maxChunks: 3,
         evalThresholdM: 10,
+        initialViewMode: 'first-person',
       });
 
       vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue(null);

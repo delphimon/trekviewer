@@ -3,6 +3,13 @@ import { latLonToTile, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { AWSTerrariumElevationProvider } from './providers/ImageryProvider.ts';
 import { TileImageCache } from './TileImageCache.ts';
 
+export interface LocalDEMQuality {
+  validTileRatio: number;
+  totalTiles: number;
+  validTiles: number;
+  zoom: number;
+}
+
 export interface ElevationGrid {
   width: number;
   height: number;
@@ -18,6 +25,7 @@ export interface ElevationGrid {
   minElevation: number;
   maxElevation: number;
   isRealDEM: boolean;
+  quality?: LocalDEMQuality;
 }
 
 export interface ElevationSampleResult {
@@ -173,6 +181,14 @@ export class ElevationTileService {
         effectiveSignal
       );
 
+      // Stage X3.1: Reject incomplete local DEM grids (< 70% valid tiles) to prevent terrain holes/cliffs
+      if (grid && grid.quality && grid.quality.validTileRatio < 0.70) {
+        console.warn(
+          `[ElevationTileService] Rejecting local DEM: coverage too low (${(grid.quality.validTileRatio * 100).toFixed(1)}% < 70%)`
+        );
+        return null;
+      }
+
       if (grid) {
         if (this.localDemGridCache.size >= this.MAX_GRID_CACHE_ENTRIES) {
           const firstKey = this.localDemGridCache.keys().next().value;
@@ -301,6 +317,14 @@ export class ElevationTileService {
       }
     }
 
+    const validTileRatio = totalTiles > 0 ? successCount / totalTiles : 0;
+    const quality: LocalDEMQuality = {
+      validTileRatio,
+      totalTiles,
+      validTiles: successCount,
+      zoom,
+    };
+
     return {
       width: gridW,
       height: gridH,
@@ -316,6 +340,7 @@ export class ElevationTileService {
       minElevation: isFinite(minEle) ? minEle : fallbackMinEle,
       maxElevation: isFinite(maxEle) ? maxEle : fallbackMaxEle,
       isRealDEM: true,
+      quality,
     };
   }
 

@@ -879,6 +879,9 @@ export class TrekViewerApp {
           cacheHitRate: tileStats.hitRate,
           hudUploadRate,
           terrainQuality,
+          localTerrainMode: this.activeTrek?.localTerrainStreamer?.getViewMode() ?? 'disabled',
+          localTerrainActive: !!this.activeTrek?.localTerrainStreamer?.activeVisibleChunk,
+          localTerrainChunks: this.activeTrek?.localTerrainStreamer?.activeChunks.length ?? 0,
           imageryRequestedProvider: TextureProvider.getProviderInitState().requestedProvider,
           imageryActiveProvider: TextureProvider.getProviderInitState().activeProvider,
           imageryInitialized: TextureProvider.getProviderInitState().initialized,
@@ -898,6 +901,7 @@ export class TrekViewerApp {
             <div>Pos: [${telemetryData.dioramaPos.join(', ')}] Rot: ${telemetryData.dioramaRotY} S: ${telemetryData.dioramaScale}</div>
             <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, hit: ${tileStats.hitRate}%, fails: ${tileStats.failureCount})</div>
             <div>LOD: ${lodVisibleStr} | Cov: ${lodStats?.coveragePercent ?? 0}% | Ahead: ${lodStats?.z19AheadDistanceMeters ?? 0}m | Ready: ${telemetryData.lodReadyHighRes} | Warm: ${lodStats?.residentWarmCount ?? 0} | Evict: ${lodStats?.evictionsTotal ?? 0}</div>
+            <div>Local DEM: ${telemetryData.localTerrainMode} (${telemetryData.localTerrainActive ? 'active' : 'hidden'}, ${telemetryData.localTerrainChunks} warm)</div>
             <div>Imagery: ${pState.activeProvider} (req: ${pState.requestedProvider}, init: ${pState.initialized}${fallbackStr})</div>
           `.trim();
         }
