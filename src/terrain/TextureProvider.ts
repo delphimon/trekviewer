@@ -343,6 +343,7 @@ export class TextureProvider {
       const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
@@ -463,6 +464,7 @@ export class TextureProvider {
       const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
@@ -599,6 +601,7 @@ export class TextureProvider {
       const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
@@ -759,6 +762,7 @@ export class TextureProvider {
     ctx.putImageData(imgData, 0, 0);
 
     const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.minFilter = THREE.LinearMipmapLinearFilter;

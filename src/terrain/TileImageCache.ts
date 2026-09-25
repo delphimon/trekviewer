@@ -1,6 +1,12 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
+export interface FailedTileEntry {
+  timestamp: number;
+  retryAfterMs: number;
+  reason?: string;
+}
+
 export interface TileCacheStats {
   entries: number;
   maxEntries: number;
@@ -8,6 +14,7 @@ export interface TileCacheStats {
   maxDecodedBytes: number;
   inFlight: number;
   failureCount: number;
+  negativeCacheSize: number;
   cacheHits: number;
   cacheMisses: number;
   hitRate: number;
@@ -17,6 +24,7 @@ export class TileImageCache {
   private static cache: Map<string, HTMLImageElement> = new Map();
   private static entryBytes: Map<string, number> = new Map();
   private static inFlight: Map<string, Promise<HTMLImageElement>> = new Map();
+  private static negativeCache: Map<string, FailedTileEntry> = new Map();
   private static failureCount: number = 0;
   private static cacheHits: number = 0;
   private static cacheMisses: number = 0;
@@ -72,10 +80,30 @@ export class TileImageCache {
       maxDecodedBytes: this.maxDecodedBytes,
       inFlight: this.inFlight.size,
       failureCount: this.failureCount,
+      negativeCacheSize: this.negativeCache.size,
       cacheHits: this.cacheHits,
       cacheMisses: this.cacheMisses,
       hitRate: Math.round(hitRate * 10) / 10,
     };
+  }
+
+  public static getNegativeCacheSize(): number {
+    return this.negativeCache.size;
+  }
+
+  public static isNegativelyCached(providerIdOrKey: string, zoom?: number, x?: number, y?: number): boolean {
+    const key =
+      zoom !== undefined && x !== undefined && y !== undefined
+        ? this.getTileKey(providerIdOrKey, zoom, x, y)
+        : providerIdOrKey;
+    const entry = this.negativeCache.get(key);
+    if (!entry) return false;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - entry.timestamp < entry.retryAfterMs) {
+      return true;
+    }
+    this.negativeCache.delete(key);
+    return false;
   }
 
   private static calculateImageBytes(img: HTMLImageElement): number {
@@ -160,6 +188,7 @@ export class TileImageCache {
     this.cache.clear();
     this.entryBytes.clear();
     this.inFlight.clear();
+    this.negativeCache.clear();
     this.totalDecodedBytes = 0;
     this.failureCount = 0;
     this.cacheHits = 0;
@@ -191,6 +220,15 @@ export class TileImageCache {
       return cached;
     }
 
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const negEntry = this.negativeCache.get(key);
+    if (negEntry) {
+      if (now - negEntry.timestamp < negEntry.retryAfterMs) {
+        throw new Error(`Tile ${key} in negative cache: ${negEntry.reason ?? 'load failed'}`);
+      }
+      this.negativeCache.delete(key);
+    }
+
     if (signal?.aborted) {
       throw new Error('Tile load aborted');
     }
@@ -214,7 +252,14 @@ export class TileImageCache {
         }
 
         this.failureCount++;
-        throw lastError || new Error(`Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`);
+        const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
+        const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
+        this.negativeCache.set(key, {
+          timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+          retryAfterMs,
+          reason: errMsg,
+        });
+        throw lastError || new Error(errMsg);
       })();
 
       this.inFlight.set(key, loadPromise);

@@ -266,7 +266,10 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       // 2. Switch to first-person mode
       lod.setViewMode('first-person');
       expect(lod.getDiagnostics().viewMode).toBe('first-person');
-      expect(lod.getDiagnostics().activePatchesCount).toBe(0); // Old patches cleared immediately
+      // Stage X6: Patches are retained in warm GPU-resident set, marked non-visible
+      expect(lod.getDiagnostics().visibleCount).toBe(0);
+      expect(lod.getDiagnostics().residentWarmCount).toBeGreaterThan(0);
+      expect(lod.getDiagnostics().activePatchesCount).toBeGreaterThan(0);
 
       // 3. First-person update at progress 0.5
       dioramaRoot.scale.set(1, 1, 1);
@@ -279,7 +282,9 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       // 4. Switch back to diorama mode
       lod.setViewMode('diorama');
       expect(lod.getDiagnostics().viewMode).toBe('diorama');
-      expect(lod.getDiagnostics().activePatchesCount).toBe(0);
+      expect(lod.getDiagnostics().visibleCount).toBe(0);
+      expect(lod.getDiagnostics().residentWarmCount).toBeGreaterThan(0);
+      expect(lod.getDiagnostics().activePatchesCount).toBeGreaterThan(0);
 
       lod.dispose();
     });

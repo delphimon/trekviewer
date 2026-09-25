@@ -148,6 +148,7 @@ export class SpatialHUD {
     this.allLandmarksSorted = landmarksList;
 
     this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 
@@ -157,6 +158,7 @@ export class SpatialHUD {
       map: this.texture,
       transparent: true,
       side: THREE.DoubleSide,
+      toneMapped: false,
     });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.name = 'SpatialHUDMesh';

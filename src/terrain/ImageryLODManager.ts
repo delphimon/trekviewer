@@ -964,7 +964,14 @@ export class ImageryLODManager {
     this.lastEvalTime = 0;
     this.lastEvalProgress = -1;
 
-    this.clearAllPatches();
+    // Retain compatible resident patches in GPU memory (Warm GPU-resident set).
+    // Evict down to maxPatches if resident count exceeds the new mode's budget.
+    while (this.patches.size > this.maxPatches) {
+      this.evictFurthestPatch();
+    }
+
+    // Mark non-desired patches non-visible so they reside in the warm GPU-resident set
+    this.updatePatchVisibility();
   }
 
   public setRouteProgress(progress: number): void {
@@ -1721,6 +1728,13 @@ export class ImageryLODManager {
    * Partial child exposure is strictly forbidden across both tabletop and first-person view modes.
    */
   public updatePatchVisibility(): void {
+    if (this.desiredTileKeys.size === 0) {
+      for (const patch of this.patches.values()) {
+        patch.mesh.visible = false;
+      }
+      return;
+    }
+
     // 1. Identify which parent keys represent active RefinementGroups.
     // A parent tile P is a RefinementGroup IF AND ONLY IF:
     // (a) P is loaded as a patch in this.patches and any of its children are desired or loaded, OR
@@ -1808,8 +1822,25 @@ export class ImageryLODManager {
         continue;
       }
 
-      // Check if THIS patch is a parent replaced by its own 4 children
       const ownChildGroup = this.refinementGroups.get(key);
+      const isDesired = this.desiredTileKeys.has(key);
+      const hasDesiredChildren =
+        ownChildGroup !== undefined &&
+        ownChildGroup.fourChildKeys.some((cKey) => this.desiredTileKeys.has(cKey));
+      const isParentOfLoadingOrPromoting =
+        hasDesiredChildren &&
+        (ownChildGroup.state === 'parent' ||
+          ownChildGroup.state === 'loading' ||
+          ownChildGroup.state === 'promoting');
+
+      // If neither desired nor providing coarse representation for loading/promoting children,
+      // it belongs to the warm GPU-resident set (visible = false).
+      if (!isDesired && !isParentOfLoadingOrPromoting) {
+        patch.mesh.visible = false;
+        continue;
+      }
+
+      // Check if THIS patch is a parent replaced by its own 4 children
       if (ownChildGroup && (ownChildGroup.state === 'promoting' || ownChildGroup.state === 'children')) {
         if (ownChildGroup.state === 'promoting') {
           // Crossfade: parent remains visible underneath while children fade in
@@ -1888,6 +1919,7 @@ export class ImageryLODManager {
 
     // Create GPU Texture
     const texture = new THREE.CanvasTexture(img);
+    texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.anisotropy = TextureProvider.getMaxAnisotropy();
@@ -1904,8 +1936,8 @@ export class ImageryLODManager {
     // Depth-write disabled during fade-in, opaque depth-write on completion (Section 42)
     const mat = new THREE.MeshStandardMaterial({
       map: texture,
-      roughness: 0.85,
-      metalness: 0.05,
+      roughness: 0.9,
+      metalness: 0.0,
       // Polygon offset prevents z-fighting with the base terrain mesh
       polygonOffset: true,
       polygonOffsetFactor: -1.0,
