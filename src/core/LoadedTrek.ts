@@ -16,6 +16,7 @@ export interface LoadedTrekParams {
   dioramaBase: THREE.Group;
   flyoverController: FlyoverController;
   imageryLOD?: ImageryLODManager;
+  localTerrainStreamer?: LocalTerrainStreamer;
   qualityProfile?: QualityProfile;
 }
 
@@ -66,7 +67,9 @@ export class LoadedTrek {
         terrainMesh: params.terrainResult.terrainMesh,
       });
 
-    if (this.terrainResult.demGrid && this.trailResult.routeGeometry) {
+    if (params.localTerrainStreamer) {
+      this.localTerrainStreamer = params.localTerrainStreamer;
+    } else if (this.terrainResult.demGrid && this.trailResult.routeGeometry) {
       this.localTerrainStreamer = new LocalTerrainStreamer({
         terrainResult: this.terrainResult,
         routeGeometry: this.trailResult.routeGeometry,
@@ -159,9 +162,12 @@ export class LoadedTrek {
     DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta);
   }
 
-  public updateHikerProgress(progress: number): void {
+  public updateHikerProgress(
+    progress: number,
+    tabletopFocusGeo?: { lat: number; lon: number } | null
+  ): void {
     if (this._isDisposed) return;
-    this.localTerrainStreamer?.update(progress);
+    this.localTerrainStreamer?.update(progress, tabletopFocusGeo);
   }
 
   public dispose(): void {

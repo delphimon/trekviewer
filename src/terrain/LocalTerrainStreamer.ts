@@ -49,6 +49,8 @@ export class LocalTerrainStreamer {
 
   private currentViewMode: ViewMode = 'diorama';
   private managedChunks: LocalTerrainChunk[] = [];
+  private lastTabletopFocusGeo: { lat: number; lon: number } | null = null;
+  private tabletopChunk: LocalTerrainChunk | null = null;
   private lastEvalProgress: number = -1;
   private currentExaggeration: number = 1.0;
   private isDisposed: boolean = false;
@@ -69,11 +71,18 @@ export class LocalTerrainStreamer {
   }
 
   public get activeChunks(): readonly LocalTerrainChunk[] {
+    if (this.tabletopChunk) {
+      return [...this.managedChunks, this.tabletopChunk];
+    }
     return this.managedChunks;
   }
 
   public getViewMode(): ViewMode {
     return this.currentViewMode;
+  }
+
+  public getTabletopFocusGeo(): { lat: number; lon: number } | null {
+    return this.lastTabletopFocusGeo;
   }
 
   public setViewMode(mode: ViewMode): void {
@@ -84,14 +93,29 @@ export class LocalTerrainStreamer {
     let affectedBounds: TerrainSurfaceBounds | undefined;
 
     if (mode === 'diorama') {
-      // In diorama mode, all local chunks are hidden; base terrain is 100% authoritative
+      // Switching to diorama: hide first-person chunks, reset lastTabletopFocusGeo
       for (const chunk of this.managedChunks) {
         if (chunk.mesh.visible) {
           affectedBounds = chunk.getSurfaceBounds();
         }
         chunk.mesh.visible = false;
       }
+      this.lastTabletopFocusGeo = null;
+      if (this.tabletopChunk) {
+        this.terrainResult.detachLocalChunk?.(this.tabletopChunk);
+        this.tabletopChunk = null;
+      }
     } else if (mode === 'first-person') {
+      // Switching to first-person: hide tabletop chunk, reset lastTabletopFocusGeo
+      if (this.tabletopChunk) {
+        affectedBounds = this.tabletopChunk.getSurfaceBounds();
+        this.tabletopChunk.mesh.visible = false;
+        this.terrainResult.detachLocalChunk?.(this.tabletopChunk);
+        this.tabletopChunk = null;
+      }
+      this.lastTabletopFocusGeo = null;
+      this.lastEvalProgress = -1;
+
       // In first-person mode, validate and show the active station 0 chunk
       for (let i = 0; i < this.managedChunks.length; i++) {
         if (i === 0) {
@@ -112,11 +136,13 @@ export class LocalTerrainStreamer {
   }
 
   /**
-   * Returns the single currently active visible local chunk (Stage X3 & X3.1).
-   * In diorama mode, returns null (base terrain authoritative).
+   * Returns the single currently active visible local chunk (Stage X3 & X7).
+   * In diorama mode, returns the active tabletop inspection chunk if visible.
    */
   public get activeVisibleChunk(): LocalTerrainChunk | null {
-    if (this.currentViewMode === 'diorama') return null;
+    if (this.currentViewMode === 'diorama') {
+      return this.tabletopChunk && this.tabletopChunk.mesh.visible ? this.tabletopChunk : null;
+    }
     return this.managedChunks.find((c) => c.mesh.visible) ?? null;
   }
 
@@ -224,13 +250,24 @@ export class LocalTerrainStreamer {
     for (const chunk of this.managedChunks) {
       chunk.setVerticalExaggeration(factor);
     }
+    if (this.tabletopChunk) {
+      this.tabletopChunk.setVerticalExaggeration(factor);
+    }
   }
 
   /**
-   * Updates streaming stations along the route based on hiker progress [0, 1].
+   * Updates streaming stations along the route based on hiker progress [0, 1],
+   * or updates tabletop inspection focus in diorama mode (Stage X7).
    */
-  public update(currentProgress: number): void {
+  public update(
+    currentProgress: number,
+    tabletopFocusGeo?: { lat: number; lon: number } | null
+  ): void {
     if (this.isDisposed || !this.demGrid) return;
+
+    if (this.currentViewMode === 'diorama') {
+      this.updateTabletopFocus(tabletopFocusGeo);
+    }
 
     const totalDist = this.routeGeometry.totalDistance;
     if (totalDist <= 0) return;
@@ -386,11 +423,97 @@ export class LocalTerrainStreamer {
     this.managedChunks = [...neededChunks, ...availableChunks];
   }
 
+  private updateTabletopFocus(tabletopFocusGeo?: { lat: number; lon: number } | null): void {
+    if (!tabletopFocusGeo) return;
+
+    // Hysteresis: check distance from lastTabletopFocusGeo
+    if (this.lastTabletopFocusGeo) {
+      const latDiff = (tabletopFocusGeo.lat - this.lastTabletopFocusGeo.lat) * 111320;
+      const lonDiff =
+        (tabletopFocusGeo.lon - this.lastTabletopFocusGeo.lon) *
+        111320 *
+        Math.cos((tabletopFocusGeo.lat * Math.PI) / 180);
+      const dist = Math.hypot(latDiff, lonDiff);
+      if (dist < 75 && this.tabletopChunk && this.tabletopChunk.mesh.visible) {
+        return; // Within hysteresis threshold (< 75m)
+      }
+    }
+
+    this.lastTabletopFocusGeo = { ...tabletopFocusGeo };
+    const focusLat = tabletopFocusGeo.lat;
+    const focusLon = tabletopFocusGeo.lon;
+
+    this.fetchStationDEM(focusLat, focusLon).then((grid) => {
+      if (this.isDisposed || this.currentViewMode !== 'diorama') return;
+
+      // Verify this is still the active focus
+      if (
+        !this.lastTabletopFocusGeo ||
+        Math.hypot(
+          (this.lastTabletopFocusGeo.lat - focusLat) * 111320,
+          (this.lastTabletopFocusGeo.lon - focusLon) * 111320 * Math.cos((focusLat * Math.PI) / 180)
+        ) > 75
+      ) {
+        return;
+      }
+
+      const initialGrid = grid || this.demGrid;
+      const mat = this.terrainResult.terrainMesh?.material as THREE.MeshStandardMaterial | undefined;
+      const candidate = new LocalTerrainChunk({
+        localGrid: initialGrid,
+        centerLat: focusLat,
+        centerLon: focusLon,
+        referenceCenterLat:
+          this.terrainResult.terrainGeoBounds?.centerLat ?? focusLat,
+        referenceCenterLon:
+          this.terrainResult.terrainGeoBounds?.centerLon ?? focusLon,
+        terrainBaseElevation: this.terrainResult.terrainBaseElevation,
+        radiusMeters: this.chunkRadiusM,
+        segments: this.qualityProfile.localDemSegments,
+        baseElevationSampler: (x, z) =>
+          this.terrainResult.elevationSampler(x, z),
+        initialExaggeration: this.currentExaggeration,
+        blendMarginRatio: 0.15,
+        tileGrid: this.terrainResult.tileGrid,
+        mapTexture: mat?.map ?? null,
+      });
+
+      const val = candidate.validate();
+      if (!val.isValid) {
+        console.warn('[LocalTerrainStreamer] Tabletop candidate chunk rejected by validation:', val.reason);
+        candidate.dispose();
+        return;
+      }
+
+      if (this.isDisposed || this.currentViewMode !== 'diorama') {
+        candidate.dispose();
+        return;
+      }
+
+      // Atomically promote candidate
+      candidate.mesh.visible = true;
+      this.terrainResult.attachLocalChunk?.(candidate);
+
+      const oldTabletop = this.tabletopChunk;
+      this.tabletopChunk = candidate;
+
+      if (oldTabletop && oldTabletop !== candidate) {
+        this.terrainResult.detachLocalChunk?.(oldTabletop);
+      }
+
+      this.terrainResult.notifySurfaceChange?.(candidate.getSurfaceBounds());
+    });
+  }
+
   public dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
     this.pendingFetches.clear();
     this.stationDemCache.clear();
+    if (this.tabletopChunk) {
+      this.terrainResult.detachLocalChunk?.(this.tabletopChunk);
+      this.tabletopChunk = null;
+    }
     for (const chunk of this.managedChunks) {
       this.terrainResult.detachLocalChunk?.(chunk);
     }

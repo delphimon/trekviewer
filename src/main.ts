@@ -802,8 +802,9 @@ export class TrekViewerApp {
         currentProgress,
         this.sceneManager.renderer
       );
-      // Stream local high-resolution terrain geometry along route (Stage W6)
-      this.activeTrek.updateHikerProgress(currentProgress);
+      // Stream local high-resolution terrain geometry along route (Stage W6) or tabletop focus (Stage X7)
+      const inspectedGeo = this.activeTrek.imageryLOD.getInspectedGeo();
+      this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo);
       // Update waypoint marker scale compensation & billboard labels (Sections 21, 24, 25)
       this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta);
     }

@@ -8,7 +8,7 @@ import {
   USGSTopoProvider,
   EsriReferenceOverlayProvider,
 } from './providers/ImageryProvider.ts';
-import { TileImageCache } from './TileImageCache.ts';
+import { TileImageCache, TilePriority } from './TileImageCache.ts';
 import { TextureBudget } from './TextureBudget.ts';
 
 export interface TileGridBounds {
@@ -378,7 +378,7 @@ export class TextureProvider {
           const y1 = Math.round((ty - grid.tileYMin + 1) * TILE_SIZE * scaleY);
 
           try {
-            const img = await TileImageCache.loadTile(provider, grid.zoom, tx, ty, 4500, signal);
+            const img = await TileImageCache.loadTile(provider, grid.zoom, tx, ty, 4500, signal, TilePriority.OVERVIEW);
             ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
             successCount++;
           } catch {
@@ -505,7 +505,7 @@ export class TextureProvider {
           // 1. Draw base satellite tile (retrieved from cache if satellite was already loaded!)
           let baseDrawn = false;
           try {
-            const satImg = await TileImageCache.loadTile(satProvider, grid.zoom, tx, ty, 4500, signal);
+            const satImg = await TileImageCache.loadTile(satProvider, grid.zoom, tx, ty, 4500, signal, TilePriority.OVERVIEW);
             ctx.drawImage(satImg, x0, y0, dw, dh);
             baseDrawn = true;
             successCount++;
@@ -516,7 +516,7 @@ export class TextureProvider {
           // 2. Overlay transparent labels & reference data
           if (baseDrawn) {
             try {
-              const labelImg = await TileImageCache.loadTile(labelProvider, grid.zoom, tx, ty, 3500, signal);
+              const labelImg = await TileImageCache.loadTile(labelProvider, grid.zoom, tx, ty, 3500, signal, TilePriority.OVERVIEW);
               ctx.drawImage(labelImg, x0, y0, dw, dh);
             } catch {
               // Ignore single label tile failure
@@ -636,7 +636,7 @@ export class TextureProvider {
           const y1 = Math.round((ty - grid.tileYMin + 1) * TILE_SIZE * scaleY);
 
           try {
-            const img = await TileImageCache.loadTile(provider, grid.zoom, tx, ty, 4000, signal);
+            const img = await TileImageCache.loadTile(provider, grid.zoom, tx, ty, 4000, signal, TilePriority.OVERVIEW);
             ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
             successCount++;
           } catch {
