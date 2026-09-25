@@ -12,6 +12,8 @@ export type LoadingPhase =
   | 'ready'
   | 'error';
 
+import type { QualityProfileName } from '../terrain/QualityProfile.ts';
+
 export interface TrekSessionState {
   activeRouteId: string | null;
   routeName: string;
@@ -27,6 +29,7 @@ export interface TrekSessionState {
   currentElevation: number;
   currentPoint: GPXPoint | null;
   terrainQuality: TerrainQuality;
+  qualityProfile: QualityProfileName;
   loadingPhase: LoadingPhase;
   loadingProgress: number | null;
   loadingMessage: string;
@@ -71,6 +74,7 @@ export class TrekSession {
       currentElevation: 0,
       currentPoint: null,
       terrainQuality: 'dem',
+      qualityProfile: 'desktop-high',
       loadingPhase: 'idle',
       loadingProgress: null,
       loadingMessage: '',
@@ -233,6 +237,12 @@ export class TrekSession {
   public setAttribution(attribution: string): void {
     if (this.state.attribution !== attribution) {
       this.setState({ attribution });
+    }
+  }
+
+  public setQualityProfile(qualityProfile: QualityProfileName): void {
+    if (this.state.qualityProfile !== qualityProfile) {
+      this.setState({ qualityProfile });
     }
   }
 

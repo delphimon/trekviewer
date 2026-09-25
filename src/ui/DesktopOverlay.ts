@@ -1,5 +1,6 @@
 import { RouteManifestItem, TrackStats, GPXWaypoint, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
 import { GPXParser } from '../gpx/GPXParser';
+import type { QualityProfileName } from '../terrain/QualityProfile';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -13,6 +14,7 @@ export interface OverlayCallbacks {
   onSetTrailColorMode: (mode: TrailColorMode) => void;
   onSetVerticalExaggeration?: (val: number) => void;
   onSelectWaypoint?: (name: string, lat: number, lon: number) => void;
+  onSetQualityMode?: (mode: 'high' | 'balanced') => void;
 }
 
 export class DesktopOverlay {
@@ -438,6 +440,12 @@ export class DesktopOverlay {
               <button class="btn btn-sm btn-exag" data-exag="3">3.0x</button>
             </div>
 
+            <h3>Quality</h3>
+            <div class="btn-group" id="groupQuality">
+              <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high">⚡ High</button>
+              <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced">🌱 Balanced</button>
+            </div>
+
             <div class="landmarks-section" id="landmarksSection" style="display:none;">
               <div class="landmarks-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <h3 style="margin:0;">Key Landmarks</h3>
@@ -673,6 +681,20 @@ export class DesktopOverlay {
       });
     });
 
+    // Quality Mode Selection (Stage X)
+    const btnQualityHigh = document.getElementById('btnQualityHigh');
+    const btnQualityBalanced = document.getElementById('btnQualityBalanced');
+    btnQualityHigh?.addEventListener('click', () => {
+      btnQualityHigh.classList.add('btn-active');
+      btnQualityBalanced?.classList.remove('btn-active');
+      this.callbacks.onSetQualityMode?.('high');
+    });
+    btnQualityBalanced?.addEventListener('click', () => {
+      btnQualityBalanced.classList.add('btn-active');
+      btnQualityHigh?.classList.remove('btn-active');
+      this.callbacks.onSetQualityMode?.('balanced');
+    });
+
     // Landmark Dropdown Selection (Section 28)
     const selectLandmark = document.getElementById('selectLandmark') as HTMLSelectElement | null;
     selectLandmark?.addEventListener('change', () => {
@@ -719,6 +741,14 @@ export class DesktopOverlay {
         this.callbacks.onScrub(progress);
       }
     });
+  }
+
+  public setQualityProfile(profileName: QualityProfileName): void {
+    const isBalanced = profileName === 'quest-balanced';
+    const btnHigh = document.getElementById('btnQualityHigh');
+    const btnBalanced = document.getElementById('btnQualityBalanced');
+    btnHigh?.classList.toggle('btn-active', !isBalanced);
+    btnBalanced?.classList.toggle('btn-active', isBalanced);
   }
 
   public setVerticalExaggeration(factor: number): void {

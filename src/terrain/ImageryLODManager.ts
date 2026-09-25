@@ -807,7 +807,7 @@ export class ImageryLODManager {
 
   constructor(options: ImageryLODManagerOptions) {
     this.options = options;
-    this.qualityProfile = options.qualityProfile || QualityProfileManager.getDefaultProfile(false);
+    this.qualityProfile = options.qualityProfile || QualityProfileManager.getActiveProfile();
     this.currentTextureStyle = options.textureStyle || 'satellite';
     this.verticalExaggeration = options.verticalExaggeration ?? 1.0;
     this.enableInXR = options.enableInXR ?? true;
@@ -1037,7 +1037,7 @@ export class ImageryLODManager {
       this.currentProgress = Math.max(0, Math.min(1, routeProgress));
     }
 
-    // In XR, enforce gate and apply conservative Quest device profile (Section 40)
+    // In XR, enforce gate (Section 40)
     if (isXR) {
       if (!this.enableInXR) {
         if (this.patches.size > 0) {
@@ -1045,7 +1045,6 @@ export class ImageryLODManager {
         }
         return;
       }
-      this.setDeviceProfile(true);
     }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
