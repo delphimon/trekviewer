@@ -15,6 +15,7 @@ import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { TextureProvider } from './TextureProvider.ts';
 import { TileImageCache } from './TileImageCache.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
 export const ENABLE_ADAPTIVE_IMAGERY_LOD = true;
 
@@ -49,6 +50,7 @@ export interface ImageryLODManagerOptions {
   enableFadeIn?: boolean;
   debugPatchBounds?: boolean;
   terrainMesh?: THREE.Mesh;
+  qualityProfile?: QualityProfile;
 }
 
 export interface ImageryLODDiagnostics {
@@ -667,15 +669,22 @@ export class ImageryLODManager {
   private requestQueue: QueuedTile[] = [];
   private activeRequestCount: number = 0;
 
-  // View state tracking & debouncing
+  // View state tracking & debouncing (Stage W QualityProfile driven)
+  private qualityProfile: QualityProfile;
   private currentTargetZoom: number = 14;
   private calculatedDesiredZoom: number = 14;
   private providerMaxZoom: number = 19;
   private lastEvalTime: number = 0;
-  private readonly EVAL_INTERVAL_MS: number = 250; // 4 evaluations/sec max
+  private EVAL_INTERVAL_MS: number = 120;
 
-  // Promotion dwell timer (Section 46)
-  private readonly PROMOTION_DWELL_MS: number = 500;
+  // Promotion & Demotion dwell timers (Stage W)
+  private PROMOTION_DWELL_MS: number = 200;
+  private DEMOTION_DWELL_MS: number = 3000;
+  private promotionZoomBias: number = 0.8;
+  private firstPersonEvalDistM: number = 15;
+  private firstPersonPrefetchAheadM: number = 650;
+  private firstPersonRetainBehindM: number = 300;
+  private warmRetentionMs: number = 30000;
   private pendingPromoteZoom: number | null = null;
   private promoteCandidateSince: number = 0;
 
@@ -696,15 +705,25 @@ export class ImageryLODManager {
 
   constructor(options: ImageryLODManagerOptions) {
     this.options = options;
+    this.qualityProfile = options.qualityProfile || QualityProfileManager.getDefaultProfile(false);
     this.currentTextureStyle = options.textureStyle || 'satellite';
     this.verticalExaggeration = options.verticalExaggeration ?? 1.0;
-    this.maxPatches = options.maxPatches ?? 36;
-    this.maxConcurrency = options.maxConcurrency ?? 6;
     this.enableInXR = options.enableInXR ?? true;
     this.enableFadeIn = options.enableFadeIn ?? true;
     this.debugPatchBounds = options.debugPatchBounds ?? false;
     this.viewMode = options.viewMode || 'diorama';
     this.routeGeometry = options.routeGeometry;
+
+    this.maxConcurrency = options.maxConcurrency ?? this.qualityProfile.concurrency;
+    this.maxPatches = options.maxPatches ?? (this.viewMode === 'first-person' ? this.qualityProfile.firstPersonPatches : this.qualityProfile.tabletopPatches);
+    this.warmRetentionMs = this.qualityProfile.warmRetentionMs;
+    this.EVAL_INTERVAL_MS = this.qualityProfile.evalIntervalMs;
+    this.PROMOTION_DWELL_MS = this.qualityProfile.promotionDwellMs;
+    this.DEMOTION_DWELL_MS = this.qualityProfile.demotionDwellMs;
+    this.promotionZoomBias = this.qualityProfile.promotionZoomBias;
+    this.firstPersonEvalDistM = this.qualityProfile.firstPersonEvalDistM;
+    this.firstPersonPrefetchAheadM = this.qualityProfile.firstPersonPrefetchAheadM;
+    this.firstPersonRetainBehindM = this.qualityProfile.firstPersonRetainBehindM;
 
     this.group = new THREE.Group();
     this.group.name = 'ImageryLODGroup';
@@ -780,6 +799,7 @@ export class ImageryLODManager {
   public setViewMode(mode: ViewMode): void {
     if (this.isDisposed || this.viewMode === mode) return;
     this.viewMode = mode;
+    this.maxPatches = mode === 'first-person' ? this.qualityProfile.firstPersonPatches : this.qualityProfile.tabletopPatches;
     this.currentGeneration++;
 
     for (const pending of this.pendingRequests.values()) {
@@ -805,13 +825,26 @@ export class ImageryLODManager {
   }
 
   public setDeviceProfile(isQuest: boolean): void {
-    if (isQuest) {
-      this.maxPatches = 24;
-      this.maxConcurrency = 4;
-    } else {
-      this.maxPatches = 36;
-      this.maxConcurrency = 6;
-    }
+    const profile = QualityProfileManager.getDefaultProfile(isQuest);
+    this.setQualityProfile(profile);
+  }
+
+  public setQualityProfile(profile: QualityProfile): void {
+    this.qualityProfile = profile;
+    this.maxConcurrency = profile.concurrency;
+    this.maxPatches = this.viewMode === 'first-person' ? profile.firstPersonPatches : profile.tabletopPatches;
+    this.warmRetentionMs = profile.warmRetentionMs;
+    this.EVAL_INTERVAL_MS = profile.evalIntervalMs;
+    this.PROMOTION_DWELL_MS = profile.promotionDwellMs;
+    this.DEMOTION_DWELL_MS = profile.demotionDwellMs;
+    this.promotionZoomBias = profile.promotionZoomBias;
+    this.firstPersonEvalDistM = profile.firstPersonEvalDistM;
+    this.firstPersonPrefetchAheadM = profile.firstPersonPrefetchAheadM;
+    this.firstPersonRetainBehindM = profile.firstPersonRetainBehindM;
+  }
+
+  public getQualityProfile(): QualityProfile {
+    return this.qualityProfile;
   }
 
   public setVerticalExaggeration(factor: number): void {

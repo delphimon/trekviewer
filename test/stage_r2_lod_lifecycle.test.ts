@@ -266,12 +266,12 @@ describe('Stage R2: Adaptive Imagery LOD Lifecycle Suite', () => {
       expect(diag.inFlightRequests).toBe(0);
       expect(diag.requestQueueLength).toBe(0);
 
-      manager.setDeviceProfile(true); // Quest profile
-      expect((manager as any).maxPatches).toBe(24);
-      expect((manager as any).maxConcurrency).toBe(4);
+      manager.setDeviceProfile(true); // Quest profile (quest-high: 48 tabletop, 6 concurrency)
+      expect((manager as any).maxPatches).toBe(48);
+      expect((manager as any).maxConcurrency).toBe(6);
 
-      manager.setDeviceProfile(false); // Desktop profile
-      expect((manager as any).maxPatches).toBe(36);
+      manager.setDeviceProfile(false); // Desktop profile (desktop-high: 80 tabletop, 6 concurrency)
+      expect((manager as any).maxPatches).toBe(80);
       expect((manager as any).maxConcurrency).toBe(6);
 
       manager.dispose();

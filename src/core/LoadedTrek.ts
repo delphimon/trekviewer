@@ -6,6 +6,7 @@ import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
+import type { QualityProfile } from '../terrain/QualityProfile.ts';
 
 export interface LoadedTrekParams {
   track: TrackStats;
@@ -92,6 +93,11 @@ export class LoadedTrek {
     this.trailResult.setViewMode(mode);
     this.flyoverController.setViewMode(mode);
     this.imageryLOD.setViewMode(mode);
+  }
+
+  public setQualityProfile(profile: QualityProfile): void {
+    if (this._isDisposed) return;
+    this.imageryLOD.setQualityProfile(profile);
   }
 
   public setDebugPatchBounds(enabled: boolean): void {

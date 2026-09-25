@@ -90,15 +90,15 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
 
   describe('Requirement #105: TileImageCache Memory Instrumentation & Device Profiles', () => {
     it('configures Quest vs Desktop limits correctly', () => {
-      TileImageCache.setTargetDevice(true); // Quest
+      TileImageCache.setTargetDevice(true); // Quest (Stage W: 240 entries / 64MB in quest-high)
       const questStats = TileImageCache.getStats();
-      assert.strictEqual(questStats.maxEntries, 120);
-      assert.strictEqual(questStats.maxDecodedBytes, 32 * 1024 * 1024);
+      assert.strictEqual(questStats.maxEntries, 240);
+      assert.strictEqual(questStats.maxDecodedBytes, 64 * 1024 * 1024);
 
-      TileImageCache.setTargetDevice(false); // Desktop
+      TileImageCache.setTargetDevice(false); // Desktop (Stage W: 360 entries / 96MB in desktop-high)
       const deskStats = TileImageCache.getStats();
-      assert.strictEqual(deskStats.maxEntries, 300);
-      assert.strictEqual(deskStats.maxDecodedBytes, 80 * 1024 * 1024);
+      assert.strictEqual(deskStats.maxEntries, 360);
+      assert.strictEqual(deskStats.maxDecodedBytes, 96 * 1024 * 1024);
     });
 
     it('instruments decoded bytes accurately and evicts on entry count and byte capacity', () => {
