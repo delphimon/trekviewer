@@ -5,6 +5,7 @@ import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
+import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export interface LocalTerrainStreamerOptions {
   terrainResult: TerrainResult;
@@ -77,10 +78,17 @@ export class LocalTerrainStreamer {
 
   public setViewMode(mode: ViewMode): void {
     if (this.isDisposed) return;
+    const prevMode = this.currentViewMode;
+    if (prevMode === mode) return;
     this.currentViewMode = mode;
+    let affectedBounds: TerrainSurfaceBounds | undefined;
+
     if (mode === 'diorama') {
       // In diorama mode, all local chunks are hidden; base terrain is 100% authoritative
       for (const chunk of this.managedChunks) {
+        if (chunk.mesh.visible) {
+          affectedBounds = chunk.getSurfaceBounds();
+        }
         chunk.mesh.visible = false;
       }
     } else if (mode === 'first-person') {
@@ -89,10 +97,17 @@ export class LocalTerrainStreamer {
         if (i === 0) {
           const val = this.managedChunks[0].validate();
           this.managedChunks[0].mesh.visible = val.isValid;
+          if (val.isValid) {
+            affectedBounds = this.managedChunks[0].getSurfaceBounds();
+          }
         } else {
           this.managedChunks[i].mesh.visible = false;
         }
       }
+    }
+
+    if (affectedBounds) {
+      this.terrainResult.notifySurfaceChange?.(affectedBounds);
     }
   }
 
@@ -348,6 +363,8 @@ export class LocalTerrainStreamer {
       }
     }
 
+    const prevVisibleChunk = this.managedChunks.find((c) => c.mesh.visible);
+
     // Ensure only the active hiker station chunk is visible in first-person mode (Stage X3 & X3.1)
     for (let i = 0; i < neededChunks.length; i++) {
       if (this.currentViewMode === 'first-person' && i === 0) {
@@ -359,6 +376,11 @@ export class LocalTerrainStreamer {
     }
     for (const chunk of availableChunks) {
       chunk.mesh.visible = false;
+    }
+
+    const newVisibleChunk = neededChunks[0]?.mesh.visible ? neededChunks[0] : null;
+    if (prevVisibleChunk !== newVisibleChunk && newVisibleChunk) {
+      this.terrainResult.notifySurfaceChange?.(newVisibleChunk.getSurfaceBounds());
     }
 
     this.managedChunks = [...neededChunks, ...availableChunks];

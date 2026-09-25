@@ -16,6 +16,7 @@ import { TextureProvider } from './TextureProvider.ts';
 import { TileImageCache } from './TileImageCache.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
+import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export const ENABLE_ADAPTIVE_IMAGERY_LOD = true;
 
@@ -989,6 +990,35 @@ export class ImageryLODManager {
     // Update heights on all active patches
     for (const patch of this.patches.values()) {
       this.updatePatchGeometryHeights(patch.mesh.geometry as THREE.BufferGeometry, patch);
+    }
+  }
+
+  public reprojectPatches(sampler?: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds): void {
+    if (this.isDisposed) return;
+    if (sampler) {
+      this.options.elevationSampler = sampler;
+    }
+
+    for (const patch of this.patches.values()) {
+      const geo = patch.mesh.geometry as THREE.BufferGeometry;
+      if (bounds) {
+        if (!geo.boundingBox) {
+          geo.computeBoundingBox();
+        }
+        const bbox = geo.boundingBox;
+        if (bbox) {
+          const intersects = !(
+            bbox.max.x < bounds.minX ||
+            bbox.min.x > bounds.maxX ||
+            bbox.max.z < bounds.minZ ||
+            bbox.min.z > bounds.maxZ
+          );
+          if (!intersects) {
+            continue;
+          }
+        }
+      }
+      this.updatePatchGeometryHeights(geo, patch);
     }
   }
 
