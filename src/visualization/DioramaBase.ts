@@ -395,11 +395,13 @@ export class DioramaBase {
     ctx.fillText(detail, 192, 84);
 
     const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
     const spriteMat = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: false,
+      toneMapped: false,
     });
     const sprite = new THREE.Sprite(spriteMat);
     sprite.name = 'WaypointLabelSprite';

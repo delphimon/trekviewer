@@ -307,8 +307,8 @@ export class TerrainGenerator {
 
     const terrainMat = new THREE.MeshStandardMaterial({
       map: topoTexture,
-      roughness: 0.85,
-      metalness: 0.1,
+      roughness: 0.9,
+      metalness: 0.0,
       flatShading: false,
     });
 

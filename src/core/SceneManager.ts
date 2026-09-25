@@ -106,7 +106,6 @@ export class SceneManager {
       // Terrain has realistic USGS photographic shaded relief; dynamic PCF shadows only add heat
       this.renderer.shadowMap.enabled = false;
       this.sunLight.castShadow = false;
-      this.renderer.xr.setFramebufferScaleFactor(1.0);
     } else {
       this.renderer.shadowMap.enabled = true;
       this.sunLight.castShadow = true;
@@ -166,6 +165,7 @@ export class SceneManager {
     ctx.fillRect(0, 0, 16, 256);
 
     const skyTex = new THREE.CanvasTexture(canvas);
+    skyTex.colorSpace = THREE.SRGBColorSpace;
     const skyMat = new THREE.MeshBasicMaterial({
       map: skyTex,
       depthWrite: false,

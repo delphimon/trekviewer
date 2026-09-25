@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "deploy:surge": "tsc && vite build && npx surge dist --domain trekviewer.surge.sh",
+    "verify": "npm run typecheck && npm test && npm run build",
+    "deploy:surge": "npm run verify && npx surge dist --domain trekviewer.surge.sh",
     "deploy:gh-pages": "tsc && vite build && npx gh-pages -d dist",
     "package:apk": "bash scripts/package-quest-apk.sh"
   },
