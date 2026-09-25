@@ -344,12 +344,12 @@ export class TerrainGenerator {
           satelliteTexture = tex;
           terrainMat.map = tex;
           terrainMat.needsUpdate = true;
-          updateLocalChunksTexture(tex);
         }
         onProgress?.('Terrain ready — refining imagery…', loaded / total);
       },
       signal,
-      isXR
+      isXR,
+      topoTexture.image
     ).then((satTex) => {
       if (isDisposed || signal?.aborted || !satTex) return;
       satelliteTexture = satTex;
@@ -371,16 +371,17 @@ export class TerrainGenerator {
       if (style === 'satellite') {
         if (!satelliteTexture) {
           onProgress?.('Fetching high-resolution satellite imagery...', null);
+          const currentFallback = (terrainMat.map?.image as CanvasImageSource) || topoTexture.image;
           const tex = await TextureProvider.fetchSatelliteTexture(
             tileGrid,
             (partialTex) => {
               if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== 'satellite') return;
               terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
-              updateLocalChunksTexture(partialTex);
             },
             signal,
-            isXR
+            isXR,
+            currentFallback
           );
           if (!isDisposed && !signal?.aborted && tex) {
             satelliteTexture = tex;
@@ -396,16 +397,17 @@ export class TerrainGenerator {
       } else if (style === 'hybrid') {
         if (!hybridTexture) {
           onProgress?.('Fetching hybrid satellite & label imagery...', null);
+          const currentFallback = (satelliteTexture?.image as CanvasImageSource) || (terrainMat.map?.image as CanvasImageSource) || topoTexture.image;
           const tex = await TextureProvider.fetchHybridTexture(
             tileGrid,
             (partialTex) => {
               if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== 'hybrid') return;
               terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
-              updateLocalChunksTexture(partialTex);
             },
             signal,
-            isXR
+            isXR,
+            currentFallback
           );
           if (!isDisposed && !signal?.aborted && tex) {
             hybridTexture = tex;
@@ -425,16 +427,17 @@ export class TerrainGenerator {
       } else {
         if (!highResTopoTexture) {
           onProgress?.('Fetching USGS topographic map tiles...', null);
+          const currentFallback = (terrainMat.map?.image as CanvasImageSource) || topoTexture.image;
           const tex = await TextureProvider.fetchTopoTexture(
             tileGrid,
             (partialTex) => {
               if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== style) return;
               terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
-              updateLocalChunksTexture(partialTex);
             },
             signal,
-            isXR
+            isXR,
+            currentFallback
           );
           if (!isDisposed && !signal?.aborted && tex) {
             highResTopoTexture = tex;

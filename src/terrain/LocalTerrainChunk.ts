@@ -20,6 +20,15 @@ export interface LocalTerrainChunkOptions {
   mapTexture?: THREE.Texture | null;
 }
 
+export interface ChunkValidationResult {
+  isValid: boolean;
+  reason?: string;
+  fallbackRatio: number;
+  maxDiffFromBase: number;
+  nanCount: number;
+  infiniteCount: number;
+}
+
 export class LocalTerrainChunk {
   public readonly mesh: THREE.Mesh;
   public readonly centerLat: number;
@@ -32,6 +41,9 @@ export class LocalTerrainChunk {
   public readonly localBounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   public isRealHighRes: boolean = false;
   public currentGrid: ElevationGrid;
+  public fallbackCount: number = 0;
+  public maxDiffFromBase: number = 0;
+  public totalVertices: number = 0;
 
   public readonly geometry: THREE.PlaneGeometry;
   public readonly material: THREE.MeshStandardMaterial;
@@ -78,7 +90,10 @@ export class LocalTerrainChunk {
 
     const posAttr = this.geometry.attributes.position;
     const vertexCount = posAttr.count;
+    this.totalVertices = vertexCount;
     this.unscaledHeights = new Float32Array(vertexCount);
+    this.fallbackCount = 0;
+    this.maxDiffFromBase = 0;
 
     const blendMargin = options.blendMarginRatio ?? 0.15;
     const innerRadius = this.radiusMeters * (1 - blendMargin);
@@ -88,18 +103,26 @@ export class LocalTerrainChunk {
       const vz = posAttr.getZ(i);
       const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
 
+      const sceneX = this.localCenter.x + vx;
+      const sceneZ = this.localCenter.z + vz;
+      const hBase = options.baseElevationSampler ? options.baseElevationSampler(sceneX, sceneZ) : 0;
+
       const sample = ElevationTileService.sampleElevation(options.localGrid, geo.lat, geo.lon);
-      let hLocal = 0;
+      let hLocal: number;
+      let isHighResValid = false;
+
       if (sample.isValid && !isNaN(sample.elevation)) {
         hLocal = Math.max(0, sample.elevation - this.terrainBaseElevation);
+        isHighResValid = true;
+      } else {
+        // Stage X3.1: NEVER convert missing local DEM data to zero height!
+        // Fall back to authoritative base terrain surface for this coordinate.
+        hLocal = hBase;
+        this.fallbackCount++;
       }
 
       let h = hLocal;
-      if (options.baseElevationSampler) {
-        const sceneX = this.localCenter.x + vx;
-        const sceneZ = this.localCenter.z + vz;
-        const hBase = options.baseElevationSampler(sceneX, sceneZ);
-
+      if (options.baseElevationSampler && isHighResValid) {
         const r = Math.hypot(vx, vz);
         if (r > innerRadius) {
           const tLinear = Math.min(1, Math.max(0, (r - innerRadius) / (this.radiusMeters - innerRadius)));
@@ -107,6 +130,11 @@ export class LocalTerrainChunk {
           const t = tLinear * tLinear * (3 - 2 * tLinear);
           h = (1 - t) * hLocal + t * hBase;
         }
+      }
+
+      const diff = Math.abs(h - hBase);
+      if (diff > this.maxDiffFromBase) {
+        this.maxDiffFromBase = diff;
       }
 
       this.unscaledHeights[i] = h;
@@ -212,6 +240,9 @@ export class LocalTerrainChunk {
 
     const posAttr = this.geometry.attributes.position;
     const vertexCount = posAttr.count;
+    this.totalVertices = vertexCount;
+    this.fallbackCount = 0;
+    this.maxDiffFromBase = 0;
 
     const blendMargin = 0.15;
     const innerRadius = this.radiusMeters * (1 - blendMargin);
@@ -221,24 +252,36 @@ export class LocalTerrainChunk {
       const vz = posAttr.getZ(i);
       const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
 
+      const sceneX = this.localCenter.x + vx;
+      const sceneZ = this.localCenter.z + vz;
+      const hBase = baseElevationSampler ? baseElevationSampler(sceneX, sceneZ) : 0;
+
       const sample = ElevationTileService.sampleElevation(newGrid, geo.lat, geo.lon);
-      let hLocal = 0;
+      let hLocal: number;
+      let isHighResValid = false;
+
       if (sample.isValid && !isNaN(sample.elevation)) {
         hLocal = Math.max(0, sample.elevation - this.terrainBaseElevation);
+        isHighResValid = true;
+      } else {
+        // Stage X3.1: NEVER convert missing local DEM data to zero height!
+        hLocal = hBase;
+        this.fallbackCount++;
       }
 
       let h = hLocal;
-      if (baseElevationSampler) {
-        const sceneX = this.localCenter.x + vx;
-        const sceneZ = this.localCenter.z + vz;
-        const hBase = baseElevationSampler(sceneX, sceneZ);
-
+      if (baseElevationSampler && isHighResValid) {
         const r = Math.hypot(vx, vz);
         if (r > innerRadius) {
           const tLinear = Math.min(1, Math.max(0, (r - innerRadius) / (this.radiusMeters - innerRadius)));
           const t = tLinear * tLinear * (3 - 2 * tLinear);
           h = (1 - t) * hLocal + t * hBase;
         }
+      }
+
+      const diff = Math.abs(h - hBase);
+      if (diff > this.maxDiffFromBase) {
+        this.maxDiffFromBase = diff;
       }
 
       this.unscaledHeights[i] = h;
@@ -255,6 +298,53 @@ export class LocalTerrainChunk {
       this.outlineMesh = undefined;
       this.setDebugOutline(true);
     }
+  }
+
+  /**
+   * Validates generated chunk vertices for finite heights and sane surface fidelity (Stage X3.1).
+   */
+  public validate(baseSampler?: (x: number, z: number) => number): ChunkValidationResult {
+    const posAttr = this.geometry.attributes.position;
+    const count = posAttr.count;
+    let nanCount = 0;
+    let infiniteCount = 0;
+
+    for (let i = 0; i < count; i++) {
+      const y = posAttr.getY(i);
+      if (isNaN(y)) nanCount++;
+      if (!isFinite(y)) infiniteCount++;
+    }
+
+    if (nanCount > 0) {
+      return {
+        isValid: false,
+        reason: `Local terrain contains ${nanCount} NaN vertices`,
+        fallbackRatio: 1,
+        maxDiffFromBase: this.maxDiffFromBase,
+        nanCount,
+        infiniteCount,
+      };
+    }
+
+    if (infiniteCount > 0) {
+      return {
+        isValid: false,
+        reason: `Local terrain contains ${infiniteCount} non-finite vertices`,
+        fallbackRatio: 1,
+        maxDiffFromBase: this.maxDiffFromBase,
+        nanCount,
+        infiniteCount,
+      };
+    }
+
+    const fallbackRatio = this.fallbackCount / Math.max(1, count);
+    return {
+      isValid: true,
+      fallbackRatio,
+      maxDiffFromBase: this.maxDiffFromBase,
+      nanCount: 0,
+      infiniteCount: 0,
+    };
   }
 
   /**
@@ -331,6 +421,15 @@ export class LocalTerrainChunk {
     if (this.mesh.parent) {
       this.mesh.parent.remove(this.mesh);
     }
-    disposeObject3D(this.mesh);
+    // Shared base texture protection (Stage X3.1):
+    // LocalTerrainChunk references base terrain texture but does NOT own it.
+    // Detach and preserve map texture so disposeObject3D never disposes or collapses it.
+    const sharedTexture = this.material.map;
+    this.material.map = null;
+    const preserve = new Set<THREE.Texture>();
+    if (sharedTexture) {
+      preserve.add(sharedTexture);
+    }
+    disposeObject3D(this.mesh, preserve);
   }
 }

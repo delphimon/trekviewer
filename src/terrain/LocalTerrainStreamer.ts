@@ -4,6 +4,7 @@ import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
+import type { ViewMode } from '../gpx/TrackTypes.ts';
 
 export interface LocalTerrainStreamerOptions {
   terrainResult: TerrainResult;
@@ -13,6 +14,7 @@ export interface LocalTerrainStreamerOptions {
   chunkRadiusM?: number;
   maxChunks?: number;
   evalThresholdM?: number;
+  initialViewMode?: ViewMode;
 }
 
 /**
@@ -30,6 +32,10 @@ export interface LocalTerrainStreamerOptions {
  * - Enforces single visible chunk ownership: Station 0 is mesh.visible = true,
  *   while prefetched and retained chunks remain memory-warm with mesh.visible = false.
  * - Shares base terrain map texture and tileGrid bounds to eliminate gray placeholder material.
+ *
+ * Stage X3.1:
+ * - ViewMode awareness: in 'diorama' mode all local chunks are hidden; base terrain is 100% authoritative.
+ * - Transactional promotion: candidates built offscreen, validated, and promoted atomically.
  */
 export class LocalTerrainStreamer {
   public readonly terrainResult: TerrainResult;
@@ -40,6 +46,7 @@ export class LocalTerrainStreamer {
   public readonly maxChunks: number;
   public readonly evalThresholdM: number;
 
+  private currentViewMode: ViewMode = 'diorama';
   private managedChunks: LocalTerrainChunk[] = [];
   private lastEvalProgress: number = -1;
   private currentExaggeration: number = 1.0;
@@ -57,16 +64,44 @@ export class LocalTerrainStreamer {
       options.chunkRadiusM ?? this.qualityProfile.localTerrainRadiusM;
     this.maxChunks = options.maxChunks ?? 3;
     this.evalThresholdM = options.evalThresholdM ?? 30; // 30m progress threshold
+    this.currentViewMode = options.initialViewMode ?? 'diorama';
   }
 
   public get activeChunks(): readonly LocalTerrainChunk[] {
     return this.managedChunks;
   }
 
+  public getViewMode(): ViewMode {
+    return this.currentViewMode;
+  }
+
+  public setViewMode(mode: ViewMode): void {
+    if (this.isDisposed) return;
+    this.currentViewMode = mode;
+    if (mode === 'diorama') {
+      // In diorama mode, all local chunks are hidden; base terrain is 100% authoritative
+      for (const chunk of this.managedChunks) {
+        chunk.mesh.visible = false;
+      }
+    } else if (mode === 'first-person') {
+      // In first-person mode, validate and show the active station 0 chunk
+      for (let i = 0; i < this.managedChunks.length; i++) {
+        if (i === 0) {
+          const val = this.managedChunks[0].validate();
+          this.managedChunks[0].mesh.visible = val.isValid;
+        } else {
+          this.managedChunks[i].mesh.visible = false;
+        }
+      }
+    }
+  }
+
   /**
-   * Returns the single currently active visible local chunk (Stage X3).
+   * Returns the single currently active visible local chunk (Stage X3 & X3.1).
+   * In diorama mode, returns null (base terrain authoritative).
    */
   public get activeVisibleChunk(): LocalTerrainChunk | null {
+    if (this.currentViewMode === 'diorama') return null;
     return this.managedChunks.find((c) => c.mesh.visible) ?? null;
   }
 
@@ -112,9 +147,49 @@ export class LocalTerrainStreamer {
   private fetchAndApplyStationDEM(chunk: LocalTerrainChunk, lat: number, lon: number): void {
     this.fetchStationDEM(lat, lon).then((grid) => {
       if (this.isDisposed || !grid) return;
-      if (this.managedChunks.includes(chunk)) {
-        chunk.updateElevationGrid(grid, (x, z) => this.terrainResult.elevationSampler(x, z));
+      const idx = this.managedChunks.indexOf(chunk);
+      if (idx === -1) return;
+
+      // Stage X3.1: Transactional promotion.
+      // Build candidate offscreen, validate heights and finite values, and swap atomically.
+      const mat = this.terrainResult.terrainMesh?.material as THREE.MeshStandardMaterial | undefined;
+      const candidate = new LocalTerrainChunk({
+        localGrid: grid,
+        centerLat: lat,
+        centerLon: lon,
+        referenceCenterLat:
+          this.terrainResult.terrainGeoBounds?.centerLat ?? lat,
+        referenceCenterLon:
+          this.terrainResult.terrainGeoBounds?.centerLon ?? lon,
+        terrainBaseElevation: this.terrainResult.terrainBaseElevation,
+        radiusMeters: this.chunkRadiusM,
+        segments: this.qualityProfile.localDemSegments,
+        baseElevationSampler: (x, z) =>
+          this.terrainResult.elevationSampler(x, z),
+        initialExaggeration: this.currentExaggeration,
+        tileGrid: this.terrainResult.tileGrid,
+        mapTexture: mat?.map ?? null,
+      });
+
+      const val = candidate.validate();
+      if (!val.isValid) {
+        console.warn('[LocalTerrainStreamer] Candidate chunk rejected by validation:', val.reason);
+        candidate.dispose();
+        return;
       }
+
+      // Re-verify chunk still managed after async build
+      const currentIdx = this.managedChunks.indexOf(chunk);
+      if (currentIdx === -1) {
+        candidate.dispose();
+        return;
+      }
+
+      const isStation0 = (currentIdx === 0);
+      candidate.mesh.visible = (this.currentViewMode === 'first-person' && isStation0);
+      this.terrainResult.attachLocalChunk?.(candidate);
+      this.managedChunks[currentIdx] = candidate;
+      this.terrainResult.detachLocalChunk?.(chunk);
     });
   }
 
@@ -273,9 +348,14 @@ export class LocalTerrainStreamer {
       }
     }
 
-    // Ensure only the active hiker station chunk is visible to prevent z-fighting and elevation ambiguity (Stage X3)
+    // Ensure only the active hiker station chunk is visible in first-person mode (Stage X3 & X3.1)
     for (let i = 0; i < neededChunks.length; i++) {
-      neededChunks[i].mesh.visible = (i === 0);
+      if (this.currentViewMode === 'first-person' && i === 0) {
+        const val = neededChunks[0].validate();
+        neededChunks[0].mesh.visible = val.isValid;
+      } else {
+        neededChunks[i].mesh.visible = false;
+      }
     }
     for (const chunk of availableChunks) {
       chunk.mesh.visible = false;

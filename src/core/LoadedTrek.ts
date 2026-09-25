@@ -64,6 +64,7 @@ export class LoadedTrek {
         routeGeometry: this.trailResult.routeGeometry,
         demGrid: this.terrainResult.demGrid,
         qualityProfile,
+        initialViewMode: 'diorama',
       });
       this.localTerrainStreamer.update(0);
     }
@@ -109,6 +110,7 @@ export class LoadedTrek {
     this.trailResult.setViewMode(mode);
     this.flyoverController.setViewMode(mode);
     this.imageryLOD.setViewMode(mode);
+    this.localTerrainStreamer?.setViewMode(mode);
   }
 
   public setQualityProfile(profile: QualityProfile): void {
