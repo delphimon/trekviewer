@@ -22,11 +22,17 @@ export class FlyoverController {
   private baseDurationSeconds: number = 60.0;
   private viewMode: ViewMode = 'diorama';
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
+  private elevationSampler?: (x: number, z: number) => number;
 
-  constructor(trailResult: TrailResult, track: TrackStats) {
+  constructor(trailResult: TrailResult, track: TrackStats, elevationSampler?: (x: number, z: number) => number) {
     this.trailResult = trailResult;
     this.track = track;
     this.totalPlaybackSeconds = Math.max(track.totalPlaybackSeconds || 60, 10);
+    this.elevationSampler = elevationSampler;
+  }
+
+  public setElevationSampler(sampler: (x: number, z: number) => number): void {
+    this.elevationSampler = sampler;
   }
 
   public setUpdateCallback(cb: (state: FlyoverUpdate) => void): void {
@@ -118,7 +124,14 @@ export class FlyoverController {
   }
 
   public getCurrentWorldPosition(): THREE.Vector3 {
-    return this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress).position;
+    const pos = this.trailResult.routeGeometry.getTelemetryAtProgress(this.progress).position.clone();
+    if (this.elevationSampler) {
+      const sampled = this.elevationSampler(pos.x, pos.z);
+      if (!isNaN(sampled)) {
+        pos.y = sampled;
+      }
+    }
+    return pos;
   }
 
   public update(
@@ -149,6 +162,14 @@ export class FlyoverController {
       const pos = telemetry.position;
       const forward = this.trailResult.routeGeometry.getRouteForwardAtProgress(this.progress);
 
+      let groundY = pos.y;
+      if (this.elevationSampler) {
+        const sampled = this.elevationSampler(pos.x, pos.z);
+        if (!isNaN(sampled)) {
+          groundY = sampled;
+        }
+      }
+
       if (isWebXRPresenting && dioramaRoot) {
         // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)
         // Rotate so increasing route direction points forward (-Z) in room space (Section 6)
@@ -157,14 +178,14 @@ export class FlyoverController {
         dioramaRoot.rotation.set(0, rotY, 0);
 
         // Apply rotated offset to place current trail point at origin
-        const offset = new THREE.Vector3(-pos.x, -pos.y, -pos.z);
+        const offset = new THREE.Vector3(-pos.x, -groundY, -pos.z);
         offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
         dioramaRoot.position.copy(offset);
         dioramaRoot.scale.set(1, 1, 1);
       } else if (camera) {
         // Desktop fallback: place camera at eye level (+2m above trail) looking forward (Section 7)
-        camera.position.set(pos.x, pos.y + 2.0, pos.z);
-        const lookTarget = pos.clone().add(forward.clone().multiplyScalar(40)).add(new THREE.Vector3(0, 1.2, 0));
+        camera.position.set(pos.x, groundY + 2.0, pos.z);
+        const lookTarget = new THREE.Vector3(pos.x, groundY, pos.z).add(forward.clone().multiplyScalar(40)).add(new THREE.Vector3(0, 1.2, 0));
         camera.lookAt(lookTarget);
       }
     }

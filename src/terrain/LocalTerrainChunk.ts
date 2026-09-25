@@ -3,6 +3,7 @@ import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { TextureProvider, type TileGridBounds } from './TextureProvider.ts';
+import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export interface LocalTerrainChunkOptions {
   localGrid: ElevationGrid;
@@ -38,7 +39,12 @@ export class LocalTerrainChunk {
   public readonly localCenter: { x: number; z: number };
   public readonly terrainBaseElevation: number;
   public readonly radiusMeters: number;
-  public readonly localBounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  public readonly localBounds: TerrainSurfaceBounds;
+
+  public getSurfaceBounds(): TerrainSurfaceBounds {
+    return this.localBounds;
+  }
+
   public isRealHighRes: boolean = false;
   public currentGrid: ElevationGrid;
   public fallbackCount: number = 0;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/TrackTypes.ts';
 import { RouteGeometry, yawForForwardVector } from './RouteGeometry.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import type { TerrainSurfaceBounds } from '../terrain/TerrainGenerator.ts';
 
 export interface TrailResult {
   group: THREE.Group;
@@ -16,6 +17,7 @@ export interface TrailResult {
   setColorMode: (mode: TrailColorMode) => void;
   setViewMode: (mode: ViewMode) => void;
   setVerticalExaggeration: (factor: number) => void;
+  reprojectToSurface?: (sampler: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds) => void;
   dispose: () => void;
 }
 
@@ -58,7 +60,7 @@ export class TrailMesh {
     );
 
     // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.08m ground clearance) (Section 11, 16)
-    const { geometry: firstPersonGeo } = this.buildMultiSegmentRibbon(
+    const { geometry: firstPersonGeo, unscaledGroundY: firstPersonUnscaledGroundY } = this.buildMultiSegmentRibbon(
       routeGeometry,
       0.35,
       8.0,
@@ -181,15 +183,28 @@ export class TrailMesh {
     group.add(trailMesh);
 
     // Start Beacon (Neutral Start / Trailhead)
+    let currentElevationSampler = elevationSampler;
     const firstTele = routeGeometry.getTelemetryAtDistance(0);
-    const startGroundY = firstTele.position.y;
+    let startGroundY = firstTele.position.y;
+    if (currentElevationSampler) {
+      const sampled = currentElevationSampler(firstTele.position.x, firstTele.position.z);
+      if (!isNaN(sampled)) {
+        startGroundY = sampled;
+      }
+    }
     const startPos = new THREE.Vector3(firstTele.position.x, startGroundY * initialExaggeration + 8.0, firstTele.position.z);
     const startBeacon = this.createPin(startPos, 0x10b981, 'START', scaleFactor);
     group.add(startBeacon);
 
     // Finish / Summit Beacon (Neutral semantics: SUMMIT only if at peak elevation, else FINISH)
     const lastTele = routeGeometry.getTelemetryAtDistance(routeGeometry.totalDistance);
-    const finishGroundY = lastTele.position.y;
+    let finishGroundY = lastTele.position.y;
+    if (currentElevationSampler) {
+      const sampled = currentElevationSampler(lastTele.position.x, lastTele.position.z);
+      if (!isNaN(sampled)) {
+        finishGroundY = sampled;
+      }
+    }
     const lastPoint = lastTele.currentPoint;
     const isSummit = Math.abs(lastPoint.ele - track.maxElevation) < 15 ||
       (track.waypoints && track.waypoints.some((wp) =>
@@ -216,8 +231,8 @@ export class TrailMesh {
       currentProgress = progress;
       const telemetry = routeGeometry.getTelemetryAtProgress(progress);
       let hikerGroundY = telemetry.position.y;
-      if (elevationSampler) {
-        const sampled = elevationSampler(telemetry.position.x, telemetry.position.z);
+      if (currentElevationSampler) {
+        const sampled = currentElevationSampler(telemetry.position.x, telemetry.position.z);
         if (!isNaN(sampled)) {
           hikerGroundY = sampled;
         }
@@ -273,13 +288,110 @@ export class TrailMesh {
       // Update hiker marker position with terrain elevation
       const telemetry = routeGeometry.getTelemetryAtProgress(currentProgress);
       let hikerGroundY = telemetry.position.y;
-      if (elevationSampler) {
-        const sampled = elevationSampler(telemetry.position.x, telemetry.position.z);
+      if (currentElevationSampler) {
+        const sampled = currentElevationSampler(telemetry.position.x, telemetry.position.z);
         if (!isNaN(sampled)) {
           hikerGroundY = sampled;
         }
       }
       hikerMarker.position.y = hikerGroundY * factor + dioramaElevationOffset;
+    };
+
+    const reprojectToSurface = (
+      sampler: (x: number, z: number) => number,
+      bounds?: TerrainSurfaceBounds
+    ) => {
+      currentElevationSampler = sampler;
+
+      // 1. Reproject diorama ribbon
+      const posAttr = dioramaGeo.attributes.position as THREE.BufferAttribute;
+      const posArray = posAttr.array as Float32Array;
+      let dioramaChanged = false;
+      for (let i = 0; i < unscaledGroundY.length; i++) {
+        const vx = posArray[i * 3];
+        const vz = posArray[i * 3 + 2];
+        if (
+          !bounds ||
+          (vx >= bounds.minX && vx <= bounds.maxX && vz >= bounds.minZ && vz <= bounds.maxZ)
+        ) {
+          const sampled = sampler(vx, vz);
+          if (!isNaN(sampled)) {
+            unscaledGroundY[i] = sampled;
+            posArray[i * 3 + 1] = sampled * currentExaggeration + dioramaElevationOffset;
+            dioramaChanged = true;
+          }
+        }
+      }
+      if (dioramaChanged) {
+        posAttr.needsUpdate = true;
+        dioramaGeo.computeVertexNormals();
+      }
+
+      // 2. Reproject first-person ribbon
+      const fpPosAttr = firstPersonGeo.attributes.position as THREE.BufferAttribute;
+      const fpPosArray = fpPosAttr.array as Float32Array;
+      let fpChanged = false;
+      for (let i = 0; i < firstPersonUnscaledGroundY.length; i++) {
+        const vx = fpPosArray[i * 3];
+        const vz = fpPosArray[i * 3 + 2];
+        if (
+          !bounds ||
+          (vx >= bounds.minX && vx <= bounds.maxX && vz >= bounds.minZ && vz <= bounds.maxZ)
+        ) {
+          const sampled = sampler(vx, vz);
+          if (!isNaN(sampled)) {
+            firstPersonUnscaledGroundY[i] = sampled;
+            fpPosArray[i * 3 + 1] = sampled * 1.0 + 0.08;
+            fpChanged = true;
+          }
+        }
+      }
+      if (fpChanged) {
+        fpPosAttr.needsUpdate = true;
+        firstPersonGeo.computeVertexNormals();
+      }
+
+      // 3. Reproject start beacon
+      const startX = firstTele.position.x;
+      const startZ = firstTele.position.z;
+      if (
+        !bounds ||
+        (startX >= bounds.minX && startX <= bounds.maxX && startZ >= bounds.minZ && startZ <= bounds.maxZ)
+      ) {
+        const startSampled = sampler(startX, startZ);
+        if (!isNaN(startSampled)) {
+          startGroundY = startSampled;
+          startBeacon.position.y = startGroundY * currentExaggeration + 8.0;
+        }
+      }
+
+      // 4. Reproject finish beacon
+      const finishX = lastTele.position.x;
+      const finishZ = lastTele.position.z;
+      if (
+        !bounds ||
+        (finishX >= bounds.minX && finishX <= bounds.maxX && finishZ >= bounds.minZ && finishZ <= bounds.maxZ)
+      ) {
+        const finishSampled = sampler(finishX, finishZ);
+        if (!isNaN(finishSampled)) {
+          finishGroundY = finishSampled;
+          finishBeacon.position.y = finishGroundY * currentExaggeration + 8.0;
+        }
+      }
+
+      // 5. Reproject hiker marker
+      const telemetry = routeGeometry.getTelemetryAtProgress(currentProgress);
+      const hikerX = telemetry.position.x;
+      const hikerZ = telemetry.position.z;
+      if (
+        !bounds ||
+        (hikerX >= bounds.minX && hikerX <= bounds.maxX && hikerZ >= bounds.minZ && hikerZ <= bounds.maxZ)
+      ) {
+        const hikerSampled = sampler(hikerX, hikerZ);
+        if (!isNaN(hikerSampled)) {
+          hikerMarker.position.y = hikerSampled * currentExaggeration + dioramaElevationOffset;
+        }
+      }
     };
 
     const dispose = () => {
@@ -306,6 +418,7 @@ export class TrailMesh {
       setColorMode,
       setViewMode,
       setVerticalExaggeration,
+      reprojectToSurface,
       dispose,
     };
   }

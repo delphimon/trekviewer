@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { TrackStats, TextureStyle, TrailColorMode, ViewMode } from '../gpx/TrackTypes.ts';
-import type { TerrainResult } from '../terrain/TerrainGenerator.ts';
+import type { TerrainResult, TerrainSurfaceChange } from '../terrain/TerrainGenerator.ts';
 import type { TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
@@ -33,6 +33,7 @@ export class LoadedTrek {
   public readonly localTerrainStreamer?: LocalTerrainStreamer;
   public readonly group: THREE.Group;
   private _isDisposed: boolean = false;
+  private currentVerticalExaggeration: number = 1.0;
 
   constructor(params: LoadedTrekParams) {
     this.track = params.track;
@@ -43,12 +44,19 @@ export class LoadedTrek {
 
     const qualityProfile = params.qualityProfile || QualityProfileManager.getActiveProfile();
 
+    const activeSampler = this.terrainResult.sampleRenderedSurfaceY || this.terrainResult.elevationSampler;
+    this.flyoverController.setElevationSampler?.(activeSampler);
+
+    this.terrainResult.onSurfaceChange = (change) => {
+      this.handleSurfaceChange(change);
+    };
+
     this.imageryLOD =
       params.imageryLOD ||
       new ImageryLODManager({
         terrainGeoBounds: params.terrainResult.terrainGeoBounds || params.track.bounds,
         terrainBaseElevation: params.terrainResult.terrainBaseElevation,
-        elevationSampler: params.terrainResult.sampleRenderedSurfaceY || params.terrainResult.elevationSampler,
+        elevationSampler: activeSampler,
         routeGeometry: params.trailResult.routeGeometry,
         track: params.track,
         verticalExaggeration: 1.0,
@@ -85,11 +93,32 @@ export class LoadedTrek {
 
   public setVerticalExaggeration(factor: number): void {
     if (this._isDisposed) return;
+    this.currentVerticalExaggeration = factor;
     this.terrainResult.setVerticalExaggeration(factor);
     this.localTerrainStreamer?.setVerticalExaggeration(factor);
     this.imageryLOD.setVerticalExaggeration(factor);
     this.trailResult.setVerticalExaggeration(factor);
     DioramaBase.setVerticalExaggeration(this.dioramaBase, factor);
+  }
+
+  private handleSurfaceChange(change: TerrainSurfaceChange): void {
+    if (this._isDisposed) return;
+    const sampler = this.terrainResult.sampleRenderedSurfaceY || this.terrainResult.elevationSampler;
+    const exaggeration = this.terrainResult.getVerticalExaggeration
+      ? this.terrainResult.getVerticalExaggeration()
+      : this.currentVerticalExaggeration;
+
+    // Reproject trail ribbons, beacons, and hiker marker
+    this.trailResult.reprojectToSurface?.(sampler, change.bounds);
+
+    // Reproject waypoints
+    DioramaBase.reprojectWaypoints(this.dioramaBase, sampler, exaggeration, change.bounds);
+
+    // Reproject imagery LOD patches
+    this.imageryLOD.reprojectPatches?.(sampler, change.bounds);
+
+    // Update flyover controller sampler
+    this.flyoverController.setElevationSampler?.(sampler);
   }
 
   public async setTextureStyle(style: TextureStyle): Promise<void> {

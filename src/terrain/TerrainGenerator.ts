@@ -15,6 +15,18 @@ export interface PreparedElevation {
   elevationSamplerForGeo: (lat: number, lon: number) => number | undefined;
 }
 
+export interface TerrainSurfaceBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+export interface TerrainSurfaceChange {
+  revision: number;
+  bounds: TerrainSurfaceBounds;
+}
+
 export interface TerrainResult {
   group: THREE.Group;
   terrainMesh: THREE.Mesh;
@@ -25,11 +37,15 @@ export interface TerrainResult {
   terrainQuality: TerrainQuality;
   demGrid: ElevationGrid | null;
   tileGrid?: TileGridBounds;
+  surfaceRevision?: number;
+  onSurfaceChange?: (change: TerrainSurfaceChange) => void;
+  notifySurfaceChange?: (bounds?: Partial<TerrainSurfaceBounds>) => void;
   elevationSampler: (x: number, z: number) => number;
   sampleDEMY: (x: number, z: number) => number;
   sampleRenderedSurfaceY: (localX: number, localZ: number) => number;
   setTextureStyle: (style: TextureStyle) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
+  getVerticalExaggeration?: () => number;
   localChunk?: LocalTerrainChunk | null;
   localChunks?: LocalTerrainChunk[];
   attachLocalChunk?: (chunk: LocalTerrainChunk) => void;
@@ -468,6 +484,28 @@ export class TerrainGenerator {
       skirtMesh.geometry.dispose();
       skirtGeo = TerrainGenerator.createDioramaSkirts(planeGeo, segX, segZ, skirtBaseY);
       skirtMesh.geometry = skirtGeo;
+
+      // Stage X4: Notify dependent systems of whole-surface elevation change
+      notifySurfaceChange();
+    };
+
+    let surfaceRevision = 1;
+    let onSurfaceChangeCallback: ((change: TerrainSurfaceChange) => void) | undefined;
+
+    const notifySurfaceChange = (bounds?: Partial<TerrainSurfaceBounds>) => {
+      surfaceRevision++;
+      const fullBounds: TerrainSurfaceBounds = {
+        minX: bounds?.minX ?? -widthM / 2,
+        maxX: bounds?.maxX ?? widthM / 2,
+        minZ: bounds?.minZ ?? -depthM / 2,
+        maxZ: bounds?.maxZ ?? depthM / 2,
+      };
+      if (onSurfaceChangeCallback) {
+        onSurfaceChangeCallback({
+          revision: surfaceRevision,
+          bounds: fullBounds,
+        });
+      }
     };
 
     let isDebugPatchBounds = false;
@@ -491,6 +529,9 @@ export class TerrainGenerator {
           chunk.setDebugOutline(true);
         }
         group.add(chunk.mesh);
+        if (chunk.mesh.visible) {
+          notifySurfaceChange(chunk.getSurfaceBounds ? chunk.getSurfaceBounds() : undefined);
+        }
       }
     };
 
@@ -498,22 +539,37 @@ export class TerrainGenerator {
       if (chunk) {
         const idx = activeLocalChunks.indexOf(chunk);
         if (idx !== -1) {
+          const wasVisible = chunk.mesh.visible;
+          const chunkBounds = chunk.getSurfaceBounds ? chunk.getSurfaceBounds() : undefined;
           activeLocalChunks.splice(idx, 1);
           group.remove(chunk.mesh);
           chunk.dispose();
+          if (wasVisible) {
+            notifySurfaceChange(chunkBounds);
+          }
         }
       } else if (activeLocalChunks.length > 0) {
         const removed = activeLocalChunks.shift()!;
+        const wasVisible = removed.mesh.visible;
+        const chunkBounds = removed.getSurfaceBounds ? removed.getSurfaceBounds() : undefined;
         group.remove(removed.mesh);
         removed.dispose();
+        if (wasVisible) {
+          notifySurfaceChange(chunkBounds);
+        }
       }
     };
 
     const detachAllLocalChunks = () => {
+      let anyVisible = false;
       while (activeLocalChunks.length > 0) {
         const chunk = activeLocalChunks.pop()!;
+        if (chunk.mesh.visible) anyVisible = true;
         group.remove(chunk.mesh);
         chunk.dispose();
+      }
+      if (anyVisible) {
+        notifySurfaceChange();
       }
     };
 
@@ -608,11 +664,25 @@ export class TerrainGenerator {
       terrainQuality,
       demGrid,
       tileGrid,
+      get surfaceRevision() {
+        return surfaceRevision;
+      },
+      set surfaceRevision(val: number) {
+        surfaceRevision = val;
+      },
+      get onSurfaceChange() {
+        return onSurfaceChangeCallback;
+      },
+      set onSurfaceChange(cb: ((change: TerrainSurfaceChange) => void) | undefined) {
+        onSurfaceChangeCallback = cb;
+      },
+      notifySurfaceChange,
       elevationSampler: sampleHeightAt,
       sampleDEMY: sampleHeightAt,
       sampleRenderedSurfaceY,
       setTextureStyle,
       setVerticalExaggeration,
+      getVerticalExaggeration: () => currentExaggeration,
       get localChunk() {
         return activeLocalChunks.find((c) => c.mesh.visible) || activeLocalChunks[0] || null;
       },

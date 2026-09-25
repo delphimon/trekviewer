@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GeoBounds, GPXWaypoint } from '../gpx/TrackTypes';
 import { geoToLocalMeters } from '../gpx/Coordinates';
+import type { TerrainSurfaceBounds } from '../terrain/TerrainGenerator';
 
 export const BASE_MARKER_DIAMETER_LOCAL = 12.0; // OctahedronGeometry(6, 0) bounding diameter = 12 units
 export const DESIRED_MARKER_DIAMETER_WORLD = 0.025; // 2.5 cm world diameter (Section 29)
@@ -604,6 +605,34 @@ export class DioramaBase {
     for (const child of wpGroup.children) {
       if (child.userData && typeof child.userData.baseY === 'number') {
         child.position.y = child.userData.baseY * factor + 8;
+      }
+    }
+  }
+
+  /**
+   * Reprojects waypoint pin vertical positions to the authoritative rendered terrain surface.
+   */
+  public static reprojectWaypoints(
+    baseGroup: THREE.Group,
+    elevationSampler: (x: number, z: number) => number,
+    factor: number = 1.0,
+    bounds?: TerrainSurfaceBounds
+  ): void {
+    const wpGroup = baseGroup.getObjectByName('Waypoints');
+    if (!wpGroup) return;
+    for (const child of wpGroup.children) {
+      const pinX = child.position.x;
+      const pinZ = child.position.z;
+      if (bounds) {
+        if (pinX < bounds.minX || pinX > bounds.maxX || pinZ < bounds.minZ || pinZ > bounds.maxZ) {
+          continue;
+        }
+      }
+      const sampleY = elevationSampler(pinX, pinZ);
+      if (!isNaN(sampleY)) {
+        if (!child.userData) child.userData = {};
+        child.userData.baseY = sampleY;
+        child.position.y = sampleY * factor + 8;
       }
     }
   }
