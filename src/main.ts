@@ -852,7 +852,12 @@ export class TrekViewerApp {
           lodInFlight: lodStats ? lodStats.inFlightRequests : 0,
           lodReadyHighRes: lodStats ? `${lodStats.readyHighResCount}/${lodStats.totalDesiredHighResCount}` : '0/0',
           lodVisibleByZoom: lodStats ? Object.fromEntries(lodStats.visibleByZoom) : {},
+          lodCoveragePercent: lodStats ? lodStats.coveragePercent : 0,
+          lodZ19AheadM: lodStats ? lodStats.z19AheadDistanceMeters : 0,
+          lodResidentWarm: lodStats ? lodStats.residentWarmCount : 0,
+          lodEvictionsTotal: lodStats ? lodStats.evictionsTotal : 0,
           tileCacheMB: Number((tileStats.decodedBytes / (1024 * 1024)).toFixed(1)),
+          cacheHitRate: tileStats.hitRate,
           hudUploadRate,
           terrainQuality,
           imageryRequestedProvider: TextureProvider.getProviderInitState().requestedProvider,
@@ -864,7 +869,7 @@ export class TrekViewerApp {
 
         console.log(`[TELEMETRY]`, telemetryData);
 
-        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38 & Section 47 & Section 53)
+        // Compact real-time on-screen diagnostics overlay (Requirement #122 & Section 38 & Section 47 & Section 53, Stage W7)
         const badge = document.getElementById('buildBadge');
         if (badge) {
           const pState = TextureProvider.getProviderInitState();
@@ -872,8 +877,8 @@ export class TrekViewerApp {
           badge.innerHTML = `
             <div style="font-weight:bold;color:#38bdf8;">${__APP_BUILD_INFO__.shortSha} • ${isPresenting ? 'XR ON' : 'XR OFF'} • ${this.currentViewMode} • ${terrainQuality}</div>
             <div>Pos: [${telemetryData.dioramaPos.join(', ')}] Rot: ${telemetryData.dioramaRotY} S: ${telemetryData.dioramaScale}</div>
-            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, in-flight: ${telemetryData.tileCacheInFlight}, fails: ${tileStats.failureCount})</div>
-            <div>LOD: ${lodVisibleStr} (Base: rem) | Desired: Z${lodStats?.desiredZoom ?? 0} | Ready: ${telemetryData.lodReadyHighRes} | Pend: ${telemetryData.lodInFlight}</div>
+            <div>Draw: ${telemetryData.drawCalls} | Tex: ${telemetryData.gpuTextures} | Cache: ${telemetryData.tileCacheCount} (${telemetryData.tileCacheMB} MB, hit: ${tileStats.hitRate}%, fails: ${tileStats.failureCount})</div>
+            <div>LOD: ${lodVisibleStr} | Cov: ${lodStats?.coveragePercent ?? 0}% | Ahead: ${lodStats?.z19AheadDistanceMeters ?? 0}m | Ready: ${telemetryData.lodReadyHighRes} | Warm: ${lodStats?.residentWarmCount ?? 0} | Evict: ${lodStats?.evictionsTotal ?? 0}</div>
             <div>Imagery: ${pState.activeProvider} (req: ${pState.requestedProvider}, init: ${pState.initialized}${fallbackStr})</div>
           `.trim();
         }

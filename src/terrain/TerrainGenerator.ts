@@ -34,6 +34,7 @@ export interface TerrainResult {
   attachLocalChunk?: (chunk: LocalTerrainChunk) => void;
   detachLocalChunk?: (chunk?: LocalTerrainChunk) => void;
   detachAllLocalChunks?: () => void;
+  setDebugPatchBounds?: (enabled: boolean) => void;
   dispose: () => void;
 }
 
@@ -450,11 +451,23 @@ export class TerrainGenerator {
       skirtMesh.geometry = skirtGeo;
     };
 
+    let isDebugPatchBounds = false;
+
+    const setDebugPatchBounds = (enabled: boolean) => {
+      isDebugPatchBounds = enabled;
+      for (const chunk of activeLocalChunks) {
+        chunk.setDebugOutline(enabled);
+      }
+    };
+
     const attachLocalChunk = (chunk: LocalTerrainChunk) => {
       const idx = activeLocalChunks.indexOf(chunk);
       if (idx === -1) {
         activeLocalChunks.push(chunk);
         chunk.setVerticalExaggeration(currentExaggeration);
+        if (isDebugPatchBounds) {
+          chunk.setDebugOutline(true);
+        }
         group.add(chunk.mesh);
       }
     };
@@ -585,6 +598,7 @@ export class TerrainGenerator {
       attachLocalChunk,
       detachLocalChunk,
       detachAllLocalChunks,
+      setDebugPatchBounds,
       dispose,
     };
   }

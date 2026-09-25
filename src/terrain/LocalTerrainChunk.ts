@@ -175,6 +175,8 @@ export class LocalTerrainChunk {
     }
   }
 
+  public outlineMesh?: THREE.LineSegments;
+
   public setVerticalExaggeration(factor: number): void {
     if (this.isDisposed) return;
     this.currentExaggeration = Math.max(1.0, Math.min(3.0, factor));
@@ -184,11 +186,45 @@ export class LocalTerrainChunk {
     }
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
+
+    if (this.outlineMesh) {
+      this.mesh.remove(this.outlineMesh);
+      this.outlineMesh.geometry.dispose();
+      (this.outlineMesh.material as THREE.Material)?.dispose();
+      this.outlineMesh = undefined;
+      this.setDebugOutline(true);
+    }
+  }
+
+  public setDebugOutline(enabled: boolean): void {
+    if (this.isDisposed) return;
+    if (enabled && !this.outlineMesh) {
+      const edges = new THREE.EdgesGeometry(this.geometry, 40);
+      const mat = new THREE.LineBasicMaterial({
+        color: 0xf43f5e, // rose / vibrant magenta for local terrain extents
+        transparent: true,
+        opacity: 0.85,
+      });
+      this.outlineMesh = new THREE.LineSegments(edges, mat);
+      this.outlineMesh.name = 'DebugLocalTerrainBoundary';
+      this.mesh.add(this.outlineMesh);
+    } else if (!enabled && this.outlineMesh) {
+      this.mesh.remove(this.outlineMesh);
+      this.outlineMesh.geometry.dispose();
+      (this.outlineMesh.material as THREE.Material)?.dispose();
+      this.outlineMesh = undefined;
+    }
   }
 
   public dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    if (this.outlineMesh) {
+      this.mesh.remove(this.outlineMesh);
+      this.outlineMesh.geometry.dispose();
+      (this.outlineMesh.material as THREE.Material)?.dispose();
+      this.outlineMesh = undefined;
+    }
     if (this.mesh.parent) {
       this.mesh.parent.remove(this.mesh);
     }

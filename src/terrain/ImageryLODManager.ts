@@ -76,6 +76,11 @@ export interface ImageryLODDiagnostics {
   requestedCount: number;
   readyCount: number;
   visibleCount: number;
+  coveragePercent: number;
+  z19AheadDistanceMeters: number;
+  residentWarmCount: number;
+  evictionsTotal: number;
+  cacheHitRate: number;
 }
 
 interface PendingTileRequest {
@@ -850,6 +855,34 @@ export class ImageryLODManager {
       }
     }
 
+    const coveragePercent =
+      totalDesiredHighRes > 0
+        ? Math.round((readyHighRes / totalDesiredHighRes) * 100)
+        : 100;
+
+    let z19AheadDistanceMeters = 0;
+    if (this.viewMode === 'first-person' && this.routeGeometry && this.currentTargetZoom >= 19) {
+      const totalDist = this.routeGeometry.totalDistance;
+      const hikerDist = this.currentProgress * totalDist;
+      let checkDist = hikerDist + 25;
+      while (checkDist <= totalDist) {
+        const prog = checkDist / totalDist;
+        const tele = this.routeGeometry.getTelemetryAtProgress(prog);
+        const tile = latLonToTile(tele.currentPoint.lat, tele.currentPoint.lon, this.currentTargetZoom);
+        const key = `${this.currentTextureStyle}:${this.currentTargetZoom}:${tile.x}:${tile.y}`;
+        const patch = this.patches.get(key);
+        if (patch && patch.mesh.visible) {
+          z19AheadDistanceMeters = Math.round(checkDist - hikerDist);
+          checkDist += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    const residentWarmCount = Math.max(0, this.patches.size - visibleCount);
+    const cacheHitRate = TileImageCache.getStats().hitRate;
+
     return {
       activePatchesCount: this.patches.size,
       targetZoom: this.currentTargetZoom,
@@ -872,6 +905,11 @@ export class ImageryLODManager {
       requestedCount: this.desiredTileKeys.size,
       readyCount: this.patches.size,
       visibleCount,
+      coveragePercent,
+      z19AheadDistanceMeters,
+      residentWarmCount,
+      evictionsTotal: this.patchesDisposedTotal,
+      cacheHitRate,
     };
   }
 
@@ -881,7 +919,7 @@ export class ImageryLODManager {
 
     for (const patch of this.patches.values()) {
       if (enabled && !patch.outlineMesh) {
-        const outline = this.buildPatchOutline(patch.mesh.geometry as THREE.BufferGeometry);
+        const outline = this.buildPatchOutline(patch.mesh.geometry as THREE.BufferGeometry, patch.zoom);
         patch.outlineMesh = outline;
         patch.mesh.add(outline);
       } else if (!enabled && patch.outlineMesh) {
@@ -1741,7 +1779,7 @@ export class ImageryLODManager {
 
     let outlineMesh: THREE.LineSegments | undefined;
     if (this.debugPatchBounds) {
-      outlineMesh = this.buildPatchOutline(geo);
+      outlineMesh = this.buildPatchOutline(geo, zoom);
       mesh.add(outlineMesh);
     }
 
@@ -1868,17 +1906,26 @@ export class ImageryLODManager {
       patch.mesh.remove(patch.outlineMesh);
       patch.outlineMesh.geometry.dispose();
       (patch.outlineMesh.material as THREE.Material)?.dispose();
-      patch.outlineMesh = this.buildPatchOutline(geo);
+      patch.outlineMesh = this.buildPatchOutline(geo, patch.zoom);
       patch.mesh.add(patch.outlineMesh);
     }
   }
 
-  private buildPatchOutline(geo: THREE.BufferGeometry): THREE.LineSegments {
+  private buildPatchOutline(geo: THREE.BufferGeometry, zoom: number): THREE.LineSegments {
     const edges = new THREE.EdgesGeometry(geo, 40);
+    let color = 0x818cf8; // default / base (indigo)
+    if (zoom >= 19) {
+      color = 0x22c55e; // z19 (vibrant emerald green)
+    } else if (zoom === 18) {
+      color = 0xfbbf24; // z18 perimeter ring (amber / warm yellow)
+    } else if (zoom === 17) {
+      color = 0x38bdf8; // z17 (sky cyan)
+    }
+
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x38bdf8,
+      color,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.75,
     });
     const line = new THREE.LineSegments(edges, lineMat);
     line.name = 'DebugPatchBoundary';

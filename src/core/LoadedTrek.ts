@@ -115,6 +115,7 @@ export class LoadedTrek {
   public setDebugPatchBounds(enabled: boolean): void {
     if (this._isDisposed) return;
     this.imageryLOD.setDebugPatchBounds(enabled);
+    this.terrainResult.setDebugPatchBounds?.(enabled);
   }
 
   public updateWaypoints(camera: THREE.Camera, dioramaScale: number, delta: number): void {
