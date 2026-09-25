@@ -93,18 +93,35 @@ export class ElevationTileService {
     }
   }
 
+  private static localDemGridCache = new Map<string, ElevationGrid>();
+  private static readonly MAX_GRID_CACHE_ENTRIES = 24;
+
+  public static clearLocalGridCache(): void {
+    this.localDemGridCache.clear();
+  }
+
   /**
-   * Fetches a bounded local high-resolution DEM chunk around a specific route coordinate (Stage V7).
+   * Fetches a bounded local high-resolution DEM chunk around a specific route coordinate (Stage V7 & X2).
    * Used for high-fidelity terrain geometry and micro-terrain elevation sampling around 1:1 first-person view.
+   * Scales tile budget to quality profile (prefer Terrarium z15, fallback to z14 if budget exceeded).
    */
   public static async fetchLocalElevationGrid(
     centerLat: number,
     centerLon: number,
-    radiusMeters: number = 750,
-    targetZoom: number = 14,
+    radiusMeters: number = 1250,
+    targetZoom: number = 15,
+    maxTilesOrSignal?: number | AbortSignal,
     signal?: AbortSignal
   ): Promise<ElevationGrid | null> {
     try {
+      let maxTiles = 16;
+      let effectiveSignal = signal;
+      if (typeof maxTilesOrSignal === 'number') {
+        maxTiles = maxTilesOrSignal;
+      } else if (maxTilesOrSignal && typeof maxTilesOrSignal === 'object' && 'aborted' in maxTilesOrSignal) {
+        effectiveSignal = maxTilesOrSignal;
+      }
+
       let zoom = Math.max(12, Math.min(15, targetZoom));
       const nw = localMetersToGeo(-radiusMeters, -radiusMeters, centerLat, centerLon);
       const se = localMetersToGeo(radiusMeters, radiusMeters, centerLat, centerLon);
@@ -124,9 +141,9 @@ export class ElevationTileService {
       let numTilesX = tileXMax - tileXMin + 1;
       let numTilesY = tileYMax - tileYMin + 1;
 
-      // Bound local chunk to at most 9 tiles (3x3 grid)
-      const MAX_LOCAL_TILES = 9;
-      while (numTilesX * numTilesY > MAX_LOCAL_TILES && zoom > 12) {
+      // Bound local chunk to profile budget (prefer Terrarium z15, fallback to z14 if exceeded)
+      const allowedTiles = Math.max(4, maxTiles);
+      while (numTilesX * numTilesY > allowedTiles && zoom > 12) {
         zoom--;
         minTile = latLonToTile(maxLat, minLon, zoom);
         maxTile = latLonToTile(minLat, maxLon, zoom);
@@ -138,7 +155,13 @@ export class ElevationTileService {
         numTilesY = tileYMax - tileYMin + 1;
       }
 
-      return await this.decodeTileGrid(
+      const cacheKey = `${zoom}_${tileXMin}_${tileXMax}_${tileYMin}_${tileYMax}`;
+      const cached = this.localDemGridCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      const grid = await this.decodeTileGrid(
         zoom,
         tileXMin,
         tileXMax,
@@ -147,8 +170,18 @@ export class ElevationTileService {
         0,
         4000,
         undefined,
-        signal
+        effectiveSignal
       );
+
+      if (grid) {
+        if (this.localDemGridCache.size >= this.MAX_GRID_CACHE_ENTRIES) {
+          const firstKey = this.localDemGridCache.keys().next().value;
+          if (firstKey) this.localDemGridCache.delete(firstKey);
+        }
+        this.localDemGridCache.set(cacheKey, grid);
+      }
+
+      return grid;
     } catch (e) {
       console.warn('Failed to fetch local elevation chunk:', e);
       return null;

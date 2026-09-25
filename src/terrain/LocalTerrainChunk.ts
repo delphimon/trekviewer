@@ -27,6 +27,8 @@ export class LocalTerrainChunk {
   public readonly terrainBaseElevation: number;
   public readonly radiusMeters: number;
   public readonly localBounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  public isRealHighRes: boolean = false;
+  public currentGrid: ElevationGrid;
 
   private geometry: THREE.PlaneGeometry;
   private material: THREE.MeshStandardMaterial;
@@ -36,6 +38,8 @@ export class LocalTerrainChunk {
   private isDisposed: boolean = false;
 
   constructor(options: LocalTerrainChunkOptions) {
+    this.currentGrid = options.localGrid;
+    this.isRealHighRes = options.localGrid.zoom >= 14 && options.localGrid.isRealDEM;
     this.centerLat = options.centerLat;
     this.centerLon = options.centerLon;
     this.referenceCenterLat = options.referenceCenterLat ?? this.centerLat;
@@ -176,6 +180,64 @@ export class LocalTerrainChunk {
   }
 
   public outlineMesh?: THREE.LineSegments;
+
+  /**
+   * Dynamically applies an updated high-resolution elevation grid (Stage X2).
+   */
+  public updateElevationGrid(
+    newGrid: ElevationGrid,
+    baseElevationSampler?: (localX: number, localZ: number) => number
+  ): void {
+    if (this.isDisposed) return;
+    this.currentGrid = newGrid;
+    this.isRealHighRes = newGrid.zoom >= 14 && newGrid.isRealDEM;
+
+    const posAttr = this.geometry.attributes.position;
+    const vertexCount = posAttr.count;
+
+    const blendMargin = 0.15;
+    const innerRadius = this.radiusMeters * (1 - blendMargin);
+
+    for (let i = 0; i < vertexCount; i++) {
+      const vx = posAttr.getX(i);
+      const vz = posAttr.getZ(i);
+      const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+
+      const sample = ElevationTileService.sampleElevation(newGrid, geo.lat, geo.lon);
+      let hLocal = 0;
+      if (sample.isValid && !isNaN(sample.elevation)) {
+        hLocal = Math.max(0, sample.elevation - this.terrainBaseElevation);
+      }
+
+      let h = hLocal;
+      if (baseElevationSampler) {
+        const sceneX = this.localCenter.x + vx;
+        const sceneZ = this.localCenter.z + vz;
+        const hBase = baseElevationSampler(sceneX, sceneZ);
+
+        const r = Math.hypot(vx, vz);
+        if (r > innerRadius) {
+          const tLinear = Math.min(1, Math.max(0, (r - innerRadius) / (this.radiusMeters - innerRadius)));
+          const t = tLinear * tLinear * (3 - 2 * tLinear);
+          h = (1 - t) * hLocal + t * hBase;
+        }
+      }
+
+      this.unscaledHeights[i] = h;
+      posAttr.setY(i, h * this.currentExaggeration);
+    }
+
+    posAttr.needsUpdate = true;
+    this.geometry.computeVertexNormals();
+
+    if (this.outlineMesh) {
+      this.mesh.remove(this.outlineMesh);
+      this.outlineMesh.geometry.dispose();
+      (this.outlineMesh.material as THREE.Material)?.dispose();
+      this.outlineMesh = undefined;
+      this.setDebugOutline(true);
+    }
+  }
 
   public setVerticalExaggeration(factor: number): void {
     if (this.isDisposed) return;
