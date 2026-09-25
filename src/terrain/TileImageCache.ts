@@ -1,6 +1,20 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
+export enum TilePriority {
+  CRITICAL = 0, // Missing 4th tile of 3/4 group, visible 1:1 user center, tabletop gaze focus
+  HIGH = 1,     // Route ahead, 2/4 group missing sibling, visible DEM
+  NORMAL = 2,   // Speculative warm tiles, adjacent z18
+  OVERVIEW = 3, // Whole-route background composite tiles
+}
+
+export interface ActiveRequestsByClass {
+  critical: number;
+  high: number;
+  normal: number;
+  overview: number;
+}
+
 export interface FailedTileEntry {
   timestamp: number;
   retryAfterMs: number;
@@ -18,6 +32,9 @@ export interface TileCacheStats {
   cacheHits: number;
   cacheMisses: number;
   hitRate: number;
+  highPriorityQueueLength: number;
+  overviewQueueLength: number;
+  activeRequestsByClass: ActiveRequestsByClass;
 }
 
 export class TileImageCache {
@@ -28,6 +45,15 @@ export class TileImageCache {
   private static failureCount: number = 0;
   private static cacheHits: number = 0;
   private static cacheMisses: number = 0;
+
+  private static activeByPriority: Record<TilePriority, number> = {
+    [TilePriority.CRITICAL]: 0,
+    [TilePriority.HIGH]: 0,
+    [TilePriority.NORMAL]: 0,
+    [TilePriority.OVERVIEW]: 0,
+  };
+  private static overviewWaitingCount: number = 0;
+  private static highPriorityDrainResolvers: (() => void)[] = [];
 
   // Desktop defaults (96MB / 360 tiles in desktop-high)
   private static maxEntries: number = 360;
@@ -84,6 +110,17 @@ export class TileImageCache {
       cacheHits: this.cacheHits,
       cacheMisses: this.cacheMisses,
       hitRate: Math.round(hitRate * 10) / 10,
+      highPriorityQueueLength:
+        this.activeByPriority[TilePriority.CRITICAL] +
+        this.activeByPriority[TilePriority.HIGH],
+      overviewQueueLength:
+        this.overviewWaitingCount + this.activeByPriority[TilePriority.OVERVIEW],
+      activeRequestsByClass: {
+        critical: this.activeByPriority[TilePriority.CRITICAL],
+        high: this.activeByPriority[TilePriority.HIGH],
+        normal: this.activeByPriority[TilePriority.NORMAL],
+        overview: this.activeByPriority[TilePriority.OVERVIEW],
+      },
     };
   }
 
@@ -193,6 +230,53 @@ export class TileImageCache {
     this.failureCount = 0;
     this.cacheHits = 0;
     this.cacheMisses = 0;
+    this.activeByPriority = {
+      [TilePriority.CRITICAL]: 0,
+      [TilePriority.HIGH]: 0,
+      [TilePriority.NORMAL]: 0,
+      [TilePriority.OVERVIEW]: 0,
+    };
+    this.overviewWaitingCount = 0;
+    while (this.highPriorityDrainResolvers.length > 0) {
+      const res = this.highPriorityDrainResolvers.shift();
+      res?.();
+    }
+  }
+
+  public static hasActiveHighPriorityRequests(): boolean {
+    return (
+      this.activeByPriority[TilePriority.CRITICAL] > 0 ||
+      this.activeByPriority[TilePriority.HIGH] > 0
+    );
+  }
+
+  private static waitForHighPriorityDrain(signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      let timer: any = null;
+      const done = () => {
+        if (timer) clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        const idx = this.highPriorityDrainResolvers.indexOf(done);
+        if (idx !== -1) this.highPriorityDrainResolvers.splice(idx, 1);
+        resolve();
+      };
+      const onAbort = () => done();
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.highPriorityDrainResolvers.push(done);
+      timer = setTimeout(done, 250);
+    });
+  }
+
+  private static notifyHighPriorityDrained(): void {
+    if (
+      this.activeByPriority[TilePriority.CRITICAL] === 0 &&
+      this.activeByPriority[TilePriority.HIGH] === 0
+    ) {
+      while (this.highPriorityDrainResolvers.length > 0) {
+        const resolve = this.highPriorityDrainResolvers.shift();
+        resolve?.();
+      }
+    }
   }
 
   public static size(): number {
@@ -212,7 +296,8 @@ export class TileImageCache {
     x: number,
     y: number,
     timeoutMs: number = 4500,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    priority: TilePriority = TilePriority.NORMAL
   ): Promise<HTMLImageElement> {
     const key = this.getTileKey(provider.id, zoom, x, y);
     const cached = this.get(key);
@@ -233,33 +318,57 @@ export class TileImageCache {
       throw new Error('Tile load aborted');
     }
 
+    // Coordinated network prioritization (Stage X7 / Section 11):
+    // Low-priority overview requests yield while high-priority visible LOD requests are in-flight.
+    if (priority === TilePriority.OVERVIEW) {
+      while (this.hasActiveHighPriorityRequests() && !signal?.aborted) {
+        this.overviewWaitingCount++;
+        try {
+          await this.waitForHighPriorityDrain(signal);
+        } finally {
+          this.overviewWaitingCount = Math.max(0, this.overviewWaitingCount - 1);
+        }
+      }
+      if (signal?.aborted) {
+        throw new Error('Tile load aborted');
+      }
+    }
+
     // In-flight request deduplication (Requirement #77 & Section 15)
     let loadPromise = this.inFlight.get(key);
     if (!loadPromise) {
       loadPromise = (async () => {
-        const urls = provider.getTileUrls(zoom, x, y);
-        let lastError: any = null;
+        this.activeByPriority[priority]++;
+        try {
+          const urls = provider.getTileUrls(zoom, x, y);
+          let lastError: any = null;
 
-        for (const url of urls) {
-          try {
-            // Shared network request executes with internal timeout to populate cache
-            const img = await this.loadImageWithTimeout(url, timeoutMs);
-            this.set(key, img);
-            return img;
-          } catch (err) {
-            lastError = err;
+          for (const url of urls) {
+            try {
+              // Shared network request executes with internal timeout to populate cache
+              const img = await this.loadImageWithTimeout(url, timeoutMs);
+              this.set(key, img);
+              return img;
+            } catch (err) {
+              lastError = err;
+            }
+          }
+
+          this.failureCount++;
+          const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
+          const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
+          this.negativeCache.set(key, {
+            timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+            retryAfterMs,
+            reason: errMsg,
+          });
+          throw lastError || new Error(errMsg);
+        } finally {
+          this.activeByPriority[priority] = Math.max(0, this.activeByPriority[priority] - 1);
+          if (priority === TilePriority.CRITICAL || priority === TilePriority.HIGH) {
+            this.notifyHighPriorityDrained();
           }
         }
-
-        this.failureCount++;
-        const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
-        const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
-        this.negativeCache.set(key, {
-          timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now(),
-          retryAfterMs,
-          reason: errMsg,
-        });
-        throw lastError || new Error(errMsg);
       })();
 
       this.inFlight.set(key, loadPromise);

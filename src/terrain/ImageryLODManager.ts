@@ -13,7 +13,7 @@ import {
 } from '../gpx/Coordinates.ts';
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { TextureProvider } from './TextureProvider.ts';
-import { TileImageCache } from './TileImageCache.ts';
+import { TileImageCache, TilePriority } from './TileImageCache.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
@@ -32,6 +32,7 @@ export interface RefinementGroup {
   fourChildKeys: [string, string, string, string];
   readyChildren: Set<string>;
   state: RefinementGroupState;
+  requestStartTime?: number;
 }
 
 export interface ImageryPatch {
@@ -96,6 +97,7 @@ export interface ImageryLODDiagnostics {
   residentWarmCount: number;
   evictionsTotal: number;
   cacheHitRate: number;
+  lastTimeToSharpMs: number;
 }
 
 interface PendingTileRequest {
@@ -106,6 +108,7 @@ interface PendingTileRequest {
   dist: number;
   style: TextureStyle;
   abortController: AbortController;
+  priority?: TilePriority;
 }
 
 interface QueuedTile {
@@ -115,6 +118,7 @@ interface QueuedTile {
   y: number;
   dist: number;
   style: TextureStyle;
+  priority?: TilePriority;
 }
 
 export interface XRViewMetrics {
@@ -820,6 +824,8 @@ export class ImageryLODManager {
 
   // Active user interaction ray (e.g. pointer/laser in tabletop mode, Stage W3)
   private activeInteractionRay: THREE.Ray | null = null;
+  private lastInspectedGeo: { lat: number; lon: number } | null = null;
+  private lastTimeToSharpMs: number = 0;
 
   constructor(options: ImageryLODManagerOptions) {
     this.options = options;
@@ -926,7 +932,16 @@ export class ImageryLODManager {
       residentWarmCount,
       evictionsTotal: this.patchesDisposedTotal,
       cacheHitRate,
+      lastTimeToSharpMs: this.lastTimeToSharpMs,
     };
+  }
+
+  public getInspectedGeo(): { lat: number; lon: number } | null {
+    return this.lastInspectedGeo;
+  }
+
+  public getLastTimeToSharpMs(): number {
+    return this.lastTimeToSharpMs;
   }
 
   public setDebugPatchBounds(enabled: boolean): void {
@@ -952,6 +967,10 @@ export class ImageryLODManager {
     this.viewMode = mode;
     this.maxPatches = mode === 'first-person' ? this.qualityProfile.firstPersonPatches : this.qualityProfile.tabletopPatches;
     this.currentGeneration++;
+
+    if (mode === 'first-person') {
+      this.lastInspectedGeo = null;
+    }
 
     for (const pending of this.pendingRequests.values()) {
       pending.abortController.abort();
@@ -1079,12 +1098,21 @@ export class ImageryLODManager {
     if (group.readyChildren.size === 0) {
       group.state = 'parent';
     } else if (group.readyChildren.size < 4) {
+      if (group.requestStartTime === undefined) {
+        group.requestStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      }
       group.state = 'loading';
     } else {
       const anyFading =
         this.enableFadeIn &&
         group.fourChildKeys.some((cKey) => this.patches.get(cKey)?.isFading);
-      group.state = anyFading ? 'promoting' : 'children';
+      const newState = anyFading ? 'promoting' : 'children';
+      if ((group.state === 'loading' || group.state === 'parent') && group.requestStartTime !== undefined) {
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        this.lastTimeToSharpMs = Math.round(now - group.requestStartTime);
+        group.requestStartTime = undefined;
+      }
+      group.state = newState;
     }
 
     return group;
@@ -1295,14 +1323,15 @@ export class ImageryLODManager {
     x: number,
     y: number,
     style: TextureStyle,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    priority: TilePriority = TilePriority.NORMAL
   ): Promise<HTMLImageElement | HTMLCanvasElement> {
     if (style === 'hybrid') {
       const satProvider = TextureProvider.getActiveSatelliteProvider();
       const labelProvider = TextureProvider.getReferenceOverlayProvider();
 
-      const satPromise = TileImageCache.loadTile(satProvider, zoom, x, y, 4500, signal);
-      const labelPromise = TileImageCache.loadTile(labelProvider, zoom, x, y, 3500, signal).catch(() => null);
+      const satPromise = TileImageCache.loadTile(satProvider, zoom, x, y, 4500, signal, priority);
+      const labelPromise = TileImageCache.loadTile(labelProvider, zoom, x, y, 3500, signal, priority).catch(() => null);
 
       const [satImg, labelImg] = await Promise.all([satPromise, labelPromise]);
 
@@ -1328,7 +1357,7 @@ export class ImageryLODManager {
     }
 
     const provider = TextureProvider.getProviderForStyle(style);
-    return TileImageCache.loadTile(provider, zoom, x, y, 4500, signal);
+    return TileImageCache.loadTile(provider, zoom, x, y, 4500, signal, priority);
   }
 
   private evaluateLOD(
@@ -1408,6 +1437,8 @@ export class ImageryLODManager {
         );
       }
     }
+
+    this.lastInspectedGeo = { lat: targetGeo.lat, lon: targetGeo.lon };
 
     // 2. Compute LOD resolution using viewed-region geometry (Stage V5.2)
     // Distance from active camera to actual viewed terrain hit (or diorama center if missed)
@@ -1695,7 +1726,7 @@ export class ImageryLODManager {
    * Tie-breaker within tier: lowest distance from view center
    */
   private sortRequestQueue(defaultZoom: number = this.currentTargetZoom): void {
-    const computeTilePriority = (q: QueuedTile): number => {
+    const computeTileRank = (q: QueuedTile): number => {
       const parsed = parseTileKey(q.key);
       const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
       if (parentKey) {
@@ -1709,10 +1740,23 @@ export class ImageryLODManager {
       return 4;
     };
 
+    const rankToPriority = (rank: number): TilePriority => {
+      if (rank === 0) return TilePriority.CRITICAL;
+      if (rank <= 3) return TilePriority.HIGH;
+      return TilePriority.NORMAL;
+    };
+
+    const tileRanks = new Map<QueuedTile, number>();
+    for (const q of this.requestQueue) {
+      const rank = computeTileRank(q);
+      q.priority = rankToPriority(rank);
+      tileRanks.set(q, rank);
+    }
+
     this.requestQueue.sort((a, b) => {
-      const pA = computeTilePriority(a);
-      const pB = computeTilePriority(b);
-      if (pA !== pB) return pA - pB;
+      const rA = tileRanks.get(a) ?? 4;
+      const rB = tileRanks.get(b) ?? 4;
+      if (rA !== rB) return rA - rB;
       return a.dist - b.dist;
     });
   }
@@ -1881,7 +1925,14 @@ export class ImageryLODManager {
       this.activeRequestCount++;
 
       const requestStyle = this.currentTextureStyle;
-      ImageryLODManager.loadPatchImage(next.zoom, next.x, next.y, requestStyle, abortController.signal)
+      ImageryLODManager.loadPatchImage(
+        next.zoom,
+        next.x,
+        next.y,
+        requestStyle,
+        abortController.signal,
+        next.priority ?? TilePriority.NORMAL
+      )
         .then((imageSource) => {
           this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
           this.pendingRequests.delete(next.key);
