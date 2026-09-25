@@ -91,8 +91,8 @@ All 44 automated test suites in `test/` pass with zero failures:
 
 ### Verified Test Suites:
 1. `test/stage_u1_direction.test.ts`: Canonical forward convention ($0 = -Z$), hiker arrow heading, 1:1 room alignment, distance-indexed visual stations.
-2. `test/stage_u2_terrain.test.ts`: Unified rendered surface sampling, dual-edge ribbon conform, aspect-aware terrain mesh.
-3. `test/stage_u3_waypoint.test.ts`: Canonical waypoint projection, Camp 3 coincidence ($0.000\text{m}$ delta), ~2.5 cm world marker geometry, fingertip touch/pinch interaction.
+2. `test/stage_u2_surface.test.ts`: Unified rendered surface sampling, dual-edge ribbon conform, aspect-aware terrain mesh.
+3. `test/stage_u3_waypoints.test.ts`: Canonical waypoint projection, Camp 3 coincidence ($0.000\text{m}$ delta), ~2.5 cm world marker geometry, fingertip touch/pinch interaction.
 4. `test/stage_u4_lod.test.ts`: Coherent imagery LOD, dynamic subdivision ($4 \times 4$ to $8 \times 8$), nested ring refinement, atomic parent/child swap, depthWrite safety, promotion dwell time.
 5. `test/stage_u5_provider.test.ts`: Delayed metadata initialization gate, provider failure global fallback without mixed layers, truthful cache keys, UI attribution.
 6. `test/hand_gestures.test.ts`: Bare hand pinch, 6DOF manipulation, tabletop height invariance, 18 cm touch proximity envelope.

@@ -139,13 +139,22 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
   ```bash
   # In .env or build environment:
   VITE_SATELLITE_PROVIDER=auto       # 'auto' (default), 'esri', or 'cesium-bing'
-  VITE_CESIUM_ION_TOKEN=your_token   # Optional: Cesium Ion token for Microsoft Bing Aerial
+  VITE_CESIUM_ION_TOKEN=your_token   # Optional: Cesium Ion public access token for Microsoft Bing Aerial
   ```
   - **`esri`**: Global high-resolution Esri World Imagery (default, no token required).
   - **`cesium-bing`**: Microsoft Bing Maps Aerial via Cesium Ion. Falls back to Esri World Imagery globally if token is missing or network fails.
   - **`auto`**: Uses Bing Aerial if a valid Cesium token is configured, otherwise Esri World Imagery.
 
-For detailed hardware observations and engineering verification results, see the [Stage U Comprehensive Engineering Regression Report](docs/STAGE_U_REGRESSION_REPORT.md).
+#### Cesium Ion Token Scoping & Security Guidelines
+Because TrekViewer is a 100% client-side WebXR static PWA, any token provided via `VITE_CESIUM_ION_TOKEN` is compiled into the client-side JavaScript bundle and transmitted directly to Cesium Ion from the client browser.
+- **Never use secret or administrator tokens**: Generate a dedicated, scoped client token in your [Cesium Ion Tokens Dashboard](https://ion.cesium.com/tokens).
+- **Scope by URL Domain / Origin**: In the Cesium Ion token settings, configure the allowed origins (e.g. `https://trekviewer.surge.sh`, `https://your-custom-domain.com`, `http://localhost:*`).
+- **Restrict Asset Permissions**: Restrict the token's asset permissions strictly to **Asset 2 (Bing Maps Aerial)** and disallow write, asset creation, or geocoding privileges.
+- **Zero-Token Fallback**: If `VITE_CESIUM_ION_TOKEN` is omitted, TrekViewer automatically uses Esri World Imagery with zero degradation, zero error dialogs, and full quadtree LOD streaming.
+
+For detailed hardware acceptance verification, manual testing procedures, and engineering results across all Stage V improvements, see:
+- [Stage V Meta Quest 3 Hardware Acceptance & Interaction Precision Report](docs/STAGE_V_QUEST_ACCEPTANCE.md)
+- [Stage U Comprehensive Engineering Regression Report](docs/STAGE_U_REGRESSION_REPORT.md)
 
 ---
 
