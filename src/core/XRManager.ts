@@ -125,6 +125,7 @@ export class XRManager {
   private spatialHUD: SpatialHUD | null = null;
   private currentViewMode: ViewMode = 'diorama';
   private hapticDistanceAccumulator: number = 0;
+  private activePointerRay: THREE.Ray | null = null;
 
   private callbacks: XRInteractionCallbacks = {};
 
@@ -134,6 +135,10 @@ export class XRManager {
     this.raycaster = new THREE.Raycaster();
     this.setupControllers();
     this.setupHands();
+  }
+
+  public getActivePointerRay(): THREE.Ray | null {
+    return this.activePointerRay ? this.activePointerRay.clone() : null;
   }
 
   public setCallbacks(cb: XRInteractionCallbacks): void {
@@ -488,6 +493,7 @@ export class XRManager {
     if (!session) return;
 
     const dt = clampDeltaSeconds(deltaSeconds);
+    this.activePointerRay = null;
 
     // 0. Update Bare Hand Tracking joint data, bone skeleton, and pinch state
     this.updateHandTracking();
@@ -1381,6 +1387,7 @@ export class XRManager {
           });
           const wpHits = this.raycaster.intersectObjects(hitMeshes, false);
           if (wpHits.length > 0) {
+            this.activePointerRay = new THREE.Ray(_scratchRayOrigin.clone(), _scratchRayDir.clone());
             const hitWp = wpHits[0];
             let curr: THREE.Object3D | null = hitWp.object;
             while (curr && (!curr.userData || !curr.userData.waypoint)) {
@@ -1436,6 +1443,7 @@ export class XRManager {
       }
 
       if (tableHit) {
+        this.activePointerRay = new THREE.Ray(_scratchRayOrigin.clone(), _scratchRayDir.clone());
         const dist = _scratchRayOrigin.distanceTo(tableHit);
         state.rayLine.geometry.setFromPoints([
           new THREE.Vector3(0, 0, 0),
@@ -1458,6 +1466,7 @@ export class XRManager {
     }
 
     // 5. Physical Controller: Default empty space ray
+    this.activePointerRay = new THREE.Ray(_scratchRayOrigin.clone(), _scratchRayDir.clone());
     state.rayLine.geometry.setFromPoints([
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(0, 0, -2.5),

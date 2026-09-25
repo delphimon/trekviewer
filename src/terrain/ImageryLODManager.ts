@@ -227,7 +227,8 @@ export function computeCoherentLODTiles(
   targetZoom: number,
   maxPatches: number,
   bounds: GeoBounds,
-  secondaryCenterGeo?: { lat: number; lon: number }
+  secondaryCenterGeo?: { lat: number; lon: number },
+  gazeVector?: { dx: number; dy: number }
 ): CoherentTileCandidate[] {
   if (targetZoom <= 13) {
     const centerTile = latLonToTile(centerLat, centerLon, targetZoom);
@@ -263,8 +264,30 @@ export function computeCoherentLODTiles(
   const centerParentX = Math.floor(centerTile.x / 2);
   const centerParentY = Math.floor(centerTile.y / 2);
 
-  // Helper to generate a candidate ring set for complete parent quadtree units (Stage V4.1)
-  function tryParentConfiguration(parentRadius: number): CoherentTileCandidate[] | null {
+  // Quadrant or gaze-directed step to find the primary 2x2 parent quadtree block (Stage W3)
+  let stepX = centerTile.x % 2 === 0 ? -1 : 1;
+  let stepY = centerTile.y % 2 === 0 ? -1 : 1;
+  if (gazeVector) {
+    if (Math.abs(gazeVector.dx) > 0.05) {
+      stepX = gazeVector.dx > 0 ? 1 : -1;
+    }
+    if (Math.abs(gazeVector.dy) > 0.05) {
+      stepY = gazeVector.dy > 0 ? 1 : -1;
+    }
+  }
+
+  const minPx2x2 = Math.min(centerParentX, centerParentX + stepX);
+  const maxPx2x2 = Math.max(centerParentX, centerParentX + stepX);
+  const minPy2x2 = Math.min(centerParentY, centerParentY + stepY);
+  const maxPy2x2 = Math.max(centerParentY, centerParentY + stepY);
+
+  // Helper to generate candidate tiles for an explicit rectangular parent bounding box
+  function tryParentBounds(
+    minPx: number,
+    maxPx: number,
+    minPy: number,
+    maxPy: number
+  ): CoherentTileCandidate[] | null {
     const parentSet = new Set<string>();
     const parentList: { px: number; py: number }[] = [];
 
@@ -276,28 +299,9 @@ export function computeCoherentLODTiles(
       }
     };
 
-    if (parentRadius === 0) {
-      // 1 parent tile: 4 children at zHigh (2x2 complete child unit)
-      addParent(centerParentX, centerParentY);
-    } else if (parentRadius === 0.5) {
-      // 2x2 parent tiles (4 parents) -> 16 children at zHigh
-      const subX = centerTile.x % 2 === 0 ? -1 : 1;
-      const subY = centerTile.y % 2 === 0 ? -1 : 1;
-      const minPx = Math.min(centerParentX, centerParentX + subX);
-      const maxPx = Math.max(centerParentX, centerParentX + subX);
-      const minPy = Math.min(centerParentY, centerParentY + subY);
-      const maxPy = Math.max(centerParentY, centerParentY + subY);
-      for (let py = minPy; py <= maxPy; py++) {
-        for (let px = minPx; px <= maxPx; px++) {
-          addParent(px, py);
-        }
-      }
-    } else {
-      const r = Math.round(parentRadius);
-      for (let dpy = -r; dpy <= r; dpy++) {
-        for (let dpx = -r; dpx <= r; dpx++) {
-          addParent(centerParentX + dpx, centerParentY + dpy);
-        }
+    for (let py = minPy; py <= maxPy; py++) {
+      for (let px = minPx; px <= maxPx; px++) {
+        addParent(px, py);
       }
     }
 
@@ -308,7 +312,7 @@ export function computeCoherentLODTiles(
       addParent(secParentX, secParentY);
     }
 
-    // High-resolution tiles: all 4 children per parent (Stage V4.1)
+    // High-resolution tiles: all 4 children per parent (Stage V4.1, Stage W3)
     const highTiles: CoherentTileCandidate[] = [];
     let pMinX = Infinity;
     let pMaxX = -Infinity;
@@ -363,14 +367,58 @@ export function computeCoherentLODTiles(
     return null;
   }
 
-  // 1. Try 2x2 parents (16 children at zHigh) if budget allows (e.g. maxPatches >= 28)
+  // 1. Try desktop extended footprint along gaze if budget allows (e.g. maxPatches >= 66)
+  if (maxPatches >= 66 && gazeVector && (Math.abs(gazeVector.dx) > 0.1 || Math.abs(gazeVector.dy) > 0.1)) {
+    let dMinPx = minPx2x2;
+    let dMaxPx = maxPx2x2;
+    let dMinPy = minPy2x2;
+    let dMaxPy = maxPy2x2;
+    if (Math.abs(gazeVector.dx) >= Math.abs(gazeVector.dy)) {
+      dMinPx = Math.min(minPx2x2, centerParentX + 2 * stepX);
+      dMaxPx = Math.max(maxPx2x2, centerParentX + 2 * stepX);
+      dMinPy = centerParentY - 1;
+      dMaxPy = centerParentY + 1;
+    } else {
+      dMinPx = centerParentX - 1;
+      dMaxPx = centerParentX + 1;
+      dMinPy = Math.min(minPy2x2, centerParentY + 2 * stepY);
+      dMaxPy = Math.max(maxPy2x2, centerParentY + 2 * stepY);
+    }
+    const configDesktop = tryParentBounds(dMinPx, dMaxPx, dMinPy, dMaxPy);
+    if (configDesktop) return configDesktop;
+  }
+
+  // 2. Try 3x3 desktop footprint if budget allows (maxPatches >= 52)
+  if (maxPatches >= 52) {
+    const config3x3 = tryParentBounds(centerParentX - 1, centerParentX + 1, centerParentY - 1, centerParentY + 1);
+    if (config3x3) return config3x3;
+  }
+
+  // 3. Try gaze-extended 3x2 / 2x3 parent configuration (24 children + 14 ring = 38 patches) if budget allows (maxPatches >= 38)
+  if (maxPatches >= 38 && gazeVector && (Math.abs(gazeVector.dx) > 0.1 || Math.abs(gazeVector.dy) > 0.1)) {
+    let gMinPx = minPx2x2;
+    let gMaxPx = maxPx2x2;
+    let gMinPy = minPy2x2;
+    let gMaxPy = maxPy2x2;
+    if (Math.abs(gazeVector.dx) >= Math.abs(gazeVector.dy)) {
+      gMinPx = Math.min(minPx2x2, centerParentX + 2 * stepX);
+      gMaxPx = Math.max(maxPx2x2, centerParentX + 2 * stepX);
+    } else {
+      gMinPy = Math.min(minPy2x2, centerParentY + 2 * stepY);
+      gMaxPy = Math.max(maxPy2x2, centerParentY + 2 * stepY);
+    }
+    const configGaze = tryParentBounds(gMinPx, gMaxPx, gMinPy, gMaxPy);
+    if (configGaze) return configGaze;
+  }
+
+  // 4. Try standard 2x2 parents (4 parents = 16 children at zHigh + 12 perimeter ring = 28-32 patches) if budget allows (maxPatches >= 28)
   if (maxPatches >= 28) {
-    const config2x2 = tryParentConfiguration(0.5);
+    const config2x2 = tryParentBounds(minPx2x2, maxPx2x2, minPy2x2, maxPy2x2);
     if (config2x2) return config2x2;
   }
 
-  // 2. Try 1 parent (4 children at zHigh) + 8 surrounding zMid ring (total ~12 tiles)
-  const config1 = tryParentConfiguration(0);
+  // 5. Try 1 parent (4 children at zHigh + 8 surrounding zMid ring = 12 patches)
+  const config1 = tryParentBounds(centerParentX, centerParentX, centerParentY, centerParentY);
   if (config1) return config1;
 
   // 3. If even 2x2 exceeds budget, lower entire region coherently to zMid (Section 38)
@@ -705,6 +753,9 @@ export class ImageryLODManager {
   private patchesCreatedTotal: number = 0;
   private patchesDisposedTotal: number = 0;
 
+  // Active user interaction ray (e.g. pointer/laser in tabletop mode, Stage W3)
+  private activeInteractionRay: THREE.Ray | null = null;
+
   constructor(options: ImageryLODManagerOptions) {
     this.options = options;
     this.qualityProfile = options.qualityProfile || QualityProfileManager.getDefaultProfile(false);
@@ -875,6 +926,14 @@ export class ImageryLODManager {
 
     // Clear all existing patch meshes so old style never floats over new style
     this.clearAllPatches();
+  }
+
+  public setActiveInteractionRay(ray: THREE.Ray | null): void {
+    this.activeInteractionRay = ray ? ray.clone() : null;
+  }
+
+  public getActiveInteractionRay(): THREE.Ray | null {
+    return this.activeInteractionRay ? this.activeInteractionRay.clone() : null;
   }
 
   /**
@@ -1104,8 +1163,10 @@ export class ImageryLODManager {
     dioramaRoot.getWorldQuaternion(dioramaWorldQuat);
     const dioramaScale = dioramaRoot.scale.x;
 
-    // 1. Raycast actual rendered terrain surface from the active XR camera view (Stage V5.1)
-    const raycaster = new THREE.Raycaster(metrics.worldPosition, metrics.forward);
+    // 1. Raycast actual rendered terrain surface from active interaction ray or XR camera gaze (Stage V5.1, W3)
+    const rayOrigin = this.activeInteractionRay ? this.activeInteractionRay.origin : metrics.worldPosition;
+    const rayDir = this.activeInteractionRay ? this.activeInteractionRay.direction : metrics.forward;
+    const raycaster = new THREE.Raycaster(rayOrigin, rayDir);
     let hitWorldPos: THREE.Vector3 | null = null;
 
     let terrainMesh = this.options.terrainMesh;
@@ -1220,13 +1281,27 @@ export class ImageryLODManager {
 
     const effectiveTargetZoom = this.currentTargetZoom;
 
-    // Coherent refinement rings (Sections 38, 39, 62)
+    // Extract horizontal gaze / interaction orientation in diorama local space (Stage W3)
+    const invQuat = dioramaWorldQuat.clone().invert();
+    const localGazeDir = rayDir.clone().applyQuaternion(invQuat);
+    const gazeHorizLen = Math.hypot(localGazeDir.x, localGazeDir.z);
+    let gazeTileVector: { dx: number; dy: number } | undefined = undefined;
+    if (gazeHorizLen > 0.05) {
+      gazeTileVector = {
+        dx: localGazeDir.x / gazeHorizLen,
+        dy: localGazeDir.z / gazeHorizLen,
+      };
+    }
+
+    // Coherent refinement rings (Sections 38, 39, 62, Stage W3)
     const candidates = computeCoherentLODTiles(
       targetGeo.lat,
       targetGeo.lon,
       effectiveTargetZoom,
       this.maxPatches,
-      this.options.terrainGeoBounds
+      this.options.terrainGeoBounds,
+      undefined,
+      gazeTileVector
     );
 
     // Reconcile desired tiles with in-flight and visible patches (Section 14, 30, 40)
