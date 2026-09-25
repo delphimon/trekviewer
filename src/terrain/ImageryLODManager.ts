@@ -464,7 +464,10 @@ export function computeFirstPersonCoherentLODTiles(
   forwardLon: number,
   innerZoom: number,
   maxPatches: number,
-  bounds: GeoBounds
+  bounds: GeoBounds,
+  behindLat?: number,
+  behindLon?: number,
+  corridorPoints?: { lat: number; lon: number }[]
 ): CoherentTileCandidate[] {
   const zHigh = innerZoom;
   const zMid = Math.max(13, zHigh - 1);
@@ -510,13 +513,6 @@ export function computeFirstPersonCoherentLODTiles(
   const maxPx = Math.max(hikerPx, hikerPx + subX);
   const minPy = Math.min(hikerPy, hikerPy + subY);
   const maxPy = Math.max(hikerPy, hikerPy + subY);
-
-  const hiker2x2Parents: { px: number; py: number }[] = [];
-  for (let py = minPy; py <= maxPy; py++) {
-    for (let px = minPx; px <= maxPx; px++) {
-      hiker2x2Parents.push({ px, py });
-    }
-  }
 
   function evaluateParentSet(parents: { px: number; py: number }[]): CoherentTileCandidate[] | null {
     const parentSet = new Set<string>();
@@ -587,12 +583,7 @@ export function computeFirstPersonCoherentLODTiles(
     return null;
   }
 
-  // 1. Build prioritized candidate parents list along route and gaze:
-  // Hiker parent is #1
-  // Forward prefetch parent is #2
-  // Intermediate parents between hiker and forward are #3
-  // 2x2 cluster around hiker is #4
-  // 2x2 cluster around forward is #5
+  // Build prioritized candidate parents list along route and gaze:
   const priorityParents: { px: number; py: number }[] = [];
   const visited = new Set<string>();
 
@@ -604,25 +595,78 @@ export function computeFirstPersonCoherentLODTiles(
     }
   };
 
+  // 1. Immediate hiker parent (#1 priority)
   addPriority(hikerPx, hikerPy);
-  addPriority(fwdPx, fwdPy);
 
-  // Intermediate parents along line from hiker to forward prefetch
-  const steps = Math.max(Math.abs(fwdPx - hikerPx), Math.abs(fwdPy - hikerPy));
-  for (let s = 1; s < steps; s++) {
-    const ipx = Math.round(hikerPx + (s / steps) * (fwdPx - hikerPx));
-    const ipy = Math.round(hikerPy + (s / steps) * (fwdPy - hikerPy));
-    addPriority(ipx, ipy);
+  // 2. Trail corridor parents connecting contiguously from hiker outward
+  if (corridorPoints && corridorPoints.length > 0) {
+    let closestHikerIdx = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < corridorPoints.length; i++) {
+      const d = Math.hypot(corridorPoints[i].lat - hikerLat, corridorPoints[i].lon - hikerLon);
+      if (d < minDist) {
+        minDist = d;
+        closestHikerIdx = i;
+      }
+    }
+
+    // Forward corridor points from hiker toward forward horizon
+    for (let i = closestHikerIdx + 1; i < corridorPoints.length; i++) {
+      const pt = corridorPoints[i];
+      const t = latLonToTile(pt.lat, pt.lon, zHigh);
+      addPriority(Math.floor(t.x / 2), Math.floor(t.y / 2));
+    }
+
+    // Behind corridor points from hiker backward
+    for (let i = closestHikerIdx - 1; i >= 0; i--) {
+      const pt = corridorPoints[i];
+      const t = latLonToTile(pt.lat, pt.lon, zHigh);
+      addPriority(Math.floor(t.x / 2), Math.floor(t.y / 2));
+    }
+  } else {
+    // Intermediate parents along line from hiker to forward prefetch
+    const steps = Math.max(Math.abs(fwdPx - hikerPx), Math.abs(fwdPy - hikerPy));
+    for (let s = 1; s <= steps; s++) {
+      const ipx = Math.round(hikerPx + (s / Math.max(1, steps)) * (fwdPx - hikerPx));
+      const ipy = Math.round(hikerPy + (s / Math.max(1, steps)) * (fwdPy - hikerPy));
+      addPriority(ipx, ipy);
+    }
+    addPriority(fwdPx, fwdPy);
+
+    // Intermediate parents along line behind hiker if behind point given
+    if (behindLat !== undefined && behindLon !== undefined) {
+      const bTile = latLonToTile(behindLat, behindLon, zHigh);
+      const bPx = Math.floor(bTile.x / 2);
+      const bPy = Math.floor(bTile.y / 2);
+      const stepsBehind = Math.max(Math.abs(bPx - hikerPx), Math.abs(bPy - hikerPy));
+      for (let s = 1; s <= stepsBehind; s++) {
+        const ipx = Math.round(hikerPx + (s / Math.max(1, stepsBehind)) * (bPx - hikerPx));
+        const ipy = Math.round(hikerPy + (s / Math.max(1, stepsBehind)) * (bPy - hikerPy));
+        addPriority(ipx, ipy);
+      }
+      addPriority(bPx, bPy);
+    }
   }
 
-  // 2x2 cluster around hiker
+  // 3. 2x2 cluster around hiker (ensures full 360° feet coverage)
   for (let py = minPy; py <= maxPy; py++) {
     for (let px = minPx; px <= maxPx; px++) {
       addPriority(px, py);
     }
   }
 
-  // 2x2 cluster around forward prefetch
+  // 4. Lateral wings: widen corridor around trail parents when budget permits (maxPatches >= 48)
+  if (maxPatches >= 48) {
+    const mainTrailParents = [...priorityParents];
+    for (const p of mainTrailParents) {
+      addPriority(p.px + 1, p.py);
+      addPriority(p.px - 1, p.py);
+      addPriority(p.px, p.py + 1);
+      addPriority(p.px, p.py - 1);
+    }
+  }
+
+  // 5. 2x2 cluster around forward prefetch
   const fsubX = fwdTile.x % 2 === 0 ? -1 : 1;
   const fsubY = fwdTile.y % 2 === 0 ? -1 : 1;
   for (let py = Math.min(fwdPy, fwdPy + fsubY); py <= Math.max(fwdPy, fwdPy + fsubY); py++) {
@@ -1012,7 +1056,7 @@ export class ImageryLODManager {
           ? Infinity
           : Math.abs(this.currentProgress - this.lastEvalProgress) * totalDist;
 
-      if (!isFirstRun && progressDistMoved < 50 && dirAngle < 0.25) {
+      if (!isFirstRun && progressDistMoved < this.firstPersonEvalDistM && dirAngle < 0.15) {
         return;
       }
 
@@ -1328,18 +1372,44 @@ export class ImageryLODManager {
     let hikerLon = this.options.terrainGeoBounds.centerLon;
     let forwardLat = hikerLat;
     let forwardLon = hikerLon;
+    let behindLat: number | undefined = undefined;
+    let behindLon: number | undefined = undefined;
+    let corridorPoints: { lat: number; lon: number }[] | undefined = undefined;
 
     if (this.routeGeometry) {
       const currentTelemetry = this.routeGeometry.getTelemetryAtProgress(this.currentProgress);
       hikerLat = currentTelemetry.currentPoint.lat;
       hikerLon = currentTelemetry.currentPoint.lon;
 
-      // Directional forward prefetch along trail: ~250m ahead (Section 12)
+      // Extended directional prefetch ahead and retention behind (Stage W4)
       const currentDist = currentTelemetry.currentPoint.distanceFromStart;
-      const forwardDist = Math.min(this.routeGeometry.totalDistance, currentDist + 250);
+      const forwardDist = Math.min(
+        this.routeGeometry.totalDistance,
+        currentDist + this.firstPersonPrefetchAheadM
+      );
+      const behindDist = Math.max(
+        0,
+        currentDist - this.firstPersonRetainBehindM
+      );
+
       const forwardTelemetry = this.routeGeometry.getTelemetryAtDistance(forwardDist);
       forwardLat = forwardTelemetry.currentPoint.lat;
       forwardLon = forwardTelemetry.currentPoint.lon;
+
+      const behindTelemetry = this.routeGeometry.getTelemetryAtDistance(behindDist);
+      behindLat = behindTelemetry.currentPoint.lat;
+      behindLon = behindTelemetry.currentPoint.lon;
+
+      // Latitude-aware parent tile sizing along the trail (Stage W4)
+      const parentTileWidthMeters = metersPerPixelAtZoom(hikerLat, innerZoom - 1) * 256;
+      const sampleStepM = Math.max(25, parentTileWidthMeters * 0.4);
+
+      corridorPoints = [];
+      for (let d = behindDist; d <= forwardDist; d += sampleStepM) {
+        const pt = this.routeGeometry.getTelemetryAtDistance(d).currentPoint;
+        corridorPoints.push({ lat: pt.lat, lon: pt.lon });
+      }
+      corridorPoints.push({ lat: forwardLat, lon: forwardLon });
     } else {
       const metrics = getViewMetrics(camera, renderer);
       const ray = new THREE.Ray(metrics.worldPosition, metrics.forward);
@@ -1356,12 +1426,22 @@ export class ImageryLODManager {
         );
         hikerLat = geo.lat;
         hikerLon = geo.lon;
-        forwardLat = geo.lat;
-        forwardLon = geo.lon;
+        const forwardMeters = localHit.clone().addScaledVector(
+          metrics.forward.clone().setY(0).normalize(),
+          this.firstPersonPrefetchAheadM
+        );
+        const fwdGeo = localMetersToGeo(
+          forwardMeters.x,
+          forwardMeters.z,
+          this.options.terrainGeoBounds.centerLat,
+          this.options.terrainGeoBounds.centerLon
+        );
+        forwardLat = fwdGeo.lat;
+        forwardLon = fwdGeo.lon;
       }
     }
 
-    // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6)
+    // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6, Stage W4)
     const candidates = computeFirstPersonCoherentLODTiles(
       hikerLat,
       hikerLon,
@@ -1369,7 +1449,10 @@ export class ImageryLODManager {
       forwardLon,
       innerZoom,
       this.maxPatches,
-      this.options.terrainGeoBounds
+      this.options.terrainGeoBounds,
+      behindLat,
+      behindLon,
+      corridorPoints
     );
 
     this.reconcileDesiredTiles(candidates, provider, innerZoom);
@@ -1813,32 +1896,60 @@ export class ImageryLODManager {
 
   private prunePatches(activeKeys: Set<string>): void {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const RETENTION_MS = 6000; // Keep inactive patches for 6s before disposing
+    const retentionMs = this.warmRetentionMs;
+
+    const isProtectedFirstPersonPatch = (patch: ImageryPatch): boolean => {
+      if (this.viewMode !== 'first-person' || !this.routeGeometry) return false;
+      const b = tileBounds(patch.x, patch.y, patch.zoom);
+      const patchLat = (b.minLat + b.maxLat) / 2;
+      const patchLon = (b.minLon + b.maxLon) / 2;
+      const hikerTele = this.routeGeometry.getTelemetryAtProgress(this.currentProgress);
+      const hikerPt = hikerTele.currentPoint;
+      const latDiff = (patchLat - hikerPt.lat) * 111320;
+      const lonDiff = (patchLon - hikerPt.lon) * 111320 * Math.cos((hikerPt.lat * Math.PI) / 180);
+      const distToHiker = Math.hypot(latDiff, lonDiff);
+      // Protect tiles within retention corridor (Stage W4)
+      return distToHiker <= Math.max(this.firstPersonRetainBehindM, this.firstPersonPrefetchAheadM);
+    };
 
     // Dispose patches that have expired and are no longer desired
     for (const [key, patch] of this.patches.entries()) {
       if (this.hasPendingChildren(key)) continue;
 
-      if (!activeKeys.has(key) && now - patch.lastUsed > RETENTION_MS) {
-        patch.dispose();
-        this.patches.delete(key);
-        this.patchesDisposedTotal++;
+      if (!activeKeys.has(key)) {
+        if (isProtectedFirstPersonPatch(patch)) continue;
+        if (now - patch.lastUsed > retentionMs) {
+          patch.dispose();
+          this.patches.delete(key);
+          this.patchesDisposedTotal++;
+        }
       }
     }
 
-    // If still exceeding budget, evict furthest inactive patches first
+    // If still exceeding budget, evict furthest inactive patches first (non-protected preferred)
     while (this.patches.size > this.maxPatches) {
       let candidateKey: string | null = null;
       let maxDist = -1;
 
+      // Pass 1: Inactive, not pending children, not protected
       for (const [key, patch] of this.patches.entries()) {
-        if (!activeKeys.has(key) && !this.hasPendingChildren(key) && patch.centerDist > maxDist) {
+        if (!activeKeys.has(key) && !this.hasPendingChildren(key) && !isProtectedFirstPersonPatch(patch) && patch.centerDist > maxDist) {
           maxDist = patch.centerDist;
           candidateKey = key;
         }
       }
 
-      // If all are currently active, evict furthest active patch
+      // Pass 2: Inactive, not pending children (even if protected)
+      if (!candidateKey) {
+        for (const [key, patch] of this.patches.entries()) {
+          if (!activeKeys.has(key) && !this.hasPendingChildren(key) && patch.centerDist > maxDist) {
+            maxDist = patch.centerDist;
+            candidateKey = key;
+          }
+        }
+      }
+
+      // Pass 3: If all are active, evict furthest active patch
       if (!candidateKey) {
         for (const [key, patch] of this.patches.entries()) {
           if (!this.hasPendingChildren(key) && patch.centerDist > maxDist) {
