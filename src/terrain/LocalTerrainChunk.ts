@@ -11,12 +11,19 @@ export interface LocalTerrainChunkOptions {
   radiusMeters?: number;
   segments?: number;
   initialExaggeration?: number;
+  referenceCenterLat?: number;
+  referenceCenterLon?: number;
+  baseElevationSampler?: (localX: number, localZ: number) => number;
+  blendMarginRatio?: number;
 }
 
 export class LocalTerrainChunk {
   public readonly mesh: THREE.Mesh;
   public readonly centerLat: number;
   public readonly centerLon: number;
+  public readonly referenceCenterLat: number;
+  public readonly referenceCenterLon: number;
+  public readonly localCenter: { x: number; z: number };
   public readonly terrainBaseElevation: number;
   public readonly radiusMeters: number;
   public readonly localBounds: { minX: number; maxX: number; minZ: number; maxZ: number };
@@ -31,18 +38,32 @@ export class LocalTerrainChunk {
   constructor(options: LocalTerrainChunkOptions) {
     this.centerLat = options.centerLat;
     this.centerLon = options.centerLon;
+    this.referenceCenterLat = options.referenceCenterLat ?? this.centerLat;
+    this.referenceCenterLon = options.referenceCenterLon ?? this.centerLon;
     this.terrainBaseElevation = options.terrainBaseElevation;
-    this.radiusMeters = options.radiusMeters ?? 750;
+    // Stage W6: Expanded default radius to 1250m (Quest 1000-1500m)
+    this.radiusMeters = options.radiusMeters ?? 1250;
     this.segments = options.segments ?? 64;
     this.currentExaggeration = options.initialExaggeration ?? 1.0;
+
+    // Offset in local diorama meters from reference terrain origin
+    const centerMeters = geoToLocalMeters(
+      this.centerLat,
+      this.centerLon,
+      0,
+      this.referenceCenterLat,
+      this.referenceCenterLon,
+      0
+    );
+    this.localCenter = { x: centerMeters.x, z: centerMeters.z };
 
     const widthM = this.radiusMeters * 2;
     const depthM = this.radiusMeters * 2;
     this.localBounds = {
-      minX: -this.radiusMeters,
-      maxX: this.radiusMeters,
-      minZ: -this.radiusMeters,
-      maxZ: this.radiusMeters,
+      minX: this.localCenter.x - this.radiusMeters,
+      maxX: this.localCenter.x + this.radiusMeters,
+      minZ: this.localCenter.z - this.radiusMeters,
+      maxZ: this.localCenter.z + this.radiusMeters,
     };
 
     this.geometry = new THREE.PlaneGeometry(widthM, depthM, this.segments, this.segments);
@@ -52,16 +73,35 @@ export class LocalTerrainChunk {
     const vertexCount = posAttr.count;
     this.unscaledHeights = new Float32Array(vertexCount);
 
+    const blendMargin = options.blendMarginRatio ?? 0.15;
+    const innerRadius = this.radiusMeters * (1 - blendMargin);
+
     for (let i = 0; i < vertexCount; i++) {
       const vx = posAttr.getX(i);
       const vz = posAttr.getZ(i);
       const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
 
       const sample = ElevationTileService.sampleElevation(options.localGrid, geo.lat, geo.lon);
-      let h = 0;
+      let hLocal = 0;
       if (sample.isValid && !isNaN(sample.elevation)) {
-        h = Math.max(0, sample.elevation - this.terrainBaseElevation);
+        hLocal = Math.max(0, sample.elevation - this.terrainBaseElevation);
       }
+
+      let h = hLocal;
+      if (options.baseElevationSampler) {
+        const sceneX = this.localCenter.x + vx;
+        const sceneZ = this.localCenter.z + vz;
+        const hBase = options.baseElevationSampler(sceneX, sceneZ);
+
+        const r = Math.hypot(vx, vz);
+        if (r > innerRadius) {
+          const tLinear = Math.min(1, Math.max(0, (r - innerRadius) / (this.radiusMeters - innerRadius)));
+          // Hermite smoothstep for seamless C1 boundary continuity
+          const t = tLinear * tLinear * (3 - 2 * tLinear);
+          h = (1 - t) * hLocal + t * hBase;
+        }
+      }
+
       this.unscaledHeights[i] = h;
       posAttr.setY(i, h * this.currentExaggeration);
     }
@@ -81,6 +121,7 @@ export class LocalTerrainChunk {
 
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.name = 'LocalHighResTerrainMesh';
+    this.mesh.position.set(this.localCenter.x, 0, this.localCenter.z);
     this.mesh.receiveShadow = true;
   }
 
@@ -103,8 +144,11 @@ export class LocalTerrainChunk {
     const widthM = this.radiusMeters * 2;
     const depthM = this.radiusMeters * 2;
 
-    const gx = ((localX + this.radiusMeters) / widthM) * this.segments;
-    const gz = ((localZ + this.radiusMeters) / depthM) * this.segments;
+    const relX = localX - this.localCenter.x;
+    const relZ = localZ - this.localCenter.z;
+
+    const gx = ((relX + this.radiusMeters) / widthM) * this.segments;
+    const gz = ((relZ + this.radiusMeters) / depthM) * this.segments;
 
     const ix = Math.min(this.segments - 1, Math.max(0, Math.floor(gx)));
     const iz = Math.min(this.segments - 1, Math.max(0, Math.floor(gz)));

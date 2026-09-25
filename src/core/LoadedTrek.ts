@@ -5,6 +5,7 @@ import type { TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
+import { LocalTerrainStreamer } from '../terrain/LocalTerrainStreamer.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import type { QualityProfile } from '../terrain/QualityProfile.ts';
 
@@ -28,6 +29,7 @@ export class LoadedTrek {
   public readonly dioramaBase: THREE.Group;
   public readonly flyoverController: FlyoverController;
   public readonly imageryLOD: ImageryLODManager;
+  public readonly localTerrainStreamer?: LocalTerrainStreamer;
   public readonly group: THREE.Group;
   private _isDisposed: boolean = false;
 
@@ -53,6 +55,15 @@ export class LoadedTrek {
         terrainMesh: params.terrainResult.terrainMesh,
       });
 
+    if (this.terrainResult.demGrid && this.trailResult.routeGeometry) {
+      this.localTerrainStreamer = new LocalTerrainStreamer({
+        terrainResult: this.terrainResult,
+        routeGeometry: this.trailResult.routeGeometry,
+        demGrid: this.terrainResult.demGrid,
+      });
+      this.localTerrainStreamer.update(0);
+    }
+
     this.group = new THREE.Group();
     this.group.name = `LoadedTrek_${params.track.name || 'unnamed'}`;
 
@@ -70,6 +81,7 @@ export class LoadedTrek {
   public setVerticalExaggeration(factor: number): void {
     if (this._isDisposed) return;
     this.terrainResult.setVerticalExaggeration(factor);
+    this.localTerrainStreamer?.setVerticalExaggeration(factor);
     this.imageryLOD.setVerticalExaggeration(factor);
     this.trailResult.setVerticalExaggeration(factor);
     DioramaBase.setVerticalExaggeration(this.dioramaBase, factor);
@@ -110,6 +122,11 @@ export class LoadedTrek {
     DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta);
   }
 
+  public updateHikerProgress(progress: number): void {
+    if (this._isDisposed) return;
+    this.localTerrainStreamer?.update(progress);
+  }
+
   public dispose(): void {
     if (this._isDisposed) return;
     this._isDisposed = true;
@@ -125,10 +142,13 @@ export class LoadedTrek {
     // 3. Release trail mesh, ribbons, markers
     this.trailResult.dispose();
 
-    // 4. Release terrain mesh, DEM tiles, and textures
+    // 4. Release local terrain streamer and chunks
+    this.localTerrainStreamer?.dispose();
+
+    // 5. Release terrain mesh, DEM tiles, and textures
     this.terrainResult.dispose();
 
-    // 5. Release imagery LOD patches and abort in-flight requests
+    // 6. Release imagery LOD patches and abort in-flight requests
     this.imageryLOD.dispose();
 
     // 6. Release diorama plinth and waypoint markers
