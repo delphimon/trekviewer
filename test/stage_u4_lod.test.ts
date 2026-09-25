@@ -11,6 +11,7 @@ import {
   parseTileKey,
 } from '../src/terrain/ImageryLODManager.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
+import { QUALITY_PROFILES } from '../src/terrain/QualityProfile.ts';
 import type { GeoBounds } from '../src/gpx/TrackTypes.ts';
 
 describe('Stage U4: Coherent Imagery LOD Suite', () => {
@@ -437,6 +438,11 @@ describe('Stage U4: Coherent Imagery LOD Suite', () => {
         terrainBaseElevation: 1000,
         elevationSampler: () => 2000,
         enableInXR: true,
+        qualityProfile: {
+          ...QUALITY_PROFILES['desktop-high'],
+          promotionDwellMs: 500,
+          evalIntervalMs: 100,
+        },
       });
 
       const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);

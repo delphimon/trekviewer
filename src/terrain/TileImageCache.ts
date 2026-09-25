@@ -1,4 +1,5 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
+import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
 export interface TileCacheStats {
   entries: number;
@@ -7,6 +8,9 @@ export interface TileCacheStats {
   maxDecodedBytes: number;
   inFlight: number;
   failureCount: number;
+  cacheHits: number;
+  cacheMisses: number;
+  hitRate: number;
 }
 
 export class TileImageCache {
@@ -14,23 +18,26 @@ export class TileImageCache {
   private static entryBytes: Map<string, number> = new Map();
   private static inFlight: Map<string, Promise<HTMLImageElement>> = new Map();
   private static failureCount: number = 0;
+  private static cacheHits: number = 0;
+  private static cacheMisses: number = 0;
 
-  // Desktop defaults (80MB / 300 tiles)
-  private static maxEntries: number = 300;
-  private static maxDecodedBytes: number = 80 * 1024 * 1024; // 83,886,080 bytes
+  // Desktop defaults (96MB / 360 tiles in desktop-high)
+  private static maxEntries: number = 360;
+  private static maxDecodedBytes: number = 96 * 1024 * 1024;
   private static totalDecodedBytes: number = 0;
 
   /**
-   * Configures cache limits based on target device (Requirement #105).
-   * Quest profile: 120 entries, 32MB max
-   * Desktop profile: 300 entries, 80MB max
+   * Configures cache limits based on target device and quality profile (Stage W).
+   * Quest profile defaults to 'quest-high': 240 entries, 64MB max (scalable to 320 / 80MB)
+   * Desktop profile defaults to 'desktop-high': 360 entries, 96MB max
    */
   public static setTargetDevice(isQuest: boolean): void {
-    if (isQuest) {
-      this.setLimits(120, 32 * 1024 * 1024);
-    } else {
-      this.setLimits(300, 80 * 1024 * 1024);
-    }
+    const profile = QualityProfileManager.getDefaultProfile(isQuest);
+    this.applyProfile(profile);
+  }
+
+  public static applyProfile(profile: QualityProfile): void {
+    this.setLimits(profile.tileCacheEntries, profile.tileCacheBytes);
   }
 
   public static setLimits(maxEntries: number, maxDecodedBytes: number): void {
@@ -56,6 +63,8 @@ export class TileImageCache {
   }
 
   public static getStats(): TileCacheStats {
+    const totalRequests = this.cacheHits + this.cacheMisses;
+    const hitRate = totalRequests > 0 ? (this.cacheHits / totalRequests) * 100 : 0;
     return {
       entries: this.cache.size,
       maxEntries: this.maxEntries,
@@ -63,6 +72,9 @@ export class TileImageCache {
       maxDecodedBytes: this.maxDecodedBytes,
       inFlight: this.inFlight.size,
       failureCount: this.failureCount,
+      cacheHits: this.cacheHits,
+      cacheMisses: this.cacheMisses,
+      hitRate: Math.round(hitRate * 10) / 10,
     };
   }
 
@@ -83,8 +95,11 @@ export class TileImageCache {
       // Refresh LRU order: remove and re-insert
       this.cache.delete(key);
       this.cache.set(key, item);
+      this.cacheHits++;
+      return item;
     }
-    return item;
+    this.cacheMisses++;
+    return undefined;
   }
 
   public static set(key: string, img: HTMLImageElement): void {
@@ -147,6 +162,8 @@ export class TileImageCache {
     this.inFlight.clear();
     this.totalDecodedBytes = 0;
     this.failureCount = 0;
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
   }
 
   public static size(): number {
