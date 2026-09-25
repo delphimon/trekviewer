@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import type { TerrainResult } from './TerrainGenerator.ts';
 import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
@@ -24,6 +25,11 @@ export interface LocalTerrainStreamerOptions {
  * - Asynchronously acquires real high-resolution DEM tiles (prefer Terrarium z15, fallback z14).
  * - Caches and reuses DEM tiles and grids across stations.
  * - Prefetches ahead station DEM in background before hiker arrival.
+ *
+ * Stage X3:
+ * - Enforces single visible chunk ownership: Station 0 is mesh.visible = true,
+ *   while prefetched and retained chunks remain memory-warm with mesh.visible = false.
+ * - Shares base terrain map texture and tileGrid bounds to eliminate gray placeholder material.
  */
 export class LocalTerrainStreamer {
   public readonly terrainResult: TerrainResult;
@@ -55,6 +61,13 @@ export class LocalTerrainStreamer {
 
   public get activeChunks(): readonly LocalTerrainChunk[] {
     return this.managedChunks;
+  }
+
+  /**
+   * Returns the single currently active visible local chunk (Stage X3).
+   */
+  public get activeVisibleChunk(): LocalTerrainChunk | null {
+    return this.managedChunks.find((c) => c.mesh.visible) ?? null;
   }
 
   public getStationKey(lat: number, lon: number): string {
@@ -199,6 +212,7 @@ export class LocalTerrainStreamer {
         const cachedGrid = this.stationDemCache.get(stationKey);
         const initialGrid = cachedGrid || this.demGrid;
 
+        const mat = this.terrainResult.terrainMesh?.material as THREE.MeshStandardMaterial | undefined;
         const newChunk = new LocalTerrainChunk({
           localGrid: initialGrid,
           centerLat: station.lat,
@@ -213,6 +227,8 @@ export class LocalTerrainStreamer {
           baseElevationSampler: (x, z) =>
             this.terrainResult.elevationSampler(x, z),
           initialExaggeration: this.currentExaggeration,
+          tileGrid: this.terrainResult.tileGrid,
+          mapTexture: mat?.map ?? null,
         });
 
         this.terrainResult.attachLocalChunk?.(newChunk);
@@ -255,6 +271,14 @@ export class LocalTerrainStreamer {
         const excess = neededChunks.pop()!;
         this.terrainResult.detachLocalChunk?.(excess);
       }
+    }
+
+    // Ensure only the active hiker station chunk is visible to prevent z-fighting and elevation ambiguity (Stage X3)
+    for (let i = 0; i < neededChunks.length; i++) {
+      neededChunks[i].mesh.visible = (i === 0);
+    }
+    for (const chunk of availableChunks) {
+      chunk.mesh.visible = false;
     }
 
     this.managedChunks = [...neededChunks, ...availableChunks];

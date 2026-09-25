@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import { TextureProvider, type TileGridBounds } from './TextureProvider.ts';
 
 export interface LocalTerrainChunkOptions {
   localGrid: ElevationGrid;
@@ -15,6 +16,8 @@ export interface LocalTerrainChunkOptions {
   referenceCenterLon?: number;
   baseElevationSampler?: (localX: number, localZ: number) => number;
   blendMarginRatio?: number;
+  tileGrid?: TileGridBounds;
+  mapTexture?: THREE.Texture | null;
 }
 
 export class LocalTerrainChunk {
@@ -30,8 +33,8 @@ export class LocalTerrainChunk {
   public isRealHighRes: boolean = false;
   public currentGrid: ElevationGrid;
 
-  private geometry: THREE.PlaneGeometry;
-  private material: THREE.MeshStandardMaterial;
+  public readonly geometry: THREE.PlaneGeometry;
+  public readonly material: THREE.MeshStandardMaterial;
   private unscaledHeights: Float32Array;
   private segments: number;
   private currentExaggeration: number;
@@ -113,10 +116,25 @@ export class LocalTerrainChunk {
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
 
+    // Map local chunk vertices to global geographic UVs (Stage X3)
+    if (options.tileGrid) {
+      const uvAttr = this.geometry.attributes.uv;
+      for (let i = 0; i < vertexCount; i++) {
+        const vx = posAttr.getX(i);
+        const vz = posAttr.getZ(i);
+        const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+        const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, options.tileGrid);
+        uvAttr.setXY(i, uv.u, uv.v);
+      }
+      uvAttr.needsUpdate = true;
+    }
+
+    // Physical non-metallic terrain material with active map texture (Stage X3)
     this.material = new THREE.MeshStandardMaterial({
-      color: 0x8a9ba8,
-      roughness: 0.85,
-      metalness: 0.1,
+      map: options.mapTexture ?? null,
+      color: 0xffffff,
+      roughness: 0.95,
+      metalness: 0.0,
       polygonOffset: true,
       polygonOffsetFactor: -0.5,
       polygonOffsetUnits: -0.5,
@@ -236,6 +254,29 @@ export class LocalTerrainChunk {
       (this.outlineMesh.material as THREE.Material)?.dispose();
       this.outlineMesh = undefined;
       this.setDebugOutline(true);
+    }
+  }
+
+  /**
+   * Updates map imagery texture and reprojects geographic UVs across the chunk (Stage X3).
+   */
+  public setMapTexture(texture: THREE.Texture | null, tileGrid?: TileGridBounds): void {
+    if (this.isDisposed) return;
+    this.material.map = texture;
+    this.material.needsUpdate = true;
+
+    if (tileGrid) {
+      const posAttr = this.geometry.attributes.position;
+      const uvAttr = this.geometry.attributes.uv;
+      const vertexCount = posAttr.count;
+      for (let i = 0; i < vertexCount; i++) {
+        const vx = posAttr.getX(i);
+        const vz = posAttr.getZ(i);
+        const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+        const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, tileGrid);
+        uvAttr.setXY(i, uv.u, uv.v);
+      }
+      uvAttr.needsUpdate = true;
     }
   }
 
