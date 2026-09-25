@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { GeoBounds, TrackStats, TextureStyle } from '../gpx/TrackTypes.ts';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
-import { TextureProvider } from './TextureProvider.ts';
+import { TextureProvider, type TileGridBounds } from './TextureProvider.ts';
 import { TextureBudget } from './TextureBudget.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
@@ -24,6 +24,7 @@ export interface TerrainResult {
   terrainBaseElevation: number;
   terrainQuality: TerrainQuality;
   demGrid: ElevationGrid | null;
+  tileGrid?: TileGridBounds;
   elevationSampler: (x: number, z: number) => number;
   sampleDEMY: (x: number, z: number) => number;
   sampleRenderedSurfaceY: (localX: number, localZ: number) => number;
@@ -326,6 +327,14 @@ export class TerrainGenerator {
     let textureRequestGeneration: number = 0;
     let isDisposed: boolean = false;
 
+    const activeLocalChunks: LocalTerrainChunk[] = [];
+
+    const updateLocalChunksTexture = (tex: THREE.Texture | null) => {
+      for (const chunk of activeLocalChunks) {
+        chunk.setMapTexture(tex, tileGrid);
+      }
+    };
+
     // Background streaming of satellite imagery
     TextureProvider.fetchSatelliteTexture(
       tileGrid,
@@ -335,6 +344,7 @@ export class TerrainGenerator {
           satelliteTexture = tex;
           terrainMat.map = tex;
           terrainMat.needsUpdate = true;
+          updateLocalChunksTexture(tex);
         }
         onProgress?.('Terrain ready — refining imagery…', loaded / total);
       },
@@ -346,6 +356,7 @@ export class TerrainGenerator {
       if (currentActiveStyle === 'satellite') {
         terrainMat.map = satTex;
         terrainMat.needsUpdate = true;
+        updateLocalChunksTexture(satTex);
         onProgress?.('Satellite imagery ready.', 1.0);
       }
     }).catch(() => {
@@ -366,6 +377,7 @@ export class TerrainGenerator {
               if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== 'satellite') return;
               terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
+              updateLocalChunksTexture(partialTex);
             },
             signal,
             isXR
@@ -378,6 +390,7 @@ export class TerrainGenerator {
           if (satelliteTexture) {
             terrainMat.map = satelliteTexture;
             terrainMat.needsUpdate = true;
+            updateLocalChunksTexture(satelliteTexture);
           }
         }
       } else if (style === 'hybrid') {
@@ -389,6 +402,7 @@ export class TerrainGenerator {
               if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== 'hybrid') return;
               terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
+              updateLocalChunksTexture(partialTex);
             },
             signal,
             isXR
@@ -401,9 +415,11 @@ export class TerrainGenerator {
           if (hybridTexture) {
             terrainMat.map = hybridTexture;
             terrainMat.needsUpdate = true;
+            updateLocalChunksTexture(hybridTexture);
           } else if (satelliteTexture) {
             terrainMat.map = satelliteTexture;
             terrainMat.needsUpdate = true;
+            updateLocalChunksTexture(satelliteTexture);
           }
         }
       } else {
@@ -415,6 +431,7 @@ export class TerrainGenerator {
               if (isDisposed || signal?.aborted || gen !== textureRequestGeneration || currentActiveStyle !== style) return;
               terrainMat.map = partialTex;
               terrainMat.needsUpdate = true;
+              updateLocalChunksTexture(partialTex);
             },
             signal,
             isXR
@@ -426,11 +443,10 @@ export class TerrainGenerator {
         if (!isDisposed && !signal?.aborted && gen === textureRequestGeneration && currentActiveStyle === style) {
           terrainMat.map = highResTopoTexture || topoTexture;
           terrainMat.needsUpdate = true;
+          updateLocalChunksTexture(terrainMat.map);
         }
       }
     };
-
-    const activeLocalChunks: LocalTerrainChunk[] = [];
 
     const setVerticalExaggeration = (factor: number) => {
       currentExaggeration = Math.max(1.0, Math.min(3.0, factor));
@@ -465,6 +481,9 @@ export class TerrainGenerator {
       if (idx === -1) {
         activeLocalChunks.push(chunk);
         chunk.setVerticalExaggeration(currentExaggeration);
+        if (terrainMat.map) {
+          chunk.setMapTexture(terrainMat.map, tileGrid);
+        }
         if (isDebugPatchBounds) {
           chunk.setDebugOutline(true);
         }
@@ -518,6 +537,7 @@ export class TerrainGenerator {
         let bestDistSq = Infinity;
 
         for (const chunk of activeLocalChunks) {
+          if (!chunk.mesh.visible) continue;
           const sample = chunk.sampleLocalSurfaceY(localX, localZ);
           if (sample !== null && !isNaN(sample)) {
             const dx = localX - chunk.localCenter.x;
@@ -584,13 +604,14 @@ export class TerrainGenerator {
       terrainBaseElevation,
       terrainQuality,
       demGrid,
+      tileGrid,
       elevationSampler: sampleHeightAt,
       sampleDEMY: sampleHeightAt,
       sampleRenderedSurfaceY,
       setTextureStyle,
       setVerticalExaggeration,
       get localChunk() {
-        return activeLocalChunks[0] || null;
+        return activeLocalChunks.find((c) => c.mesh.visible) || activeLocalChunks[0] || null;
       },
       get localChunks() {
         return activeLocalChunks;
