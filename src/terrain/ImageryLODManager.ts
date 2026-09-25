@@ -20,6 +20,20 @@ import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export const ENABLE_ADAPTIVE_IMAGERY_LOD = true;
 
+export type RefinementGroupState = 'parent' | 'loading' | 'promoting' | 'children';
+
+export interface RefinementGroup {
+  parentKey: string;
+  style: TextureStyle;
+  parentZoom: number;
+  parentX: number;
+  parentY: number;
+  childZoom: number;
+  fourChildKeys: [string, string, string, string];
+  readyChildren: Set<string>;
+  state: RefinementGroupState;
+}
+
 export interface ImageryPatch {
   key: string;
   zoom: number;
@@ -766,6 +780,7 @@ export class ImageryLODManager {
   private pendingRequests: Map<string, PendingTileRequest> = new Map();
   private requestQueue: QueuedTile[] = [];
   private activeRequestCount: number = 0;
+  private refinementGroups: Map<string, RefinementGroup> = new Map();
 
   // View state tracking & debouncing (Stage W QualityProfile driven)
   private qualityProfile: QualityProfile;
@@ -1020,6 +1035,60 @@ export class ImageryLODManager {
       }
       this.updatePatchGeometryHeights(geo, patch);
     }
+  }
+
+  public getOrCreateRefinementGroup(parentKey: string): RefinementGroup {
+    let group = this.refinementGroups.get(parentKey);
+    if (!group) {
+      const parsed = parseTileKey(parentKey);
+      const childZoom = parsed.zoom + 1;
+      const c0 = getTileKey(parsed.style, childZoom, parsed.x * 2, parsed.y * 2);
+      const c1 = getTileKey(parsed.style, childZoom, parsed.x * 2 + 1, parsed.y * 2);
+      const c2 = getTileKey(parsed.style, childZoom, parsed.x * 2, parsed.y * 2 + 1);
+      const c3 = getTileKey(parsed.style, childZoom, parsed.x * 2 + 1, parsed.y * 2 + 1);
+
+      group = {
+        parentKey,
+        style: parsed.style,
+        parentZoom: parsed.zoom,
+        parentX: parsed.x,
+        parentY: parsed.y,
+        childZoom,
+        fourChildKeys: [c0, c1, c2, c3],
+        readyChildren: new Set<string>(),
+        state: 'parent',
+      };
+      this.refinementGroups.set(parentKey, group);
+    }
+
+    // Keep readyChildren and state synchronized with current patches
+    group.readyChildren.clear();
+    for (const cKey of group.fourChildKeys) {
+      if (this.patches.has(cKey)) {
+        group.readyChildren.add(cKey);
+      }
+    }
+
+    if (group.readyChildren.size === 0) {
+      group.state = 'parent';
+    } else if (group.readyChildren.size < 4) {
+      group.state = 'loading';
+    } else {
+      const anyFading =
+        this.enableFadeIn &&
+        group.fourChildKeys.some((cKey) => this.patches.get(cKey)?.isFading);
+      group.state = anyFading ? 'promoting' : 'children';
+    }
+
+    return group;
+  }
+
+  public getRefinementGroup(parentKey: string): RefinementGroup | undefined {
+    return this.refinementGroups.get(parentKey);
+  }
+
+  public getAllRefinementGroups(): Map<string, RefinementGroup> {
+    return new Map(this.refinementGroups);
   }
 
   public async setTextureStyle(style: TextureStyle): Promise<void> {
@@ -1595,27 +1664,39 @@ export class ImageryLODManager {
       }
     }
 
-    // Priority sort (Stage W):
-    // Finishing an already-started 3/4 child group must outrank beginning an unrelated new group.
-    // Tier 0: Completing a 3/4 child group (3 siblings already loaded)
-    // Tier 1: 2 siblings already loaded
-    // Tier 2: 1 sibling already loaded
-    // Tier 3: High-res tiles (zoom >= defaultZoom)
-    // Tier 4: Medium-res outer perimeter ring
-    // Tie-breaker within tier: lowest distance from view center
+    // 4. Update parent/child visibility with strict 4/4 refinement
+    this.updatePatchVisibility();
+
+    // 5. Sort queue with group-aware priority (Stage X5)
+    this.sortRequestQueue(defaultZoom);
+
+    // 6. Drain queue up to concurrency limit
+    this.drainQueue(provider);
+
+    // 7. Prune expired or distant patches exceeding budget
+    this.prunePatches(newDesiredKeys);
+  }
+
+  /**
+   * Sorts requestQueue with group-aware priority (Stage X5):
+   * Treat a four-child parent promotion as a scheduling unit.
+   * - Tier 0: Missing 4th tile of a 3/4 child group (3 siblings already ready) -> unblock atomic promotion!
+   * - Tier 1: Missing child for a 2/4 child group (2 siblings already ready) -> outrank starting a new parent
+   * - Tier 2: 1 sibling already ready
+   * - Tier 3: High-res tiles (zoom >= defaultZoom)
+   * - Tier 4: Medium-res outer perimeter ring
+   * Tie-breaker within tier: lowest distance from view center
+   */
+  private sortRequestQueue(defaultZoom: number = this.currentTargetZoom): void {
     const computeTilePriority = (q: QueuedTile): number => {
       const parsed = parseTileKey(q.key);
       const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
       if (parentKey) {
-        const parentParsed = parseTileKey(parentKey);
-        const siblingKeys = getChildTileKeys(parentParsed.style, parentParsed.zoom, parentParsed.x, parentParsed.y);
-        let readySiblings = 0;
-        for (const sk of siblingKeys) {
-          if (this.patches.has(sk)) readySiblings++;
-        }
-        if (readySiblings === 3) return 0; // Completing 3/4 child group -> highest priority!
-        if (readySiblings === 2) return 1;
-        if (readySiblings === 1) return 2;
+        const group = this.getOrCreateRefinementGroup(parentKey);
+        const readyCount = group ? group.readyChildren.size : 0;
+        if (readyCount === 3) return 0; // Completing 3/4 child group -> highest priority!
+        if (readyCount === 2) return 1; // 2/4 ready -> outrank starting a new distant parent
+        if (readyCount === 1) return 2;
       }
       if (q.zoom >= defaultZoom) return 3;
       return 4;
@@ -1627,87 +1708,119 @@ export class ImageryLODManager {
       if (pA !== pB) return pA - pB;
       return a.dist - b.dist;
     });
-
-    // 4. Update parent/child visibility
-    this.updatePatchVisibility();
-
-    // 5. Drain queue up to concurrency limit
-    this.drainQueue(provider);
-
-    // 6. Prune expired or distant patches exceeding budget
-    this.prunePatches(newDesiredKeys);
   }
 
   /**
-   * Evaluates visibility for all ready patches according to explicit parent/child replacement rules (Sections 40, 41, 63):
-   * - A parent remains visible until ALL its required children in desiredTileKeys are ready.
-   * - Ready children remain hidden (visible = false) until ALL required sibling children are ready.
-   * - When all required children are ready:
-   *   - Children become visible.
-   *   - Parent becomes hidden (visible = false) once children are fully opaque (or immediately if fade is off).
-   * - Zooming out reverses this coherently.
+   * Evaluates visibility for all ready patches according to explicit 4/4 RefinementGroup rules (Stage X5):
+   * - 0/4 ready -> coarse representation only (all children hidden)
+   * - 1/4 ready -> coarse representation only (all children hidden)
+   * - 2/4 ready -> coarse representation only (all children hidden)
+   * - 3/4 ready -> coarse representation only (all children hidden)
+   * - 4/4 ready -> reveal all four children together atomically
+   * The coarse representation may be an adaptive parent tile or underlying base imagery.
+   * Partial child exposure is strictly forbidden across both tabletop and first-person view modes.
    */
   public updatePatchVisibility(): void {
-    // 1. Determine which loaded parents are being refined to children
-    // A parent is replaced IF AND ONLY IF:
-    // (a) Its children are desired
-    // (b) ALL 4 quadtree children are ready in this.patches (Stage V4.1, V4.3)
-    const parentFullyReplaced = new Set<string>();
-    const parentChildrenFading = new Set<string>();
+    // 1. Identify which parent keys represent active RefinementGroups.
+    // A parent tile P is a RefinementGroup IF AND ONLY IF:
+    // (a) P is loaded as a patch in this.patches and any of its children are desired or loaded, OR
+    // (b) P's children are being requested as a quadtree refinement (>= 2 sibling children desired,
+    //     or all 4 children desired), OR
+    // (c) P was already an active refinement group with ready children.
+    const activeParentKeys = new Set<string>();
 
+    for (const [pKey] of this.refinementGroups.entries()) {
+      activeParentKeys.add(pKey);
+    }
+
+    // Check loaded patches: if patch has loaded or desired children, the patch itself is a parent
     for (const [key] of this.patches.entries()) {
       const parsed = parseTileKey(key);
-      const all4Children = getChildTileKeys(
-        parsed.style,
-        parsed.zoom,
-        parsed.x,
-        parsed.y
-      );
-
-      // Check if any child is desired
-      const anyChildDesired = all4Children.some((cKey) => this.desiredTileKeys.has(cKey));
-      if (anyChildDesired) {
-        const all4Ready = all4Children.every((cKey) => this.patches.has(cKey));
-        if (all4Ready) {
-          parentFullyReplaced.add(key);
-          const isAnyFading =
-            this.enableFadeIn && all4Children.some((cKey) => this.patches.get(cKey)!.isFading);
-          if (isAnyFading) {
-            parentChildrenFading.add(key);
-          }
-        }
+      const childKeys = getChildTileKeys(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      if (childKeys.some((cKey) => this.desiredTileKeys.has(cKey) || this.patches.has(cKey))) {
+        activeParentKeys.add(key);
       }
     }
 
-    // 2. Set visibility on each loaded patch (Stage V4.2, V4.3)
+    // Check desired tiles: count sibling children under each parent
+    const desiredParentsCount = new Map<string, number>();
+    for (const key of this.desiredTileKeys) {
+      const parsed = parseTileKey(key);
+      const pKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      if (pKey) {
+        desiredParentsCount.set(pKey, (desiredParentsCount.get(pKey) ?? 0) + 1);
+      }
+    }
+    for (const [pKey, count] of desiredParentsCount.entries()) {
+      if (count >= 2 || this.patches.has(pKey)) {
+        activeParentKeys.add(pKey);
+      }
+    }
+
+    // Also count loaded patch siblings under each parent
+    const patchParentsCount = new Map<string, number>();
+    for (const [key] of this.patches.entries()) {
+      const parsed = parseTileKey(key);
+      const pKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      if (pKey) {
+        patchParentsCount.set(pKey, (patchParentsCount.get(pKey) ?? 0) + 1);
+      }
+    }
+    for (const [pKey, count] of patchParentsCount.entries()) {
+      if (count >= 2) {
+        activeParentKeys.add(pKey);
+      }
+    }
+
+    // 2. Update readyChildren and state for all active refinement groups
+    for (const parentKey of activeParentKeys) {
+      this.getOrCreateRefinementGroup(parentKey);
+    }
+
+    // Clean up stale refinement groups that have 0 ready children and < 2 desired children
+    for (const [pKey, group] of this.refinementGroups.entries()) {
+      const desiredCount = group.fourChildKeys.filter((cKey) => this.desiredTileKeys.has(cKey)).length;
+      if (group.readyChildren.size === 0 && desiredCount < 2 && !this.patches.has(pKey)) {
+        this.refinementGroups.delete(pKey);
+      }
+    }
+
+    // 3. Set visibility on each loaded patch enforcing strict 4/4 refinement
     for (const [key, patch] of this.patches.entries()) {
       const parsed = parseTileKey(key);
       const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
 
-      if (parentKey && this.patches.has(parentKey)) {
-        // This patch has a parent currently loaded in memory.
-        if (parentFullyReplaced.has(parentKey)) {
-          // Parent is fully replaced by all 4 children!
-          // But is THIS patch itself replaced by its own children?
-          if (parentFullyReplaced.has(key)) {
-            patch.mesh.visible = parentChildrenFading.has(key);
-          } else {
-            patch.mesh.visible = true;
+      // Check if patch belongs to a refinement group as a child
+      let parentAllowsChildVisible = true;
+      if (parentKey) {
+        const parentGroup = this.refinementGroups.get(parentKey);
+        if (parentGroup) {
+          // Invariant: 0/4, 1/4, 2/4, 3/4 ready -> coarse representation only!
+          // 4/4 ready -> reveal all four children together.
+          if (parentGroup.state === 'parent' || parentGroup.state === 'loading') {
+            parentAllowsChildVisible = false;
           }
+        }
+      }
+
+      if (!parentAllowsChildVisible) {
+        patch.mesh.visible = false;
+        continue;
+      }
+
+      // Check if THIS patch is a parent replaced by its own 4 children
+      const ownChildGroup = this.refinementGroups.get(key);
+      if (ownChildGroup && (ownChildGroup.state === 'promoting' || ownChildGroup.state === 'children')) {
+        if (ownChildGroup.state === 'promoting') {
+          // Crossfade: parent remains visible underneath while children fade in
+          patch.mesh.visible = true;
         } else {
-          // Parent is NOT fully replaced (0/4, 1/4, 2/4, 3/4 children ready).
-          // To prevent holes, parent remains the visible surface and ready children stay hidden!
+          // Fully promoted: hide parent
           patch.mesh.visible = false;
         }
       } else {
-        // This patch has NO loaded parent in memory.
-        // It is the coarsest representation available for this area.
-        if (parentFullyReplaced.has(key)) {
-          // It is fully replaced by all 4 of its children
-          patch.mesh.visible = parentChildrenFading.has(key);
-        } else {
-          patch.mesh.visible = true;
-        }
+        // Not replaced by 4/4 children: patch remains visible
+        patch.mesh.visible = true;
       }
     }
   }
@@ -1847,6 +1960,11 @@ export class ImageryLODManager {
     // Update parent/child visibility
     this.updatePatchVisibility();
 
+    // Re-sort request queue so near-complete 3/4 groups unblock immediately (Stage X5)
+    if (this.requestQueue.length > 1) {
+      this.sortRequestQueue();
+    }
+
     // Enforce patch budget
     if (this.patches.size > this.maxPatches) {
       this.evictFurthestPatch();
@@ -1962,6 +2080,10 @@ export class ImageryLODManager {
   }
 
   private hasPendingChildren(parentKey: string): boolean {
+    const group = this.refinementGroups.get(parentKey);
+    if (group && (group.state === 'loading' || group.state === 'promoting')) {
+      return true;
+    }
     const parsed = parseTileKey(parentKey);
     const childKeys = getChildTileKeys(parsed.style, parsed.zoom, parsed.x, parsed.y);
     const desiredChildKeys = childKeys.filter((k) => this.desiredTileKeys.has(k));
@@ -2097,6 +2219,7 @@ export class ImageryLODManager {
   }
 
   private clearAllPatches(): void {
+    this.refinementGroups.clear();
     for (const patch of this.patches.values()) {
       patch.dispose();
       this.patchesDisposedTotal++;
@@ -2118,6 +2241,7 @@ export class ImageryLODManager {
     this.requestQueue = [];
     this.desiredTileKeys.clear();
     this.activeRequestCount = 0;
+    this.refinementGroups.clear();
 
     this.clearAllPatches();
     if (this.group.parent) {
