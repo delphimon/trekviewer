@@ -5,6 +5,7 @@ import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { TextureProvider } from './TextureProvider.ts';
 import { TextureBudget } from './TextureBudget.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 
 export type TerrainQuality = 'dem' | 'partial-dem' | 'synthetic';
 
@@ -28,6 +29,9 @@ export interface TerrainResult {
   sampleRenderedSurfaceY: (localX: number, localZ: number) => number;
   setTextureStyle: (style: TextureStyle) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
+  localChunk?: LocalTerrainChunk | null;
+  attachLocalChunk?: (chunk: LocalTerrainChunk) => void;
+  detachLocalChunk?: () => void;
   dispose: () => void;
 }
 
@@ -423,6 +427,8 @@ export class TerrainGenerator {
       }
     };
 
+    let activeLocalChunk: LocalTerrainChunk | null = null;
+
     const setVerticalExaggeration = (factor: number) => {
       currentExaggeration = Math.max(1.0, Math.min(3.0, factor));
       for (let i = 0; i < vertexCount; i++) {
@@ -431,16 +437,43 @@ export class TerrainGenerator {
       posAttr.needsUpdate = true;
       planeGeo.computeVertexNormals();
 
+      // Update active local high-res chunk if attached (Stage V7)
+      if (activeLocalChunk) {
+        activeLocalChunk.setVerticalExaggeration(currentExaggeration);
+      }
+
       // Recreate skirt geometry for new exaggeration
       skirtMesh.geometry.dispose();
       skirtGeo = TerrainGenerator.createDioramaSkirts(planeGeo, segX, segZ, skirtBaseY);
       skirtMesh.geometry = skirtGeo;
     };
 
+    const attachLocalChunk = (chunk: LocalTerrainChunk) => {
+      if (activeLocalChunk && activeLocalChunk !== chunk) {
+        group.remove(activeLocalChunk.mesh);
+        activeLocalChunk.dispose();
+      }
+      activeLocalChunk = chunk;
+      activeLocalChunk.setVerticalExaggeration(currentExaggeration);
+      group.add(activeLocalChunk.mesh);
+    };
+
+    const detachLocalChunk = () => {
+      if (activeLocalChunk) {
+        group.remove(activeLocalChunk.mesh);
+        activeLocalChunk.dispose();
+        activeLocalChunk = null;
+      }
+    };
+
     const dispose = () => {
       if (isDisposed) return;
       isDisposed = true;
       textureRequestGeneration++;
+      if (activeLocalChunk) {
+        activeLocalChunk.dispose();
+        activeLocalChunk = null;
+      }
       if (group.parent) {
         group.parent.remove(group);
       }
@@ -451,8 +484,16 @@ export class TerrainGenerator {
       topoTexture.dispose();
     };
 
-    // Rendered-surface sampler using exact barycentric interpolation within actual rendered triangles (Section 10)
+    // Rendered-surface sampler using exact barycentric interpolation within actual rendered triangles (Section 10, Stage V7)
     const sampleRenderedSurfaceY = (localX: number, localZ: number): number => {
+      // Prioritize fine-grained local high-res DEM geometry chunk if available (Stage V7)
+      if (activeLocalChunk) {
+        const localY = activeLocalChunk.sampleLocalSurfaceY(localX, localZ);
+        if (localY !== null && !isNaN(localY)) {
+          return localY;
+        }
+      }
+
       // Clamp to terrain mesh boundaries
       const halfW = widthM * 0.5;
       const halfD = depthM * 0.5;
@@ -504,6 +545,11 @@ export class TerrainGenerator {
       sampleRenderedSurfaceY,
       setTextureStyle,
       setVerticalExaggeration,
+      get localChunk() {
+        return activeLocalChunk;
+      },
+      attachLocalChunk,
+      detachLocalChunk,
       dispose,
     };
   }
