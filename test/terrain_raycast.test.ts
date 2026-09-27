@@ -34,16 +34,20 @@ it('keeps exact nearest terrain hits as rendered indices, elevation, and visible
   const check = () => {
     root.updateWorldMatrix(true, true);
     const surfaces = [base, local].filter(mesh => mesh.visible);
-    for (const [x, z] of [[0, 0], [0.4, 0.3], [1.7, -0.8], [-2.2, 1.1], [3.7, 3.7]]) {
-      for (const offset of [[0, 0], [0.5, 0.3]]) {
-        const origin = root.localToWorld(new THREE.Vector3(x, 8, z));
-        const target = root.localToWorld(new THREE.Vector3(x + offset[0], 0, z + offset[1]));
-        const raycaster = new THREE.Raycaster(origin, target.sub(origin).normalize());
-        const expected = raycaster.intersectObjects(surfaces, false)[0] ?? null;
-        const actual = fast.closest(raycaster, surfaces);
-        expect(actual === null).toBe(expected === null);
-        if (expected && actual) expect(actual.point.distanceTo(expected.point)).toBeLessThan(1e-5);
-      }
+    const rays = [[0, 0, 0, 0.5, 0.3], [0, 0.4, 0.3, 0, 0], [0, 1.7, -0.8, 0, 0],
+      [0, -2.2, 1.1, 0, 0], [0, 3.7, 3.7, 0, 0]];
+    for (let i = 0; i < 36; i++) {
+      rays.push([i, -3.8 + (i * 1.73) % 7.6, -3.8 + (i * 2.29) % 7.6,
+        Math.sin(i * 1.3) * 2, Math.cos(i * 0.7) * 2]);
+    }
+    for (const [i, x, z, offsetX, offsetZ] of rays) {
+      const origin = root.localToWorld(new THREE.Vector3(x, i % 7 === 0 ? -8 : 8, z));
+      const target = root.localToWorld(new THREE.Vector3(x + offsetX, 0, z + offsetZ));
+      const raycaster = new THREE.Raycaster(origin, target.sub(origin).normalize());
+      const expected = raycaster.intersectObjects(surfaces, false)[0] ?? null;
+      const actual = fast.closest(raycaster, surfaces);
+      expect(actual === null, `ray i=${i} x=${x} z=${z}`).toBe(expected === null);
+      if (expected && actual) expect(actual.point.distanceTo(expected.point)).toBeLessThan(1e-5);
     }
   };
 
@@ -72,5 +76,10 @@ it('keeps exact nearest terrain hits as rendered indices, elevation, and visible
   index.array.set(original);
   index.needsUpdate = true;
   baseGeo.setDrawRange(0, original.length);
+  check();
+
+  (base.material as THREE.MeshBasicMaterial).side = THREE.FrontSide;
+  check();
+  (base.material as THREE.MeshBasicMaterial).side = THREE.BackSide;
   check();
 });

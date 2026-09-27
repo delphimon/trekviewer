@@ -17,6 +17,7 @@ export interface ProfileCounters {
   qualityProfile: string;
   viewMode: string;
   textureStyle: string;
+  imageryProvider: string;
   routeName: string | null;
 }
 

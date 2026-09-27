@@ -5,7 +5,7 @@ const counters: ProfileCounters = {
   drawCalls: 84, triangles: 128000, geometries: 27, textures: 24,
   tileCacheEntries: 70, tileCacheDecodedMB: 18.2, imageryPatches: 28,
   imageryCoveragePercent: 100, imageryInFlight: 0, localTerrainChunks: 3,
-  qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', routeName: 'Test route',
+  qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', imageryProvider: 'cesium-bing', routeName: 'Test route',
 };
 afterEach(() => vi.restoreAllMocks());
 
@@ -28,7 +28,7 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
     summary:{estimatedMissedCallbacks:0,maxDrawCalls:84,maxTextures:24},windowsDropped:0});
   expect(report.windows).toHaveLength(1);
   expect(report.windows[0]).toMatchObject({frames:73,callbackSamples:72,drawCalls:84,targetHz:72,
-    cpuSubmitP95Ms:5,phaseMeanMs:{input:1,render:3}});
+    cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);
   expect(Object.keys(report.windows[0].phaseMeanMs)).toEqual([...PROFILE_PHASES]);
   expect(report.events.map(e=>e.name)).toEqual(['profile-start','view-mode','profile-stop']);

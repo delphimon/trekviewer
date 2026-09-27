@@ -731,6 +731,7 @@ export class TrekViewerApp {
       qualityProfile: state.qualityProfile,
       viewMode: state.viewMode,
       textureStyle: state.textureStyle,
+      imageryProvider: TextureProvider.getProviderInitState().activeProvider,
       routeName: this.currentTrack?.name ?? null,
     };
   }

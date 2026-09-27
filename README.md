@@ -117,7 +117,7 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 #### Cesium Ion Token Scoping & Security Guidelines
 Because TrekViewer is a 100% client-side WebXR static PWA, any token provided via `VITE_CESIUM_ION_TOKEN` is compiled into the client-side JavaScript bundle and transmitted directly to Cesium Ion from the client browser.
 - **Never use secret or administrator tokens**: Generate a dedicated, scoped client token in your [Cesium Ion Tokens Dashboard](https://ion.cesium.com/tokens).
-- **Scope by URL Domain / Origin**: In the Cesium Ion token settings, configure the allowed origins (e.g. `https://trekviewer.surge.sh`, `https://your-custom-domain.com`, `http://localhost:*`).
+- **Scope by URL Domain / Origin**: In the Cesium Ion token settings, configure the allowed URLs for where you serve the app. The USB-forwarded Quest workflow uses `http://localhost:4173/`; a token allowed only for `https://trekviewer.surge.sh/` receives HTTP 403 on localhost and TrekViewer correctly uses Esri. Cesium requires a matching `Referer` for URL-restricted tokens. Prefer a separate public, asset-read-only token for local development instead of broadening the hosted token to all localhost sites.
 - **Restrict Asset Permissions**: Restrict the token's asset permissions strictly to **Asset 2 (Bing Maps Aerial)** and disallow write, asset creation, or geocoding privileges.
 - **Zero-Token Fallback**: If `VITE_CESIUM_ION_TOKEN` is omitted, TrekViewer automatically uses Esri World Imagery with zero degradation, zero error dialogs, and full quadtree LOD streaming.
 

@@ -188,6 +188,16 @@ describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful So
   });
 
   describe('Sections 50, 51, 71: Truthful Cache Keys & No Per-Tile Cross-Provider Fallback', () => {
+    it('identifies a Cesium 403 instead of reporting an unspecified outage', async () => {
+      (globalThis as any).fetch = vi.fn(async () => ({ ok: false, status: 403 }));
+      const success = await TextureProvider.setSatelliteProvider('cesium-bing', 'test-token-forbidden');
+      expect(success).toBe(false);
+      expect(TextureProvider.getProviderInitState()).toMatchObject({
+        activeProvider: 'esri-satellite',
+        fallbackReason: 'Cesium access denied (403)',
+      });
+    });
+
     it('CesiumBingImageryProvider returns ONLY Bing URLs and never falls back to Esri per-tile', async () => {
       const provider = new CesiumBingImageryProvider('test-token');
       // Set mock metadata

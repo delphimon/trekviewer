@@ -28,6 +28,7 @@ export class CesiumBingImageryProvider implements ImageryProvider {
   private token: string;
   private metadataPromise: Promise<{ urlTemplate: string; subdomains: string[] } | null> | null = null;
   private metadata: { urlTemplate: string; subdomains: string[] } | null = null;
+  public failureReason: string | undefined;
 
   constructor(token: string) {
     this.token = token;
@@ -47,7 +48,10 @@ export class CesiumBingImageryProvider implements ImageryProvider {
         const request = (async () => {
           try {
             const res = await fetch(`https://api.cesium.com/v1/assets/2/endpoint?access_token=${this.token}`, { signal: controller.signal });
-            if (!res.ok) return null;
+            if (!res.ok) {
+              if (res.status === 403) this.failureReason = 'Cesium access denied (403)';
+              return null;
+            }
             const data = await res.json();
             const bingKey = data.options?.key;
             if (!bingKey) return null;

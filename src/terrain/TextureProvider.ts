@@ -177,7 +177,7 @@ export class TextureProvider {
         return true;
       } else {
         console.warn('[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to Esri World Imagery.');
-        this.fallbackReason = 'Cesium unavailable';
+        this.fallbackReason = this.cesiumProvider.failureReason ?? 'Cesium unavailable';
         this.activeSatelliteProvider = this.esriSatelliteProvider;
         this.initialized = true;
         return false;

@@ -24,7 +24,7 @@ if (!paths.length) {
       })).sort((a, b) => b.meanMs - a.meanMs);
       const contexts = new Map();
       for (const w of windows) {
-        const key = `${w.viewMode} / ${w.qualityProfile} / ${w.textureStyle}`;
+        const key = `${w.viewMode} / ${w.qualityProfile} / ${w.textureStyle} / ${w.imageryProvider ?? 'unknown provider'}`;
         contexts.set(key, (contexts.get(key) ?? 0) + w.durationSeconds);
       }
       console.log(`\n${path}`);
@@ -34,7 +34,7 @@ if (!paths.length) {
       console.log(`Largest callback interval: ${report.summary.maxCallbackIntervalMs.toFixed(1)} ms  |  largest CPU submit: ${report.summary.maxCpuSubmitMs.toFixed(1)} ms`);
       console.log(`Estimated missed callbacks: ${report.summary.estimatedMissedCallbacks ?? 'unknown (XR target rate unavailable)'}  |  long tasks: ${report.summary.longTaskCount}`);
       console.log(`Peak draw calls: ${report.summary.maxDrawCalls}  |  peak WebGL textures: ${report.summary.maxTextures}`);
-      console.log('Time by view / quality / imagery:');
+      console.log('Time by view / quality / imagery style / provider:');
       for (const [key, seconds] of contexts) console.log(`  ${key}: ${seconds.toFixed(1)} s`);
       console.log('CPU phases (mean per callback / worst single callback):');
       for (const p of phaseCosts.filter(p => !p.name.startsWith('imagery') || p.name === 'imagery')) {
