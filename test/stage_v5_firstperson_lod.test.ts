@@ -173,8 +173,8 @@ describe('Stage V6: Coherent 1:1 First-Person Imagery LOD Quadtree Suite', () =>
     });
   });
 
-  describe('Directional Forward Prefetch Prioritization (Stage V6.3)', () => {
-    it('prioritizes forward lookahead parent along route azimuth and includes forward children', () => {
+  describe('Nearby first-person coverage (Stage V6.3)', () => {
+    it('keeps the hiker parent sharp when the forward lookahead exceeds the patch budget', () => {
       const hikerLat = 46.85;
       const hikerLon = -121.75;
       // Forward point ~300m North
@@ -182,9 +182,6 @@ describe('Stage V6: Coherent 1:1 First-Person Imagery LOD Quadtree Suite', () =>
       const forwardLon = -121.75;
       const innerZoom = 19;
       const maxPatches = 36;
-
-      const fwdTile = latLonToTile(forwardLat, forwardLon, innerZoom);
-      const fwdParentKey = `${innerZoom - 1}:${Math.floor(fwdTile.x / 2)}:${Math.floor(fwdTile.y / 2)}`;
 
       const candidates = computeFirstPersonCoherentLODTiles(
         hikerLat,
@@ -196,16 +193,17 @@ describe('Stage V6: Coherent 1:1 First-Person Imagery LOD Quadtree Suite', () =>
         testBounds
       );
 
-      // Verify that the forward parent tile is included in promoted parents or mid coverage
+      // Nearby terrain takes precedence when the forward target is too far.
       const highTiles = candidates.filter((c) => c.zoom === innerZoom);
       const promotedParentKeys = new Set(
         highTiles.map((t) => `${t.zoom - 1}:${Math.floor(t.x / 2)}:${Math.floor(t.y / 2)}`)
       );
 
-      expect(
-        promotedParentKeys.has(fwdParentKey),
-        `Forward prefetch parent ${fwdParentKey} should be promoted to high-res`
-      ).toBe(true);
+      const hikerTile = latLonToTile(hikerLat, hikerLon, innerZoom);
+      const hikerParentKey = `${innerZoom - 1}:${Math.floor(hikerTile.x / 2)}:${Math.floor(hikerTile.y / 2)}`;
+      expect(promotedParentKeys.has(hikerParentKey)).toBe(true);
+      expect(candidates.length).toBeLessThanOrEqual(maxPatches);
+      expect(promotedParentKeys.size).toBeGreaterThan(1);
     });
   });
 });

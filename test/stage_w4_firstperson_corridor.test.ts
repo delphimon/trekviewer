@@ -42,7 +42,7 @@ describe('Stage W4: 1:1 Quality Corridor, Extended Forward Prefetch & Latitude S
     expect(tileWidth46).toBeLessThan(140);
   });
 
-  it('promotes high-res corridor extending 600m ahead and 300m behind on Quest 1:1 budget (64 patches)', () => {
+  it('keeps coherent nearby coverage ahead of distant route prefetch on the Quest budget', () => {
     const hikerLat = 46.85;
     const hikerLon = -121.75;
     const innerZoom = 19;
@@ -108,15 +108,38 @@ describe('Stage W4: 1:1 Quality Corridor, Extended Forward Prefetch & Latitude S
       ).toBe(4);
     }
 
-    // Forward prefetch target parent must be promoted
-    const fwdTile = latLonToTile(forwardLat, forwardLon, innerZoom);
-    const fwdParentKey = `${innerZoom - 1}:${Math.floor(fwdTile.x / 2)}:${Math.floor(fwdTile.y / 2)}`;
-    expect(parentGroups.has(fwdParentKey)).toBe(true);
+    // All four parents surrounding the hiker must precede farther route tiles.
+    const hikerTile = latLonToTile(hikerLat, hikerLon, innerZoom);
+    const hikerPx = Math.floor(hikerTile.x / 2);
+    const hikerPy = Math.floor(hikerTile.y / 2);
+    const adjacentPx = hikerPx + (hikerTile.x % 2 === 0 ? -1 : 1);
+    const adjacentPy = hikerPy + (hikerTile.y % 2 === 0 ? -1 : 1);
+    for (const py of [hikerPy, adjacentPy]) {
+      for (const px of [hikerPx, adjacentPx]) {
+        expect(parentGroups.has(`${innerZoom - 1}:${px}:${py}`)).toBe(true);
+      }
+    }
+  });
 
-    // Behind retention target parent must be promoted
-    const behindTile = latLonToTile(behindLat, behindLon, innerZoom);
-    const behindParentKey = `${innerZoom - 1}:${Math.floor(behindTile.x / 2)}:${Math.floor(behindTile.y / 2)}`;
-    expect(parentGroups.has(behindParentKey)).toBe(true);
+  it('prioritizes a visible off-trail wall over route prefetch', () => {
+    const hikerLat = 46.85;
+    const hikerLon = -121.75;
+    const wall = { lat: 46.851, lon: -121.747 };
+    const corridorPoints = Array.from({ length: 12 }, (_, i) => ({
+      lat: hikerLat + i * 0.0005,
+      lon: hikerLon,
+    }));
+    const candidates = computeFirstPersonCoherentLODTiles(
+      hikerLat, hikerLon, 46.8555, hikerLon, 19, 64,
+      testBounds, 46.848, hikerLon, corridorPoints, [wall]
+    );
+    const wallTile = latLonToTile(wall.lat, wall.lon, 19);
+    expect(candidates.some((tile) =>
+      tile.zoom === 19 &&
+      Math.floor(tile.x / 2) === Math.floor(wallTile.x / 2) &&
+      Math.floor(tile.y / 2) === Math.floor(wallTile.y / 2)
+    )).toBe(true);
+    expect(candidates.length).toBeLessThanOrEqual(64);
   });
 
   describe('First-Person Movement Threshold and Demotion Protection in ImageryLODManager', () => {

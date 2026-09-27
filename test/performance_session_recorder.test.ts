@@ -7,6 +7,7 @@ const counters: ProfileCounters = {
   imageryCoveragePercent: 100, imageryInFlight: 0, localTerrainChunks: 3,
   localTerrainFocusChangesTotal: 1,
   imageryTargetZoom: 19, imageryFocusSource: 'center', imageryDesiredTiles: 36, imageryVisiblePatches: 36,
+  firstPersonViewSamples: 3, firstPersonHighResSamples: 2,
   imageryCreatedTotal: 36, imageryDisposedTotal: 0, tileCacheFailures: 0,
   qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', imageryProvider: 'cesium-bing', routeName: 'Test route',
 };

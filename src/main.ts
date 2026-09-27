@@ -726,6 +726,8 @@ export class TrekViewerApp {
       tileCacheDecodedMB: Number((cache.decodedBytes / 1048576).toFixed(1)),
       imageryPatches: lod?.activePatchesCount ?? 0,
       imageryCoveragePercent: lod?.coveragePercent ?? 0,
+      firstPersonViewSamples: lod?.firstPersonViewSamples ?? 0,
+      firstPersonHighResSamples: lod?.firstPersonHighResSamples ?? 0,
       imageryInFlight: lod?.inFlightRequests ?? 0,
       imageryTargetZoom: lod?.targetZoom ?? 0,
       imageryFocusSource: this.activeTrek?.imageryLOD.getFocusSource() ?? 'none',

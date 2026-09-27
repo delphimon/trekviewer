@@ -12,6 +12,8 @@ export interface ProfileCounters {
   tileCacheDecodedMB: number;
   imageryPatches: number;
   imageryCoveragePercent: number;
+  firstPersonViewSamples: number;
+  firstPersonHighResSamples: number;
   imageryInFlight: number;
   imageryTargetZoom: number;
   imageryFocusSource: string;

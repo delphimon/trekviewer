@@ -35,10 +35,15 @@ it('keeps tabletop detail focused on visible lower-screen terrain when the cente
   vi.spyOn(manager as any, 'reconcileDesiredTiles').mockImplementation(() => {});
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
   camera.position.set(0, 2, 0);
-  camera.lookAt(0, 3, -10); // center ray points above the horizontal terrain
+  camera.lookAt(0, 0, -10); // both center and lower rays intersect terrain
   camera.updateWorldMatrix(true, false);
 
   try {
+    (manager as any).evaluateLOD(camera, root);
+    expect(manager.getFocusSource()).toBe('center');
+
+    camera.lookAt(0, 3, -10); // center ray points above the horizontal terrain
+    camera.updateWorldMatrix(true, false);
     (manager as any).evaluateLOD(camera, root);
     expect(manager.getFocusSource()).toBe('lower');
     const focused = manager.getInspectedGeo();

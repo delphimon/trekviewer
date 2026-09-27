@@ -95,6 +95,8 @@ export interface ImageryLODDiagnostics {
   readyCount: number;
   visibleCount: number;
   coveragePercent: number;
+  firstPersonViewSamples: number;
+  firstPersonHighResSamples: number;
   z19AheadDistanceMeters: number;
   residentWarmCount: number;
   evictionsTotal: number;
@@ -497,7 +499,8 @@ export function computeFirstPersonCoherentLODTiles(
   bounds: GeoBounds,
   behindLat?: number,
   behindLon?: number,
-  corridorPoints?: { lat: number; lon: number }[]
+  corridorPoints?: { lat: number; lon: number }[],
+  visiblePoints?: { lat: number; lon: number }[]
 ): CoherentTileCandidate[] {
   const zHigh = innerZoom;
   const zMid = Math.max(13, zHigh - 1);
@@ -628,7 +631,22 @@ export function computeFirstPersonCoherentLODTiles(
   // 1. Immediate hiker parent (#1 priority)
   addPriority(hikerPx, hikerPy);
 
-  // 2. Trail corridor parents connecting contiguously from hiker outward
+  // 2. Keep the ground immediately around the hiker sharp in every direction.
+  // Route prefetch must not consume the budget before these nearby parents.
+  for (let py = minPy; py <= maxPy; py++) {
+    for (let px = minPx; px <= maxPx; px++) {
+      addPriority(px, py);
+    }
+  }
+
+  // 3. Refine terrain currently in the headset view before off-screen trail
+  // prefetch. A hiker can face a wall or pass far to the side of the route.
+  for (const point of visiblePoints ?? []) {
+    const tile = latLonToTile(point.lat, point.lon, zHigh);
+    addPriority(Math.floor(tile.x / 2), Math.floor(tile.y / 2));
+  }
+
+  // 4. Trail corridor parents connecting contiguously from hiker outward
   if (corridorPoints && corridorPoints.length > 0) {
     let closestHikerIdx = 0;
     let minDist = Infinity;
@@ -678,14 +696,7 @@ export function computeFirstPersonCoherentLODTiles(
     }
   }
 
-  // 3. 2x2 cluster around hiker (ensures full 360° feet coverage)
-  for (let py = minPy; py <= maxPy; py++) {
-    for (let px = minPx; px <= maxPx; px++) {
-      addPriority(px, py);
-    }
-  }
-
-  // 4. Lateral wings: widen corridor around trail parents when budget permits (maxPatches >= 48)
+  // 5. Lateral wings: widen corridor around trail parents when budget permits (maxPatches >= 48)
   if (maxPatches >= 48) {
     const mainTrailParents = [...priorityParents];
     for (const p of mainTrailParents) {
@@ -696,7 +707,7 @@ export function computeFirstPersonCoherentLODTiles(
     }
   }
 
-  // 5. 2x2 cluster around forward prefetch
+  // 6. 2x2 cluster around forward prefetch
   const fsubX = fwdTile.x % 2 === 0 ? -1 : 1;
   const fsubY = fwdTile.y % 2 === 0 ? -1 : 1;
   for (let py = Math.min(fwdPy, fwdPy + fsubY); py <= Math.max(fwdPy, fwdPy + fsubY); py++) {
@@ -825,6 +836,7 @@ export class ImageryLODManager {
   private lastSelectionZoom: number = -1;
   private directionalGaze: { dx: number; dy: number } | null = null;
   private lastValidTerrainLocalPoint: THREE.Vector3 | null = null;
+  private firstPersonViewSampleTiles: string[] = [];
   private focusSource: 'center' | 'lower' | 'retained' | 'fallback' = 'fallback';
   private evaluationDirty = true;
   private readonly evalWorldPos = new THREE.Vector3();
@@ -923,6 +935,9 @@ export class ImageryLODManager {
 
     const residentWarmCount = Math.max(0, this.patches.size - visibleCount);
     const cacheHitRate = TileImageCache.getStats().hitRate;
+    const firstPersonHighResSamples = this.firstPersonViewSampleTiles.filter((key) =>
+      this.patches.get(key)?.mesh.visible
+    ).length;
 
     return {
       activePatchesCount: this.patches.size,
@@ -947,6 +962,8 @@ export class ImageryLODManager {
       readyCount: this.patches.size,
       visibleCount,
       coveragePercent,
+      firstPersonViewSamples: this.firstPersonViewSampleTiles.length,
+      firstPersonHighResSamples,
       z19AheadDistanceMeters,
       residentWarmCount,
       evictionsTotal: this.patchesDisposedTotal,
@@ -989,6 +1006,8 @@ export class ImageryLODManager {
 
     if (mode === 'first-person') {
       this.lastInspectedGeo = null;
+    } else {
+      this.firstPersonViewSampleTiles = [];
     }
 
     for (const pending of this.pendingRequests.values()) {
@@ -1319,7 +1338,7 @@ export class ImageryLODManager {
     this.lastDioramaWorldPos.copy(this.evalWorldPos);
 
     if (this.viewMode === 'first-person') {
-      this.evaluateFirstPersonLOD(camera, dioramaRoot, renderer);
+      this.evaluateFirstPersonLOD(camera, dioramaRoot, renderer, profileTiming);
     } else {
       this.evaluateLOD(camera, dioramaRoot, renderer, dioramaPosDelta, scaleRatio, isFirstRun, profileTiming);
     }
@@ -1523,7 +1542,7 @@ export class ImageryLODManager {
         (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
       const centerHit = this.terrainRaycast.closest(raycaster, surfaces);
       let chosenHit = centerHit;
-      if (!this.activeInteractionRay) {
+      if (!this.activeInteractionRay && !centerHit) {
         const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(metrics.worldQuaternion);
         const halfTan = Math.tan(degToRad(metrics.verticalFov) / 2);
         // The center ray can pass above a ridge while it still fills the lower
@@ -1531,9 +1550,10 @@ export class ImageryLODManager {
         for (const screenOffset of [0.42, 0.82]) {
           const lowerDir = metrics.forward.clone().addScaledVector(cameraUp, -halfTan * screenOffset).normalize();
           const lowerHit = this.terrainRaycast.closest(new THREE.Raycaster(metrics.worldPosition, lowerDir), surfaces);
-          if (lowerHit && (!chosenHit || lowerHit.distance < chosenHit.distance * 0.7)) {
+          if (lowerHit) {
             chosenHit = lowerHit;
             this.focusSource = 'lower';
+            break;
           }
         }
       }
@@ -1682,7 +1702,8 @@ export class ImageryLODManager {
   private evaluateFirstPersonLOD(
     camera: THREE.Camera,
     dioramaRoot: THREE.Group,
-    renderer?: THREE.WebGLRenderer
+    renderer?: THREE.WebGLRenderer,
+    profileTiming?: (phase: 'imageryRaycast' | 'imagerySelection' | 'imageryReconcile', elapsedMs: number) => void
   ): void {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
     this.providerMaxZoom = provider.maxZoom;
@@ -1765,6 +1786,46 @@ export class ImageryLODManager {
       }
     }
 
+    // Sample the actual visible terrain, including peaks off the trail. The
+    // selected parent set stays within the same fixed patch budget.
+    const visiblePoints: { lat: number; lon: number }[] = [];
+    const viewRaycastStart = profileTiming ? performance.now() : 0;
+    const terrainMesh = this.options.terrainMesh;
+    if (terrainMesh) {
+      terrainMesh.parent?.updateWorldMatrix(true, true);
+      const surfaces = terrainMesh.parent?.children.filter((obj): obj is THREE.Mesh =>
+        (obj as THREE.Mesh).isMesh && obj.visible &&
+        (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
+      const metrics = getViewMetrics(camera, renderer);
+      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(metrics.worldQuaternion);
+      const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(metrics.worldQuaternion);
+      const halfTan = Math.tan(degToRad(metrics.verticalFov) / 2);
+      const aspect = (camera as THREE.PerspectiveCamera).aspect || 1;
+      for (const horizontal of [0, -0.55, 0.55]) {
+        for (const vertical of [0, -0.35]) {
+          const direction = metrics.forward.clone()
+            .addScaledVector(cameraRight, horizontal * halfTan * aspect)
+            .addScaledVector(cameraUp, vertical * halfTan)
+            .normalize();
+          const hit = this.terrainRaycast.closest(
+            new THREE.Raycaster(metrics.worldPosition, direction), surfaces
+          );
+          if (!hit) continue;
+          const local = dioramaRoot.worldToLocal(hit.point.clone());
+          visiblePoints.push(localMetersToGeo(
+            local.x, local.z,
+            this.options.terrainGeoBounds.centerLat,
+            this.options.terrainGeoBounds.centerLon
+          ));
+        }
+      }
+    }
+    if (profileTiming) profileTiming('imageryRaycast', performance.now() - viewRaycastStart);
+    this.firstPersonViewSampleTiles = [...new Set(visiblePoints.map((point) => {
+      const tile = latLonToTile(point.lat, point.lon, innerZoom);
+      return getTileKey(this.currentTextureStyle, innerZoom, tile.x, tile.y);
+    }))];
+
     // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6, Stage W4)
     const candidates = computeFirstPersonCoherentLODTiles(
       hikerLat,
@@ -1776,7 +1837,8 @@ export class ImageryLODManager {
       this.options.terrainGeoBounds,
       behindLat,
       behindLon,
-      corridorPoints
+      corridorPoints,
+      visiblePoints
     );
 
     this.reconcileDesiredTiles(candidates, provider, innerZoom);
