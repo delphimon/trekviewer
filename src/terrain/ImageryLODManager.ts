@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import {
@@ -783,6 +784,8 @@ export class ImageryLODManager {
   private desiredTileKeys: Set<string> = new Set();
   private pendingRequests: Map<string, PendingTileRequest> = new Map();
   private requestQueue: QueuedTile[] = [];
+  private failedRequests = new Map<string, { tile: QueuedTile; provider: ImageryProvider; attempts: number; retryAt: number }>();
+  private nextRetryTime = Infinity;
   private activeRequestCount: number = 0;
   private refinementGroups: Map<string, RefinementGroup> = new Map();
 
@@ -811,6 +814,11 @@ export class ImageryLODManager {
   private lastCamDir: THREE.Vector3 = new THREE.Vector3();
   private lastDioramaScale: number = 1.0;
   private lastDioramaWorldPos: THREE.Vector3 = new THREE.Vector3();
+  private lastDioramaWorldQuat = new THREE.Quaternion();
+  private lastInteractionRay: THREE.Ray | null = null;
+  private evaluationDirty = true;
+  private readonly evalWorldPos = new THREE.Vector3();
+  private readonly evalWorldQuat = new THREE.Quaternion();
 
   // View mode and 1:1 trail following state (Section 11 & 12)
   private viewMode: ViewMode = 'diorama';
@@ -977,6 +985,7 @@ export class ImageryLODManager {
     }
     this.pendingRequests.clear();
     this.requestQueue = [];
+    this.clearRetries();
     this.desiredTileKeys.clear();
     this.activeRequestCount = 0;
 
@@ -1007,6 +1016,7 @@ export class ImageryLODManager {
   }
 
   public setQualityProfile(profile: QualityProfile): void {
+    this.evaluationDirty = true;
     this.qualityProfile = profile;
     this.maxConcurrency = profile.concurrency;
     this.maxPatches = this.viewMode === 'first-person' ? profile.firstPersonPatches : profile.tabletopPatches;
@@ -1027,6 +1037,9 @@ export class ImageryLODManager {
   public setVerticalExaggeration(factor: number): void {
     if (this.isDisposed || Math.abs(this.verticalExaggeration - factor) < 0.01) return;
     this.verticalExaggeration = factor;
+    // Rendered-source patches are rebuilt by the terrain surface revision with its
+    // actual scaled positions and smooth normals; do not independently resample them.
+    if (this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) return;
 
     // Update heights on all active patches
     for (const patch of this.patches.values()) {
@@ -1036,6 +1049,7 @@ export class ImageryLODManager {
 
   public reprojectPatches(sampler?: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds): void {
     if (this.isDisposed) return;
+    this.evaluationDirty = true;
     if (sampler) {
       this.options.elevationSampler = sampler;
     }
@@ -1059,7 +1073,17 @@ export class ImageryLODManager {
           }
         }
       }
-      this.updatePatchGeometryHeights(geo, patch);
+      if (this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
+        patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y);
+        geo.dispose();
+        if (patch.outlineMesh) {
+          patch.mesh.remove(patch.outlineMesh);
+          patch.outlineMesh.geometry.dispose();
+          (patch.outlineMesh.material as THREE.Material).dispose();
+          patch.outlineMesh = this.buildPatchOutline(patch.mesh.geometry, patch.zoom);
+          patch.mesh.add(patch.outlineMesh);
+        }
+      } else this.updatePatchGeometryHeights(geo, patch);
     }
   }
 
@@ -1095,9 +1119,16 @@ export class ImageryLODManager {
       }
     }
 
-    if (group.readyChildren.size === 0) {
+    // Candidate generation clips the four-child footprint at the terrain edge,
+    // and the coarse perimeter selects only siblings outside the finer footprint.
+    // Promote the entire selected group together; an unrequested sibling cannot
+    // finish loading. With no selection, retain the full-group diagnostic state.
+    const selectedChildren = group.fourChildKeys.filter(key => this.desiredTileKeys.has(key));
+    const requiredChildren = selectedChildren.length > 0 ? selectedChildren : group.fourChildKeys;
+    const readyCount = requiredChildren.filter(key => group!.readyChildren.has(key)).length;
+    if (readyCount === 0) {
       group.state = 'parent';
-    } else if (group.readyChildren.size < 4) {
+    } else if (readyCount < requiredChildren.length) {
       if (group.requestStartTime === undefined) {
         group.requestStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       }
@@ -1105,7 +1136,7 @@ export class ImageryLODManager {
     } else {
       const anyFading =
         this.enableFadeIn &&
-        group.fourChildKeys.some((cKey) => this.patches.get(cKey)?.isFading);
+        requiredChildren.some((cKey) => this.patches.get(cKey)?.isFading);
       const newState = anyFading ? 'promoting' : 'children';
       if ((group.state === 'loading' || group.state === 'parent') && group.requestStartTime !== undefined) {
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -1137,15 +1168,20 @@ export class ImageryLODManager {
     }
     this.pendingRequests.clear();
     this.requestQueue = [];
+    this.clearRetries();
     this.desiredTileKeys.clear();
     this.activeRequestCount = 0;
 
     // Clear all existing patch meshes so old style never floats over new style
     this.clearAllPatches();
+    this.evaluationDirty = true;
+    this.lastEvalTime = 0;
   }
 
   public setActiveInteractionRay(ray: THREE.Ray | null): void {
-    this.activeInteractionRay = ray ? ray.clone() : null;
+    if (!ray) this.activeInteractionRay = null;
+    else if (this.activeInteractionRay) this.activeInteractionRay.copy(ray);
+    else this.activeInteractionRay = ray.clone();
   }
 
   public getActiveInteractionRay(): THREE.Ray | null {
@@ -1206,6 +1242,9 @@ export class ImageryLODManager {
       this.updatePatchVisibility();
     }
 
+    // Network recovery must continue even when the pose/movement gate stays idle.
+    this.retryFailedTiles(now);
+
     if (this.lastEvalTime !== 0 && now - this.lastEvalTime < this.EVAL_INTERVAL_MS) {
       return;
     }
@@ -1215,6 +1254,14 @@ export class ImageryLODManager {
     const camDir = metrics.forward;
     const dioramaScale = dioramaRoot.scale.x;
     const isFirstRun = this.lastEvalTime === 0;
+    dioramaRoot.getWorldPosition(this.evalWorldPos);
+    dioramaRoot.getWorldQuaternion(this.evalWorldQuat);
+    const dioramaPosDelta = this.evalWorldPos.distanceTo(this.lastDioramaWorldPos);
+    const rotationDelta = this.evalWorldQuat.angleTo(this.lastDioramaWorldQuat);
+    const pointerChanged = !!this.activeInteractionRay !== !!this.lastInteractionRay ||
+      (!!this.activeInteractionRay && !!this.lastInteractionRay &&
+        (this.activeInteractionRay.origin.distanceTo(this.lastInteractionRay.origin) > 0.015 ||
+         this.activeInteractionRay.direction.angleTo(this.lastInteractionRay.direction) > 0.015));
 
     const posDelta = camPos.distanceTo(this.lastCamPos);
     const dirAngle = camDir.angleTo(this.lastCamDir);
@@ -1227,27 +1274,30 @@ export class ImageryLODManager {
           ? Infinity
           : Math.abs(this.currentProgress - this.lastEvalProgress) * totalDist;
 
-      if (!isFirstRun && progressDistMoved < this.firstPersonEvalDistM && dirAngle < 0.15) {
+      if (!isFirstRun && !this.evaluationDirty && progressDistMoved < this.firstPersonEvalDistM && dirAngle < 0.15 && posDelta < 0.1) {
         return;
       }
 
       this.lastEvalProgress = this.currentProgress;
     } else {
       const hasPendingZoomChange = this.pendingPromoteZoom !== null || this.pendingDemoteZoom !== null;
-      if (!isFirstRun && !hasPendingZoomChange && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
+      if (!isFirstRun && !this.evaluationDirty && !pointerChanged && !hasPendingZoomChange &&
+          dioramaPosDelta < 0.015 && rotationDelta < 0.015 && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
         return;
       }
     }
 
-    const dioramaWorldPos = new THREE.Vector3();
-    dioramaRoot.getWorldPosition(dioramaWorldPos);
-    const dioramaPosDelta = dioramaWorldPos.distanceTo(this.lastDioramaWorldPos);
-
+    this.evaluationDirty = false;
+    this.lastDioramaWorldQuat.copy(this.evalWorldQuat);
+    if (this.activeInteractionRay) {
+      if (!this.lastInteractionRay) this.lastInteractionRay = new THREE.Ray();
+      this.lastInteractionRay.copy(this.activeInteractionRay);
+    } else this.lastInteractionRay = null;
     this.lastEvalTime = now;
     this.lastCamPos.copy(camPos);
     this.lastCamDir.copy(camDir);
     this.lastDioramaScale = dioramaScale;
-    this.lastDioramaWorldPos.copy(dioramaWorldPos);
+    this.lastDioramaWorldPos.copy(this.evalWorldPos);
 
     if (this.viewMode === 'first-person') {
       this.evaluateFirstPersonLOD(camera, dioramaRoot, renderer);
@@ -1404,7 +1454,10 @@ export class ImageryLODManager {
     }
 
     if (terrainMesh) {
-      const hits = raycaster.intersectObject(terrainMesh, false);
+      terrainMesh.parent?.updateWorldMatrix(true, true);
+      const surfaces = terrainMesh.parent?.children.filter((obj) => obj.visible &&
+        (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
+      const hits = raycaster.intersectObjects(surfaces, false);
       if (hits.length > 0) {
         hitWorldPos = hits[0].point;
       }
@@ -1652,6 +1705,9 @@ export class ImageryLODManager {
     }
 
     this.desiredTileKeys = newDesiredKeys;
+    for (const key of this.failedRequests.keys()) {
+      if (!newDesiredKeys.has(key)) this.failedRequests.delete(key);
+    }
 
     // 1. Update lastUsed for already visible patches
     for (const [key, patch] of this.patches.entries()) {
@@ -1684,13 +1740,17 @@ export class ImageryLODManager {
         // Truly obsolete request -> abort
         pending.abortController.abort();
         this.pendingRequests.delete(key);
+        // The cancelled request no longer owns a scheduler slot. Its guarded
+        // completion must not decrement a newer request occupying that slot.
+        this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
       }
     }
 
     // 3. Rebuild prioritized request queue for desired tiles not yet visible or pending
     this.requestQueue = [];
     for (const [key, c] of candidateMap.entries()) {
-      if (!this.patches.has(key) && !this.pendingRequests.has(key)) {
+      const failed = this.failedRequests.get(key);
+      if (!this.patches.has(key) && !this.pendingRequests.has(key) && (!failed || failed.retryAt === Infinity)) {
         this.requestQueue.push({
           key,
           zoom: c.zoom,
@@ -1702,7 +1762,7 @@ export class ImageryLODManager {
       }
     }
 
-    // 4. Update parent/child visibility with strict 4/4 refinement
+    // 4. Update visibility with atomic promotion of the selected sibling group
     this.updatePatchVisibility();
 
     // 5. Sort queue with group-aware priority (Stage X5)
@@ -1762,14 +1822,11 @@ export class ImageryLODManager {
   }
 
   /**
-   * Evaluates visibility for all ready patches according to explicit 4/4 RefinementGroup rules (Stage X5):
-   * - 0/4 ready -> coarse representation only (all children hidden)
-   * - 1/4 ready -> coarse representation only (all children hidden)
-   * - 2/4 ready -> coarse representation only (all children hidden)
-   * - 3/4 ready -> coarse representation only (all children hidden)
-   * - 4/4 ready -> reveal all four children together atomically
+   * Reveals selected siblings atomically. Interior high-resolution groups still
+   * require all four children; terrain-edge and coarse-perimeter groups require
+   * all selected children, without waiting for tiles outside their footprint.
    * The coarse representation may be an adaptive parent tile or underlying base imagery.
-   * Partial child exposure is strictly forbidden across both tabletop and first-person view modes.
+   * A partially loaded selection stays hidden in both view modes.
    */
   public updatePatchVisibility(): void {
     if (this.desiredTileKeys.size === 0) {
@@ -1843,7 +1900,7 @@ export class ImageryLODManager {
       }
     }
 
-    // 3. Set visibility on each loaded patch enforcing strict 4/4 refinement
+    // 3. Set visibility on each loaded patch enforcing atomic selected groups
     for (const [key, patch] of this.patches.entries()) {
       const parsed = parseTileKey(key);
       const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
@@ -1853,8 +1910,7 @@ export class ImageryLODManager {
       if (parentKey) {
         const parentGroup = this.refinementGroups.get(parentKey);
         if (parentGroup) {
-          // Invariant: 0/4, 1/4, 2/4, 3/4 ready -> coarse representation only!
-          // 4/4 ready -> reveal all four children together.
+          // Wait until every selected sibling is ready.
           if (parentGroup.state === 'parent' || parentGroup.state === 'loading') {
             parentAllowsChildVisible = false;
           }
@@ -1884,8 +1940,8 @@ export class ImageryLODManager {
         continue;
       }
 
-      // Check if THIS patch is a parent replaced by its own 4 children
-      if (ownChildGroup && (ownChildGroup.state === 'promoting' || ownChildGroup.state === 'children')) {
+      // Warm children from an old footprint must not hide a newly desired parent.
+      if (hasDesiredChildren && ownChildGroup && (ownChildGroup.state === 'promoting' || ownChildGroup.state === 'children')) {
         if (ownChildGroup.state === 'promoting') {
           // Crossfade: parent remains visible underneath while children fade in
           patch.mesh.visible = true;
@@ -1934,8 +1990,10 @@ export class ImageryLODManager {
         next.priority ?? TilePriority.NORMAL
       )
         .then((imageSource) => {
+          if (this.pendingRequests.get(next.key) !== pending) return;
           this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
           this.pendingRequests.delete(next.key);
+          this.failedRequests.delete(next.key);
 
           if (
             !this.isDisposed &&
@@ -1950,11 +2008,48 @@ export class ImageryLODManager {
           this.drainQueue(provider);
         })
         .catch(() => {
+          if (this.pendingRequests.get(next.key) !== pending) return;
           this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
           this.pendingRequests.delete(next.key);
+          if (!this.isDisposed && !abortController.signal.aborted && this.desiredTileKeys.has(next.key)) {
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            const attempts = Math.min(7, (this.failedRequests.get(next.key)?.attempts ?? 0) + 1);
+            const backoff = Math.min(60000, 1000 * 2 ** (attempts - 1));
+            const cacheDelay = TileImageCache.getRetryDelayMs(provider.id, next.zoom, next.x, next.y);
+            const retryAt = now + Math.max(backoff, cacheDelay + 1);
+            this.failedRequests.set(next.key, { tile: next, provider, attempts, retryAt });
+            this.nextRetryTime = Math.min(this.nextRetryTime, retryAt);
+          }
           this.drainQueue(provider);
         });
     }
+  }
+
+  private retryFailedTiles(now: number): void {
+    if (now < this.nextRetryTime) return;
+    this.nextRetryTime = Infinity;
+    let provider: ImageryProvider | undefined;
+    for (const [key, failed] of this.failedRequests) {
+      if (!this.desiredTileKeys.has(key) || this.patches.has(key)) {
+        this.failedRequests.delete(key);
+        continue;
+      }
+      if (failed.retryAt <= now && !this.pendingRequests.has(key)) {
+        this.requestQueue.push(failed.tile);
+        failed.retryAt = Infinity; // This entry now belongs to the queue/request.
+        provider = failed.provider;
+      }
+      this.nextRetryTime = Math.min(this.nextRetryTime, failed.retryAt);
+    }
+    if (provider) {
+      this.sortRequestQueue();
+      this.drainQueue(provider);
+    }
+  }
+
+  private clearRetries(): void {
+    this.failedRequests.clear();
+    this.nextRetryTime = Infinity;
   }
 
   private createAndMountPatch(
@@ -2031,7 +2126,7 @@ export class ImageryLODManager {
           patch.outlineMesh = undefined;
         }
         this.group.remove(mesh);
-        geo.dispose();
+        mesh.geometry.dispose();
         mat.dispose();
         texture.dispose();
       },
@@ -2059,7 +2154,22 @@ export class ImageryLODManager {
     const nw = tb.nw;
     const se = tb.se;
 
-    // Dynamic patch subdivision scaling (Section 44)
+    if (this.options.terrainMesh) {
+      const { centerLat, centerLon } = this.options.terrainGeoBounds;
+      const p0 = geoToLocalMeters(nw.lat, nw.lon, 0, centerLat, centerLon, 0);
+      const p1 = geoToLocalMeters(se.lat, se.lon, 0, centerLat, centerLon, 0);
+      const geometry = buildSurfacePatchGeometry(this.options.terrainMesh,
+        { minX: p0.x, maxX: p1.x, minZ: p0.z, maxZ: p1.z },
+        (localX, localZ) => {
+          const point = localMetersToGeo(localX, localZ, centerLat, centerLon);
+          const sinLat = Math.sin(degToRad(clampLatitude(point.lat)));
+          const tileY = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * 2 ** zoom;
+          return { u: (point.lon - nw.lon) / (se.lon - nw.lon), v: 1 - (tileY - y) };
+        });
+      if (geometry) return geometry;
+    }
+
+    // Sampler-only fallback for callers without a rendered mesh.
     const segments = getPatchSubdivisionSegments(zoom);
     const numVerts = (segments + 1) * (segments + 1);
 
@@ -2131,6 +2241,8 @@ export class ImageryLODManager {
     }
     pos.needsUpdate = true;
     geo.computeVertexNormals();
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
 
     if (patch && patch.outlineMesh) {
       patch.mesh.remove(patch.outlineMesh);
@@ -2163,14 +2275,14 @@ export class ImageryLODManager {
   }
 
   private hasPendingChildren(parentKey: string): boolean {
-    const group = this.refinementGroups.get(parentKey);
-    if (group && (group.state === 'loading' || group.state === 'promoting')) {
-      return true;
-    }
     const parsed = parseTileKey(parentKey);
     const childKeys = getChildTileKeys(parsed.style, parsed.zoom, parsed.x, parsed.y);
     const desiredChildKeys = childKeys.filter((k) => this.desiredTileKeys.has(k));
     if (desiredChildKeys.length === 0) return false;
+    const group = this.refinementGroups.get(parentKey);
+    if (group && (group.state === 'loading' || group.state === 'promoting')) {
+      return true;
+    }
     const allReady = desiredChildKeys.every((k) => this.patches.has(k));
     return !allReady;
   }
@@ -2322,6 +2434,7 @@ export class ImageryLODManager {
     }
     this.pendingRequests.clear();
     this.requestQueue = [];
+    this.clearRetries();
     this.desiredTileKeys.clear();
     this.activeRequestCount = 0;
     this.refinementGroups.clear();

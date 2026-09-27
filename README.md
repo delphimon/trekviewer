@@ -8,60 +8,29 @@ Meta Quest 3 Alpine GPX Trek Visualizer in WebXR (Stereo Passthrough Mixed Reali
 
 You do **not** need to keep your laptop or local development server running to use TrekViewer on your Meta Quest 3. You can either deploy it to free static web hosting (recommended) and install it directly to your Quest App Library, or package it into a standalone `.apk`.
 
-### Method 1: Free Static Web Hosting + Quest App Library (Recommended)
+### Method 1: Hosted WebXR
 
-WebXR apps on Meta Quest can be deployed to any free static web hosting provider with HTTPS.
+Open your deployed HTTPS URL in Meta Quest Browser and select the app's VR or MR entry button. Browser installation affordances vary by headset/browser version; opening a hosted URL is the basic supported path.
 
-#### Option A: Surge.sh (Free, Instant, 1-Command)
-```bash
-npm run deploy:surge
-```
-- Enter your desired domain (e.g. `trekviewer-alpine.surge.sh`).
-- Surge automatically provisions free SSL/HTTPS.
+### Method 2: Sideloadable Meta Quest APK
 
-#### Option B: GitHub Pages (Free, Permanent)
-1. Push your repository to GitHub.
-2. Run:
-```bash
-npm run deploy:gh-pages
-```
-Or enable GitHub Pages in your repo settings (`Settings -> Pages -> Deploy from branch: gh-pages`).
+The wrapper loads the hosted website. It is **not an offline bundle**: startup, routes, elevation, and imagery need network access. There is currently no service-worker shell cache or offline region-download feature.
 
-#### Option C: Vercel / Cloudflare Pages
-- Run `npx vercel` or connect your Git repo to Cloudflare Pages (Build command: `npm run build`, Output directory: `dist`).
+Follow [Meta's PWA packaging guide](https://developers.meta.com/horizon/documentation/web/pwa-packaging/) to prepare Bubblewrap, signing, and Digital Asset Links:
 
----
+1. Run `npm run verify`, then deploy `dist/` to your chosen HTTPS origin.
+2. Install `@meta-quest/bubblewrap-cli` and initialize against that origin:
+   ```bash
+   QUEST_MANIFEST_URL=https://your-host/manifest.webmanifest npm run package:apk -- --init
+   ```
+3. Review the interactive app-mode and signing configuration. Publish the generated association at `/.well-known/assetlinks.json` on the hosted origin. Keep signing keys/passwords out of Git.
+4. Build and install:
+   ```bash
+   npm run package:apk
+   adb install -r quest-package/app-release-signed.apk
+   ```
 
-### 📲 Installing Directly onto Meta Quest 3 (No PC / Cables Needed)
-
-1. Put on your Meta Quest 3 and open the **Meta Quest Browser**.
-2. Navigate to your hosted URL (e.g. `https://trekviewer-alpine.surge.sh` or your GitHub Pages URL).
-3. In the Quest Browser address bar, tap the **`...` (Options)** menu on the right.
-4. Select **"Install App"** (or **"Add to Home"**).
-5. **Done!**
-   - **TrekViewer 3D** is now installed directly in your Meta Quest **App Library**.
-   - Launching it from your library opens it as a dedicated, borderless full-screen application.
-   - **Automatic Updates**: Any time you deploy a new version to Surge or GitHub Pages, your headset automatically receives the update on next launch without re-installing!
-
----
-
-### Method 2: Standalone Meta Quest `.apk`
-
-If you prefer an offline sideloadable Android package file (`.apk`):
-
-1. Run the packaging script:
-```bash
-npm run package:apk
-```
-This uses Meta's official `ovr-platform-util` CLI tool (`create-pwa-package`) to generate a signed `trekviewer.apk`.
-
-2. Install the APK to your Quest:
-- **Via ADB**:
-  ```bash
-  adb install -r trekviewer.apk
-  ```
-- **Via SideQuest**: Drag and drop `trekviewer.apk` onto the SideQuest window.
-- **Via Meta Quest Developer Hub (MQDH)**: Drag into App Manager.
+`QUEST_ANDROID_DIR` selects another generated-project directory. The script fails for missing prerequisites, failed builds, or missing/stale output. It neither deploys the site nor installs the APK automatically. A real signed build and headset launch remain unverified; see [current validation](docs/review-2026-09-26/IMPLEMENTATION.md).
 
 ---
 
@@ -182,7 +151,7 @@ npm run build
 ## 🌐 Network, Offline & PWA Behavior
 
 - **Client-Side Architecture**: TrekViewer runs 100% clientside inside your browser or WebXR runtime. There is no custom backend server.
-- **PWA & APK Installation**: Installing TrekViewer as a PWA or sideloading via APK installs the web application shell to your Meta Quest App Library for dedicated, full-screen WebXR launching.
+- **Hosted WebXR & APK wrapper**: Use Quest Browser directly or package the hosted site with Bubblewrap. Both currently require network access.
 - **Network Tile Access**: While the app shell and bundled GPX routes are served locally, real-world DEM elevation grids and high-resolution satellite/topographic imagery tiles are streamed dynamically over Wi-Fi from public providers (AWS Terrarium, Esri World Imagery, USGS Topo). An active internet connection is required to fetch new terrain and map textures.
 
 ---
@@ -191,3 +160,13 @@ npm run build
 
 - **Your Data Remains Private**: Uploaded GPX files and personal track data stay strictly in your local browser/device memory and are never uploaded or transmitted to any third-party server.
 - **Tile Requests**: Outgoing network traffic consists exclusively of anonymous HTTP GET requests to public map and DEM tile servers.
+
+### First-person navigation and HUD placement
+
+Entering first-person establishes the route heading once. Right-stick turning remains under your control during playback and while paused; bends in the route no longer force headset yaw. The HUD is placed beside you on entry and stays where you dock or drag it. Click the **right thumbstick** to hide it or summon it again; the **left thumbstick** focuses the hiker. Docking and switching view modes also restore the HUD.
+
+### Performance validation
+
+Append `?debug=1` to display callback pacing, CPU submission p95, tile coverage, draw calls, and cache diagnostics. The panel reports the actual XR refresh rate when available; desktop rate is shown as unknown. Callback estimates are not GPU/compositor measurements. Debug geometry and logging also add overhead, so compare against a normal headset session.
+
+Save `dist/build-info.json` with each device test: it includes the source SHA, modified-tree marker, and timestamped build ID. See the [current validation record](docs/review-2026-09-26/IMPLEMENTATION.md) for verified results and pending hardware checks.

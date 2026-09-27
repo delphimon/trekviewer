@@ -32,3 +32,10 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Generated Quest wrapper and signing material
+quest-package/
+*.apk
+*.aab
+*.keystore
+*.jks

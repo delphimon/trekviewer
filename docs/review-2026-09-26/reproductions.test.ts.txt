@@ -1,0 +1,108 @@
+import { it, expect, vi, afterEach } from 'vitest';
+import * as THREE from 'three';
+import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
+import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
+import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
+import { TerrainGenerator } from '../src/terrain/TerrainGenerator.ts';
+import { TextureProvider } from '../src/terrain/TextureProvider.ts';
+import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
+import { QUALITY_PROFILES } from '../src/terrain/QualityProfile.ts';
+import { DesktopOverlay } from '../src/ui/DesktopOverlay.ts';
+import { CesiumBingImageryProvider } from '../src/terrain/providers/ImageryProvider.ts';
+import { FlyoverController } from '../src/visualization/FlyoverController.ts';
+
+const bounds = {minLat:46.84,maxLat:46.86,minLon:-121.76,maxLon:-121.74,centerLat:46.85,centerLon:-121.75,widthMeters:1500,depthMeters:1500,minEle:0,maxEle:200,elevationSpan:200};
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+it('reproduces one mesh promotion per waiting animation frame for the same focus', async () => {
+  vi.spyOn(ElevationTileService,'sampleElevation').mockReturnValue({isValid:true,elevation:100});
+  let resolve!: (grid:any)=>void;
+  const pending = new Promise<any>(r=>resolve=r);
+  const attached: LocalTerrainChunk[] = [];
+  const terrain:any = {terrainGeoBounds:bounds,terrainBaseElevation:0,elevationSampler:()=>100,
+    attachLocalChunk:(c:any)=>attached.push(c),detachLocalChunk:(c:any)=>c.dispose(),notifySurfaceChange:vi.fn()};
+  const streamer:any = new LocalTerrainStreamer({terrainResult:terrain,routeGeometry:{totalDistance:0} as any,demGrid:{} as any,qualityProfile:{...QUALITY_PROFILES['quest-high'],localDemSegments:8}});
+  vi.spyOn(streamer,'fetchStationDEM').mockReturnValue(pending);
+  for(let frame=0;frame<72;frame++) streamer.update(0,{lat:46.85,lon:-121.75});
+  resolve({zoom:15,isRealDEM:true});
+  await Promise.resolve(); await Promise.resolve();
+  expect(attached.length).toBe(72);
+  console.log('REPRO: 72 waiting frames =>', attached.length,'mesh promotions for identical focus');
+  streamer.dispose();
+});
+
+it('reproduces rendered base surface above the authoritative refined sampler', async () => {
+  vi.spyOn(TextureProvider,'generateTopoTexture').mockReturnValue(new THREE.CanvasTexture({width:1,height:1} as any));
+  vi.spyOn(TextureProvider,'fetchSatelliteTexture').mockResolvedValue(null);
+  const base:any = {zoom:12,isRealDEM:true,tileValidity:new Uint8Array([1]),minElevation:0,maxElevation:200};
+  const local:any = {...base,zoom:15};
+  vi.spyOn(ElevationTileService,'sampleElevation').mockImplementation((g)=>({isValid:true,elevation:g===local?100:200}));
+  const terrain = await TerrainGenerator.generate({bounds,points:[{lat:46.85,lon:-121.75,ele:200}],minElevation:0} as any,undefined,undefined,1,false,{demGrid:base,terrainGeoBounds:bounds,elevationSamplerForGeo:()=>200});
+  const chunk = new LocalTerrainChunk({localGrid:local,centerLat:46.85,centerLon:-121.75,terrainBaseElevation:terrain.terrainBaseElevation,radiusMeters:300,segments:8,baseElevationSampler:terrain.elevationSampler});
+  terrain.attachLocalChunk!(chunk);
+  terrain.group.updateMatrixWorld(true);
+  const hits = new THREE.Raycaster(new THREE.Vector3(0,1000,0),new THREE.Vector3(0,-1,0)).intersectObjects([terrain.terrainMesh,chunk.mesh]);
+  expect(terrain.sampleRenderedSurfaceY!(0,0)).toBe(130);
+  expect(hits[0].point.y).toBe(230);
+  console.log('REPRO: sampled ground',terrain.sampleRenderedSurfaceY!(0,0),'visible top surface',hits[0].point.y);
+  terrain.dispose();
+});
+
+it('reproduces LOD ignoring tabletop translation and pointer movement', () => {
+  const manager:any = new ImageryLODManager({terrainGeoBounds:bounds,terrainBaseElevation:0,elevationSampler:()=>0});
+  const evaluate = vi.spyOn(manager,'evaluateLOD').mockImplementation(()=>{});
+  let now=1000; vi.spyOn(performance,'now').mockImplementation(()=>now);
+  const camera = new THREE.PerspectiveCamera(); camera.position.set(0,1,2); camera.lookAt(0,0,0);
+  const root = new THREE.Group(); root.scale.setScalar(.001);
+  manager.update(camera,root);
+  root.position.x=1; root.rotation.y=1;
+  manager.setActiveInteractionRay(new THREE.Ray(new THREE.Vector3(1,1,1),new THREE.Vector3(0,-1,0)));
+  now+=1000; manager.update(camera,root);
+  expect(evaluate).toHaveBeenCalledTimes(1);
+  console.log('REPRO: tabletop moved 1m and rotated 1 radian; LOD evaluation count stays 1');
+  manager.dispose();
+});
+
+it('reproduces texture-style changes not rebuilding LOD for a stationary viewer', async () => {
+  const manager:any = new ImageryLODManager({terrainGeoBounds:bounds,terrainBaseElevation:0,elevationSampler:()=>0});
+  const evaluate = vi.spyOn(manager,'evaluateLOD').mockImplementation(()=>{});
+  let now=1000; vi.spyOn(performance,'now').mockImplementation(()=>now);
+  const camera = new THREE.PerspectiveCamera(); const root = new THREE.Group();
+  manager.update(camera,root);
+  await manager.setTextureStyle('topo');
+  now+=1000; manager.update(camera,root);
+  expect(evaluate).toHaveBeenCalledTimes(1);
+  expect(manager.desiredTileKeys.size).toBe(0);
+  console.log('REPRO: style changed; 0 desired detail tiles after next eligible update');
+  manager.dispose();
+});
+
+it('reproduces imported waypoint markup reaching the live HTML sink unescaped', () => {
+  const elements:any[]=[];
+  const section:any={style:{}}; const list:any={appendChild:(e:any)=>elements.push(e)};
+  vi.stubGlobal('document',{getElementById:(id:string)=>id==='landmarksSection'?section:id==='landmarksList'?list:null,createElement:()=>({addEventListener:()=>{}})});
+  const overlay:any=Object.create(DesktopOverlay.prototype); overlay.callbacks={};
+  const payload='<img src=x onerror="window.__reviewProof=1">';
+  overlay.updateLandmarks({landmarks:[],waypoints:[{name:payload,lat:46.85,lon:-121.75,ele:100}]});
+  expect(elements[0].innerHTML).toContain(payload);
+  console.log('REPRO: raw img/onerror markup appears in waypoint innerHTML');
+});
+
+it('reproduces provider initialization remaining pending beyond 60 seconds', async () => {
+  vi.useFakeTimers(); vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})));
+  const provider=new CesiumBingImageryProvider('test-public-token');
+  let settled=false; provider.init().then(()=>settled=true);
+  await vi.advanceTimersByTimeAsync(60000);
+  expect(settled).toBe(false);
+  console.log('REPRO: provider initialization still pending after 60 seconds');
+});
+
+it('reproduces first-person update erasing user rotation while paused', () => {
+  const trail:any={routeGeometry:{getTelemetryAtProgress:()=>({position:new THREE.Vector3(100,100,100)}),getRouteForwardAtProgress:()=>new THREE.Vector3(0,0,-1)}};
+  const flyover=new FlyoverController(trail,{totalPlaybackSeconds:100} as any);
+  flyover.setViewMode('first-person');
+  const root=new THREE.Group(); root.rotation.y=1;
+  flyover.update(1/72,new THREE.PerspectiveCamera(),root,true);
+  expect(root.rotation.y).toBe(0);
+  console.log('REPRO: first-person update overwrites 1 radian user rotation with 0');
+});

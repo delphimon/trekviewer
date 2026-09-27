@@ -33,29 +33,44 @@ export class CesiumBingImageryProvider implements ImageryProvider {
     this.token = token;
   }
 
+  public static readonly METADATA_TIMEOUT_MS = 5000;
+
   public async init(): Promise<boolean> {
     if (this.metadata) return true;
     if (!this.metadataPromise) {
       this.metadataPromise = (async () => {
+        const controller = new AbortController();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<null>((resolve) => {
+          timer = setTimeout(() => { controller.abort(); resolve(null); }, CesiumBingImageryProvider.METADATA_TIMEOUT_MS);
+        });
+        const request = (async () => {
+          try {
+            const res = await fetch(`https://api.cesium.com/v1/assets/2/endpoint?access_token=${this.token}`, { signal: controller.signal });
+            if (!res.ok) return null;
+            const data = await res.json();
+            const bingKey = data.options?.key;
+            if (!bingKey) return null;
+
+            const metaRes = await fetch(`https://dev.virtualearth.net/REST/V1/Imagery/Metadata/Aerial?key=${bingKey}`, { signal: controller.signal });
+            if (!metaRes.ok) return null;
+            const metaData = await metaRes.json();
+            const resource = metaData.resourceSets?.[0]?.resources?.[0];
+            if (!resource) return null;
+
+            const tmpl = (resource.imageUrl as string).replace('http://', 'https://');
+            const subdomains = (resource.imageUrlSubdomains as string[]) || ['t0', 't1', 't2', 't3'];
+            return { urlTemplate: tmpl, subdomains };
+          } catch {
+            return null;
+          }
+        })();
         try {
-          const res = await fetch(`https://api.cesium.com/v1/assets/2/endpoint?access_token=${this.token}`);
-          if (!res.ok) return null;
-          const data = await res.json();
-          const bingKey = data.options?.key;
-          if (!bingKey) return null;
-
-          const metaRes = await fetch(`https://dev.virtualearth.net/REST/V1/Imagery/Metadata/Aerial?key=${bingKey}`);
-          if (!metaRes.ok) return null;
-          const metaData = await metaRes.json();
-          const resource = metaData.resourceSets?.[0]?.resources?.[0];
-          if (!resource) return null;
-
-          let tmpl = (resource.imageUrl as string).replace('http://', 'https://');
-          const subdomains = (resource.imageUrlSubdomains as string[]) || ['t0', 't1', 't2', 't3'];
-          this.metadata = { urlTemplate: tmpl, subdomains };
+          const result = await Promise.race([request, timeout]);
+          if (result && !controller.signal.aborted) this.metadata = result;
           return this.metadata;
-        } catch {
-          return null;
+        } finally {
+          clearTimeout(timer);
         }
       })();
     }

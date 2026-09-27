@@ -21,6 +21,8 @@ export class FlyoverController {
   private playbackSpeed: number = 1.0; // 1.0 = base nominal duration
   private baseDurationSeconds: number = 60.0;
   private viewMode: ViewMode = 'diorama';
+  private navigationYaw: number | null = null;
+  private readonly navigationOffset = new THREE.Vector3();
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
   private elevationSampler?: (x: number, z: number) => number;
 
@@ -40,7 +42,15 @@ export class FlyoverController {
   }
 
   public setViewMode(mode: ViewMode): void {
+    if (this.viewMode !== mode) this.navigationYaw = null;
     this.viewMode = mode;
+  }
+
+  public turn(radians: number): void {
+    if (this.navigationYaw === null) {
+      this.navigationYaw = headingForForwardVector(this.trailResult.routeGeometry.getRouteForwardAtProgress(this.progress));
+    }
+    this.navigationYaw += radians;
   }
 
   public getViewMode(): ViewMode {
@@ -173,13 +183,17 @@ export class FlyoverController {
       if (isWebXRPresenting && dioramaRoot) {
         // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)
         // Rotate so increasing route direction points forward (-Z) in room space (Section 6)
-        const trailHeading = headingForForwardVector(forward);
-        const rotY = trailHeading;
+        // Align on entry, then preserve user heading through bends and paused frames.
+        if (this.navigationYaw === null) this.navigationYaw = headingForForwardVector(forward);
+        const rotY = this.navigationYaw;
         dioramaRoot.rotation.set(0, rotY, 0);
 
         // Apply rotated offset to place current trail point at origin
-        const offset = new THREE.Vector3(-pos.x, -groundY, -pos.z);
-        offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const offset = this.navigationOffset.set(
+          -pos.x * Math.cos(rotY) - pos.z * Math.sin(rotY),
+          -groundY,
+          pos.x * Math.sin(rotY) - pos.z * Math.cos(rotY)
+        );
         dioramaRoot.position.copy(offset);
         dioramaRoot.scale.set(1, 1, 1);
       } else if (camera) {

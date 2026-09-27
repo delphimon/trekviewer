@@ -1,5 +1,7 @@
 # TrekViewer Stage X3.1 — Visual Corruption Emergency Stabilization Report
 
+> Historical snapshot. These results do not establish device acceptance for the current build. See [26 September implementation and validation](review-2026-09-26/IMPLEMENTATION.md) for current evidence and remaining Quest checks.
+
 ## 1. Executive Summary
 
 Stage X3.1 successfully identifies and resolves the dual visual failure modes observed on Meta Quest 3 hardware and desktop environments:

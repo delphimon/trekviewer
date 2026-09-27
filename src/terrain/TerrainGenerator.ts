@@ -5,6 +5,7 @@ import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { TextureProvider, type TileGridBounds } from './TextureProvider.ts';
 import { TextureBudget } from './TextureBudget.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import type { TerrainGridLayout } from './TerrainGrid.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 
 export type TerrainQuality = 'dem' | 'partial-dem' | 'synthetic';
@@ -42,6 +43,8 @@ export interface TerrainResult {
   notifySurfaceChange?: (bounds?: Partial<TerrainSurfaceBounds>) => void;
   elevationSampler: (x: number, z: number) => number;
   sampleDEMY: (x: number, z: number) => number;
+  sampleBaseSurfaceY?: (x: number, z: number) => number;
+  baseMeshGrid?: TerrainGridLayout;
   sampleRenderedSurfaceY: (localX: number, localZ: number) => number;
   setTextureStyle: (style: TextureStyle) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
@@ -344,6 +347,41 @@ export class TerrainGenerator {
     let isDisposed: boolean = false;
 
     const activeLocalChunks: LocalTerrainChunk[] = [];
+    const baseMeshGrid = { width: widthM, depth: depthM, segmentsX: segX, segmentsZ: segZ };
+    const liveIndex = planeGeo.index!;
+    liveIndex.setUsage(THREE.DynamicDrawUsage);
+    const originalIndices = liveIndex.array.slice();
+    let visibleFootprints = '';
+    const updateBaseCoverage = () => {
+      const visible = activeLocalChunks.filter(chunk => chunk.mesh.visible);
+      const signature = visible.map(chunk => Object.values(chunk.getSurfaceBounds()).join(',')).join(';');
+      if (signature === visibleFootprints) return;
+      visibleFootprints = signature;
+      planeGeo.userData.surfaceHoles = visible.map(chunk => chunk.getSurfaceBounds());
+      if (!visible.length) {
+        liveIndex.array.set(originalIndices);
+        liveIndex.needsUpdate = true;
+        planeGeo.setDrawRange(0, originalIndices.length);
+        return;
+      }
+      // Only whole aligned coarse cells are replaced. Keep original vertex attributes
+      // and change indices once per promotion, never per frame or per pixel.
+      let indexCount = 0;
+      for (let z = 0; z < segZ; z++) {
+        for (let x = 0; x < segX; x++) {
+          const cx = (x + 0.5) * widthM / segX - widthM / 2;
+          const cz = (z + 0.5) * depthM / segZ - depthM / 2;
+          if (visible.some(chunk => {
+            const b = chunk.getSurfaceBounds();
+            return cx >= b.minX && cx <= b.maxX && cz >= b.minZ && cz <= b.maxZ;
+          })) continue;
+          const offset = (z * segX + x) * 6;
+          for (let i = 0; i < 6; i++) liveIndex.setX(indexCount++, originalIndices[offset + i]);
+        }
+      }
+      liveIndex.needsUpdate = true;
+      planeGeo.setDrawRange(0, indexCount);
+    };
 
     const updateLocalChunksTexture = (tex: THREE.Texture | null) => {
       for (const chunk of activeLocalChunks) {
@@ -465,6 +503,10 @@ export class TerrainGenerator {
           updateLocalChunksTexture(terrainMat.map);
         }
       }
+      if (!isDisposed && !signal?.aborted && gen === textureRequestGeneration && currentActiveStyle === style) {
+        const name = style === 'satellite' ? 'Aerial' : style === 'hybrid' ? 'Hybrid' : 'Topographic';
+        onProgress?.(`${name} view active.`, 1);
+      }
     };
 
     const setVerticalExaggeration = (factor: number) => {
@@ -473,7 +515,12 @@ export class TerrainGenerator {
         posAttr.setY(i, unscaledHeights[i] * currentExaggeration);
       }
       posAttr.needsUpdate = true;
+      // Compute smooth normals from the complete surface, including temporarily hidden cells.
+      liveIndex.array.set(originalIndices);
       planeGeo.computeVertexNormals();
+      visibleFootprints = "invalidated";
+      planeGeo.computeBoundingBox();
+      planeGeo.computeBoundingSphere();
 
       // Update active local high-res chunks if attached (Stage V7, Stage W6)
       for (const chunk of activeLocalChunks) {
@@ -493,6 +540,8 @@ export class TerrainGenerator {
     let onSurfaceChangeCallback: ((change: TerrainSurfaceChange) => void) | undefined;
 
     const notifySurfaceChange = (bounds?: Partial<TerrainSurfaceBounds>) => {
+      if (isDisposed) return;
+      updateBaseCoverage();
       surfaceRevision++;
       const fullBounds: TerrainSurfaceBounds = {
         minX: bounds?.minX ?? -widthM / 2,
@@ -617,6 +666,10 @@ export class TerrainGenerator {
         }
       }
 
+      return sampleBaseSurfaceY(localX, localZ);
+    };
+
+    const sampleBaseSurfaceY = (localX: number, localZ: number): number => {
       // Clamp to terrain mesh boundaries
       const halfW = widthM * 0.5;
       const halfD = depthM * 0.5;
@@ -679,6 +732,8 @@ export class TerrainGenerator {
       notifySurfaceChange,
       elevationSampler: sampleHeightAt,
       sampleDEMY: sampleHeightAt,
+      sampleBaseSurfaceY,
+      baseMeshGrid,
       sampleRenderedSurfaceY,
       setTextureStyle,
       setVerticalExaggeration,

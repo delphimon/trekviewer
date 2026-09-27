@@ -26,6 +26,8 @@ export { ALL_HAND_JOINTS, BONE_CONNECTIONS };
 export interface XRInteractionCallbacks {
   onToggleViewMode?: () => void;
   onTogglePlay?: () => void;
+  onTurn?: (radians: number) => void;
+  onToggleHUD?: () => void;
   onReset?: () => void;
   onExitMR?: () => void;
   onFocusHiker?: () => void;
@@ -575,7 +577,8 @@ export class XRManager {
         if (source.handedness === 'right' || source.handedness === 'none') {
           const rotY = computeThumbstickRotation(stickX, dt);
           if (rotY !== 0) {
-            this.sceneManager.dioramaRoot.rotation.y -= rotY;
+            if (this.currentViewMode === 'first-person') this.callbacks.onTurn?.(-rotY);
+            else this.sceneManager.dioramaRoot.rotation.y -= rotY;
           }
           if (this.currentViewMode === 'diorama') {
             const zoomFactor = computeThumbstickZoomFactor(stickY, dt);
@@ -636,7 +639,8 @@ export class XRManager {
 
       if (b3_stickClick && !state.prevButtons[3]) {
         this.triggerHaptic(i, 0.6, 40);
-        this.callbacks.onFocusHiker?.();
+        if (source.handedness === 'right') this.callbacks.onToggleHUD?.();
+        else this.callbacks.onFocusHiker?.();
       }
 
       // Laser Pointer Raycasting (HUD & terrain drag)
@@ -1034,7 +1038,7 @@ export class XRManager {
 
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
-    if (!this.spatialHUD) return false;
+    if (!this.spatialHUD || !this.spatialHUD.group.visible) return false;
 
     // Convert world position of fingertip to local space of Spatial HUD
     const hudGroup = this.spatialHUD.group;
@@ -1234,7 +1238,7 @@ export class XRManager {
     _scratchRayDir.set(0, 0, -1).applyMatrix4(_scratchRayMatrix).normalize();
 
     // 1. If currently dragging the HUD in 3D room space (supports both hands and physical controllers)
-    if (state.isDraggingHUD && this.spatialHUD) {
+    if (state.isDraggingHUD && this.spatialHUD && this.spatialHUD.group.visible) {
       if (isTriggerDown) {
         _scratchV1.copy(_scratchRayOrigin).addScaledVector(_scratchRayDir, state.hudDragDistance);
         this.spatialHUD.group.position.copy(_scratchV1);
@@ -1300,7 +1304,7 @@ export class XRManager {
     let hudHit: THREE.Intersection | null = null;
     let isHitGrabMesh = false;
 
-    if (this.spatialHUD) {
+    if (this.spatialHUD && this.spatialHUD.group.visible) {
       const grabIntersects = this.raycaster.intersectObject(this.spatialHUD.grabMesh, false);
       if (grabIntersects.length > 0) {
         hudHit = grabIntersects[0];

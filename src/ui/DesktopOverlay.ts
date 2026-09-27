@@ -463,7 +463,7 @@ export class DesktopOverlay {
             <ul>
               <li><strong>🖐️ Bare Hands:</strong> 2-Hand Pinch to Zoom/Rotate/Move, 1-Hand Pinch to Drag & Turn, Direct Finger Poke HUD</li>
               <li><strong>Grip:</strong> Grab & reposition 3D diorama in your room</li>
-              <li><strong>Right Thumbstick:</strong> Rotate & scale (zoom)</li>
+              <li><strong>Right Thumbstick:</strong> Turn; scale in tabletop; click to hide/summon HUD</li>
               <li><strong>A / X Button:</strong> Toggle Tabletop MR ⇄ 1:1 Trail</li>
               <li><strong>B / Y Button:</strong> Play / Pause Flyover</li>
               <li><strong>Trigger:</strong> Laser pointer select</li>
@@ -881,7 +881,10 @@ export class DesktopOverlay {
       }
 
       const eleText = lm.ele ? ` (${Math.round(lm.ele * 3.28084)} ft)` : '';
-      chip.innerHTML = `${icon} <span>${lm.name}${eleText}</span>`;
+      chip.textContent = `${icon} `;
+      const label = document.createElement('span');
+      label.textContent = `${lm.name}${eleText}`;
+      chip.appendChild(label);
       chip.title = `Jump route progress to ${lm.name}`;
 
       chip.addEventListener('click', () => {

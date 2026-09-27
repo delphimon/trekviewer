@@ -3,6 +3,7 @@ import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { TextureProvider, type TileGridBounds } from './TextureProvider.ts';
+import { refinementGrid, type TerrainGridLayout } from './TerrainGrid.ts';
 import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export interface LocalTerrainChunkOptions {
@@ -19,6 +20,7 @@ export interface LocalTerrainChunkOptions {
   blendMarginRatio?: number;
   tileGrid?: TileGridBounds;
   mapTexture?: THREE.Texture | null;
+  baseMeshGrid?: TerrainGridLayout;
 }
 
 export interface ChunkValidationResult {
@@ -55,6 +57,11 @@ export class LocalTerrainChunk {
   public readonly material: THREE.MeshStandardMaterial;
   private unscaledHeights: Float32Array;
   private segments: number;
+  private segmentsX: number;
+  private segmentsZ: number;
+  private widthM: number;
+  private depthM: number;
+  private readonly blendMargin: number;
   private currentExaggeration: number;
   private isDisposed: boolean = false;
 
@@ -80,18 +87,24 @@ export class LocalTerrainChunk {
       this.referenceCenterLon,
       0
     );
-    this.localCenter = { x: centerMeters.x, z: centerMeters.z };
-
-    const widthM = this.radiusMeters * 2;
-    const depthM = this.radiusMeters * 2;
-    this.localBounds = {
-      minX: this.localCenter.x - this.radiusMeters,
-      maxX: this.localCenter.x + this.radiusMeters,
-      minZ: this.localCenter.z - this.radiusMeters,
-      maxZ: this.localCenter.z + this.radiusMeters,
+    const aligned = options.baseMeshGrid
+      ? refinementGrid(options.baseMeshGrid, centerMeters.x, centerMeters.z, this.radiusMeters, this.segments)
+      : null;
+    this.localBounds = aligned?.bounds ?? {
+      minX: centerMeters.x - this.radiusMeters, maxX: centerMeters.x + this.radiusMeters,
+      minZ: centerMeters.z - this.radiusMeters, maxZ: centerMeters.z + this.radiusMeters,
     };
+    this.localCenter = {
+      x: (this.localBounds.minX + this.localBounds.maxX) / 2,
+      z: (this.localBounds.minZ + this.localBounds.maxZ) / 2,
+    };
+    this.widthM = aligned?.width ?? this.radiusMeters * 2;
+    this.depthM = aligned?.depth ?? this.radiusMeters * 2;
+    this.segmentsX = aligned?.segmentsX ?? this.segments;
+    this.segmentsZ = aligned?.segmentsZ ?? this.segments;
+    this.blendMargin = options.blendMarginRatio ?? 0.15;
 
-    this.geometry = new THREE.PlaneGeometry(widthM, depthM, this.segments, this.segments);
+    this.geometry = new THREE.PlaneGeometry(this.widthM, this.depthM, this.segmentsX, this.segmentsZ);
     this.geometry.rotateX(-Math.PI / 2);
 
     const posAttr = this.geometry.attributes.position;
@@ -101,13 +114,11 @@ export class LocalTerrainChunk {
     this.fallbackCount = 0;
     this.maxDiffFromBase = 0;
 
-    const blendMargin = options.blendMarginRatio ?? 0.15;
-    const innerRadius = this.radiusMeters * (1 - blendMargin);
 
     for (let i = 0; i < vertexCount; i++) {
       const vx = posAttr.getX(i);
       const vz = posAttr.getZ(i);
-      const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+      const geo = localMetersToGeo(this.localCenter.x + vx, this.localCenter.z + vz, this.referenceCenterLat, this.referenceCenterLon);
 
       const sceneX = this.localCenter.x + vx;
       const sceneZ = this.localCenter.z + vz;
@@ -129,13 +140,8 @@ export class LocalTerrainChunk {
 
       let h = hLocal;
       if (options.baseElevationSampler && isHighResValid) {
-        const r = Math.hypot(vx, vz);
-        if (r > innerRadius) {
-          const tLinear = Math.min(1, Math.max(0, (r - innerRadius) / (this.radiusMeters - innerRadius)));
-          // Hermite smoothstep for seamless C1 boundary continuity
-          const t = tLinear * tLinear * (3 - 2 * tLinear);
-          h = (1 - t) * hLocal + t * hBase;
-        }
+        const t = this.baseBlendWeight(vx, vz);
+        h = (1 - t) * hLocal + t * hBase;
       }
 
       const diff = Math.abs(h - hBase);
@@ -149,6 +155,8 @@ export class LocalTerrainChunk {
 
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
+    this.geometry.computeBoundingBox();
+    this.geometry.computeBoundingSphere();
 
     // Map local chunk vertices to global geographic UVs (Stage X3)
     if (options.tileGrid) {
@@ -156,7 +164,7 @@ export class LocalTerrainChunk {
       for (let i = 0; i < vertexCount; i++) {
         const vx = posAttr.getX(i);
         const vz = posAttr.getZ(i);
-        const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+        const geo = localMetersToGeo(this.localCenter.x + vx, this.localCenter.z + vz, this.referenceCenterLat, this.referenceCenterLon);
         const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, options.tileGrid);
         uvAttr.setXY(i, uv.u, uv.v);
       }
@@ -197,22 +205,22 @@ export class LocalTerrainChunk {
       return null;
     }
 
-    const widthM = this.radiusMeters * 2;
-    const depthM = this.radiusMeters * 2;
+    const widthM = this.widthM;
+    const depthM = this.depthM;
 
     const relX = localX - this.localCenter.x;
     const relZ = localZ - this.localCenter.z;
 
-    const gx = ((relX + this.radiusMeters) / widthM) * this.segments;
-    const gz = ((relZ + this.radiusMeters) / depthM) * this.segments;
+    const gx = ((relX + widthM / 2) / widthM) * this.segmentsX;
+    const gz = ((relZ + depthM / 2) / depthM) * this.segmentsZ;
 
-    const ix = Math.min(this.segments - 1, Math.max(0, Math.floor(gx)));
-    const iz = Math.min(this.segments - 1, Math.max(0, Math.floor(gz)));
+    const ix = Math.min(this.segmentsX - 1, Math.max(0, Math.floor(gx)));
+    const iz = Math.min(this.segmentsZ - 1, Math.max(0, Math.floor(gz)));
 
     const u = Math.max(0, Math.min(1, gx - ix));
     const v = Math.max(0, Math.min(1, gz - iz));
 
-    const rowStride = this.segments + 1;
+    const rowStride = this.segmentsX + 1;
     const idxTL = iz * rowStride + ix;
     const idxTR = idxTL + 1;
     const idxBL = (iz + 1) * rowStride + ix;
@@ -229,6 +237,13 @@ export class LocalTerrainChunk {
     } else {
       return (1 - u) * hBL + (u + v - 1) * hBR + (1 - v) * hTR;
     }
+  }
+
+  private baseBlendWeight(x: number, z: number): number {
+    const edgeDistance = Math.min(this.widthM / 2 - Math.abs(x), this.depthM / 2 - Math.abs(z));
+    const margin = Math.max(1, Math.min(this.widthM, this.depthM) * 0.5 * this.blendMargin);
+    const t = Math.max(0, Math.min(1, 1 - edgeDistance / margin));
+    return t * t * (3 - 2 * t);
   }
 
   public outlineMesh?: THREE.LineSegments;
@@ -250,13 +265,11 @@ export class LocalTerrainChunk {
     this.fallbackCount = 0;
     this.maxDiffFromBase = 0;
 
-    const blendMargin = 0.15;
-    const innerRadius = this.radiusMeters * (1 - blendMargin);
 
     for (let i = 0; i < vertexCount; i++) {
       const vx = posAttr.getX(i);
       const vz = posAttr.getZ(i);
-      const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+      const geo = localMetersToGeo(this.localCenter.x + vx, this.localCenter.z + vz, this.referenceCenterLat, this.referenceCenterLon);
 
       const sceneX = this.localCenter.x + vx;
       const sceneZ = this.localCenter.z + vz;
@@ -277,12 +290,8 @@ export class LocalTerrainChunk {
 
       let h = hLocal;
       if (baseElevationSampler && isHighResValid) {
-        const r = Math.hypot(vx, vz);
-        if (r > innerRadius) {
-          const tLinear = Math.min(1, Math.max(0, (r - innerRadius) / (this.radiusMeters - innerRadius)));
-          const t = tLinear * tLinear * (3 - 2 * tLinear);
-          h = (1 - t) * hLocal + t * hBase;
-        }
+        const t = this.baseBlendWeight(vx, vz);
+        h = (1 - t) * hLocal + t * hBase;
       }
 
       const diff = Math.abs(h - hBase);
@@ -296,6 +305,8 @@ export class LocalTerrainChunk {
 
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
+    this.geometry.computeBoundingBox();
+    this.geometry.computeBoundingSphere();
 
     if (this.outlineMesh) {
       this.mesh.remove(this.outlineMesh);
@@ -368,7 +379,7 @@ export class LocalTerrainChunk {
       for (let i = 0; i < vertexCount; i++) {
         const vx = posAttr.getX(i);
         const vz = posAttr.getZ(i);
-        const geo = localMetersToGeo(vx, vz, this.centerLat, this.centerLon);
+        const geo = localMetersToGeo(this.localCenter.x + vx, this.localCenter.z + vz, this.referenceCenterLat, this.referenceCenterLon);
         const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, tileGrid);
         uvAttr.setXY(i, uv.u, uv.v);
       }
@@ -385,6 +396,8 @@ export class LocalTerrainChunk {
     }
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
+    this.geometry.computeBoundingBox();
+    this.geometry.computeBoundingSphere();
 
     if (this.outlineMesh) {
       this.mesh.remove(this.outlineMesh);

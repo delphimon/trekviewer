@@ -38,6 +38,7 @@ export interface TileCacheStats {
 }
 
 export class TileImageCache {
+  private static generation = 0;
   private static cache: Map<string, HTMLImageElement> = new Map();
   private static entryBytes: Map<string, number> = new Map();
   private static inFlight: Map<string, Promise<HTMLImageElement>> = new Map();
@@ -128,6 +129,13 @@ export class TileImageCache {
     return this.negativeCache.size;
   }
 
+  public static getRetryDelayMs(providerId: string, zoom: number, x: number, y: number): number {
+    const entry = this.negativeCache.get(this.getTileKey(providerId, zoom, x, y));
+    if (!entry) return 0;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    return Math.max(0, entry.timestamp + entry.retryAfterMs - now);
+  }
+
   public static isNegativelyCached(providerIdOrKey: string, zoom?: number, x?: number, y?: number): boolean {
     const key =
       zoom !== undefined && x !== undefined && y !== undefined
@@ -169,6 +177,8 @@ export class TileImageCache {
 
   public static set(key: string, img: HTMLImageElement): void {
     const incomingBytes = this.calculateImageBytes(img);
+    // Oversized images can still be used by the caller without displacing the cache.
+    if (incomingBytes > this.maxDecodedBytes) return;
 
     // If already in cache, deduct previous size first
     if (this.cache.has(key)) {
@@ -195,10 +205,8 @@ export class TileImageCache {
   private static evictOldest(): void {
     const oldestKey = this.cache.keys().next().value;
     if (!oldestKey) return;
-    const oldImg = this.cache.get(oldestKey);
-    if (oldImg) {
-      oldImg.src = '';
-    }
+    // Textures and compositors may still borrow this decoded image. Release the
+    // cache reference, never mutate its source; GC frees it after its last owner.
     const bytes = this.entryBytes.get(oldestKey) ?? 0;
     this.totalDecodedBytes = Math.max(0, this.totalDecodedBytes - bytes);
     this.cache.delete(oldestKey);
@@ -219,9 +227,7 @@ export class TileImageCache {
   }
 
   public static clear(): void {
-    for (const img of this.cache.values()) {
-      img.src = '';
-    }
+    this.generation++;
     this.cache.clear();
     this.entryBytes.clear();
     this.inFlight.clear();
@@ -299,6 +305,7 @@ export class TileImageCache {
     signal?: AbortSignal,
     priority: TilePriority = TilePriority.NORMAL
   ): Promise<HTMLImageElement> {
+    const generation = this.generation;
     const key = this.getTileKey(provider.id, zoom, x, y);
     const cached = this.get(key);
     if (cached) {
@@ -321,18 +328,20 @@ export class TileImageCache {
     // Coordinated network prioritization (Stage X7 / Section 11):
     // Low-priority overview requests yield while high-priority visible LOD requests are in-flight.
     if (priority === TilePriority.OVERVIEW) {
-      while (this.hasActiveHighPriorityRequests() && !signal?.aborted) {
+      while (generation === this.generation && this.hasActiveHighPriorityRequests() && !signal?.aborted) {
         this.overviewWaitingCount++;
         try {
           await this.waitForHighPriorityDrain(signal);
         } finally {
-          this.overviewWaitingCount = Math.max(0, this.overviewWaitingCount - 1);
+          if (generation === this.generation) this.overviewWaitingCount = Math.max(0, this.overviewWaitingCount - 1);
         }
       }
       if (signal?.aborted) {
         throw new Error('Tile load aborted');
       }
     }
+
+    if (generation !== this.generation) throw new Error('Tile cache cleared');
 
     // In-flight request deduplication (Requirement #77 & Section 15)
     let loadPromise = this.inFlight.get(key);
@@ -347,13 +356,14 @@ export class TileImageCache {
             try {
               // Shared network request executes with internal timeout to populate cache
               const img = await this.loadImageWithTimeout(url, timeoutMs);
-              this.set(key, img);
+              if (generation === this.generation) this.set(key, img);
               return img;
             } catch (err) {
               lastError = err;
             }
           }
 
+          if (generation !== this.generation) throw lastError;
           this.failureCount++;
           const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
           const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
@@ -364,9 +374,9 @@ export class TileImageCache {
           });
           throw lastError || new Error(errMsg);
         } finally {
-          this.activeByPriority[priority] = Math.max(0, this.activeByPriority[priority] - 1);
-          if (priority === TilePriority.CRITICAL || priority === TilePriority.HIGH) {
-            this.notifyHighPriorityDrained();
+          if (generation === this.generation) {
+            this.activeByPriority[priority] = Math.max(0, this.activeByPriority[priority] - 1);
+            if (priority === TilePriority.CRITICAL || priority === TilePriority.HIGH) this.notifyHighPriorityDrained();
           }
         }
       })();
@@ -374,7 +384,7 @@ export class TileImageCache {
       this.inFlight.set(key, loadPromise);
       loadPromise
         .finally(() => {
-          this.inFlight.delete(key);
+          if (this.inFlight.get(key) === loadPromise) this.inFlight.delete(key);
         })
         .catch(() => {});
     }

@@ -1,5 +1,7 @@
 # TrekViewer Stage V — Meta Quest 3 Hardware Acceptance & Interaction Precision Report
 
+> Historical snapshot. These results do not establish device acceptance for the current build. See [26 September implementation and validation](review-2026-09-26/IMPLEMENTATION.md) for current evidence and remaining Quest checks.
+
 ## Executive Summary
 
 **Target Device**: Meta Quest 3  

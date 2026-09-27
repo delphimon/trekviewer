@@ -35,7 +35,7 @@ export interface LocalTerrainStreamerOptions {
  * - Shares base terrain map texture and tileGrid bounds to eliminate gray placeholder material.
  *
  * Stage X3.1:
- * - ViewMode awareness: in 'diorama' mode all local chunks are hidden; base terrain is 100% authoritative.
+ * - ViewMode awareness: tabletop inspection and walking each own one visible refinement.
  * - Transactional promotion: candidates built offscreen, validated, and promoted atomically.
  */
 export class LocalTerrainStreamer {
@@ -46,6 +46,10 @@ export class LocalTerrainStreamer {
   public chunkRadiusM: number;
   public readonly maxChunks: number;
   public readonly evalThresholdM: number;
+
+  private focusGeneration = 0;
+  private pendingFocus = false;
+  private readonly lifetime = new AbortController();
 
   private currentViewMode: ViewMode = 'diorama';
   private managedChunks: LocalTerrainChunk[] = [];
@@ -87,9 +91,12 @@ export class LocalTerrainStreamer {
 
   public setViewMode(mode: ViewMode): void {
     if (this.isDisposed) return;
+    const previousVisible = this.activeVisibleChunk;
     const prevMode = this.currentViewMode;
     if (prevMode === mode) return;
     this.currentViewMode = mode;
+    this.focusGeneration++;
+    this.pendingFocus = false;
     let affectedBounds: TerrainSurfaceBounds | undefined;
 
     if (mode === 'diorama') {
@@ -131,7 +138,7 @@ export class LocalTerrainStreamer {
     }
 
     if (affectedBounds) {
-      this.terrainResult.notifySurfaceChange?.(affectedBounds);
+      this.terrainResult.notifySurfaceChange?.(changedBounds(previousVisible, this.activeVisibleChunk));
     }
   }
 
@@ -147,13 +154,14 @@ export class LocalTerrainStreamer {
   }
 
   public getStationKey(lat: number, lon: number): string {
-    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    return `${lat.toFixed(4)},${lon.toFixed(4)}:${this.chunkRadiusM}:${this.qualityProfile.localDemZoom}:${this.qualityProfile.localDemMaxTiles}`;
   }
 
   /**
    * Fetches real high-resolution local DEM for station coordinates (Stage X2).
    */
   public async fetchStationDEM(lat: number, lon: number): Promise<ElevationGrid | null> {
+    if (this.isDisposed) return null;
     const key = this.getStationKey(lat, lon);
     const cached = this.stationDemCache.get(key);
     if (cached) return cached;
@@ -165,19 +173,20 @@ export class LocalTerrainStreamer {
         lon,
         this.chunkRadiusM,
         this.qualityProfile.localDemZoom,
-        this.qualityProfile.localDemMaxTiles
+        this.qualityProfile.localDemMaxTiles,
+        this.lifetime.signal
       ).then((grid) => {
-        if (grid) {
+        if (grid && !this.isDisposed) {
           if (this.stationDemCache.size >= 16) {
             const firstKey = this.stationDemCache.keys().next().value;
             if (firstKey) this.stationDemCache.delete(firstKey);
           }
           this.stationDemCache.set(key, grid);
         }
-        this.pendingFetches.delete(key);
+        if (this.pendingFetches.get(key) === pending) this.pendingFetches.delete(key);
         return grid;
       }).catch(() => {
-        this.pendingFetches.delete(key);
+        if (this.pendingFetches.get(key) === pending) this.pendingFetches.delete(key);
         return null;
       });
       this.pendingFetches.set(key, pending);
@@ -195,6 +204,7 @@ export class LocalTerrainStreamer {
       // Build candidate offscreen, validate heights and finite values, and swap atomically.
       const mat = this.terrainResult.terrainMesh?.material as THREE.MeshStandardMaterial | undefined;
       const candidate = new LocalTerrainChunk({
+        baseMeshGrid: this.terrainResult.baseMeshGrid,
         localGrid: grid,
         centerLat: lat,
         centerLon: lon,
@@ -206,7 +216,7 @@ export class LocalTerrainStreamer {
         radiusMeters: this.chunkRadiusM,
         segments: this.qualityProfile.localDemSegments,
         baseElevationSampler: (x, z) =>
-          this.terrainResult.elevationSampler(x, z),
+          (this.terrainResult.sampleBaseSurfaceY ?? this.terrainResult.elevationSampler)(x, z),
         initialExaggeration: this.currentExaggeration,
         tileGrid: this.terrainResult.tileGrid,
         mapTexture: mat?.map ?? null,
@@ -227,17 +237,32 @@ export class LocalTerrainStreamer {
       }
 
       const isStation0 = (currentIdx === 0);
-      candidate.mesh.visible = (this.currentViewMode === 'first-person' && isStation0);
+      const wasVisible = chunk.mesh.visible;
+      candidate.mesh.visible = false;
       this.terrainResult.attachLocalChunk?.(candidate);
+      chunk.mesh.visible = false;
+      candidate.mesh.visible = (this.currentViewMode === 'first-person' && isStation0);
       this.managedChunks[currentIdx] = candidate;
       this.terrainResult.detachLocalChunk?.(chunk);
+      if (wasVisible || candidate.mesh.visible) this.terrainResult.notifySurfaceChange?.(changedBounds(chunk, candidate));
     });
   }
 
   public setQualityProfile(profile: QualityProfile): void {
     if (this.isDisposed) return;
+    if (this.qualityProfile === profile) return;
     this.qualityProfile = profile;
     this.chunkRadiusM = profile.localTerrainRadiusM;
+    this.focusGeneration++;
+    this.pendingFocus = false;
+    this.lastTabletopFocusGeo = null;
+    this.lastEvalProgress = -1;
+    for (const chunk of this.managedChunks) {
+      chunk.mesh.visible = false;
+      this.terrainResult.detachLocalChunk?.(chunk);
+    }
+    this.managedChunks = [];
+    this.terrainResult.notifySurfaceChange?.();
   }
 
   public getQualityProfile(): QualityProfile {
@@ -307,6 +332,8 @@ export class LocalTerrainStreamer {
       };
     });
 
+    const prevVisibleChunk = this.managedChunks.find((c) => c.mesh.visible);
+    for (const chunk of this.managedChunks) chunk.mesh.visible = false;
     const neededChunks: LocalTerrainChunk[] = [];
     const availableChunks = [...this.managedChunks];
 
@@ -341,6 +368,7 @@ export class LocalTerrainStreamer {
 
         const mat = this.terrainResult.terrainMesh?.material as THREE.MeshStandardMaterial | undefined;
         const newChunk = new LocalTerrainChunk({
+          baseMeshGrid: this.terrainResult.baseMeshGrid,
           localGrid: initialGrid,
           centerLat: station.lat,
           centerLon: station.lon,
@@ -352,12 +380,13 @@ export class LocalTerrainStreamer {
           radiusMeters: this.chunkRadiusM,
           segments: this.qualityProfile.localDemSegments,
           baseElevationSampler: (x, z) =>
-            this.terrainResult.elevationSampler(x, z),
+            (this.terrainResult.sampleBaseSurfaceY ?? this.terrainResult.elevationSampler)(x, z),
           initialExaggeration: this.currentExaggeration,
           tileGrid: this.terrainResult.tileGrid,
           mapTexture: mat?.map ?? null,
         });
 
+        newChunk.mesh.visible = false;
         this.terrainResult.attachLocalChunk?.(newChunk);
         neededChunks.push(newChunk);
 
@@ -400,8 +429,6 @@ export class LocalTerrainStreamer {
       }
     }
 
-    const prevVisibleChunk = this.managedChunks.find((c) => c.mesh.visible);
-
     // Ensure only the active hiker station chunk is visible in first-person mode (Stage X3 & X3.1)
     for (let i = 0; i < neededChunks.length; i++) {
       if (this.currentViewMode === 'first-person' && i === 0) {
@@ -416,8 +443,8 @@ export class LocalTerrainStreamer {
     }
 
     const newVisibleChunk = neededChunks[0]?.mesh.visible ? neededChunks[0] : null;
-    if (prevVisibleChunk !== newVisibleChunk && newVisibleChunk) {
-      this.terrainResult.notifySurfaceChange?.(newVisibleChunk.getSurfaceBounds());
+    if (prevVisibleChunk !== newVisibleChunk && (prevVisibleChunk || newVisibleChunk)) {
+      this.terrainResult.notifySurfaceChange?.(changedBounds(prevVisibleChunk, newVisibleChunk));
     }
 
     this.managedChunks = [...neededChunks, ...availableChunks];
@@ -434,17 +461,20 @@ export class LocalTerrainStreamer {
         111320 *
         Math.cos((tabletopFocusGeo.lat * Math.PI) / 180);
       const dist = Math.hypot(latDiff, lonDiff);
-      if (dist < 75 && this.tabletopChunk && this.tabletopChunk.mesh.visible) {
+      if (dist < 75 && (this.pendingFocus || (this.tabletopChunk && this.tabletopChunk.mesh.visible))) {
         return; // Within hysteresis threshold (< 75m)
       }
     }
 
     this.lastTabletopFocusGeo = { ...tabletopFocusGeo };
+    const generation = ++this.focusGeneration;
+    this.pendingFocus = true;
     const focusLat = tabletopFocusGeo.lat;
     const focusLon = tabletopFocusGeo.lon;
 
     this.fetchStationDEM(focusLat, focusLon).then((grid) => {
-      if (this.isDisposed || this.currentViewMode !== 'diorama') return;
+      if (this.isDisposed || this.currentViewMode !== 'diorama' || generation !== this.focusGeneration) return;
+      this.pendingFocus = false;
 
       // Verify this is still the active focus
       if (
@@ -460,6 +490,7 @@ export class LocalTerrainStreamer {
       const initialGrid = grid || this.demGrid;
       const mat = this.terrainResult.terrainMesh?.material as THREE.MeshStandardMaterial | undefined;
       const candidate = new LocalTerrainChunk({
+        baseMeshGrid: this.terrainResult.baseMeshGrid,
         localGrid: initialGrid,
         centerLat: focusLat,
         centerLon: focusLon,
@@ -471,7 +502,7 @@ export class LocalTerrainStreamer {
         radiusMeters: this.chunkRadiusM,
         segments: this.qualityProfile.localDemSegments,
         baseElevationSampler: (x, z) =>
-          this.terrainResult.elevationSampler(x, z),
+          (this.terrainResult.sampleBaseSurfaceY ?? this.terrainResult.elevationSampler)(x, z),
         initialExaggeration: this.currentExaggeration,
         blendMarginRatio: 0.15,
         tileGrid: this.terrainResult.tileGrid,
@@ -490,24 +521,23 @@ export class LocalTerrainStreamer {
         return;
       }
 
-      // Atomically promote candidate
-      candidate.mesh.visible = true;
+      // Attach hidden, retire the old surface, then publish one coherent revision.
+      candidate.mesh.visible = false;
       this.terrainResult.attachLocalChunk?.(candidate);
-
       const oldTabletop = this.tabletopChunk;
+      if (oldTabletop) oldTabletop.mesh.visible = false;
+      candidate.mesh.visible = true;
       this.tabletopChunk = candidate;
-
-      if (oldTabletop && oldTabletop !== candidate) {
-        this.terrainResult.detachLocalChunk?.(oldTabletop);
-      }
-
-      this.terrainResult.notifySurfaceChange?.(candidate.getSurfaceBounds());
+      if (oldTabletop) this.terrainResult.detachLocalChunk?.(oldTabletop);
+      this.terrainResult.notifySurfaceChange?.(changedBounds(oldTabletop, candidate));
     });
   }
 
   public dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    this.focusGeneration++;
+    this.lifetime.abort();
     this.pendingFetches.clear();
     this.stationDemCache.clear();
     if (this.tabletopChunk) {
@@ -519,4 +549,14 @@ export class LocalTerrainStreamer {
     }
     this.managedChunks = [];
   }
+}
+
+/** Reproject both the revealed coarse region and the newly refined region. */
+function changedBounds(...chunks: (LocalTerrainChunk | null | undefined)[]): TerrainSurfaceBounds | undefined {
+  const bounds = chunks.filter((chunk): chunk is LocalTerrainChunk => !!chunk).map(chunk => chunk.getSurfaceBounds());
+  if (!bounds.length) return undefined;
+  return {
+    minX: Math.min(...bounds.map(b => b.minX)), maxX: Math.max(...bounds.map(b => b.maxX)),
+    minZ: Math.min(...bounds.map(b => b.minZ)), maxZ: Math.max(...bounds.map(b => b.maxZ)),
+  };
 }

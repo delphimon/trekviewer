@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<gpx version="1.1" creator="Local review fixture">
+<wpt lat="46.853" lon="-121.752"><ele>1800</ele><name><![CDATA[<img src="/review-missing-image.png" onerror="this.outerHTML='<b>REVIEW: IMPORTED HTML EXECUTED</b>'">]]></name></wpt>
+<trk><name>Local review fixture</name><trkseg>
+<trkpt lat="46.85" lon="-121.75"><ele>1600</ele></trkpt>
+<trkpt lat="46.852" lon="-121.752"><ele>1700</ele></trkpt>
+<trkpt lat="46.854" lon="-121.754"><ele>1800</ele></trkpt>
+</trkseg></trk></gpx>
