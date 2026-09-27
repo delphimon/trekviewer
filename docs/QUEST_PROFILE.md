@@ -1,0 +1,23 @@
+# Quest 3 performance profiling
+
+TrekViewer has an opt-in, local session recorder in the production build. It needs no account or telemetry service. The JSON remains in Quest Browser until you press **Download JSON**; the app does not upload it. The report contains the route name, browser user agent, build ID, and performance counters, so review it before sharing.
+
+## Record a comparable run
+
+1. Build and deploy the exact source you want to measure to an HTTPS origin. Save `dist/build-info.json` with the results. Open the hosted app in Quest Browser with `?profile=1` appended to its URL (use `&profile=1` if the URL already has a query string). Avoid `?debug=1` for baseline measurements because its overlays and logging add work.
+2. Load one route and wait for the initial selected imagery to settle. Note the route, quality profile, imagery style, headset OS and Browser versions, and Wi-Fi conditions. Open the same URL, with the same starting state, for each comparison.
+3. Enter VR or MR. Recording starts automatically on XR entry and stops on exit. For a baseline, remain in one mode for several minutes. For a stress run, inspect high-detail terrain, move along the route, switch modes and imagery styles, and repeat those transitions over roughly 15 minutes. The report marks those changes.
+4. Exit XR and press **Download JSON** in the page's upper-right profile controls. The file is saved by the browser on the headset. You can also use **Start** and **Stop** for a desktop/control run. A second Start discards the previous unsaved report, so download first.
+5. In parallel, use Meta's free [OVR Metrics Tool](https://developers.meta.com/horizon/documentation/unity/ts-ovrmetricstool/) or [WebXR performance tools](https://developers.meta.com/horizon/documentation/web/webxr-perf-tools/) to record *device* FPS, application CPU/GPU time, and thermal state. The browser's JSON cannot provide those GPU/compositor metrics. Match OVR readings to report timestamps, mode-change events, and the saved build ID.
+
+After copying the downloaded JSON to your computer, run `npm run profile:summary -- /path/to/trekviewer-profile.json`. You can pass multiple JSON files to print the same summary for each build. The command lists the slowest windows, highest-cost CPU phases, mode/quality/style time, and draw-call/texture peaks; compare runs made with the same route and conditions.
+
+For a CPU spike that needs a call stack, [remote-debug Quest Browser](https://developers.meta.com/horizon/documentation/web/browser-remote-debugging/) over ADB and collect a Chrome performance trace. This requires a connected, authorized headset. Meta's [WebXR performance workflow](https://developers.meta.com/horizon/documentation/web/webxr-perf-workflow/) explains how to compare application CPU and GPU budgets on hardware.
+
+## What the JSON measures
+
+Each `windows` entry summarizes about one second. `callbackHz`, `intervalP95Ms`, and `intervalMaxMs` describe spacing between animation callbacks. `cpuSubmitP95Ms` and `cpuSubmitMaxMs` cover app update plus `renderer.render()` submission, **not GPU completion**. `phaseMeanMs` and `phaseMaxMs` split that CPU work into input, simulation, HUD, imagery LOD, local terrain, waypoints, and render submission. The WebGL draw-call, triangle, geometry, and texture counters are snapshots of the last rendered frame in the window. Tile-cache decoded MB is only cache-held decoded images, not total GPU or process memory.
+
+When the XR session exposes `frameRate`, `targetHz` records it and `estimatedMissedCallbacks` compares callback spacing to that target. A missing target produces `null`; the estimate is not proof of compositor drops. Desktop callback rate is not a Quest result. Browser Long Tasks are included if supported; absence of Long Task entries does not prove absence of stalls. Visibility pauses are marked so app switching is not mistaken for in-app pacing. Reports retain at most 1,800 windows (about 30 minutes); `windowsDropped` counts later windows omitted from the JSON.
+
+Use the device tool for actual headset FPS, GPU timing, thermal throttling, and dropped/composited frames. First optimize whichever side of the device CPU/GPU budget is limiting; then compare the same route, view, profile, and network state after each change. Do not infer a visual-quality win from frame rate alone: inspect texture sharpness, terrain seams, route contact, label readability, and stereo comfort on the Quest.

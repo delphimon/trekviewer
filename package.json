@@ -12,6 +12,7 @@
     "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "profile:summary": "node scripts/summarize-profile.mjs",
     "preview": "vite preview",
     "verify": "npm run typecheck && npm test && npm run build",
     "deploy:surge": "npm run verify && npx surge dist --domain trekviewer.surge.sh",

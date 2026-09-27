@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode } from './gpx/TrackTypes';
 import { FrameTimingMonitor } from './core/FrameTimingMonitor';
+import { PerformanceSessionRecorder, type ProfileCounters, type ProfilePhase, type ProfileReport } from './core/PerformanceSessionRecorder';
 import { SceneManager } from './core/SceneManager';
 import { XRManager } from './core/XRManager';
 import { TerrainResult } from './terrain/TerrainGenerator';
@@ -59,6 +60,12 @@ export class TrekViewerApp {
 
   private lastTimestamp: number = performance.now();
   private isDebugMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
+  private isProfilingMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('profile') === '1';
+  private readonly profileRecorder = this.isProfilingMode ? new PerformanceSessionRecorder() : null;
+  private completedProfile: ProfileReport | null = null;
+  private profileControls: HTMLElement | null = null;
+  private longTaskObserver: PerformanceObserver | null = null;
+  private profileSuspended = false;
   private dioramaMutationCount: number = 0;
   private lastDioramaPos: THREE.Vector3 = new THREE.Vector3();
   private lastDioramaRot: THREE.Euler = new THREE.Euler();
@@ -118,6 +125,10 @@ export class TrekViewerApp {
     this.controls.target.set(0, 0, 0);
 
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
+      if (this.profileRecorder) {
+        if (!this.profileRecorder.isRecording) this.startProfile();
+        this.profileRecorder.mark(performance.now(), 'xr-session-start');
+      }
       this.xrManager.resetInteractionState();
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
@@ -143,6 +154,10 @@ export class TrekViewerApp {
       }
     });
     this.sceneManager.renderer.xr.addEventListener('sessionend', () => {
+      if (this.profileRecorder?.isRecording) {
+        this.profileRecorder.mark(performance.now(), 'xr-session-end');
+        this.stopProfile();
+      }
       this.xrManager.resetInteractionState();
       this.controls.enabled = true;
       this.sceneManager.setPassthrough(false);
@@ -197,6 +212,7 @@ export class TrekViewerApp {
       },
     });
     this.overlay.setQualityProfile(initialProfile.name);
+    if (this.profileRecorder) this.installProfileControls();
 
     // 5. Transactional Route Loader (Stage F & G)
     this.routeLoader = new RouteLoader({
@@ -221,6 +237,7 @@ export class TrekViewerApp {
     // 6. Reactive State Subscriptions (Stage G)
     this.session.subscribe((state, prev) => {
       if (state.qualityProfile !== prev.qualityProfile) {
+        this.profileRecorder?.mark(performance.now(), 'quality-profile', state.qualityProfile);
         const profile = QualityProfileManager.getProfile(state.qualityProfile);
         if (profile) {
           QualityProfileManager.setActiveProfile(profile);
@@ -241,9 +258,11 @@ export class TrekViewerApp {
         this.syncHUDState();
       }
       if (state.viewMode !== prev.viewMode) {
+        this.profileRecorder?.mark(performance.now(), 'view-mode', state.viewMode);
         this.applyViewMode(state.viewMode, prev.viewMode);
       }
       if (state.textureStyle !== prev.textureStyle) {
+        this.profileRecorder?.mark(performance.now(), 'texture-style', state.textureStyle);
         this.overlay.setTextureStyle(state.textureStyle);
         this.activeTrek?.setTextureStyle(state.textureStyle);
         const attr = TextureProvider.getAttributionForStyle(state.textureStyle);
@@ -256,6 +275,7 @@ export class TrekViewerApp {
         this.syncHUDState();
       }
       if (state.verticalExaggeration !== prev.verticalExaggeration) {
+        this.profileRecorder?.mark(performance.now(), 'vertical-exaggeration', String(state.verticalExaggeration));
         const effectiveExaggeration = this.currentViewMode === 'first-person' ? 1.0 : state.verticalExaggeration;
         this.activeTrek?.setVerticalExaggeration(effectiveExaggeration);
         this.xrManager.setVerticalExaggeration(effectiveExaggeration);
@@ -598,6 +618,127 @@ export class TrekViewerApp {
     }
   }
 
+  private readonly onProfileVisibilityChange = (): void => {
+    if (!this.profileRecorder?.isRecording) return;
+    const now = performance.now();
+    if (document.visibilityState === 'hidden' && !this.profileSuspended) {
+      this.profileRecorder.pause(now, this.getProfileCounters());
+      this.profileSuspended = true;
+    } else if (document.visibilityState !== 'hidden' && this.profileSuspended) {
+      this.profileRecorder.mark(now, 'visibility-resume');
+      this.profileSuspended = false;
+    }
+  };
+
+  private installProfileControls(): void {
+    const box = document.createElement('div');
+    box.id = 'profile-controls';
+    box.style.cssText = 'position:fixed;right:16px;top:100px;z-index:10000;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:rgba(15,23,42,.94);color:#f1f5f9;font:12px system-ui,sans-serif;box-shadow:0 4px 16px #0005;';
+    const status = document.createElement('span');
+    status.id = 'profile-status';
+    status.setAttribute('role', 'status');
+    status.textContent = 'Local profile ready';
+    box.appendChild(status);
+    for (const [label, id, action] of [
+      ['Start', 'profile-start', () => this.startProfile()],
+      ['Stop', 'profile-stop', () => this.stopProfile()],
+      ['Download JSON', 'profile-download', () => this.downloadProfile()],
+    ] as const) {
+      const button = document.createElement('button');
+      button.id = id;
+      button.type = 'button';
+      button.textContent = label;
+      button.style.cssText = 'padding:5px 8px;border:1px solid #64748b;border-radius:6px;background:#334155;color:white;cursor:pointer;';
+      button.addEventListener('click', action);
+      box.appendChild(button);
+    }
+    document.body.appendChild(box);
+    this.profileControls = box;
+    document.addEventListener('visibilitychange', this.onProfileVisibilityChange);
+    this.updateProfileControls();
+  }
+
+  private updateProfileControls(): void {
+    if (!this.profileControls) return;
+    const recording = this.profileRecorder?.isRecording ?? false;
+    const status = this.profileControls.querySelector<HTMLElement>('#profile-status');
+    if (status) status.textContent = recording ? 'Recording locally' : this.completedProfile ? `Saved ${this.completedProfile.windows.length} windows` : 'Local profile ready';
+    const start = this.profileControls.querySelector<HTMLButtonElement>('#profile-start');
+    const stop = this.profileControls.querySelector<HTMLButtonElement>('#profile-stop');
+    const download = this.profileControls.querySelector<HTMLButtonElement>('#profile-download');
+    if (start) { start.disabled = recording; start.style.opacity = recording ? '0.45' : '1'; }
+    if (stop) { stop.disabled = !recording; stop.style.opacity = recording ? '1' : '0.45'; }
+    if (download) { download.disabled = !this.completedProfile; download.style.opacity = this.completedProfile ? '1' : '0.45'; }
+  }
+
+  private startProfile(): void {
+    if (!this.profileRecorder || this.profileRecorder.isRecording) return;
+    this.completedProfile = null;
+    this.profileRecorder.start(performance.now(), __APP_BUILD_INFO__.id, navigator.userAgent);
+    this.profileSuspended = false;
+    if (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+      try {
+        this.longTaskObserver = new PerformanceObserver(list => {
+          for (const entry of list.getEntries()) this.profileRecorder?.recordLongTask(entry.duration);
+        });
+        this.longTaskObserver.observe({ type: 'longtask' });
+      } catch { this.longTaskObserver = null; }
+    }
+    this.updateProfileControls();
+  }
+
+  private stopProfile(): void {
+    if (!this.profileRecorder?.isRecording) return;
+    this.longTaskObserver?.disconnect();
+    this.longTaskObserver = null;
+    this.completedProfile = this.profileRecorder.stop(performance.now(), this.getProfileCounters());
+    this.profileSuspended = false;
+    this.updateProfileControls();
+  }
+
+  private downloadProfile(): void {
+    if (!this.completedProfile) return;
+    const blob = new Blob([JSON.stringify(this.completedProfile, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `trekviewer-profile-${__APP_BUILD_INFO__.shortSha}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  private getProfileCounters(): ProfileCounters {
+    const info = this.sceneManager.getMemoryInfo();
+    const lod = this.activeTrek?.imageryLOD.getDiagnostics();
+    const cache = TileImageCache.getStats();
+    const state = this.session.getState();
+    return {
+      drawCalls: info.render.calls,
+      triangles: info.render.triangles,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      tileCacheEntries: cache.entries,
+      tileCacheDecodedMB: Number((cache.decodedBytes / 1048576).toFixed(1)),
+      imageryPatches: lod?.activePatchesCount ?? 0,
+      imageryCoveragePercent: lod?.coveragePercent ?? 0,
+      imageryInFlight: lod?.inFlightRequests ?? 0,
+      localTerrainChunks: this.activeTrek?.localTerrainStreamer?.activeChunks.length ?? 0,
+      qualityProfile: state.qualityProfile,
+      viewMode: state.viewMode,
+      textureStyle: state.textureStyle,
+      routeName: this.currentTrack?.name ?? null,
+    };
+  }
+
+  private endProfilePhase(recorder: PerformanceSessionRecorder | null, phase: ProfilePhase, since: number): number {
+    if (!recorder) return since;
+    const now = performance.now();
+    recorder.recordPhase(phase, now - since);
+    return now;
+  }
+
   private frameDesktopDiorama(): void {
     const terrain = this.activeTrek?.terrainResult.terrainMesh;
     if (!terrain) return;
@@ -803,6 +944,9 @@ export class TrekViewerApp {
 
   private animate(timestamp: number, frame?: XRFrame): void {
     const now = performance.now();
+    const activeProfiler = this.profileRecorder?.isRecording ? this.profileRecorder : null;
+    const recorder = this.profileSuspended ? null : activeProfiler;
+    let phaseStart = now;
     const delta = Math.min((now - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = now;
 
@@ -822,6 +966,7 @@ export class TrekViewerApp {
     if (this.controls.enabled && this.currentViewMode === 'diorama') {
       this.controls.update();
     }
+    phaseStart = this.endProfilePhase(recorder, 'input', phaseStart);
 
     // 3. Update Flyover / Animation playback
     if (this.flyoverController) {
@@ -832,6 +977,7 @@ export class TrekViewerApp {
         isPresenting
       );
     }
+    phaseStart = this.endProfilePhase(recorder, 'simulation', phaseStart);
 
     // Wait for the first valid XR camera pose before docking after session entry.
     if (this.pendingHUDDock) {
@@ -842,6 +988,7 @@ export class TrekViewerApp {
 
     // Flush any throttled HUD updates when due
     this.spatialHUD?.update();
+    phaseStart = this.endProfilePhase(recorder, 'hud', phaseStart);
 
     // 5. Update Adaptive Imagery LOD (Stage M & Stage T5, Stage W3)
     if (this.activeTrek && !this.activeTrek.isDisposed) {
@@ -855,15 +1002,39 @@ export class TrekViewerApp {
         currentProgress,
         this.sceneManager.renderer
       );
+      phaseStart = this.endProfilePhase(recorder, 'imagery', phaseStart);
       // Stream local high-resolution terrain geometry along route (Stage W6) or tabletop focus (Stage X7)
       const inspectedGeo = this.activeTrek.imageryLOD.getInspectedGeo();
       this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo);
+      phaseStart = this.endProfilePhase(recorder, 'terrain', phaseStart);
       // Update waypoint marker scale compensation & billboard labels (Sections 21, 24, 25)
       this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta);
+      phaseStart = this.endProfilePhase(recorder, 'waypoints', phaseStart);
     }
 
     // 6. Render Scene
     this.sceneManager.render();
+    phaseStart = this.endProfilePhase(recorder, 'render', phaseStart);
+
+    if (activeProfiler) {
+      const session = this.sceneManager.renderer.xr.getSession();
+      const visible = document.visibilityState !== 'hidden' && (!isPresenting || session?.visibilityState === 'visible');
+      if (visible) {
+        if (this.profileSuspended) {
+          activeProfiler.mark(phaseStart, 'visibility-resume');
+          this.profileSuspended = false;
+        }
+        if (recorder) {
+          const hz = isPresenting ? (session as XRSession & { frameRate?: number } | null)?.frameRate ?? null : null;
+          recorder.recordFrame(timestamp, phaseStart - now,
+            `${isPresenting}/${this.currentViewMode}/${this.session.getState().qualityProfile}/${this.currentTextureStyle}`, hz);
+          if (recorder.due) recorder.captureWindow(phaseStart, this.getProfileCounters());
+        }
+      } else if (!this.profileSuspended) {
+        activeProfiler.pause(phaseStart, this.getProfileCounters());
+        this.profileSuspended = true;
+      }
+    }
 
     // 6. Diagnostic Telemetry (?debug=1)
     if (this.isDebugMode) {
@@ -974,6 +1145,9 @@ export class TrekViewerApp {
   }
 
   public dispose(): void {
+    this.stopProfile();
+    this.profileControls?.remove();
+    document.removeEventListener('visibilitychange', this.onProfileVisibilityChange);
     this.disposeCurrentTrek();
     this.xrManager.dispose();
     this.controls.dispose();
