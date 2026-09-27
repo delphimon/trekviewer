@@ -728,6 +728,8 @@ export class TrekViewerApp {
       imageryCoveragePercent: lod?.coveragePercent ?? 0,
       firstPersonViewSamples: lod?.firstPersonViewSamples ?? 0,
       firstPersonHighResSamples: lod?.firstPersonHighResSamples ?? 0,
+      firstPersonViewMinZoom: lod?.firstPersonViewMinZoom ?? 0,
+      firstPersonViewMeanZoom: lod?.firstPersonViewMeanZoom ?? 0,
       imageryInFlight: lod?.inFlightRequests ?? 0,
       imageryTargetZoom: lod?.targetZoom ?? 0,
       imageryFocusSource: this.activeTrek?.imageryLOD.getFocusSource() ?? 'none',

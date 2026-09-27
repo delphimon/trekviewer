@@ -14,6 +14,8 @@ export interface ProfileCounters {
   imageryCoveragePercent: number;
   firstPersonViewSamples: number;
   firstPersonHighResSamples: number;
+  firstPersonViewMinZoom: number;
+  firstPersonViewMeanZoom: number;
   imageryInFlight: number;
   imageryTargetZoom: number;
   imageryFocusSource: string;

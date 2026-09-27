@@ -97,6 +97,8 @@ export interface ImageryLODDiagnostics {
   coveragePercent: number;
   firstPersonViewSamples: number;
   firstPersonHighResSamples: number;
+  firstPersonViewMinZoom: number;
+  firstPersonViewMeanZoom: number;
   z19AheadDistanceMeters: number;
   residentWarmCount: number;
   evictionsTotal: number;
@@ -762,6 +764,71 @@ export function computeFirstPersonCoherentLODTiles(
 }
 
 /**
+ * A stable, concentric first-person footprint for Quest High. Four levels give
+ * the hiker z19 detail while keeping z16–z17 imagery resident in every look
+ * direction. The selected keys depend on route position, never head rotation.
+ */
+export function computeFirstPersonStableLODTiles(
+  hikerLat: number,
+  hikerLon: number,
+  innerZoom: number,
+  maxPatches: number,
+  bounds: GeoBounds
+): CoherentTileCandidate[] {
+  if (maxPatches < 61 || innerZoom < 16) {
+    return computeFirstPersonCoherentLODTiles(
+      hikerLat, hikerLon, hikerLat, hikerLon, innerZoom, maxPatches, bounds
+    );
+  }
+  const zOuter = innerZoom - 3;
+  const zNear = innerZoom - 2;
+  const zParent = innerZoom - 1;
+  const centerOuter = latLonToTile(hikerLat, hikerLon, zOuter);
+  const centerNear = latLonToTile(hikerLat, hikerLon, zNear);
+  const result: CoherentTileCandidate[] = [];
+  const seen = new Set<string>();
+  const add = (x: number, y: number, zoom: number, dist: number) => {
+    const key = `${zoom}:${x}:${y}`;
+    if (seen.has(key) || !ImageryLODManager.tileIntersectsBounds(x, y, zoom, bounds)) return;
+    seen.add(key);
+    result.push({ x, y, zoom, dist, isHighRes: zoom === innerZoom });
+  };
+
+  // Broad outer tiles stay resident while the hiker turns in place.
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      add(centerOuter.x + dx, centerOuter.y + dy, zOuter, Math.hypot(dx, dy) + 6);
+    }
+  }
+  // A full 4x4 intermediate block supplies 360-degree near-field detail.
+  // Align to z16 parent boundaries so the parent never disappears after only
+  // part of its area has loaded.
+  const nearStartX = Math.floor((centerNear.x - 1) / 2) * 2;
+  const nearStartY = Math.floor((centerNear.y - 1) / 2) * 2;
+  for (let dy = 0; dy < 4; dy++) {
+    for (let dx = 0; dx < 4; dx++) {
+      add(nearStartX + dx, nearStartY + dy, zNear,
+        Math.hypot(nearStartX + dx - centerNear.x, nearStartY + dy - centerNear.y) + 3);
+    }
+  }
+  // Promote all four z18 children of the hiker's z17 tile, then every z19
+  // child of those parents. Every level replaces its parent atomically.
+  for (let pyOffset = 0; pyOffset < 2; pyOffset++) {
+    for (let pxOffset = 0; pxOffset < 2; pxOffset++) {
+      const px = centerNear.x * 2 + pxOffset;
+      const py = centerNear.y * 2 + pyOffset;
+      add(px, py, zParent, 1);
+      for (let dy = 0; dy < 2; dy++) {
+        for (let dx = 0; dx < 2; dx++) {
+          add(px * 2 + dx, py * 2 + dy, innerZoom, 0);
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * ImageryLODManager
  *
  * Implements Stage R2, S1-S3, T5, and Stage U4: Coherent Adaptive High-Resolution Map Imagery.
@@ -938,6 +1005,21 @@ export class ImageryLODManager {
     const firstPersonHighResSamples = this.firstPersonViewSampleTiles.filter((key) =>
       this.patches.get(key)?.mesh.visible
     ).length;
+    const firstPersonBestZooms = this.firstPersonViewSampleTiles.map((key) => {
+      const tile = parseTileKey(key);
+      for (let zoom = tile.zoom; zoom >= 13; zoom--) {
+        const scale = 2 ** (tile.zoom - zoom);
+        const ancestorKey = getTileKey(tile.style, zoom,
+          Math.floor(tile.x / scale), Math.floor(tile.y / scale));
+        if (this.patches.get(ancestorKey)?.mesh.visible) return zoom;
+      }
+      return 0;
+    });
+    const firstPersonViewMinZoom = firstPersonBestZooms.length
+      ? Math.min(...firstPersonBestZooms) : 0;
+    const firstPersonViewMeanZoom = firstPersonBestZooms.length
+      ? Number((firstPersonBestZooms.reduce((sum, zoom) => sum + zoom, 0) /
+          firstPersonBestZooms.length).toFixed(1)) : 0;
 
     return {
       activePatchesCount: this.patches.size,
@@ -964,6 +1046,8 @@ export class ImageryLODManager {
       coveragePercent,
       firstPersonViewSamples: this.firstPersonViewSampleTiles.length,
       firstPersonHighResSamples,
+      firstPersonViewMinZoom,
+      firstPersonViewMeanZoom,
       z19AheadDistanceMeters,
       residentWarmCount,
       evictionsTotal: this.patchesDisposedTotal,
@@ -1786,8 +1870,8 @@ export class ImageryLODManager {
       }
     }
 
-    // Sample the actual visible terrain, including peaks off the trail. The
-    // selected parent set stays within the same fixed patch budget.
+    // Sample visible terrain for diagnostics. Quest High keeps the selected
+    // footprint fixed during head turns, so these rays cannot cause churn.
     const visiblePoints: { lat: number; lon: number }[] = [];
     const viewRaycastStart = profileTiming ? performance.now() : 0;
     const terrainMesh = this.options.terrainMesh;
@@ -1827,19 +1911,15 @@ export class ImageryLODManager {
     }))];
 
     // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6, Stage W4)
-    const candidates = computeFirstPersonCoherentLODTiles(
-      hikerLat,
-      hikerLon,
-      forwardLat,
-      forwardLon,
-      innerZoom,
-      this.maxPatches,
-      this.options.terrainGeoBounds,
-      behindLat,
-      behindLon,
-      corridorPoints,
-      visiblePoints
-    );
+    const candidates = this.qualityProfile.name === 'quest-high' && innerZoom >= 19
+      ? computeFirstPersonStableLODTiles(
+          hikerLat, hikerLon, innerZoom, this.maxPatches, this.options.terrainGeoBounds
+        )
+      : computeFirstPersonCoherentLODTiles(
+          hikerLat, hikerLon, forwardLat, forwardLon, innerZoom,
+          this.maxPatches, this.options.terrainGeoBounds,
+          behindLat, behindLon, corridorPoints
+        );
 
     this.reconcileDesiredTiles(candidates, provider, innerZoom);
   }
