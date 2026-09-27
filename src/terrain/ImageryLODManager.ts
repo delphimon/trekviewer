@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
+import { TerrainRaycast } from './TerrainRaycast.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import {
@@ -819,6 +820,7 @@ export class ImageryLODManager {
   private evaluationDirty = true;
   private readonly evalWorldPos = new THREE.Vector3();
   private readonly evalWorldQuat = new THREE.Quaternion();
+  private readonly terrainRaycast = new TerrainRaycast();
 
   // View mode and 1:1 trail following state (Section 11 & 12)
   private viewMode: ViewMode = 'diorama';
@@ -1458,12 +1460,10 @@ export class ImageryLODManager {
 
     if (terrainMesh) {
       terrainMesh.parent?.updateWorldMatrix(true, true);
-      const surfaces = terrainMesh.parent?.children.filter((obj) => obj.visible &&
+      const surfaces = terrainMesh.parent?.children.filter((obj): obj is THREE.Mesh =>
+        (obj as THREE.Mesh).isMesh && obj.visible &&
         (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
-      const hits = raycaster.intersectObjects(surfaces, false);
-      if (hits.length > 0) {
-        hitWorldPos = hits[0].point;
-      }
+      hitWorldPos = this.terrainRaycast.closest(raycaster, surfaces)?.point ?? null;
     }
 
     if (!hitWorldPos) {
