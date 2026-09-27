@@ -37,7 +37,14 @@ if (!paths.length) {
       console.log('Time by view / quality / imagery:');
       for (const [key, seconds] of contexts) console.log(`  ${key}: ${seconds.toFixed(1)} s`);
       console.log('CPU phases (mean per callback / worst single callback):');
-      for (const p of phaseCosts) console.log(`  ${p.name.padEnd(11)} ${p.meanMs.toFixed(2).padStart(6)} / ${p.maxMs.toFixed(2).padStart(6)} ms`);
+      for (const p of phaseCosts.filter(p => !p.name.startsWith('imagery') || p.name === 'imagery')) {
+        console.log(`  ${p.name.padEnd(18)} ${p.meanMs.toFixed(2).padStart(6)} / ${p.maxMs.toFixed(2).padStart(6)} ms`);
+      }
+      const imageryParts = phaseCosts.filter(p => p.name.startsWith('imagery') && p.name !== 'imagery');
+      if (imageryParts.length) {
+        console.log('Imagery subphases (included in imagery above):');
+        for (const p of imageryParts) console.log(`  ${p.name.padEnd(18)} ${p.meanMs.toFixed(2).padStart(6)} / ${p.maxMs.toFixed(2).padStart(6)} ms`);
+      }
       console.log('Worst windows by longest callback interval:');
       for (const w of worst) console.log(`  t=${w.elapsedSeconds.toFixed(1).padStart(6)}s  max=${(w.intervalMaxMs ?? 0).toFixed(1).padStart(5)}ms  p95=${(w.intervalP95Ms ?? 0).toFixed(1).padStart(5)}ms  callback=${w.callbackHz?.toFixed(1) ?? '?'}Hz  CPU p95=${w.cpuSubmitP95Ms?.toFixed(1) ?? '?'}ms  calls=${w.drawCalls}  ${w.viewMode}/${w.qualityProfile}/${w.textureStyle}`);
       console.log('Browser callback and CPU submission measurements only; pair with headset GPU/FPS/thermal metrics.');

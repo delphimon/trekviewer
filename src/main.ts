@@ -62,6 +62,9 @@ export class TrekViewerApp {
   private isDebugMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
   private isProfilingMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('profile') === '1';
   private readonly profileRecorder = this.isProfilingMode ? new PerformanceSessionRecorder() : null;
+  private readonly recordImageryPhase = (phase: ProfilePhase, elapsedMs: number): void => {
+    this.profileRecorder?.recordPhase(phase, elapsedMs);
+  };
   private completedProfile: ProfileReport | null = null;
   private profileControls: HTMLElement | null = null;
   private longTaskObserver: PerformanceObserver | null = null;
@@ -1000,7 +1003,8 @@ export class TrekViewerApp {
         this.sceneManager.dioramaRoot,
         isPresenting,
         currentProgress,
-        this.sceneManager.renderer
+        this.sceneManager.renderer,
+        recorder ? this.recordImageryPhase : undefined
       );
       phaseStart = this.endProfilePhase(recorder, 'imagery', phaseStart);
       // Stream local high-resolution terrain geometry along route (Stage W6) or tabletop focus (Stage X7)

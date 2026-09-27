@@ -1,6 +1,6 @@
 import { FrameTimingMonitor } from './FrameTimingMonitor';
 
-export const PROFILE_PHASES = ['input', 'simulation', 'hud', 'imagery', 'terrain', 'waypoints', 'render'] as const;
+export const PROFILE_PHASES = ['input', 'simulation', 'hud', 'imagery', 'imageryRaycast', 'imagerySelection', 'imageryReconcile', 'terrain', 'waypoints', 'render'] as const;
 export type ProfilePhase = typeof PROFILE_PHASES[number];
 
 export interface ProfileCounters {

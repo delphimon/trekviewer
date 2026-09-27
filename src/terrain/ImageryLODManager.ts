@@ -1197,7 +1197,8 @@ export class ImageryLODManager {
     dioramaRoot: THREE.Group,
     isXR: boolean = false,
     routeProgress?: number,
-    renderer?: THREE.WebGLRenderer
+    renderer?: THREE.WebGLRenderer,
+    profileTiming?: (phase: 'imageryRaycast' | 'imagerySelection' | 'imageryReconcile', elapsedMs: number) => void,
   ): void {
     if (this.isDisposed || !ENABLE_ADAPTIVE_IMAGERY_LOD) return;
 
@@ -1302,7 +1303,7 @@ export class ImageryLODManager {
     if (this.viewMode === 'first-person') {
       this.evaluateFirstPersonLOD(camera, dioramaRoot, renderer);
     } else {
-      this.evaluateLOD(camera, dioramaRoot, renderer, dioramaPosDelta, scaleRatio, isFirstRun);
+      this.evaluateLOD(camera, dioramaRoot, renderer, dioramaPosDelta, scaleRatio, isFirstRun, profileTiming);
     }
   }
 
@@ -1416,7 +1417,8 @@ export class ImageryLODManager {
     renderer?: THREE.WebGLRenderer,
     dioramaPosDelta: number = 0,
     scaleRatio: number = 0,
-    isFirstRun: boolean = false
+    isFirstRun: boolean = false,
+    profileTiming?: (phase: 'imageryRaycast' | 'imagerySelection' | 'imageryReconcile', elapsedMs: number) => void,
   ): void {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
     this.providerMaxZoom = provider.maxZoom;
@@ -1430,6 +1432,7 @@ export class ImageryLODManager {
     const dioramaScale = dioramaRoot.scale.x;
 
     // 1. Raycast actual rendered terrain surface from active interaction ray or XR camera gaze (Stage V5.1, W3)
+    const raycastStart = profileTiming ? performance.now() : 0;
     const rayOrigin = this.activeInteractionRay ? this.activeInteractionRay.origin : metrics.worldPosition;
     const rayDir = this.activeInteractionRay ? this.activeInteractionRay.direction : metrics.forward;
     const raycaster = new THREE.Raycaster(rayOrigin, rayDir);
@@ -1472,6 +1475,7 @@ export class ImageryLODManager {
         hitWorldPos = planeHit;
       }
     }
+    if (profileTiming) profileTiming('imageryRaycast', performance.now() - raycastStart);
 
     // Determine target geographic center point from the terrain hit
     let targetGeo = { lat: centerLat, lon: this.options.terrainGeoBounds.centerLon };
@@ -1565,6 +1569,7 @@ export class ImageryLODManager {
     }
 
     // Coherent refinement rings (Sections 38, 39, 62, Stage W3)
+    const selectionStart = profileTiming ? performance.now() : 0;
     const candidates = computeCoherentLODTiles(
       targetGeo.lat,
       targetGeo.lon,
@@ -1574,9 +1579,12 @@ export class ImageryLODManager {
       undefined,
       gazeTileVector
     );
+    if (profileTiming) profileTiming('imagerySelection', performance.now() - selectionStart);
 
     // Reconcile desired tiles with in-flight and visible patches (Section 14, 30, 40)
+    const reconcileStart = profileTiming ? performance.now() : 0;
     this.reconcileDesiredTiles(candidates, provider, effectiveTargetZoom);
+    if (profileTiming) profileTiming('imageryReconcile', performance.now() - reconcileStart);
   }
 
   /**
