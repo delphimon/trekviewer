@@ -609,7 +609,9 @@ export class TrekViewerApp {
     const camera = this.sceneManager.camera;
     const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
     const availableHeight = Math.max(0.45, (window.innerHeight - 220) / window.innerHeight);
-    const distance = Math.max(0.7, radius / Math.sin(halfFov * availableHeight));
+    // The bounding-sphere fit is deliberately conservative for elongated
+    // alpine routes; use the spare desktop space for larger visible detail.
+    const distance = Math.max(0.7, radius / Math.sin(halfFov * availableHeight) * 0.75);
     // Center in the inspection area beside the desktop controls, with an elevated
     // view that exposes the route and landform instead of the vertical skirt.
     if (window.innerWidth >= 900) center.x -= 170 / window.innerHeight * 2 * distance * Math.tan(halfFov);
@@ -986,4 +988,3 @@ if (typeof window !== 'undefined') {
     new TrekViewerApp();
   });
 }
-

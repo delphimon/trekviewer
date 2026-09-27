@@ -93,3 +93,13 @@ Failed desired image requests now retry without requiring head, pointer, or rout
 - An attempted rapid batched sequence hit an automation input timeout after entering first-person. The subsequent page read showed complete 68/68 imagery and responsive controls; an explicit return succeeded. This was a smoke check, not a completed stress test.
 - No captured browser console errors. Screenshot: [complete tabletop imagery](coverage-fixed.png).
 - `adb devices -l` still reports no connected headset. Quest stereo appearance, device GPU timing, sustained frame pacing, thermal behavior, and real APK installation remain unverified.
+
+## Continuation: desktop visual presentation
+
+The desktop mountain was small in the available inspection area, and its skirt read as a solid black slab. Desktop terrain framing now uses more of the spare viewport while retaining the existing route bounding fit and sidebar offset. This changes only the desktop camera; the Quest tabletop placement and scale are unchanged. Moving closer can select more imagery tiles on desktop, still within the existing quality profile budgets.
+
+The diorama skirt now has outward-facing normals, front-face rendering, and a subtle rock gradient from rim to base. It no longer receives self-shadow from the terrain. The new geometry test checks normal and triangle winding on every side and verifies the gradient. Front-face rendering avoids shading the inside of the solid model.
+
+Production-browser inspection covered the Rainier default route, the long Olympus and Bailey traverse, and the compact Enchantments route. Each terrain model fit beside the controls without clipping. Olympus completed 80/80 selected Z13 tiles and Enchantments completed 30/30 selected Z14 tiles. These are desktop visual and selected-tile checks; they do not measure Quest frame pacing or GPU cost. [Updated Rainier presentation](visual-fidelity-rainier.png).
+
+`npm run verify` passed after this change: both TypeScript checks, **72 test files / 371 tests**, and a production build. The main bundle is **835.57 kB / 216.07 kB gzip** and retains the existing size warning. Rainier reached 20/20 selected Z14 tiles with no captured browser console errors. ADB still saw no attached Quest; physical-device acceptance remains open.

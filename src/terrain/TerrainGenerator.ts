@@ -324,13 +324,15 @@ export class TerrainGenerator {
     const skirtBaseY = -80;
     let skirtGeo = this.createDioramaSkirts(planeGeo, segX, segZ, skirtBaseY);
     const skirtMat = new THREE.MeshStandardMaterial({
-      color: 0x181a1f,
-      roughness: 0.9,
-      metalness: 0.2,
-      side: THREE.DoubleSide,
+      vertexColors: true,
+      roughness: 1.0,
+      metalness: 0.0,
+      emissive: 0x252b2d,
+      emissiveIntensity: 0.35,
+      side: THREE.FrontSide,
     });
     const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
-    skirtMesh.receiveShadow = true;
+    skirtMesh.receiveShadow = false;
 
     const group = new THREE.Group();
     group.name = 'TerrainGroup';
@@ -761,7 +763,10 @@ export class TerrainGenerator {
     const pos = planeGeo.attributes.position;
     const skirtPositions: number[] = [];
     const skirtNormals: number[] = [];
+    const skirtColors: number[] = [];
     const skirtIndices: number[] = [];
+    const rimColor = new THREE.Color(0x777d79);
+    const baseColor = new THREE.Color(0x3c484b);
 
     const perimeterIndices: number[] = [];
 
@@ -794,14 +799,18 @@ export class TerrainGenerator {
 
       const dx = x1 - x0;
       const dz = z1 - z0;
-      const nx = -dz;
-      const nz = dx;
+      // Perimeter runs clockwise when viewed from above: the right-hand normal
+      // faces outward. Matching the winding allows front-face culling in XR.
+      const nx = dz;
+      const nz = -dx;
       const len = Math.hypot(nx, nz) || 1;
       const unx = nx / len;
       const unz = nz / len;
 
       for (let k = 0; k < 4; k++) {
         skirtNormals.push(unx, 0, unz);
+        const color = k < 2 ? rimColor : baseColor;
+        skirtColors.push(color.r, color.g, color.b);
       }
 
       skirtIndices.push(
@@ -819,6 +828,7 @@ export class TerrainGenerator {
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute(skirtPositions, 3));
     geom.setAttribute('normal', new THREE.Float32BufferAttribute(skirtNormals, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(skirtColors, 3));
     geom.setIndex(skirtIndices);
     return geom;
   }
