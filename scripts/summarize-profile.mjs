@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 
+function counterIncreases(windows, key) {
+  let total = 0;
+  for (let i = 1; i < windows.length; i++) {
+    const before = windows[i - 1][key];
+    const after = windows[i][key];
+    if (Number.isFinite(before) && Number.isFinite(after)) total += Math.max(0, after - before);
+  }
+  return total;
+}
+
 const paths = process.argv.slice(2);
 if (!paths.length) {
   console.error('Usage: node scripts/summarize-profile.mjs <profile.json> [profile.json ...]');
@@ -36,6 +46,14 @@ if (!paths.length) {
       console.log(`Peak draw calls: ${report.summary.maxDrawCalls}  |  peak WebGL textures: ${report.summary.maxTextures}`);
       console.log('Time by view / quality / imagery style / provider:');
       for (const [key, seconds] of contexts) console.log(`  ${key}: ${seconds.toFixed(1)} s`);
+      if (active.some(w => Number.isFinite(w.imageryTargetZoom))) {
+        const zooms = [...new Set(active.map(w => w.imageryTargetZoom).filter(Number.isFinite))].sort((a, b) => a - b);
+        const focusSources = new Map();
+        for (const w of active) focusSources.set(w.imageryFocusSource ?? 'unknown', (focusSources.get(w.imageryFocusSource ?? 'unknown') ?? 0) + w.durationSeconds);
+        console.log(`Imagery zooms: ${zooms.join(', ')}  |  incomplete selected coverage: ${active.filter(w => w.imageryCoveragePercent < 100).length}/${active.length} windows`);
+        console.log(`Focus source: ${[...focusSources].map(([source, seconds]) => `${source} ${seconds.toFixed(1)}s`).join(', ')}`);
+        console.log(`Patch creations/disposals during sampled windows: ${counterIncreases(active, 'imageryCreatedTotal')}/${counterIncreases(active, 'imageryDisposedTotal')}  |  tile failures: ${counterIncreases(active, 'tileCacheFailures')}  |  tabletop terrain focus changes: ${counterIncreases(active, 'localTerrainFocusChangesTotal')}`);
+      }
       console.log('CPU phases (mean per callback / worst single callback):');
       for (const p of phaseCosts.filter(p => !p.name.startsWith('imagery') || p.name === 'imagery')) {
         console.log(`  ${p.name.padEnd(18)} ${p.meanMs.toFixed(2).padStart(6)} / ${p.maxMs.toFixed(2).padStart(6)} ms`);

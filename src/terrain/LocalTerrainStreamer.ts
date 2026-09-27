@@ -55,6 +55,7 @@ export class LocalTerrainStreamer {
   private managedChunks: LocalTerrainChunk[] = [];
   private lastTabletopFocusGeo: { lat: number; lon: number } | null = null;
   private tabletopChunk: LocalTerrainChunk | null = null;
+  private tabletopFocusChangesTotal = 0;
   private lastEvalProgress: number = -1;
   private currentExaggeration: number = 1.0;
   private isDisposed: boolean = false;
@@ -87,6 +88,10 @@ export class LocalTerrainStreamer {
 
   public getTabletopFocusGeo(): { lat: number; lon: number } | null {
     return this.lastTabletopFocusGeo;
+  }
+
+  public getTabletopFocusChangesTotal(): number {
+    return this.tabletopFocusChangesTotal;
   }
 
   public setViewMode(mode: ViewMode): void {
@@ -453,7 +458,10 @@ export class LocalTerrainStreamer {
   private updateTabletopFocus(tabletopFocusGeo?: { lat: number; lon: number } | null): void {
     if (!tabletopFocusGeo) return;
 
-    // Hysteresis: check distance from lastTabletopFocusGeo
+    // The refined chunk spans far beyond the gaze point. Keep it while the
+    // point remains well inside the chunk, avoiding expensive surface swaps
+    // caused by small XR gaze movement.
+    const focusSwitchMeters = Math.max(75, this.chunkRadiusM * 0.3);
     if (this.lastTabletopFocusGeo) {
       const latDiff = (tabletopFocusGeo.lat - this.lastTabletopFocusGeo.lat) * 111320;
       const lonDiff =
@@ -461,8 +469,8 @@ export class LocalTerrainStreamer {
         111320 *
         Math.cos((tabletopFocusGeo.lat * Math.PI) / 180);
       const dist = Math.hypot(latDiff, lonDiff);
-      if (dist < 75 && (this.pendingFocus || (this.tabletopChunk && this.tabletopChunk.mesh.visible))) {
-        return; // Within hysteresis threshold (< 75m)
+      if (dist < focusSwitchMeters && (this.pendingFocus || (this.tabletopChunk && this.tabletopChunk.mesh.visible))) {
+        return;
       }
     }
 
@@ -482,7 +490,7 @@ export class LocalTerrainStreamer {
         Math.hypot(
           (this.lastTabletopFocusGeo.lat - focusLat) * 111320,
           (this.lastTabletopFocusGeo.lon - focusLon) * 111320 * Math.cos((focusLat * Math.PI) / 180)
-        ) > 75
+        ) > focusSwitchMeters
       ) {
         return;
       }
@@ -528,6 +536,7 @@ export class LocalTerrainStreamer {
       if (oldTabletop) oldTabletop.mesh.visible = false;
       candidate.mesh.visible = true;
       this.tabletopChunk = candidate;
+      this.tabletopFocusChangesTotal++;
       if (oldTabletop) this.terrainResult.detachLocalChunk?.(oldTabletop);
       this.terrainResult.notifySurfaceChange?.(changedBounds(oldTabletop, candidate));
     });

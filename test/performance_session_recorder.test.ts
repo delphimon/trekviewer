@@ -5,6 +5,9 @@ const counters: ProfileCounters = {
   drawCalls: 84, triangles: 128000, geometries: 27, textures: 24,
   tileCacheEntries: 70, tileCacheDecodedMB: 18.2, imageryPatches: 28,
   imageryCoveragePercent: 100, imageryInFlight: 0, localTerrainChunks: 3,
+  localTerrainFocusChangesTotal: 1,
+  imageryTargetZoom: 19, imageryFocusSource: 'center', imageryDesiredTiles: 36, imageryVisiblePatches: 36,
+  imageryCreatedTotal: 36, imageryDisposedTotal: 0, tileCacheFailures: 0,
   qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', imageryProvider: 'cesium-bing', routeName: 'Test route',
 };
 afterEach(() => vi.restoreAllMocks());

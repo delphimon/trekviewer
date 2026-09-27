@@ -125,6 +125,7 @@ interface QueuedTile {
 
 export interface XRViewMetrics {
   worldPosition: THREE.Vector3;
+  worldQuaternion: THREE.Quaternion;
   forward: THREE.Vector3;
   verticalFov: number;
   viewportHeightPx: number;
@@ -139,6 +140,8 @@ export function getViewMetrics(
 ): XRViewMetrics {
   const worldPosition = new THREE.Vector3();
   camera.getWorldPosition(worldPosition);
+  const worldQuaternion = new THREE.Quaternion();
+  camera.getWorldQuaternion(worldQuaternion);
 
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
@@ -182,6 +185,7 @@ export function getViewMetrics(
 
   return {
     worldPosition,
+    worldQuaternion,
     forward,
     verticalFov,
     viewportHeightPx,
@@ -817,6 +821,11 @@ export class ImageryLODManager {
   private lastDioramaWorldPos: THREE.Vector3 = new THREE.Vector3();
   private lastDioramaWorldQuat = new THREE.Quaternion();
   private lastInteractionRay: THREE.Ray | null = null;
+  private lastSelectionGeo: { lat: number; lon: number } | null = null;
+  private lastSelectionZoom: number = -1;
+  private directionalGaze: { dx: number; dy: number } | null = null;
+  private lastValidTerrainLocalPoint: THREE.Vector3 | null = null;
+  private focusSource: 'center' | 'lower' | 'retained' | 'fallback' = 'fallback';
   private evaluationDirty = true;
   private readonly evalWorldPos = new THREE.Vector3();
   private readonly evalWorldQuat = new THREE.Quaternion();
@@ -993,6 +1002,10 @@ export class ImageryLODManager {
 
     this.lastEvalTime = 0;
     this.lastEvalProgress = -1;
+    this.lastSelectionGeo = null;
+    this.lastSelectionZoom = -1;
+    this.directionalGaze = null;
+    this.lastValidTerrainLocalPoint = null;
 
     // Retain compatible resident patches in GPU memory (Warm GPU-resident set).
     // Evict down to maxPatches if resident count exceeds the new mode's budget.
@@ -1019,6 +1032,9 @@ export class ImageryLODManager {
 
   public setQualityProfile(profile: QualityProfile): void {
     this.evaluationDirty = true;
+    this.lastSelectionGeo = null;
+    this.lastSelectionZoom = -1;
+    this.directionalGaze = null;
     this.qualityProfile = profile;
     this.maxConcurrency = profile.concurrency;
     this.maxPatches = this.viewMode === 'first-person' ? profile.firstPersonPatches : profile.tabletopPatches;
@@ -1353,6 +1369,47 @@ export class ImageryLODManager {
     return Math.max(13, Math.min(providerMaxZoom, targetZ));
   }
 
+  /** Keep a tabletop tile footprint while gaze jitters around its parent boundary. */
+  private stabilizeSelectionGeo(target: { lat: number; lon: number }, zoom: number): { lat: number; lon: number } {
+    if (this.lastSelectionGeo && this.lastSelectionZoom === zoom) {
+      const parentZoom = Math.max(0, zoom - 1);
+      const tile = latLonToTile(this.lastSelectionGeo.lat, this.lastSelectionGeo.lon, parentZoom);
+      const bounds = tileBounds(tile.x, tile.y, parentZoom);
+      const latMargin = (bounds.maxLat - bounds.minLat) * 0.25;
+      const lonMargin = (bounds.maxLon - bounds.minLon) * 0.25;
+      if (target.lat >= bounds.minLat - latMargin && target.lat <= bounds.maxLat + latMargin &&
+          target.lon >= bounds.minLon - lonMargin && target.lon <= bounds.maxLon + lonMargin) {
+        return this.lastSelectionGeo;
+      }
+    }
+    this.lastSelectionGeo = { ...target };
+    this.lastSelectionZoom = zoom;
+    return this.lastSelectionGeo;
+  }
+
+  private stableTabletopGazeVector(localDir: THREE.Vector3): { dx: number; dy: number } | undefined {
+    const x = localDir.x;
+    const y = localDir.z;
+    const horizontal = Math.hypot(x, y);
+    // Hysteresis avoids toggling between gaze extension and a centered footprint
+    // when looking almost straight down at the tabletop.
+    if (horizontal < (this.directionalGaze ? 0.25 : 0.45)) {
+      this.directionalGaze = null;
+      return undefined;
+    }
+    const prior = this.directionalGaze;
+    const preferX = prior ? (prior.dx !== 0 ? Math.abs(x) * 1.3 >= Math.abs(y) : Math.abs(x) > Math.abs(y) * 1.3)
+      : Math.abs(x) >= Math.abs(y);
+    this.directionalGaze = preferX
+      ? { dx: x >= 0 ? 1 : -1, dy: 0 }
+      : { dx: 0, dy: y >= 0 ? 1 : -1 };
+    return this.directionalGaze;
+  }
+
+  public getFocusSource(): 'center' | 'lower' | 'retained' | 'fallback' {
+    return this.focusSource;
+  }
+
   /**
    * Pure helper to test whether a tile intersects the terrain geographic bounds.
    */
@@ -1439,6 +1496,7 @@ export class ImageryLODManager {
     const rayDir = this.activeInteractionRay ? this.activeInteractionRay.direction : metrics.forward;
     const raycaster = new THREE.Raycaster(rayOrigin, rayDir);
     let hitWorldPos: THREE.Vector3 | null = null;
+    this.focusSource = 'fallback';
 
     let terrainMesh = this.options.terrainMesh;
     if (!terrainMesh) {
@@ -1463,7 +1521,34 @@ export class ImageryLODManager {
       const surfaces = terrainMesh.parent?.children.filter((obj): obj is THREE.Mesh =>
         (obj as THREE.Mesh).isMesh && obj.visible &&
         (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
-      hitWorldPos = this.terrainRaycast.closest(raycaster, surfaces)?.point ?? null;
+      const centerHit = this.terrainRaycast.closest(raycaster, surfaces);
+      let chosenHit = centerHit;
+      if (!this.activeInteractionRay) {
+        const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(metrics.worldQuaternion);
+        const halfTan = Math.tan(degToRad(metrics.verticalFov) / 2);
+        // The center ray can pass above a ridge while it still fills the lower
+        // view. Sample visible lower-screen terrain before changing LOD focus.
+        for (const screenOffset of [0.42, 0.82]) {
+          const lowerDir = metrics.forward.clone().addScaledVector(cameraUp, -halfTan * screenOffset).normalize();
+          const lowerHit = this.terrainRaycast.closest(new THREE.Raycaster(metrics.worldPosition, lowerDir), surfaces);
+          if (lowerHit && (!chosenHit || lowerHit.distance < chosenHit.distance * 0.7)) {
+            chosenHit = lowerHit;
+            this.focusSource = 'lower';
+          }
+        }
+      }
+      if (chosenHit) {
+        hitWorldPos = chosenHit.point;
+        if (this.focusSource !== 'lower') this.focusSource = 'center';
+        this.lastValidTerrainLocalPoint = dioramaRoot.worldToLocal(hitWorldPos.clone());
+      }
+    }
+
+    if (!hitWorldPos) {
+      if (this.lastValidTerrainLocalPoint) {
+        hitWorldPos = dioramaRoot.localToWorld(this.lastValidTerrainLocalPoint.clone());
+        this.focusSource = 'retained';
+      }
     }
 
     if (!hitWorldPos) {
@@ -1559,26 +1644,30 @@ export class ImageryLODManager {
     // Extract horizontal gaze / interaction orientation in diorama local space (Stage W3)
     const invQuat = dioramaWorldQuat.clone().invert();
     const localGazeDir = rayDir.clone().applyQuaternion(invQuat);
-    const gazeHorizLen = Math.hypot(localGazeDir.x, localGazeDir.z);
-    let gazeTileVector: { dx: number; dy: number } | undefined = undefined;
-    if (gazeHorizLen > 0.05) {
-      gazeTileVector = {
-        dx: localGazeDir.x / gazeHorizLen,
-        dy: localGazeDir.z / gazeHorizLen,
-      };
-    }
+    const gazeTileVector = this.stableTabletopGazeVector(localGazeDir);
 
     // Coherent refinement rings (Sections 38, 39, 62, Stage W3)
     const selectionStart = profileTiming ? performance.now() : 0;
-    const candidates = computeCoherentLODTiles(
-      targetGeo.lat,
-      targetGeo.lon,
+    const selectionGeo = this.stabilizeSelectionGeo(targetGeo, effectiveTargetZoom);
+    let candidates = computeCoherentLODTiles(
+      selectionGeo.lat,
+      selectionGeo.lon,
       effectiveTargetZoom,
       this.maxPatches,
       this.options.terrainGeoBounds,
       undefined,
       gazeTileVector
     );
+    // Never let hysteresis leave the inspected point outside the finest selected
+    // footprint; sharpness at the user's focus takes precedence over stability.
+    const focusTile = latLonToTile(targetGeo.lat, targetGeo.lon, effectiveTargetZoom);
+    if (!candidates.some((tile) => tile.zoom === effectiveTargetZoom && tile.x === focusTile.x && tile.y === focusTile.y)) {
+      this.lastSelectionGeo = { ...targetGeo };
+      candidates = computeCoherentLODTiles(
+        targetGeo.lat, targetGeo.lon, effectiveTargetZoom, this.maxPatches,
+        this.options.terrainGeoBounds, undefined, gazeTileVector
+      );
+    }
     if (profileTiming) profileTiming('imagerySelection', performance.now() - selectionStart);
 
     // Reconcile desired tiles with in-flight and visible patches (Section 14, 30, 40)

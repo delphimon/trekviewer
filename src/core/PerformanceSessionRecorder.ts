@@ -13,7 +13,15 @@ export interface ProfileCounters {
   imageryPatches: number;
   imageryCoveragePercent: number;
   imageryInFlight: number;
+  imageryTargetZoom: number;
+  imageryFocusSource: string;
+  imageryDesiredTiles: number;
+  imageryVisiblePatches: number;
+  imageryCreatedTotal: number;
+  imageryDisposedTotal: number;
+  tileCacheFailures: number;
   localTerrainChunks: number;
+  localTerrainFocusChangesTotal: number;
   qualityProfile: string;
   viewMode: string;
   textureStyle: string;

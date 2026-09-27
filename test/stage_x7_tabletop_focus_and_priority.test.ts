@@ -378,7 +378,7 @@ describe('Stage X7: Tabletop Inspection Focus & Global Request Prioritization', 
       streamer.dispose();
     });
 
-    it('enforces 75m hysteresis: micro head tremors (< 75m) do NOT rebuild or refetch chunk', async () => {
+    it('keeps the refined tabletop chunk through small focus movement', async () => {
       const terrain = createMockTerrainResult();
       const route = createMockRouteGeometry();
       const demGrid = createMockElevationGrid(13, false);
@@ -403,16 +403,17 @@ describe('Stage X7: Tabletop Inspection Focus & Global Request Prioritization', 
       const firstChunk = streamer.activeVisibleChunk;
       const callsBeforeTremor = fetchSpy.mock.calls.length;
 
-      // Tremor movement of ~20m (< 75m threshold)
+      // A ~20m head tremor and a ~220m shift stay inside the 1250m chunk.
       const focusTremor = { lat: 46.8524, lon: -121.7604 };
       streamer.update(0.0, focusTremor);
+      streamer.update(0.0, { lat: 46.8543, lon: -121.7603 });
 
       await new Promise((r) => setTimeout(r, 50));
       // Must NOT fetch again or replace chunk
       expect(fetchSpy.mock.calls.length).toBe(callsBeforeTremor);
       expect(streamer.activeVisibleChunk).toBe(firstChunk);
 
-      // Significant movement of ~1500m (>= 75m threshold) to Ferry Basin
+      // A ~1500m move requires a new refined chunk.
       const focusNew = { lat: 46.8650, lon: -121.7603 };
       streamer.update(0.0, focusNew);
 

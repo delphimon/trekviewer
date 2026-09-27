@@ -6,6 +6,7 @@ import {
   parseTileKey,
 } from '../src/terrain/ImageryLODManager.ts';
 import type { GeoBounds } from '../src/gpx/TrackTypes.ts';
+import { latLonToTile, tileBounds } from '../src/gpx/Coordinates.ts';
 
 describe('Stage W3: Tabletop 2x2 Parent Quadtree Expansion & Gaze Extension', () => {
   const testBounds: GeoBounds = {
@@ -21,6 +22,41 @@ describe('Stage W3: Tabletop 2x2 Parent Quadtree Expansion & Gaze Extension', ()
     depthMeters: 11000,
     elevationSpan: 2000,
   };
+
+  it('holds the selected tile footprint through small gaze movement at a parent boundary', () => {
+    const manager = new ImageryLODManager({
+      terrainGeoBounds: testBounds,
+      terrainBaseElevation: 1000,
+      elevationSampler: () => 0,
+    });
+    const state = manager as any;
+    const zoom = 19;
+    const start = { lat: 46.05, lon: 7.75 };
+    const anchored = state.stabilizeSelectionGeo(start, zoom);
+    const parent = latLonToTile(start.lat, start.lon, zoom - 1);
+    const limits = tileBounds(parent.x, parent.y, zoom - 1);
+    const nearEdge = { lat: start.lat, lon: limits.maxLon + (limits.maxLon - limits.minLon) * 0.1 };
+    expect(state.stabilizeSelectionGeo(nearEdge, zoom)).toBe(anchored);
+    const beyondEdge = { lat: start.lat, lon: limits.maxLon + (limits.maxLon - limits.minLon) * 0.3 };
+    expect(state.stabilizeSelectionGeo(beyondEdge, zoom)).toEqual(beyondEdge);
+    expect(state.stabilizeSelectionGeo(start, zoom - 1)).toEqual(start);
+    manager.dispose();
+  });
+
+  it('keeps downward tabletop gaze from flipping the directional footprint', () => {
+    const manager = new ImageryLODManager({
+      terrainGeoBounds: testBounds,
+      terrainBaseElevation: 1000,
+      elevationSampler: () => 0,
+    });
+    const state = manager as any;
+    expect(state.stableTabletopGazeVector(new THREE.Vector3(0.1, -0.98, 0.08))).toBeUndefined();
+    expect(state.stableTabletopGazeVector(new THREE.Vector3(-0.1, -0.98, -0.08))).toBeUndefined();
+    expect(state.stableTabletopGazeVector(new THREE.Vector3(0.5, -0.8, 0.02))).toEqual({ dx: 1, dy: 0 });
+    expect(state.stableTabletopGazeVector(new THREE.Vector3(0.3, -0.9, -0.02))).toEqual({ dx: 1, dy: 0 });
+    expect(state.stableTabletopGazeVector(new THREE.Vector3(0.2, -0.9, 0.02))).toBeUndefined();
+    manager.dispose();
+  });
 
   it('promotes at least a 2x2 parent quadtree group (16 z19 children) plus surrounding z18 perimeter on Quest 48-patch budget', () => {
     const targetLat = 46.05;
