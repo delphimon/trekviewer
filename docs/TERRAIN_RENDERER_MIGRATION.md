@@ -31,6 +31,8 @@ The renderer should:
 3. **Move imagery onto rendered terrain tiles.** Share atlas/array storage or batches where measured draw calls justify it; remove duplicated surface-copying patch meshes. Maintain independent imagery and geometry LOD and atomic parent/child fallback.
 4. **Generalize to arbitrary GPX routes.** Add source selection, a bounded tile scheduler, disk cache for permitted content, and separate tabletop/first-person policies. Migrate trail projection and ray hits to the tiled surface before removing the legacy mesh path.
 
+The offline layout primitive in `TerrainTileLayout.ts` begins slice 2. It partitions a 360-degree neighborhood into non-overlapping whole-parent-cell tiles with deterministic IDs, shared boundary coordinates, integer child subdivisions, and separate tile/vertex limits. It does not yet create or display child meshes. The next renderer slice must keep the parent visible while building each tile, validate sampled heights, blend its outer boundary to the parent, and promote it within a per-frame upload budget. The missing headset comparison from slice 1 remains a gate before making a finer default.
+
 ## Acceptance gate
 
 At the fixed Enchantments viewpoint, compare the same head sweep and screenshot directions before and after each slice. Require no missing surface, no severe ridge facets where source DEM supports more detail, and no high-resolution collapse on head rotation. Report visible imagery and geometry quality, patch/tile churn, draw calls, peak memory, and headset-delivered FPS/GPU frame time over a sustained run. Browser callback rate alone is not a frame-rate claim. Advance the tiled renderer only if the visual gain survives that device budget.
