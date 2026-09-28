@@ -41,7 +41,8 @@ export class TextureBudget {
   public static getTerrainMeshResolution(
     widthOrExtentMeters: number,
     depthMeters?: number,
-    isXRPresenting: boolean = false
+    isXRPresenting: boolean = false,
+    targetCellSizeOverrideM?: number
   ): { segX: number; segZ: number } {
     // Backward-compatibility: if only 1 argument is provided, use legacy fixed square resolution
     if (depthMeters === undefined) {
@@ -63,7 +64,9 @@ export class TextureBudget {
     const isConstrained = isXRPresenting || this.isQuestHeadset();
 
     // Target cell size: ~120m for Quest (100-150m), ~75m for desktop (60-100m)
-    const targetCellSize = isConstrained ? 120 : 75;
+    // A bounded override permits an on-headset geometry A/B run without
+    // changing the normal High profile or allowing an unbounded vertex grid.
+    const targetCellSize = targetCellSizeOverrideM === 60 ? 60 : isConstrained ? 120 : 75;
     // Maximum vertex budget: ~125k vertices on Quest (within 100k-150k budget), ~200k on desktop
     const maxVertices = isConstrained ? 125000 : 200000;
 
@@ -76,6 +79,13 @@ export class TextureBudget {
       const scale = Math.sqrt(maxVertices / totalVertices);
       segX = Math.max(32, Math.floor(segX * scale));
       segZ = Math.max(32, Math.floor(segZ * scale));
+      // The scale estimate omits the extra border vertex in each dimension.
+      // Enforce the actual vertex count even for large route bounds.
+      while ((segX + 1) * (segZ + 1) > maxVertices) {
+        if (segX >= segZ && segX > 32) segX--;
+        else if (segZ > 32) segZ--;
+        else break;
+      }
     }
 
     return { segX, segZ };

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 export interface TerrainHit {
   point: THREE.Vector3;
   distance: number;
+  mesh: THREE.Mesh;
 }
 
 interface CellMask {
@@ -94,7 +95,7 @@ export class TerrainRaycast {
           const distance = worldPoint.distanceTo(raycaster.ray.origin);
           if (distance >= raycaster.near && distance <= raycaster.far &&
               (!nearest || distance < nearest.distance)) {
-            nearest = { point: worldPoint, distance };
+            nearest = { point: worldPoint, distance, mesh };
           }
         }
       }
@@ -133,7 +134,7 @@ export class TerrainRaycast {
     mesh.raycast(raycaster, hits);
     if (!hits.length) return null;
     const hit = hits.reduce((best, current) => current.distance < best.distance ? current : best);
-    return { point: hit.point, distance: hit.distance };
+    return { point: hit.point, distance: hit.distance, mesh };
   }
 }
 

@@ -47,7 +47,10 @@ it('keeps exact nearest terrain hits as rendered indices, elevation, and visible
       const expected = raycaster.intersectObjects(surfaces, false)[0] ?? null;
       const actual = fast.closest(raycaster, surfaces);
       expect(actual === null, `ray i=${i} x=${x} z=${z}`).toBe(expected === null);
-      if (expected && actual) expect(actual.point.distanceTo(expected.point)).toBeLessThan(1e-5);
+      if (expected && actual) {
+        expect(actual.point.distanceTo(expected.point)).toBeLessThan(1e-5);
+        expect(actual.mesh).toBe(expected.object);
+      }
     }
   };
 

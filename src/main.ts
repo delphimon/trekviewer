@@ -221,6 +221,7 @@ export class TrekViewerApp {
     this.routeLoader = new RouteLoader({
       dioramaRoot: this.sceneManager.dioramaRoot,
       getIsXR: () => this.sceneManager.renderer.xr.isPresenting,
+      baseTerrainCellSizeM: new URLSearchParams(window.location.search).get('terrainGrid') === '60' ? 60 : undefined,
       getCurrentTrailColorMode: () => this.currentTrailColorMode,
       session: this.session,
       onProgress: (msg, progress) => {
@@ -730,6 +731,16 @@ export class TrekViewerApp {
       firstPersonHighResSamples: lod?.firstPersonHighResSamples ?? 0,
       firstPersonViewMinZoom: lod?.firstPersonViewMinZoom ?? 0,
       firstPersonViewMeanZoom: lod?.firstPersonViewMeanZoom ?? 0,
+      firstPersonLocalSurfaceRays: lod?.firstPersonLocalSurfaceRays ?? 0,
+      firstPersonBaseSurfaceRays: lod?.firstPersonBaseSurfaceRays ?? 0,
+      baseTerrainCellXM: this.activeTrek?.terrainResult.baseMeshGrid
+        ? Number((this.activeTrek.terrainResult.baseMeshGrid.width /
+          this.activeTrek.terrainResult.baseMeshGrid.segmentsX).toFixed(1)) : 0,
+      baseTerrainCellZM: this.activeTrek?.terrainResult.baseMeshGrid
+        ? Number((this.activeTrek.terrainResult.baseMeshGrid.depth /
+          this.activeTrek.terrainResult.baseMeshGrid.segmentsZ).toFixed(1)) : 0,
+      baseDemZoom: this.activeTrek?.terrainResult.demGrid?.zoom ?? 0,
+      visibleLocalDemZoom: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.zoom ?? 0,
       imageryInFlight: lod?.inFlightRequests ?? 0,
       imageryTargetZoom: lod?.targetZoom ?? 0,
       imageryFocusSource: this.activeTrek?.imageryLOD.getFocusSource() ?? 'none',

@@ -54,6 +54,13 @@ if (!paths.length) {
         console.log(`Focus source: ${[...focusSources].map(([source, seconds]) => `${source} ${seconds.toFixed(1)}s`).join(', ')}`);
         console.log(`Patch creations/disposals during sampled windows: ${counterIncreases(active, 'imageryCreatedTotal')}/${counterIncreases(active, 'imageryDisposedTotal')}  |  tile failures: ${counterIncreases(active, 'tileCacheFailures')}  |  tabletop terrain focus changes: ${counterIncreases(active, 'localTerrainFocusChangesTotal')}`);
       }
+      if (active.some(w => Number.isFinite(w.baseTerrainCellXM) && w.baseTerrainCellXM > 0)) {
+        const latest = active.at(-1);
+        console.log(`Terrain: base ${latest.baseTerrainCellXM}m × ${latest.baseTerrainCellZM}m cells, DEM z${latest.baseDemZoom}; visible local DEM z${latest.visibleLocalDemZoom}`);
+        const localRays = active.reduce((sum, w) => sum + (w.firstPersonLocalSurfaceRays ?? 0), 0);
+        const baseRays = active.reduce((sum, w) => sum + (w.firstPersonBaseSurfaceRays ?? 0), 0);
+        if (localRays + baseRays) console.log(`Sampled first-person terrain rays: ${localRays} local / ${baseRays} base`);
+      }
       console.log('CPU phases (mean per callback / worst single callback):');
       for (const p of phaseCosts.filter(p => !p.name.startsWith('imagery') || p.name === 'imagery')) {
         console.log(`  ${p.name.padEnd(18)} ${p.meanMs.toFixed(2).padStart(6)} / ${p.maxMs.toFixed(2).padStart(6)} ms`);

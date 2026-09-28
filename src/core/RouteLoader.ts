@@ -14,6 +14,7 @@ import { QualityProfileManager } from '../terrain/QualityProfile.ts';
 export interface RouteLoaderOptions {
   dioramaRoot: THREE.Group;
   getIsXR: () => boolean;
+  baseTerrainCellSizeM?: number;
   getCurrentTrailColorMode?: () => TrailColorMode;
   session?: TrekSession;
   onProgress?: (message: string, progress?: number | null) => void;
@@ -197,7 +198,8 @@ export class RouteLoader {
         context.abortController.signal,
         1.0,
         isXR,
-        preparedElevation
+        preparedElevation,
+        this.options.baseTerrainCellSizeM
       );
 
       if (this.isStale(context)) {

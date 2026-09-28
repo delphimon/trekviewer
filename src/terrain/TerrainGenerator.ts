@@ -133,7 +133,8 @@ export class TerrainGenerator {
     signal?: AbortSignal,
     initialExaggeration: number = 1.0,
     isXR: boolean = false,
-    preparedElevation?: PreparedElevation
+    preparedElevation?: PreparedElevation,
+    baseTerrainCellSizeM?: number
   ): Promise<TerrainResult> {
     const bounds = track.bounds;
 
@@ -182,7 +183,7 @@ export class TerrainGenerator {
     }
 
     // Adaptive, aspect-aware resolution based on terrain physical extent and device (Section 18)
-    const { segX, segZ } = TextureBudget.getTerrainMeshResolution(widthM, depthM, isXR);
+    const { segX, segZ } = TextureBudget.getTerrainMeshResolution(widthM, depthM, isXR, baseTerrainCellSizeM);
 
     const planeGeo = new THREE.PlaneGeometry(widthM, depthM, segX, segZ);
     planeGeo.rotateX(-Math.PI / 2);

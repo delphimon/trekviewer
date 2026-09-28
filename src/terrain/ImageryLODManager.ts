@@ -99,6 +99,8 @@ export interface ImageryLODDiagnostics {
   firstPersonHighResSamples: number;
   firstPersonViewMinZoom: number;
   firstPersonViewMeanZoom: number;
+  firstPersonLocalSurfaceRays: number;
+  firstPersonBaseSurfaceRays: number;
   z19AheadDistanceMeters: number;
   residentWarmCount: number;
   evictionsTotal: number;
@@ -904,6 +906,8 @@ export class ImageryLODManager {
   private directionalGaze: { dx: number; dy: number } | null = null;
   private lastValidTerrainLocalPoint: THREE.Vector3 | null = null;
   private firstPersonViewSampleTiles: string[] = [];
+  private firstPersonLocalSurfaceRays = 0;
+  private firstPersonBaseSurfaceRays = 0;
   private focusSource: 'center' | 'lower' | 'retained' | 'fallback' = 'fallback';
   private evaluationDirty = true;
   private readonly evalWorldPos = new THREE.Vector3();
@@ -1048,6 +1052,8 @@ export class ImageryLODManager {
       firstPersonHighResSamples,
       firstPersonViewMinZoom,
       firstPersonViewMeanZoom,
+      firstPersonLocalSurfaceRays: this.firstPersonLocalSurfaceRays,
+      firstPersonBaseSurfaceRays: this.firstPersonBaseSurfaceRays,
       z19AheadDistanceMeters,
       residentWarmCount,
       evictionsTotal: this.patchesDisposedTotal,
@@ -1092,6 +1098,8 @@ export class ImageryLODManager {
       this.lastInspectedGeo = null;
     } else {
       this.firstPersonViewSampleTiles = [];
+      this.firstPersonLocalSurfaceRays = 0;
+      this.firstPersonBaseSurfaceRays = 0;
     }
 
     for (const pending of this.pendingRequests.values()) {
@@ -1873,6 +1881,8 @@ export class ImageryLODManager {
     // Sample visible terrain for diagnostics. Quest High keeps the selected
     // footprint fixed during head turns, so these rays cannot cause churn.
     const visiblePoints: { lat: number; lon: number }[] = [];
+    this.firstPersonLocalSurfaceRays = 0;
+    this.firstPersonBaseSurfaceRays = 0;
     const viewRaycastStart = profileTiming ? performance.now() : 0;
     const terrainMesh = this.options.terrainMesh;
     if (terrainMesh) {
@@ -1895,6 +1905,8 @@ export class ImageryLODManager {
             new THREE.Raycaster(metrics.worldPosition, direction), surfaces
           );
           if (!hit) continue;
+          if (hit.mesh.name === 'LocalHighResTerrainMesh') this.firstPersonLocalSurfaceRays++;
+          else if (hit.mesh === terrainMesh) this.firstPersonBaseSurfaceRays++;
           const local = dioramaRoot.worldToLocal(hit.point.clone());
           visiblePoints.push(localMetersToGeo(
             local.x, local.z,

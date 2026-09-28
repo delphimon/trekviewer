@@ -171,4 +171,6 @@ Append `?debug=1` to display callback pacing, CPU submission p95, tile coverage,
 
 For repeatable headset runs, append `?profile=1` to the hosted URL. The production build records bounded one-second CPU, callback, rendering, cache, and quality samples locally. Entering XR starts the recorder; exiting stops it. Press **Download JSON** on the page to save the report. Pair it with Meta's device GPU/FPS/thermal metrics. See the [Quest 3 profiling procedure](docs/QUEST_PROFILE.md) for exact steps and measurement limits.
 
+For a controlled geometry experiment, use `?profile=1&terrainGrid=60` and reload the route. This reduces the Quest base terrain's target cell spacing from about 120 m to 60 m while retaining the 125,000-vertex cap; it does not change imagery selection or the local DEM chunk. The profile records the resulting cell spacing and DEM zoom, plus how many sampled first-person rays hit the local versus base terrain. Compare the same viewpoint with `?profile=1` before treating the experimental grid as a quality setting. Its GPU and thermal cost has not yet been measured on the headset.
+
 Save `dist/build-info.json` with each device test: it includes the source SHA, modified-tree marker, and timestamped build ID. See the [current validation record](docs/review-2026-09-26/IMPLEMENTATION.md) for verified results and pending hardware checks.

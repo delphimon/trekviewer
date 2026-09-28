@@ -16,6 +16,12 @@ export interface ProfileCounters {
   firstPersonHighResSamples: number;
   firstPersonViewMinZoom: number;
   firstPersonViewMeanZoom: number;
+  firstPersonLocalSurfaceRays?: number;
+  firstPersonBaseSurfaceRays?: number;
+  baseTerrainCellXM?: number;
+  baseTerrainCellZM?: number;
+  baseDemZoom?: number;
+  visibleLocalDemZoom?: number;
   imageryInFlight: number;
   imageryTargetZoom: number;
   imageryFocusSource: string;
