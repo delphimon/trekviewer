@@ -12,6 +12,7 @@ export type TerrainQuality = 'dem' | 'partial-dem' | 'synthetic';
 
 export interface PreparedElevation {
   demGrid: ElevationGrid | null;
+  regionalGrid?: ElevationGrid | null;
   terrainGeoBounds: GeoBounds;
   elevationSamplerForGeo: (lat: number, lon: number) => number | undefined;
 }
@@ -37,6 +38,7 @@ export interface TerrainResult {
   terrainBaseElevation: number;
   terrainQuality: TerrainQuality;
   demGrid: ElevationGrid | null;
+  regionalGrid?: ElevationGrid | null;
   tileGrid?: TileGridBounds;
   surfaceRevision?: number;
   onSurfaceChange?: (change: TerrainSurfaceChange) => void;
@@ -67,7 +69,8 @@ export class TerrainGenerator {
   public static async prepareElevation(
     bounds: GeoBounds,
     onProgress?: (msg: string, progress?: number | null) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    regionalBase: boolean = false
   ): Promise<PreparedElevation> {
     onProgress?.('Fetching real-world 3D elevation data...', 0.1);
 
@@ -110,13 +113,28 @@ export class TerrainGenerator {
       throw new Error('Terrain generation aborted');
     }
 
+    let regionalGrid: ElevationGrid | null = null;
+    if (regionalBase) {
+      onProgress?.('Loading regional elevation detail...', 0.43);
+      try {
+        regionalGrid = await ElevationTileService.fetchRegionalElevationGrid(terrainGeoBounds, signal);
+      } catch (error) {
+        if (signal?.aborted) throw new Error('Terrain generation aborted');
+        console.warn('Regional elevation unavailable; using route DEM:', error);
+      }
+      if (signal?.aborted) throw new Error('Terrain generation aborted');
+      if (regionalGrid?.quality && regionalGrid.quality.validTileRatio < 0.7) regionalGrid = null;
+    }
+
     const elevationSamplerForGeo = (lat: number, lon: number): number | undefined => {
-      if (!demGrid) return undefined;
-      return ElevationTileService.sampleElevationValue(demGrid, lat, lon);
+      const regional = regionalGrid && ElevationTileService.sampleElevation(regionalGrid, lat, lon);
+      if (regional?.isValid) return regional.elevation;
+      return demGrid ? ElevationTileService.sampleElevationValue(demGrid, lat, lon) : undefined;
     };
 
     return {
       demGrid,
+      regionalGrid,
       terrainGeoBounds,
       elevationSamplerForGeo,
     };
@@ -139,14 +157,17 @@ export class TerrainGenerator {
     const bounds = track.bounds;
 
     let demGrid: ElevationGrid | null;
+    let regionalGrid: ElevationGrid | null = null;
     let terrainGeoBounds: GeoBounds;
 
     if (preparedElevation) {
       demGrid = preparedElevation.demGrid;
+      regionalGrid = preparedElevation.regionalGrid ?? null;
       terrainGeoBounds = preparedElevation.terrainGeoBounds;
     } else {
       const prepared = await this.prepareElevation(bounds, onProgress, signal);
       demGrid = prepared.demGrid;
+      regionalGrid = prepared.regionalGrid ?? null;
       terrainGeoBounds = prepared.terrainGeoBounds;
     }
 
@@ -163,8 +184,10 @@ export class TerrainGenerator {
     let terrainQuality: TerrainQuality = 'dem';
     let terrainBaseElevation = bounds.minEle;
 
-    if (demGrid) {
-      const validRatio = demGrid.tileValidity.reduce((sum, v) => sum + v, 0) / demGrid.tileValidity.length;
+    if (demGrid || regionalGrid) {
+      const validRatio = demGrid
+        ? demGrid.tileValidity.reduce((sum, v) => sum + v, 0) / demGrid.tileValidity.length
+        : regionalGrid!.quality?.validTileRatio ?? 1;
       if (validRatio < 0.3) {
         terrainQuality = 'synthetic';
       } else if (validRatio < 0.99) {
@@ -174,7 +197,7 @@ export class TerrainGenerator {
       }
 
       // Base elevation is independent from the lowest track elevation (preserves valleys below track)
-      terrainBaseElevation = Math.min(demGrid.minElevation, bounds.minEle) - 30;
+      terrainBaseElevation = Math.min(demGrid?.minElevation ?? Infinity, regionalGrid?.minElevation ?? Infinity, bounds.minEle) - 30;
       onProgress?.(terrainQuality === 'dem' ? 'Real-world DEM elevation loaded.' : 'Partial DEM coverage — estimating uncovered terrain.', 0.55);
     } else {
       terrainQuality = 'synthetic';
@@ -240,6 +263,11 @@ export class TerrainGenerator {
     const sampleHeightAt = (localX: number, localZ: number): number => {
       const geo = localMetersToGeo(localX, localZ, centerLat, centerLon);
 
+      if (regionalGrid) {
+        const sample = ElevationTileService.sampleElevation(regionalGrid, geo.lat, geo.lon);
+        if (sample.isValid && !isNaN(sample.elevation)) return sample.elevation - terrainBaseElevation;
+      }
+
       if (demGrid) {
         const sample = ElevationTileService.sampleElevation(demGrid, geo.lat, geo.lon);
         if (sample.isValid && !isNaN(sample.elevation)) {
@@ -298,6 +326,10 @@ export class TerrainGenerator {
       bounds,
       tileGrid,
       (lat: number, lon: number) => {
+        if (regionalGrid) {
+          const sample = ElevationTileService.sampleElevation(regionalGrid, lat, lon);
+          if (sample.isValid) return sample.elevation;
+        }
         if (demGrid) {
           const sample = ElevationTileService.sampleElevation(demGrid, lat, lon);
           if (sample.isValid) return sample.elevation;
@@ -719,6 +751,7 @@ export class TerrainGenerator {
       terrainBaseElevation,
       terrainQuality,
       demGrid,
+      regionalGrid,
       tileGrid,
       get surfaceRevision() {
         return surfaceRevision;

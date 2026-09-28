@@ -51,6 +51,22 @@ export class ElevationTileService {
     return this.regionalDEMEnabled;
   }
 
+  /** Fetch only the overlap between a route and the packaged regional footprint.
+   * Unpackaged positions inside that rectangle use AWS under its own cache key.
+   */
+  public static async fetchRegionalElevationGrid(bounds: GeoBounds, signal?: AbortSignal): Promise<ElevationGrid | null> {
+    const z = this.regionalProvider.maxZoom;
+    const nw = latLonToTile(bounds.maxLat, bounds.minLon, z);
+    const se = latLonToTile(bounds.minLat, bounds.maxLon, z);
+    const region = this.regionalProvider.tileBounds;
+    const minX = Math.max(Math.min(nw.x, se.x), region.minX);
+    const maxX = Math.min(Math.max(nw.x, se.x), region.maxX);
+    const minY = Math.max(Math.min(nw.y, se.y), region.minY);
+    const maxY = Math.min(Math.max(nw.y, se.y), region.maxY);
+    if (minX > maxX || minY > maxY) return null;
+    return this.decodeTileGrid(z, minX, maxX, minY, maxY, bounds.minEle, bounds.maxEle, undefined, signal, true);
+  }
+
   /**
    * Fetches real-world AWS Terrarium DEM tiles covering the bounding box.
    * Tracks tile validity to prevent failed tiles from decoding as -32768m craters.
@@ -228,7 +244,8 @@ export class ElevationTileService {
     fallbackMinEle: number,
     fallbackMaxEle: number,
     onProgress?: (loaded: number, total: number) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    useRegionalDEM: boolean = this.regionalDEMEnabled
   ): Promise<ElevationGrid | null> {
     const numTilesX = tileXMax - tileXMin + 1;
     const numTilesY = tileYMax - tileYMin + 1;
@@ -263,7 +280,7 @@ export class ElevationTileService {
         if (signal?.aborted) return;
         const task = tileTasks[nextTaskIdx++];
         try {
-          const regional = this.regionalDEMEnabled && this.regionalProvider.covers(zoom, task.tx, task.ty);
+          const regional = useRegionalDEM && this.regionalProvider.covers(zoom, task.tx, task.ty);
           let usedRegional = regional;
           let img: HTMLImageElement;
           if (regional) {

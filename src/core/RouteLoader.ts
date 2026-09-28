@@ -15,6 +15,7 @@ export interface RouteLoaderOptions {
   dioramaRoot: THREE.Group;
   getIsXR: () => boolean;
   baseTerrainCellSizeM?: number;
+  regionalBase?: boolean;
   getCurrentTrailColorMode?: () => TrailColorMode;
   session?: TrekSession;
   onProgress?: (message: string, progress?: number | null) => void;
@@ -165,7 +166,8 @@ export class RouteLoader {
             this.options.onProgress?.(msg, progress);
           }
         },
-        context.abortController.signal
+        context.abortController.signal,
+        this.options.regionalBase
       );
 
       if (this.isStale(context)) {

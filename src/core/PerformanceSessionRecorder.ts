@@ -21,6 +21,8 @@ export interface ProfileCounters {
   baseTerrainCellXM?: number;
   baseTerrainCellZM?: number;
   baseDemZoom?: number;
+  regionalBaseDemZoom?: number;
+  regionalBaseTiles?: number;
   visibleLocalDemZoom?: number;
   visibleLocalCellXM?: number;
   visibleLocalCellZM?: number;

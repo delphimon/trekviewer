@@ -57,6 +57,7 @@ if (!paths.length) {
       if (active.some(w => Number.isFinite(w.baseTerrainCellXM) && w.baseTerrainCellXM > 0)) {
         const latest = active.at(-1);
         console.log(`Terrain: base ${latest.baseTerrainCellXM}m × ${latest.baseTerrainCellZM}m cells, DEM z${latest.baseDemZoom}; visible local DEM z${latest.visibleLocalDemZoom}`);
+        if (latest.regionalBaseDemZoom) console.log(`Regional base elevation: DEM z${latest.regionalBaseDemZoom}, ${latest.regionalBaseTiles ?? 0} packaged USGS tiles`);
         if (Number.isFinite(latest.visibleLocalCellXM) && latest.visibleLocalCellXM > 0) {
           console.log(`Visible local mesh: ${latest.visibleLocalCellXM.toFixed(1)}m × ${latest.visibleLocalCellZM.toFixed(1)}m cells; regional DEM ${latest.regionalDemEnabled ? 'enabled' : 'disabled'}; ${latest.visibleLocalRegionalTiles ?? 0} USGS / ${latest.visibleLocalAwsTiles ?? 0} AWS tiles`);
         }

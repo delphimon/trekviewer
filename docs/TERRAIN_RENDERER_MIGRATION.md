@@ -10,6 +10,8 @@ Build `f2d8393` adds a bounded `?terrainGrid=60` experiment. A matched headset r
 
 The optional `?regionalDem=1` experiment packages 26 USGS 3DEP z15 elevation tiles near Colchuck Lake and Asgard Pass. It changes only local DEM source selection and keeps the current mesh layout, so a matched run isolates the source contribution. Missing/partial source tiles fall back to AWS, and packaged boundary pixels are feathered to AWS to avoid height steps. It does not solve the coarse distant base mesh; a tiled terrain surface is still the migration target.
 
+The separate `?regionalBase=1` flag applies that same regional source to full-route base-mesh vertices where covered, leaving the local chunk on AWS unless `regionalDem=1` is also set. This isolates source detail from mesh density. It adds a bounded 30-tile regional decode during route preparation, with 26 packaged USGS tiles and AWS fallback for the four uncovered positions. Browser validation confirms the Enchantments route renders with regional base z15 and local AWS z15; Quest GPU, memory, and visual benefit remain unmeasured. It is still a source-selection step toward the tiled surface, not a replacement for it.
+
 ## Target rendering boundary
 
 Retain GPX parsing, route geometry, hand/controller input, HUD, scene lifecycle, and WebXR delivery. Replace `TerrainGenerator`'s whole-route mesh, `LocalTerrainStreamer`'s single visible refinement, and `ImageryLODManager`'s surface-copying patch geometry behind one terrain-surface interface. A rendered spatial tile owns its height mesh, material mapping, bounds, and quality metadata. DEM and imagery may have different source zooms; they do not need a one-to-one source tile match.

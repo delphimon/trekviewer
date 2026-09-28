@@ -113,7 +113,8 @@ export class TrekViewerApp {
     const initialProfile = QualityProfileManager.getDefaultProfile(isQuest);
     QualityProfileManager.setActiveProfile(initialProfile);
     TileImageCache.applyProfile(initialProfile);
-    ElevationTileService.setRegionalDEMEnabled(new URLSearchParams(window.location.search).get('regionalDem') === '1');
+    const demParams = new URLSearchParams(window.location.search);
+    ElevationTileService.setRegionalDEMEnabled(demParams.get('regionalDem') === '1');
     this.session.setQualityProfile(initialProfile.name);
 
     this.lastTimestamp = performance.now();
@@ -224,6 +225,7 @@ export class TrekViewerApp {
       dioramaRoot: this.sceneManager.dioramaRoot,
       getIsXR: () => this.sceneManager.renderer.xr.isPresenting,
       baseTerrainCellSizeM: new URLSearchParams(window.location.search).get('terrainGrid') === '60' ? 60 : undefined,
+      regionalBase: new URLSearchParams(window.location.search).get('regionalBase') === '1',
       getCurrentTrailColorMode: () => this.currentTrailColorMode,
       session: this.session,
       onProgress: (msg, progress) => {
@@ -742,6 +744,8 @@ export class TrekViewerApp {
         ? Number((this.activeTrek.terrainResult.baseMeshGrid.depth /
           this.activeTrek.terrainResult.baseMeshGrid.segmentsZ).toFixed(1)) : 0,
       baseDemZoom: this.activeTrek?.terrainResult.demGrid?.zoom ?? 0,
+      regionalBaseDemZoom: this.activeTrek?.terrainResult.regionalGrid?.zoom ?? 0,
+      regionalBaseTiles: this.activeTrek?.terrainResult.regionalGrid?.quality?.regionalTiles ?? 0,
       visibleLocalDemZoom: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.zoom ?? 0,
       visibleLocalCellXM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.getCellSize().x ?? 0,
       visibleLocalCellZM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.getCellSize().z ?? 0,
