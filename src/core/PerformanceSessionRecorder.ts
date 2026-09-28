@@ -22,6 +22,11 @@ export interface ProfileCounters {
   baseTerrainCellZM?: number;
   baseDemZoom?: number;
   visibleLocalDemZoom?: number;
+  visibleLocalCellXM?: number;
+  visibleLocalCellZM?: number;
+  regionalDemEnabled?: boolean;
+  visibleLocalRegionalTiles?: number;
+  visibleLocalAwsTiles?: number;
   imageryInFlight: number;
   imageryTargetZoom: number;
   imageryFocusSource: string;

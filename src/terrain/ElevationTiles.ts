@@ -1,6 +1,7 @@
 import type { GeoBounds } from '../gpx/TrackTypes.ts';
 import { latLonToTile, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { AWSTerrariumElevationProvider } from './providers/ImageryProvider.ts';
+import { EnchantmentsRegionalDEMProvider } from './providers/RegionalDEMProvider.ts';
 import { TileImageCache } from './TileImageCache.ts';
 
 export interface LocalDEMQuality {
@@ -8,6 +9,8 @@ export interface LocalDEMQuality {
   totalTiles: number;
   validTiles: number;
   zoom: number;
+  regionalTiles?: number;
+  awsTiles?: number;
 }
 
 export interface ElevationGrid {
@@ -35,6 +38,18 @@ export interface ElevationSampleResult {
 
 export class ElevationTileService {
   private static elevationProvider = new AWSTerrariumElevationProvider();
+  private static regionalProvider = new EnchantmentsRegionalDEMProvider();
+  private static regionalDEMEnabled = false;
+
+  public static setRegionalDEMEnabled(enabled: boolean): void {
+    if (this.regionalDEMEnabled === enabled) return;
+    this.regionalDEMEnabled = enabled;
+    this.clearLocalGridCache();
+  }
+
+  public static isRegionalDEMEnabled(): boolean {
+    return this.regionalDEMEnabled;
+  }
 
   /**
    * Fetches real-world AWS Terrarium DEM tiles covering the bounding box.
@@ -163,7 +178,7 @@ export class ElevationTileService {
         numTilesY = tileYMax - tileYMin + 1;
       }
 
-      const cacheKey = `${zoom}_${tileXMin}_${tileXMax}_${tileYMin}_${tileYMax}`;
+      const cacheKey = `${this.regionalDEMEnabled ? 'regional' : 'aws'}_${zoom}_${tileXMin}_${tileXMax}_${tileYMin}_${tileYMax}`;
       const cached = this.localDemGridCache.get(cacheKey);
       if (cached) {
         return cached;
@@ -229,6 +244,8 @@ export class ElevationTileService {
     const tileValidity = new Uint8Array(totalTiles);
     let loadedTiles = 0;
     let successCount = 0;
+    let regionalTiles = 0;
+    let awsTiles = 0;
 
     // Bound DEM request concurrency to a 6-worker pool (Requirement #100)
     const CONCURRENCY = 6;
@@ -246,20 +263,28 @@ export class ElevationTileService {
         if (signal?.aborted) return;
         const task = tileTasks[nextTaskIdx++];
         try {
-          const img = await TileImageCache.loadTile(
-            this.elevationProvider,
-            zoom,
-            task.tx,
-            task.ty,
-            4000,
-            signal
-          );
+          const regional = this.regionalDEMEnabled && this.regionalProvider.covers(zoom, task.tx, task.ty);
+          let usedRegional = regional;
+          let img: HTMLImageElement;
+          if (regional) {
+            try {
+              img = await TileImageCache.loadTile(this.regionalProvider, zoom, task.tx, task.ty, 4000, signal);
+            } catch {
+              if (signal?.aborted) return;
+              usedRegional = false;
+              img = await TileImageCache.loadTile(this.elevationProvider, zoom, task.tx, task.ty, 4000, signal);
+            }
+          } else {
+            img = await TileImageCache.loadTile(this.elevationProvider, zoom, task.tx, task.ty, 4000, signal);
+          }
           if (signal?.aborted) return;
           const dx = (task.tx - tileXMin) * TILE_SIZE;
           const dy = (task.ty - tileYMin) * TILE_SIZE;
           ctx.drawImage(img, dx, dy);
           tileValidity[task.tileIdx] = 1;
           successCount++;
+          if (usedRegional) regionalTiles++;
+          else awsTiles++;
         } catch {
           // Mark tile as invalid; no drawing occurs
           tileValidity[task.tileIdx] = 0;
@@ -323,6 +348,8 @@ export class ElevationTileService {
       totalTiles,
       validTiles: successCount,
       zoom,
+      regionalTiles,
+      awsTiles,
     };
 
     return {

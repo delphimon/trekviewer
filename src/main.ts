@@ -16,6 +16,7 @@ import { RouteLoader } from './core/RouteLoader';
 import { TrekSession } from './core/TrekSession';
 import { TextureProvider } from './terrain/TextureProvider';
 import { TileImageCache } from './terrain/TileImageCache';
+import { ElevationTileService } from './terrain/ElevationTiles';
 import { QualityProfileManager } from './terrain/QualityProfile';
 import { resolveAssetUrl } from './utils/AssetUrl';
 
@@ -112,6 +113,7 @@ export class TrekViewerApp {
     const initialProfile = QualityProfileManager.getDefaultProfile(isQuest);
     QualityProfileManager.setActiveProfile(initialProfile);
     TileImageCache.applyProfile(initialProfile);
+    ElevationTileService.setRegionalDEMEnabled(new URLSearchParams(window.location.search).get('regionalDem') === '1');
     this.session.setQualityProfile(initialProfile.name);
 
     this.lastTimestamp = performance.now();
@@ -741,6 +743,11 @@ export class TrekViewerApp {
           this.activeTrek.terrainResult.baseMeshGrid.segmentsZ).toFixed(1)) : 0,
       baseDemZoom: this.activeTrek?.terrainResult.demGrid?.zoom ?? 0,
       visibleLocalDemZoom: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.zoom ?? 0,
+      visibleLocalCellXM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.getCellSize().x ?? 0,
+      visibleLocalCellZM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.getCellSize().z ?? 0,
+      regionalDemEnabled: ElevationTileService.isRegionalDEMEnabled(),
+      visibleLocalRegionalTiles: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.quality?.regionalTiles ?? 0,
+      visibleLocalAwsTiles: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.quality?.awsTiles ?? 0,
       imageryInFlight: lod?.inFlightRequests ?? 0,
       imageryTargetZoom: lod?.targetZoom ?? 0,
       imageryFocusSource: this.activeTrek?.imageryLOD.getFocusSource() ?? 'none',

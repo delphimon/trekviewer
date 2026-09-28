@@ -47,6 +47,10 @@ export class LocalTerrainChunk {
     return this.localBounds;
   }
 
+  public getCellSize(): { x: number; z: number } {
+    return { x: this.widthM / this.segmentsX, z: this.depthM / this.segmentsZ };
+  }
+
   public isRealHighRes: boolean = false;
   public currentGrid: ElevationGrid;
   public fallbackCount: number = 0;

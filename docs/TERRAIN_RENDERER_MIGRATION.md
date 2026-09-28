@@ -8,6 +8,8 @@ The stable imagery footprint in build `6b046c5` removed the measured head-turn c
 
 Build `f2d8393` adds a bounded `?terrainGrid=60` experiment. A matched headset run must establish how much of the visible defect is base-mesh undersampling, how much is imagery resolution or DEM source quality, and what additional geometry costs on the headset. It is not the destination architecture.
 
+The optional `?regionalDem=1` experiment packages 26 USGS 3DEP z15 elevation tiles near Colchuck Lake and Asgard Pass. It changes only local DEM source selection and keeps the current mesh layout, so a matched run isolates the source contribution. Missing/partial source tiles fall back to AWS, and packaged boundary pixels are feathered to AWS to avoid height steps. It does not solve the coarse distant base mesh; a tiled terrain surface is still the migration target.
+
 ## Target rendering boundary
 
 Retain GPX parsing, route geometry, hand/controller input, HUD, scene lifecycle, and WebXR delivery. Replace `TerrainGenerator`'s whole-route mesh, `LocalTerrainStreamer`'s single visible refinement, and `ImageryLODManager`'s surface-copying patch geometry behind one terrain-surface interface. A rendered spatial tile owns its height mesh, material mapping, bounds, and quality metadata. DEM and imagery may have different source zooms; they do not need a one-to-one source tile match.
