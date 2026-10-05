@@ -3,6 +3,7 @@ import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/Trac
 import { RouteGeometry, yawForForwardVector } from './RouteGeometry.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import type { TerrainSurfaceBounds } from '../terrain/TerrainGenerator.ts';
+import { addTrailChevrons } from './TrailChevronMaterial.ts';
 
 export interface TrailResult {
   group: THREE.Group;
@@ -177,6 +178,8 @@ export class TrailMesh {
       polygonOffsetFactor: -2.0,
       polygonOffsetUnits: -4.0,
     });
+    addTrailChevrons(dioramaMat, ribbonHalfWidth, Math.max(40, ribbonHalfWidth * 14, maxDim / 45));
+    addTrailChevrons(firstPersonMat, 0.35, 4.0);
 
     const trailMesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(dioramaGeo, dioramaMat);
     trailMesh.renderOrder = 5;
@@ -437,6 +440,7 @@ export class TrailMesh {
     const allIndices: number[] = [];
     const unscaledGroundYList: number[] = [];
     const allProgresses: number[] = [];
+    const allTrailCoords: number[] = [];
 
     let vertexOffset = 0;
 
@@ -495,6 +499,9 @@ export class TrailMesh {
         const dist = segStartDist + t * segDistSpan;
         const prog = routeGeometry.totalDistance > 0 ? Math.min(1, Math.max(0, dist / routeGeometry.totalDistance)) : 0;
         allProgresses.push(prog, prog);
+        // Signed ribbon width and segment-local distance preserve travel order,
+        // including return legs, without spanning gaps between GPX segments.
+        allTrailCoords.push(-1, t * segDistSpan, 1, t * segDistSpan);
 
         if (i < segPointsCount) {
           const v0 = vertexOffset + i * 2;
@@ -512,6 +519,7 @@ export class TrailMesh {
 
     geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
+    geo.setAttribute('trailCoord', new THREE.Float32BufferAttribute(allTrailCoords, 2));
     geo.setIndex(allIndices);
     geo.userData.progresses = new Float32Array(allProgresses);
 

@@ -72,6 +72,7 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 - **1:1 Room-Space Alignment**: Headset forward vector in first-person mode aligns 1:1 with real-world trail azimuth. Walking forward in your room moves forward along the mountain trail.
 - **Unified Rendered Terrain Surface**: Trail ribbon vertices sample both left and right edges directly from the rendered terrain mesh triangle barycentric coordinates (`sampleRenderedSurfaceY`), preventing half-buried ribbon edges on steep slopes.
 - **Solid High-Contrast Route Default**: Trails render in high-contrast cyan (`#38bdf8`) with dense 4-meter resampling and dynamic lift.
+- **Travel Direction Chevrons**: Repeating white chevrons with dark outlines follow GPX travel order on the path in tabletop and 1:1 views. They scale with the view, retain all trail color modes, and render within the existing ribbon draw call.
 - **Spatially Smoothed Grade & Pace**: Telemetry values are smoothed over distance windows and categorized into 5 broad color bands with 60-meter run-length filtering.
 
 ---
