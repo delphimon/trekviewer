@@ -34,7 +34,8 @@ export class DesktopOverlay {
   private textureStyle: TextureStyle = 'satellite';
   private trailColorMode: TrailColorMode = 'solid';
   private verticalExaggeration: number = 1.0;
-  private xrEnabled = true;
+  private xrEnabled = false;
+  private xrChecking = true;
   private graphicsPaused = false;
   private xrSupport: { vr: boolean | null; ar: boolean | null } = { vr: null, ar: null };
 
@@ -65,6 +66,7 @@ export class DesktopOverlay {
     this.setVerticalExaggeration(this.verticalExaggeration);
     this.setPlaybackSpeed(1);
     this.setPlaying(false);
+    this.updateXRButtons();
   }
 
   public setManifest(manifest: RouteManifestItem[]): void {
@@ -414,14 +416,14 @@ export class DesktopOverlay {
           <!-- WebXR Meta Quest 3 Launch Buttons -->
           <div class="xr-buttons">
             <button id="btnSettings" class="btn btn-secondary settings-toggle" aria-controls="trekSettings" aria-expanded="false">Settings</button>
-            <button id="btnEnterVR" class="btn btn-primary xr-btn" aria-describedby="xrSupportStatus">
+            <button id="btnEnterVR" class="btn btn-primary xr-btn" aria-describedby="xrSupportStatus" disabled>
               🥽 Enter VR
             </button>
-            <button id="btnEnterAR" class="btn btn-accent xr-btn" aria-describedby="xrSupportStatus">
+            <button id="btnEnterAR" class="btn btn-accent xr-btn" aria-describedby="xrSupportStatus" disabled>
               👓 Passthrough (MR)
             </button>
           </div>
-          <p id="xrSupportStatus" class="xr-support-status" role="status" hidden></p>
+          <p id="xrSupportStatus" class="xr-support-status" role="status" aria-busy="true">Checking headset availability…</p>
         </header>
 
         <!-- Status & Progress Notification Modal -->
@@ -1024,10 +1026,18 @@ export class DesktopOverlay {
     this.updateXRButtons();
   }
 
+  public beginXRSupportCheck(): void {
+    this.xrChecking = true;
+    const status = document.getElementById('xrSupportStatus');
+    if (status) { status.textContent = 'Checking headset availability…'; status.hidden = false; status.ariaBusy = 'true'; }
+    this.updateXRButtons();
+  }
+
   public setXRSupport(vr: boolean | null, ar: boolean | null, message: string): void {
+    this.xrChecking = false;
     this.xrSupport = { vr, ar };
     const status = document.getElementById('xrSupportStatus');
-    if (status) { status.textContent = message; status.hidden = !message; }
+    if (status) { status.textContent = message; status.hidden = !message; status.ariaBusy = 'false'; }
     this.updateXRButtons();
   }
 
@@ -1035,12 +1045,18 @@ export class DesktopOverlay {
     const vrBtn = document.getElementById('btnEnterVR') as HTMLButtonElement | null;
     const arBtn = document.getElementById('btnEnterAR') as HTMLButtonElement | null;
     if (vrBtn) {
-      vrBtn.disabled = this.graphicsPaused || !this.xrEnabled || this.xrSupport.vr === false;
-      vrBtn.title = this.xrSupport.vr === false ? 'VR is unavailable in this browser or device.' : 'Enter virtual reality';
+      vrBtn.disabled = this.xrChecking || this.graphicsPaused || !this.xrEnabled || this.xrSupport.vr === false;
+      vrBtn.title = this.xrChecking ? 'Checking headset availability…'
+        : this.xrSupport.vr === false ? 'VR is unavailable in this browser or device.'
+        : this.graphicsPaused ? 'Waiting for graphics to recover.'
+        : !this.xrEnabled ? 'Wait for the trek to finish loading.' : 'Enter virtual reality';
     }
     if (arBtn) {
-      arBtn.disabled = this.graphicsPaused || !this.xrEnabled || this.xrSupport.ar === false;
-      arBtn.title = this.xrSupport.ar === false ? 'Passthrough is unavailable. Use Enter VR if available.' : 'Enter mixed reality with passthrough';
+      arBtn.disabled = this.xrChecking || this.graphicsPaused || !this.xrEnabled || this.xrSupport.ar === false;
+      arBtn.title = this.xrChecking ? 'Checking headset availability…'
+        : this.xrSupport.ar === false ? 'Passthrough is unavailable. Use Enter VR if available.'
+        : this.graphicsPaused ? 'Waiting for graphics to recover.'
+        : !this.xrEnabled ? 'Wait for the trek to finish loading.' : 'Enter mixed reality with passthrough';
     }
   }
 

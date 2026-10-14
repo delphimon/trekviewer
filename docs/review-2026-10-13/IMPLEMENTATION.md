@@ -48,7 +48,9 @@ The later zoom/horizon work and its separate measurements are recorded in [INSPE
 
 ## Remaining validation and limits
 
-The latest [terrain streaming continuation](STREAMING.md), implemented October 14, recovers wanted detail after temporary failures and reduces idle preparation and focus work. Its 493-test local suite, production-browser outage recovery and isolated CPU measurements are the current validation record.
+The latest [startup and layout continuation](STARTUP.md), implemented October 14, gates pending immersive entry checks and keeps automatic terrain fits aligned with changing header/timeline bounds. Its 496-test local suite and production-browser readiness/layout checks are the current validation record.
+
+The earlier [terrain streaming continuation](STREAMING.md), implemented October 14, recovers wanted detail after temporary failures and reduces idle preparation and focus work. Its 493-test local suite, production-browser outage recovery and isolated CPU measurements record that implementation pass.
 
 The earlier [local trail lookup continuation](LOOKUP.md), implemented October 14, reduces spatial lookup and index-construction work while preserving ordered vertex selections and trail geometry. Its 486-test suite, matched production rendering and isolated CPU measurements record that implementation pass.
 

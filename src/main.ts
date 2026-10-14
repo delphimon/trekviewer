@@ -104,8 +104,10 @@ export class TrekViewerApp {
     this.pendingHUDDock = true;
   };
   private readonly onResize = () => {
+    if (this.isDisposed) return;
     if (this.desktopViewFitted && !this.sceneManager.renderer.xr.isPresenting && this.currentViewMode === 'diorama') this.frameDesktopDiorama();
   };
+  private layoutObserver: ResizeObserver | null = null;
   private desktopViewFitted = false;
   private readonly onOrbitStart = () => { this.desktopViewFitted = false; };
 
@@ -264,6 +266,13 @@ export class TrekViewerApp {
     });
     this.overlay.setQualityProfile(initialProfile.name);
     this.overlay.setHorizonLocked(this.horizonLocked);
+    if (typeof ResizeObserver !== 'undefined') {
+      this.layoutObserver = new ResizeObserver(this.onResize);
+      for (const selector of ['.top-bar', '.player-bar']) {
+        const panel = document.querySelector(selector);
+        if (panel) this.layoutObserver.observe(panel, { box: 'border-box' });
+      }
+    }
     void this.updateXRAvailability();
     navigator.xr?.addEventListener('devicechange', this.onXRDeviceChange);
     if (this.isDebugMode || this.isProfilingMode) (window as any).__trekViewerApp = this;
@@ -1092,7 +1101,9 @@ export class TrekViewerApp {
   }
 
   private async updateXRAvailability(): Promise<void> {
+    if (this.isDisposed) return;
     const generation = ++this.xrAvailabilityGeneration;
+    this.overlay.beginXRSupportCheck();
     const xr = navigator.xr;
     if (!xr) {
       this.overlay.setXRSupport(false, false, 'VR/MR is unavailable here. Open this page in a headset browser.');
@@ -1390,6 +1401,8 @@ export class TrekViewerApp {
     this.sceneManager.renderer.setAnimationLoop(null);
     void this.sceneManager.renderer.xr.getSession()?.end().catch(() => {});
     window.removeEventListener('resize', this.onResize);
+    this.layoutObserver?.disconnect();
+    this.layoutObserver = null;
     this.stopProfile();
     this.profileControls?.remove();
     document.removeEventListener('visibilitychange', this.onProfileVisibilityChange);

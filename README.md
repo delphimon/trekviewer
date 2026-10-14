@@ -180,7 +180,7 @@ Desktop wheel/pinch zoom follows the pointer and supports much closer inspection
 
 ### Performance validation
 
-VR and passthrough availability are checked separately. Unavailable modes have disabled entry controls with an explanation. Passthrough never silently switches to VR; choose **Enter VR** explicitly when that mode is available. Connecting or changing an XR device refreshes the availability check.
+VR and passthrough availability are checked separately. Entry controls start disabled while checking and wait for a ready trek and graphics. Unavailable modes have disabled controls with an explanation. Passthrough never silently switches to VR; choose **Enter VR** explicitly when that mode is available. Connecting or changing an XR device refreshes the availability check. Automatic terrain fits follow header/timeline layout changes; manual camera views are preserved. See the [startup and layout validation](docs/review-2026-10-13/STARTUP.md).
 
 Trail refinements maintain conservative rendering bounds and upload changed position/normal spans, preserving trail visibility as terrain detail and exaggeration change. See the [rendering and XR availability continuation](docs/review-2026-10-13/CONTINUATION.md) for its validation and upload measurements.
 

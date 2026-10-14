@@ -170,7 +170,12 @@ describe('WebXR Entry Button & Loading Phase Lifecycle (Regression Fix)', () => 
     const vrBtn = document.getElementById('btnEnterVR') as any;
     const arBtn = document.getElementById('btnEnterAR') as any;
 
+    assert.strictEqual(vrBtn.disabled, true);
+    assert.strictEqual(arBtn.disabled, true);
     overlay.setXREnabled(true);
+    assert.strictEqual(vrBtn.disabled, true);
+    assert.strictEqual(arBtn.disabled, true);
+    overlay.setXRSupport(true, true, '');
     assert.strictEqual(vrBtn.disabled, false);
     assert.strictEqual(arBtn.disabled, false);
 

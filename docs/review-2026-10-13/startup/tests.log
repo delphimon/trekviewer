@@ -1,0 +1,45 @@
+
+> trekviewer@1.0.0 verify
+> npm run typecheck && npm test && npm run build
+
+
+> trekviewer@1.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.test.json --noEmit
+
+
+> trekviewer@1.0.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+
+ Test Files  92 passed | 1 skipped (93)
+      Tests  496 passed | 5 skipped (501)
+   Start at  12:33:27
+   Duration  40.39s (tests 86%, import 10%, transform 3%, worker 1%)
+
+    Isolate  93 workers spawned · ~168ms startup each (spawn + environment, per file)
+             at least ~7.64s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> trekviewer@1.0.0 build
+> tsc && vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 58 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/build-info.json                     0.26 kB │ gzip:   0.19 kB
+dist/index.html                          0.96 kB │ gzip:   0.46 kB
+dist/assets/TerrainWorker-B1ttwSuh.js  210.77 kB
+dist/assets/index-DX6MRxqD.css           9.81 kB │ gzip:   2.75 kB
+dist/assets/index-CeU0Pdnh.js          911.28 kB │ gzip: 238.55 kB
+
+✓ built in 391ms
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

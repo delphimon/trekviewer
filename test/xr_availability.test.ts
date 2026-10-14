@@ -7,7 +7,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 function appFixture() {
   const app: any = Object.create(TrekViewerApp.prototype);
   app.xrAvailabilityGeneration = 0; app.isDisposed = false; app.xrEntryPending = false;
-  app.overlay = { setXRSupport: vi.fn(), showStatus: vi.fn() };
+  app.overlay = { beginXRSupportCheck: vi.fn(), setXRSupport: vi.fn(), showStatus: vi.fn() };
   app.routeLoader = { getActiveTrek: () => ({}) };
   app.sceneManager = { renderer: { xr: { isPresenting: false, setSession: vi.fn(), getReferenceSpace: () => null } }, setPassthrough: vi.fn() };
   return app;
@@ -64,4 +64,39 @@ it('composes route readiness with per-mode availability and permits hot-plug rec
   overlay.setXREnabled(true); expect(elements.btnEnterAR.disabled).toBe(true);
   overlay.setXRSupport(true, true, ''); expect(elements.btnEnterAR.disabled).toBe(false);
   expect(elements.xrSupportStatus.hidden).toBe(true);
+});
+
+it('blocks both entry controls until asynchronous availability checks settle', async () => {
+  const app = appFixture(); let resolve!: (supported: boolean) => void;
+  const pending = new Promise<boolean>(complete => { resolve = complete; });
+  vi.stubGlobal('navigator', { xr: { isSessionSupported: () => pending } });
+  const checking = app.updateXRAvailability();
+  expect(app.overlay.beginXRSupportCheck).toHaveBeenCalledTimes(1);
+  expect(app.overlay.setXRSupport).not.toHaveBeenCalled();
+  resolve(true); await checking;
+  expect(app.overlay.setXRSupport).toHaveBeenCalledWith(true, true, '');
+});
+
+it('composes a pending check with loading, graphics and retryable unknown results', () => {
+  const elements: Record<string, any> = { btnEnterVR: {}, btnEnterAR: {}, xrSupportStatus: {} };
+  vi.stubGlobal('document', { getElementById: (id: string) => elements[id] });
+  const overlay: any = Object.create(DesktopOverlay.prototype);
+  overlay.xrSupport = { vr: true, ar: true }; overlay.xrEnabled = true; overlay.graphicsPaused = false;
+  overlay.beginXRSupportCheck();
+  expect(elements.btnEnterVR.disabled).toBe(true); expect(elements.btnEnterAR.disabled).toBe(true);
+  expect(elements.xrSupportStatus.ariaBusy).toBe('true'); expect(elements.xrSupportStatus.hidden).toBe(false);
+  overlay.setXREnabled(false); overlay.setXRSupport(true, true, '');
+  expect(elements.btnEnterVR.disabled).toBe(true); expect(elements.xrSupportStatus.ariaBusy).toBe('false');
+  overlay.setXREnabled(true); expect(elements.btnEnterVR.disabled).toBe(false);
+  overlay.graphicsPaused = true; overlay.beginXRSupportCheck(); overlay.setXRSupport(null, null, 'Try again');
+  expect(elements.btnEnterVR.disabled).toBe(true);
+  overlay.graphicsPaused = false; overlay.setXREnabled(true);
+  expect(elements.btnEnterVR.disabled).toBe(false); expect(elements.btnEnterAR.disabled).toBe(false);
+});
+
+it('does not begin another capability check or mutate controls after disposal', async () => {
+  const app = appFixture(), support = vi.fn();
+  app.isDisposed = true; vi.stubGlobal('navigator', { xr: { isSessionSupported: support } });
+  await app.updateXRAvailability();
+  expect(support).not.toHaveBeenCalled(); expect(app.overlay.beginXRSupportCheck).not.toHaveBeenCalled(); expect(app.overlay.setXRSupport).not.toHaveBeenCalled();
 });
