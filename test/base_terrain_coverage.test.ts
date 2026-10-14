@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { deepStrictEqual } from 'node:assert/strict';
 import * as THREE from 'three';
 import { BaseTerrainCoverage } from '../src/terrain/BaseTerrainCoverage.ts';
 import type { TerrainGridLayout } from '../src/terrain/TerrainGrid.ts';
@@ -15,7 +16,7 @@ function reference(grid: TerrainGridLayout, original: Uint16Array | Uint32Array,
       for (let i = 0; i < 6; i++) indices.push(original[offset + i]);
     }
   }
-  return indices;
+  return original instanceof Uint16Array ? Uint16Array.from(indices) : Uint32Array.from(indices);
 }
 
 it.each([
@@ -46,11 +47,11 @@ it.each([
   }
   for (const holes of fixtures) {
     const count = coverage.update(holes, target);
-    expect(Array.from(target.subarray(0, count))).toEqual(reference(grid, original, holes));
+    deepStrictEqual(target.subarray(0, count), reference(grid, original, holes));
     expect(count % 6).toBe(0);
   }
   const restored = coverage.update([], target);
-  expect(target).toEqual(original);
+  deepStrictEqual(target, original);
   expect(restored).toBe(original.length);
   geometry.dispose();
 });
@@ -65,9 +66,9 @@ it('keeps immutable source indices and the same live allocation across consecuti
   const right = { minX: 0, maxX: 200, minZ: -200, maxZ: 200 };
   for (const holes of [[left], [left, right], [right], []]) {
     const count = coverage.update(holes, target);
-    expect(Array.from(target.subarray(0, count))).toEqual(reference(grid, original, holes));
+    deepStrictEqual(target.subarray(0, count), reference(grid, original, holes));
     expect(target.buffer).toBe(buffer);
-    expect(original).toEqual(saved);
+    deepStrictEqual(original, saved);
   }
   geometry.dispose();
 });

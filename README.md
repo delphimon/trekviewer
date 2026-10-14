@@ -12,7 +12,7 @@ You do **not** need to keep your laptop or local development server running to u
 
 Open your deployed HTTPS URL in Meta Quest Browser and select the app's VR or MR entry button. Browser installation affordances vary by headset/browser version; opening a hosted URL is the basic supported path.
 
-Completed implementation checkpoints must be checked in and published, as requested October 14, 2026. Run `npm run verify` and the relevant browser checks, commit the checkpoint's source, tests and review evidence, and push to `origin`. Rebuild from the clean commit before publishing `dist/` to [trekviewer.surge.sh](https://trekviewer.surge.sh), so `build-info.json` identifies the committed revision. Verify the hosted build metadata and a production browser load before reporting the checkpoint as published. Keep credentials and temporary validation files out of commits.
+Completed implementation checkpoints must be checked in and published, as requested October 14, 2026. Run `npm run verify` and the relevant browser checks, commit the checkpoint's source, tests and review evidence, push to `origin`, and wait for GitHub CI to pass. Rebuild from the clean commit before publishing `dist/` to [trekviewer.surge.sh](https://trekviewer.surge.sh), so `build-info.json` identifies the committed revision. Verify the hosted build metadata and a production browser load before reporting the checkpoint as published. Keep credentials and temporary validation files out of commits.
 
 ### Method 2: Sideloadable Meta Quest APK
 
