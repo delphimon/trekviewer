@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.review-cache/
 
 # Production build
 dist/

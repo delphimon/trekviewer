@@ -19,6 +19,11 @@ import { TileImageCache } from './terrain/TileImageCache';
 import { ElevationTileService } from './terrain/ElevationTiles';
 import { QualityProfileManager } from './terrain/QualityProfile';
 import { resolveAssetUrl } from './utils/AssetUrl';
+import { readComfortPreferences, saveComfortPreferences } from './xr/ComfortPreferences.ts';
+import { disposeTerrainJobs } from './terrain/TerrainJobs.ts';
+import { configureDesktopInspection, fitInspectionBounds, levelHorizon, readHorizonLock, saveHorizonLock } from './core/InspectionView.ts';
+import { GraphicsRecovery } from './core/GraphicsRecovery.ts';
+import { releaseGraphicsResources } from './core/GraphicsResources.ts';
 
 const _scratchV3 = new THREE.Vector3();
 
@@ -81,6 +86,28 @@ export class TrekViewerApp {
   } | null = null;
   private lastTelemetryLogTime: number = 0;
   private readonly frameTiming = new FrameTimingMonitor();
+  private comfort = readComfortPreferences();
+  private horizonLocked = readHorizonLock();
+  private lastLocomotionTime = 0;
+  private isDisposed = false;
+  private graphicsRecovery: GraphicsRecovery | null = null;
+  private readonly preparingTreks = new Set<LoadedTrek>();
+  private readonly animateFrame = (timestamp: number, frame?: XRFrame) => this.animate(timestamp, frame);
+  private xrEntryPending = false;
+  private xrAvailabilityGeneration = 0;
+  private readonly onXRDeviceChange = () => { void this.updateXRAvailability(); };
+  private xrReferenceSpace: XRReferenceSpace | null = null;
+  private readonly onReferenceReset = () => {
+    this.flyoverController?.pause();
+    this.session.setPlayback(false);
+    this.xrManager.resetInteractionState();
+    this.pendingHUDDock = true;
+  };
+  private readonly onResize = () => {
+    if (this.desktopViewFitted && !this.sceneManager.renderer.xr.isPresenting && this.currentViewMode === 'diorama') this.frameDesktopDiorama();
+  };
+  private desktopViewFitted = false;
+  private readonly onOrbitStart = () => { this.desktopViewFitted = false; };
 
   constructor() {
     // Diagnostic instance count (Section 46)
@@ -114,7 +141,7 @@ export class TrekViewerApp {
     QualityProfileManager.setActiveProfile(initialProfile);
     TileImageCache.applyProfile(initialProfile);
     const demParams = new URLSearchParams(window.location.search);
-    ElevationTileService.setRegionalDEMEnabled(demParams.get('regionalDem') === '1');
+    ElevationTileService.setRegionalDEMEnabled(demParams.get('regionalDem') !== '0');
     this.session.setQualityProfile(initialProfile.name);
 
     this.lastTimestamp = performance.now();
@@ -126,8 +153,8 @@ export class TrekViewerApp {
     this.controls = new OrbitControls(this.sceneManager.camera, this.sceneManager.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.maxDistance = 8.0;
-    this.controls.minDistance = 0.2;
+    configureDesktopInspection(this.controls);
+    this.controls.addEventListener('start', this.onOrbitStart);
     this.controls.target.set(0, 0, 0);
 
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
@@ -138,8 +165,9 @@ export class TrekViewerApp {
       this.xrManager.resetInteractionState();
       this.controls.enabled = false;
       this.sceneManager.setXREnergyMode(true);
+      this.sceneManager.updateCameraClipping(1);
       if (this.spatialHUD) this.spatialHUD.group.visible = true;
-      if (this.currentViewMode === 'first-person') this.pendingHUDDock = true;
+      this.pendingHUDDock = true;
       if (this.currentViewMode === 'diorama') {
         // Natural tabletop height in room space (82cm above floor, 80cm in front of user)
         this.sceneManager.dioramaRoot.position.set(0, 0.82, -0.80);
@@ -160,6 +188,9 @@ export class TrekViewerApp {
       }
     });
     this.sceneManager.renderer.xr.addEventListener('sessionend', () => {
+      this.xrReferenceSpace?.removeEventListener('reset', this.onReferenceReset);
+      this.xrReferenceSpace = null;
+      if (this.isDisposed) return;
       if (this.profileRecorder?.isRecording) {
         this.profileRecorder.mark(performance.now(), 'xr-session-end');
         this.stopProfile();
@@ -168,6 +199,7 @@ export class TrekViewerApp {
       this.controls.enabled = true;
       this.sceneManager.setPassthrough(false);
       this.sceneManager.setXREnergyMode(false);
+      this.sceneManager.updateCameraClipping(1);
       if (this.spatialHUD) this.spatialHUD.group.visible = false;
       if (this.currentViewMode === 'diorama') {
         this.sceneManager.dioramaRoot.position.set(0, -0.2, -1.1);
@@ -177,13 +209,16 @@ export class TrekViewerApp {
 
     // 3. WebXR Manager
     this.xrManager = new XRManager(this.sceneManager);
+    this.xrManager.setComfortPreferences(this.comfort);
+    this.xrManager.setHorizonLocked(this.horizonLocked);
     this.xrManager.setCallbacks({
       onToggleViewMode: () => this.toggleViewMode(),
       onTogglePlay: () => this.togglePlay(),
       onReset: () => this.resetPosition(),
       onExitMR: () => this.exitMR(),
       onFocusHiker: () => this.focusOnHiker(),
-      onTurn: (radians) => this.flyoverController?.turn(radians),
+      onTurn: (radians) => this.flyoverController?.turn(radians, this.sceneManager.renderer.xr.getCamera()),
+      onLocomotion: () => { this.lastLocomotionTime = performance.now(); },
       onToggleHUD: () => this.toggleHUD(),
       onScrubDistance: (meters) => {
         if (this.flyoverController) {
@@ -197,6 +232,16 @@ export class TrekViewerApp {
 
     // 4. Desktop & Quest 2D Overlay
     this.overlay = new DesktopOverlay(uiContainer, {
+      onRetryGraphics: () => { void this.graphicsRecovery?.recover(); },
+      onSetHorizonLocked: (locked) => this.setHorizonLocked(locked),
+      onResetHorizon: () => this.resetHorizon(),
+      onFitTerrain: () => this.frameDesktopDiorama(),
+      onSetComfort: (preferences) => {
+        this.comfort = { ...this.comfort, ...preferences };
+        saveComfortPreferences(this.comfort);
+        this.xrManager.setComfortPreferences(this.comfort);
+        this.dockHUD(this.currentHUDDockSide);
+      },
       onSelectRoute: (route) => this.loadRouteByFile(route.file, route.name, route.id),
       onUploadGPX: (content, fileName) => this.loadTrackFromXML(content, fileName),
       onEnterXR: (mode) => this.enterXR(mode),
@@ -218,14 +263,34 @@ export class TrekViewerApp {
       },
     });
     this.overlay.setQualityProfile(initialProfile.name);
+    this.overlay.setHorizonLocked(this.horizonLocked);
+    void this.updateXRAvailability();
+    navigator.xr?.addEventListener('devicechange', this.onXRDeviceChange);
+    if (this.isDebugMode || this.isProfilingMode) (window as any).__trekViewerApp = this;
     if (this.profileRecorder) this.installProfileControls();
 
     // 5. Transactional Route Loader (Stage F & G)
     this.routeLoader = new RouteLoader({
       dioramaRoot: this.sceneManager.dioramaRoot,
       getIsXR: () => this.sceneManager.renderer.xr.isPresenting,
-      baseTerrainCellSizeM: new URLSearchParams(window.location.search).get('terrainGrid') === '60' ? 60 : undefined,
-      regionalBase: new URLSearchParams(window.location.search).get('regionalBase') === '1',
+      prepareRender: async (trek, signal) => {
+        this.preparingTreks.add(trek);
+        try {
+          let revision: number | undefined;
+          do {
+            await this.graphicsRecovery?.waitUntilReady(signal);
+            if (signal.aborted) throw new DOMException('Route preparation cancelled', 'AbortError');
+            revision = this.graphicsRecovery?.revision;
+            const camera = this.sceneManager.renderer.xr.isPresenting ? this.sceneManager.renderer.xr.getCamera() : this.sceneManager.camera;
+            await this.sceneManager.renderer.compileAsync(trek.group, camera, this.sceneManager.scene);
+            await this.graphicsRecovery?.waitUntilReady(signal);
+          } while (revision !== this.graphicsRecovery?.revision);
+        } finally { this.preparingTreks.delete(trek); }
+      },
+      tiledTerrain: new URLSearchParams(window.location.search).get('terrainTiles') !== '0',
+      baseTerrainCellSizeM: [60, 75, 120].includes(Number(demParams.get('terrainGrid'))) ? Number(demParams.get('terrainGrid')) : undefined,
+      getBaseTerrainCellSizeM: () => QualityProfileManager.getActiveProfile().name === 'quest-balanced' ? undefined : 60,
+      regionalBase: new URLSearchParams(window.location.search).get('regionalBase') !== '0',
       getCurrentTrailColorMode: () => this.currentTrailColorMode,
       session: this.session,
       onProgress: (msg, progress) => {
@@ -256,10 +321,12 @@ export class TrekViewerApp {
       }
       if (state.isPlaying !== prev.isPlaying) {
         this.overlay.setPlaying(state.isPlaying);
+        this.syncHUDState();
       }
       if (state.playbackSpeed !== prev.playbackSpeed) {
         this.flyoverController?.setSpeed(state.playbackSpeed);
         this.overlay.setPlaybackSpeed(state.playbackSpeed);
+        this.syncHUDState();
       }
       if (state.progress !== prev.progress) {
         this.overlay.updateScrubber(state.progress, state.currentElevation);
@@ -311,11 +378,50 @@ export class TrekViewerApp {
       }
     });
 
+    this.graphicsRecovery = new GraphicsRecovery({
+      canvas: this.sceneManager.renderer.domElement,
+      isContextLost: () => this.sceneManager.renderer.getContext().isContextLost(),
+      pause: async () => {
+        this.sceneManager.renderer.setAnimationLoop(null);
+        const treks = new Set(this.preparingTreks);
+        if (this.activeTrek) treks.add(this.activeTrek);
+        releaseGraphicsResources([this.sceneManager.scene, ...[...treks].map(trek => trek.group)], this.sceneManager.sunLight.shadow.map,
+          [...treks].flatMap(trek => trek.getGraphicsResources()));
+        this.flyoverController?.pause();
+        this.session.setPlayback(false);
+        this.xrManager.resetInteractionState();
+        this.profileRecorder?.mark(performance.now(), 'graphics-lost');
+        if (this.sceneManager.renderer.xr.isPresenting) await this.sceneManager.renderer.xr.getSession()?.end().catch(() => {});
+      },
+      prepare: async () => {
+        const renderer = this.sceneManager.renderer;
+        const camera = renderer.xr.isPresenting ? renderer.xr.getCamera() : this.sceneManager.camera;
+        await renderer.compileAsync(this.sceneManager.skyMesh, camera, this.sceneManager.scene);
+        const trek = this.activeTrek;
+        if (trek && !trek.isDisposed) {
+          await renderer.compileAsync(trek.group, camera, this.sceneManager.scene);
+          if (!renderer.xr.isPresenting && !renderer.getContext().isContextLost()) this.sceneManager.render();
+        }
+      },
+      resume: () => {
+        this.lastTimestamp = performance.now();
+        this.frameTiming.reset();
+        this.profileRecorder?.mark(this.lastTimestamp, 'graphics-ready');
+        this.sceneManager.renderer.setAnimationLoop(this.animateFrame);
+      },
+      status: (message, retry) => {
+        this.sceneManager.renderer.domElement.style.visibility = message ? 'hidden' : 'visible';
+        this.overlay.setGraphicsStatus(message, retry);
+      },
+    });
+
     // 7. Load Manifest and Initial Track
     this.initRoutes();
+    this.overlay.setComfortPreferences(this.comfort);
+    window.addEventListener('resize', this.onResize);
 
     // 8. Start WebXR Animation Loop
-    this.sceneManager.renderer.setAnimationLoop(this.animate.bind(this));
+    void this.graphicsRecovery.recover();
   }
 
   private routeSelectionGeneration = 0;
@@ -324,6 +430,7 @@ export class TrekViewerApp {
     const generation = this.routeSelectionGeneration;
     this.overlay.showStatus('Connecting to imagery provider…');
     await TextureProvider.waitForInitialization();
+    if (this.isDisposed) return;
     try {
       const resp = await fetch(resolveAssetUrl('/routes/manifest.json'));
       if (resp.ok) {
@@ -408,6 +515,8 @@ export class TrekViewerApp {
     }
 
     this.spatialHUD = new SpatialHUD(track, {
+      onSetHorizonLocked: (locked) => this.setHorizonLocked(locked),
+      onResetHorizon: () => this.resetHorizon(),
       onTogglePlay: () => this.togglePlay(),
       onToggleViewMode: () => this.toggleViewMode(),
       onToggleTexture: () => {
@@ -444,7 +553,8 @@ export class TrekViewerApp {
       onFocusHiker: () => this.focusOnHiker(),
       onDockHUD: (side) => this.dockHUD(side),
       onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
-    });
+    }, this.sceneManager.renderer.xr.isPresenting);
+    this.spatialHUD.setHorizonLocked(this.horizonLocked);
 
     // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
     this.sceneManager.scene.add(this.spatialHUD.group);
@@ -525,6 +635,7 @@ export class TrekViewerApp {
       offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
       this.spatialHUD.group.position.copy(camPos).add(offset);
       this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+      this.spatialHUD.setAngularSize(camPos.distanceTo(this.spatialHUD.group.position), this.comfort.panelScale);
       return;
     }
 
@@ -541,6 +652,7 @@ export class TrekViewerApp {
 
     // Level orientation facing user: pure vertical yaw, zero crooked tilt/roll
     this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+    this.spatialHUD.setAngularSize(camPos.distanceTo(this.spatialHUD.group.position), this.comfort.panelScale);
   }
 
   private toggleHUD(): void {
@@ -559,11 +671,13 @@ export class TrekViewerApp {
       s.textureStyle,
       s.playbackSpeed,
       s.trailColorMode,
-      s.verticalExaggeration
+      s.verticalExaggeration,
+      s.currentPoint
     );
   }
 
   private togglePlay(): void {
+    if (this.graphicsRecovery?.isSuspended) return;
     if (!this.flyoverController) return;
     const isPlaying = this.flyoverController.togglePlay();
     this.session.setPlayback(isPlaying);
@@ -574,6 +688,8 @@ export class TrekViewerApp {
   }
 
   private applyViewMode(mode: ViewMode, prevMode?: ViewMode): void {
+    this.overlay.setViewMode(mode);
+    this.syncHUDState();
     const priorMode = prevMode ?? (mode === 'first-person' ? 'diorama' : 'first-person');
     // Save tabletop transform when transitioning away from diorama
     if (priorMode === 'diorama' && mode === 'first-person') {
@@ -606,12 +722,18 @@ export class TrekViewerApp {
           root.position.copy(this.savedTabletopTransform.position);
           root.quaternion.copy(this.savedTabletopTransform.quaternion);
           root.scale.copy(this.savedTabletopTransform.scale);
+          if (this.horizonLocked) levelHorizon(root);
         }
         this.controls.enabled = !this.sceneManager.renderer.xr.isPresenting;
         if (this.controls.enabled) this.frameDesktopDiorama();
         this.dockHUD(this.currentHUDDockSide);
       } else {
         this.controls.enabled = false;
+        this.flyoverController?.pause();
+        this.session.setPlayback(false);
+        if (this.sceneManager.renderer.xr.isPresenting) {
+          this.flyoverController?.recenterViewer(this.sceneManager.renderer.xr.getCamera());
+        }
         // Update the desktop eye before placing a world-space panel.
         this.flyoverController?.update(0, this.sceneManager.camera, this.sceneManager.dioramaRoot, this.sceneManager.renderer.xr.isPresenting);
         this.dockHUD(this.currentHUDDockSide);
@@ -778,26 +900,31 @@ export class TrekViewerApp {
   }
 
   private frameDesktopDiorama(): void {
+    if (this.sceneManager.renderer.xr.isPresenting || this.currentViewMode !== 'diorama' || this.graphicsRecovery?.isSuspended) return;
     const terrain = this.activeTrek?.terrainResult.terrainMesh;
     if (!terrain) return;
     const root = this.sceneManager.dioramaRoot;
     root.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(terrain);
-    const center = box.getCenter(new THREE.Vector3());
-    const radius = box.getSize(new THREE.Vector3()).length() / 2;
+    const skirt = this.activeTrek?.terrainResult.skirtMesh;
+    if (skirt) box.union(new THREE.Box3().setFromObject(skirt));
+    for (const chunk of this.activeTrek?.terrainResult.localChunks ?? []) {
+      if (chunk.mesh.visible) box.union(new THREE.Box3().setFromObject(chunk.mesh));
+    }
     const camera = this.sceneManager.camera;
-    const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
-    const availableHeight = Math.max(0.45, (window.innerHeight - 220) / window.innerHeight);
-    // The bounding-sphere fit is deliberately conservative for elongated
-    // alpine routes; use the spare desktop space for larger visible detail.
-    const distance = Math.max(0.7, radius / Math.sin(halfFov * availableHeight) * 0.75);
-    // Center in the inspection area beside the desktop controls, with an elevated
-    // view that exposes the route and landform instead of the vertical skirt.
-    if (window.innerWidth >= 900) center.x -= 170 / window.innerHeight * 2 * distance * Math.tan(halfFov);
-    this.controls.target.copy(center);
-    camera.position.copy(center).add(new THREE.Vector3(0, 0.85, 1).normalize().multiplyScalar(distance));
-    camera.lookAt(center);
+    const top = document.querySelector('.top-bar')?.getBoundingClientRect().bottom ?? 80;
+    const bottom = document.querySelector('.player-bar')?.getBoundingClientRect().top ?? window.innerHeight - 140;
+    const statsRight = window.innerWidth > 900 ? (document.querySelector('.stats-panel')?.getBoundingClientRect().right ?? 344) + 16 : 0;
+    // Finish pending orbit inertia before applying a deliberate camera fit.
+    const damping = this.controls.enableDamping;
+    this.controls.enableDamping = false;
     this.controls.update();
+    this.controls.enableDamping = damping;
+    if (!fitInspectionBounds(camera, this.controls.target, box, window.innerWidth, window.innerHeight,
+      { left: Math.max(16, statsRight), right: window.innerWidth - 16, top: top + 16, bottom: bottom - 16 })) return;
+    this.controls.update();
+    this.sceneManager.updateCameraClipping(this.controls.getDistance());
+    this.desktopViewFitted = true;
   }
 
   private resetPosition(): void {
@@ -810,8 +937,34 @@ export class TrekViewerApp {
     }
   }
 
+  private setHorizonLocked(locked: boolean): void {
+    this.horizonLocked = locked;
+    saveHorizonLock(locked);
+    this.xrManager.setHorizonLocked(locked);
+    this.overlay.setHorizonLocked(locked);
+    this.spatialHUD?.setHorizonLocked(locked);
+    if (locked) this.resetHorizon();
+  }
+
+  private resetHorizon(): void {
+    // A level reset is independent of route progress, model position and inspection zoom.
+    if (this.currentViewMode === 'diorama') levelHorizon(this.sceneManager.dioramaRoot);
+    if (this.savedTabletopTransform) {
+      const saved = new THREE.Object3D();
+      saved.quaternion.copy(this.savedTabletopTransform.quaternion);
+      levelHorizon(saved);
+      this.savedTabletopTransform.quaternion.copy(saved.quaternion);
+    }
+    if (!this.sceneManager.renderer.xr.isPresenting) {
+      const camera = this.sceneManager.camera;
+      camera.up.set(0, 1, 0);
+      if (this.currentViewMode === 'diorama') camera.lookAt(this.controls.target);
+    }
+  }
+
   private focusOnHiker(): void {
     if (!this.flyoverController || !this.currentTrack) return;
+    this.desktopViewFitted = false;
     const hikerPos = this.flyoverController.getCurrentWorldPosition();
 
     if (this.currentViewMode === 'diorama') {
@@ -938,8 +1091,29 @@ export class TrekViewerApp {
     this.session.setTrailColorMode(mode);
   }
 
+  private async updateXRAvailability(): Promise<void> {
+    const generation = ++this.xrAvailabilityGeneration;
+    const xr = navigator.xr;
+    if (!xr) {
+      this.overlay.setXRSupport(false, false, 'VR/MR is unavailable here. Open this page in a headset browser.');
+      return;
+    }
+    const support = await Promise.allSettled([
+      Promise.resolve().then(() => xr.isSessionSupported('immersive-vr')),
+      Promise.resolve().then(() => xr.isSessionSupported('immersive-ar')),
+    ]);
+    if (this.isDisposed || generation !== this.xrAvailabilityGeneration) return;
+    const vr = support[0].status === 'fulfilled' ? support[0].value : null;
+    const ar = support[1].status === 'fulfilled' ? support[1].value : null;
+    const message = vr === false && ar === false ? 'VR/MR is unavailable here. Open this page in a headset browser.'
+      : ar === false && vr === true ? 'Passthrough is unavailable here. Enter VR is available.'
+      : vr === null || ar === null ? 'Availability could not be checked. Try entering with your headset connected.' : '';
+    this.overlay.setXRSupport(vr, ar, message);
+  }
+
   private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
-    if (!('xr' in navigator)) {
+    if (this.isDisposed || this.graphicsRecovery?.isSuspended || this.xrEntryPending || this.sceneManager.renderer.xr.isPresenting) return;
+    if (!navigator.xr) {
       this.overlay.showStatus('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!', true);
       return;
     }
@@ -949,16 +1123,15 @@ export class TrekViewerApp {
       return;
     }
 
+    this.xrEntryPending = true;
+    let requestedSession: XRSession | null = null;
     try {
       const isSupported = await (navigator as any).xr.isSessionSupported(mode);
       if (!isSupported) {
-        // Fallback to immersive-vr if immersive-ar isn't directly advertised
-        const vrSupported = await (navigator as any).xr.isSessionSupported('immersive-vr');
-        if (!vrSupported) {
-          this.overlay.showStatus(`WebXR ${mode} is not supported on this device.`, true);
-          return;
-        }
-        mode = 'immersive-vr';
+        this.overlay.showStatus(mode === 'immersive-ar'
+          ? 'Passthrough is unavailable here. Choose Enter VR to use virtual reality.'
+          : 'VR is unavailable in this browser or device.', true);
+        return;
       }
 
       const sessionInit: XRSessionInit = {
@@ -966,8 +1139,13 @@ export class TrekViewerApp {
         optionalFeatures: ['hand-tracking', 'layers'],
       };
 
+      if (this.isDisposed) return;
       const session = await (navigator as any).xr.requestSession(mode, sessionInit);
+      requestedSession = session;
+      if (this.isDisposed) { await session.end(); return; }
       await this.sceneManager.renderer.xr.setSession(session);
+      this.xrReferenceSpace = this.sceneManager.renderer.xr.getReferenceSpace();
+      this.xrReferenceSpace?.addEventListener('reset', this.onReferenceReset);
 
       if (mode === 'immersive-ar') {
         this.sceneManager.setPassthrough(true);
@@ -975,12 +1153,16 @@ export class TrekViewerApp {
         this.sceneManager.setPassthrough(false);
       }
     } catch (e: any) {
+      if (requestedSession) await requestedSession.end().catch(() => {});
       console.error('Failed to start WebXR session:', e);
       this.overlay.showStatus(`Could not start WebXR session: ${e.message}`, true);
+    } finally {
+      this.xrEntryPending = false;
     }
   }
 
   private animate(timestamp: number, frame?: XRFrame): void {
+    if (this.isDisposed || this.graphicsRecovery?.isSuspended) return;
     const now = performance.now();
     const activeProfiler = this.profileRecorder?.isRecording ? this.profileRecorder : null;
     const recorder = this.profileSuspended ? null : activeProfiler;
@@ -1018,8 +1200,12 @@ export class TrekViewerApp {
     phaseStart = this.endProfilePhase(recorder, 'simulation', phaseStart);
 
     // Wait for the first valid XR camera pose before docking after session entry.
-    if (this.pendingHUDDock) {
+    if (this.pendingHUDDock && frame?.getViewerPose(this.sceneManager.renderer.xr.getReferenceSpace()!)) {
       this.pendingHUDDock = false;
+      if (this.currentViewMode === 'first-person') {
+        this.flyoverController?.recenterViewer(activeCamera);
+        this.flyoverController?.update(0, activeCamera, this.sceneManager.dioramaRoot, true);
+      }
       this.dockHUD(this.currentHUDDockSide);
     }
     // HUD placement is explicit (mode entry, dock, summon, drag), never head-locked.
@@ -1044,14 +1230,24 @@ export class TrekViewerApp {
       phaseStart = this.endProfilePhase(recorder, 'imagery', phaseStart);
       // Stream local high-resolution terrain geometry along route (Stage W6) or tabletop focus (Stage X7)
       const inspectedGeo = this.activeTrek.imageryLOD.getInspectedGeo();
+      const previousSurfaceRevision = this.activeTrek.terrainResult.surfaceRevision;
       this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo);
+      if (this.currentViewMode === 'first-person' && previousSurfaceRevision !== this.activeTrek.terrainResult.surfaceRevision) {
+        // Ground the viewer on the promoted surface before this frame renders.
+        this.flyoverController?.update(0, activeCamera, this.sceneManager.dioramaRoot, isPresenting);
+      }
       phaseStart = this.endProfilePhase(recorder, 'terrain', phaseStart);
       // Update waypoint marker scale compensation & billboard labels (Sections 21, 24, 25)
-      this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta);
+      this.activeTrek.updateWaypoints(activeCamera, this.sceneManager.dioramaRoot.scale.x, delta,
+        isPresenting ? undefined : window.innerHeight);
       phaseStart = this.endProfilePhase(recorder, 'waypoints', phaseStart);
     }
 
     // 6. Render Scene
+    this.sceneManager.updateCameraClipping(!isPresenting && this.currentViewMode === 'diorama'
+      ? this.sceneManager.camera.position.distanceTo(this.controls.target) : 0);
+    this.sceneManager.updateMotionVignette(this.comfort.vignette && isPresenting && this.currentViewMode === 'first-person'
+      && ((this.flyoverController?.getIsPlaying() ?? false) || now - this.lastLocomotionTime < 180), delta);
     this.sceneManager.render();
     phaseStart = this.endProfilePhase(recorder, 'render', phaseStart);
 
@@ -1184,11 +1380,25 @@ export class TrekViewerApp {
   }
 
   public dispose(): void {
+    if (this.isDisposed) return;
+    this.isDisposed = true;
+    this.graphicsRecovery?.dispose();
+    this.xrAvailabilityGeneration++;
+    navigator.xr?.removeEventListener('devicechange', this.onXRDeviceChange);
+    if ((window as any).__trekViewerApp === this) delete (window as any).__trekViewerApp;
+    this.routeSelectionGeneration++;
+    this.sceneManager.renderer.setAnimationLoop(null);
+    void this.sceneManager.renderer.xr.getSession()?.end().catch(() => {});
+    window.removeEventListener('resize', this.onResize);
     this.stopProfile();
     this.profileControls?.remove();
     document.removeEventListener('visibilitychange', this.onProfileVisibilityChange);
     this.disposeCurrentTrek();
+    this.xrReferenceSpace?.removeEventListener('reset', this.onReferenceReset);
+    this.xrReferenceSpace = null;
+    disposeTerrainJobs();
     this.xrManager.dispose();
+    this.controls.removeEventListener('start', this.onOrbitStart);
     this.controls.dispose();
     this.overlay.dispose();
     this.sceneManager.dispose();

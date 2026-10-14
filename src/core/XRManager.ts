@@ -3,6 +3,7 @@ import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import type { GeoBounds, ViewMode } from '../gpx/TrackTypes.ts';
+import { DEFAULT_COMFORT, type ComfortPreferences } from '../xr/ComfortPreferences.ts';
 import {
   ALL_HAND_JOINTS,
   BONE_CONNECTIONS,
@@ -27,6 +28,7 @@ export interface XRInteractionCallbacks {
   onToggleViewMode?: () => void;
   onTogglePlay?: () => void;
   onTurn?: (radians: number) => void;
+  onLocomotion?: () => void;
   onToggleHUD?: () => void;
   onReset?: () => void;
   onExitMR?: () => void;
@@ -97,6 +99,10 @@ export interface HandState {
   wristWorldQuat: THREE.Quaternion;
   prevWristWorldQuat: THREE.Quaternion;
   indexTipWorldPos: THREE.Vector3;
+  directHUDThisFrame?: boolean;
+  directWaypointThisFrame?: boolean;
+  indexTipTracked?: boolean;
+  hudGrabOffset?: THREE.Vector3;
 }
 
 interface ControllerState {
@@ -116,6 +122,9 @@ interface ControllerState {
   terrainDragStartDioramaPos: THREE.Vector3;
   isHoveringHUD: boolean;
   isInteractingWithHUD: boolean;
+  needsButtonRelease?: boolean;
+  snapTurnLatched?: boolean;
+  walkStepLatched?: boolean;
 }
 
 export class XRManager {
@@ -126,8 +135,10 @@ export class XRManager {
   private raycaster: THREE.Raycaster;
   private spatialHUD: SpatialHUD | null = null;
   private currentViewMode: ViewMode = 'diorama';
+  private horizonLocked = true;
   private hapticDistanceAccumulator: number = 0;
   private activePointerRay: THREE.Ray | null = null;
+  private comfort: ComfortPreferences = { ...DEFAULT_COMFORT };
 
   private callbacks: XRInteractionCallbacks = {};
 
@@ -147,8 +158,17 @@ export class XRManager {
     this.callbacks = cb;
   }
 
+  public setComfortPreferences(preferences: ComfortPreferences): void {
+    this.comfort = { ...preferences };
+    this.resetInteractionState();
+  }
+
   public setViewMode(mode: ViewMode): void {
     this.currentViewMode = mode;
+  }
+
+  public setHorizonLocked(locked: boolean): void {
+    this.horizonLocked = locked;
   }
 
   public setSpatialHUD(hud: SpatialHUD | null): void {
@@ -192,6 +212,7 @@ export class XRManager {
       hand.isPinching = false;
       hand.prevPinching = false;
       hand.isClickingHUD = false;
+      hand.hudGrabOffset = undefined;
       hand.isHoveringWaypoint = false;
       hand.isTouchingWaypoint = false;
       hand.latchedWaypointPin = null;
@@ -206,7 +227,10 @@ export class XRManager {
       ctrl.isInteractingWithHUD = false;
       ctrl.rayLine.visible = false;
       ctrl.reticle.visible = false;
+      ctrl.snapTurnLatched = ctrl.walkStepLatched = false;
+      ctrl.needsButtonRelease = true;
     }
+    this.spatialHUD?.onPointerRelease();
   }
 
   public getActiveCamera(): THREE.Camera {
@@ -354,6 +378,10 @@ export class XRManager {
         state.isInteractingWithHUD = false;
         state.rayLine.visible = false;
         state.reticle.visible = false;
+        state.prevButtons.fill(false);
+        state.needsButtonRelease = true;
+        state.snapTurnLatched = state.walkStepLatched = false;
+        this.spatialHUD?.onPointerRelease(`controller_${i}`);
         const handedness = event?.data?.handedness as XRHandedness | undefined;
         this.enforcePhysicalControllerOwnership(handedness);
       });
@@ -501,6 +529,9 @@ export class XRManager {
     this.updateHandTracking();
 
     const activeGrabs: ActiveGrab[] = [];
+    // Resolve near interaction and gesture ownership before a hand's far ray.
+    const handGrabs = this.processHandGrabs();
+    activeGrabs.push(...handGrabs);
 
     // 1. Controller Inputs & Laser Pointing
     for (let i = 0; i < this.controllers.length; i++) {
@@ -526,14 +557,40 @@ export class XRManager {
 
         // Hand pinch is triggered via WebXR trigger button or joint pinch distance (<3.2cm)
         const isHandPinching = (source.gamepad?.buttons[0]?.pressed) || (matchingHand?.isPinching) || false;
-        this.updatePointerRaycast(i, state, isHandPinching, true);
+        if (matchingHand?.directHUDThisFrame || matchingHand?.directWaypointThisFrame
+          || matchingHand?.activeInteraction === 'diorama' || matchingHand?.activeInteraction === 'waypoint'
+          || !state.controller.visible || !matchingHand?.visualOutline.group.visible || matchingHand?.indexTipTracked === false) {
+          state.rayLine.visible = false;
+          state.reticle.visible = false;
+          state.isHoveringHUD = false;
+          if (!matchingHand?.visualOutline.group.visible || matchingHand?.indexTipTracked === false) {
+            state.isInteractingWithHUD = false;
+            this.spatialHUD?.onPointerRelease(`hand_${source.handedness ?? 'unknown'}`);
+          }
+        } else {
+          this.updatePointerRaycast(i, state, isHandPinching, true);
+        }
         state.prevButtons[0] = isHandPinching;
         continue;
       }
 
       // Physical Touch Plus Controller:
-      state.controller.visible = true;
-      state.grip.visible = true;
+      // Three.js owns pose visibility. Connected sources can have no valid current pose.
+      if (!state.controller.visible || !state.grip.visible) {
+        state.rayLine.visible = false;
+        state.reticle.visible = false;
+        state.isGripping = state.isDraggingHUD = state.isDraggingTerrain = false;
+        state.isHoveringHUD = state.isInteractingWithHUD = false;
+        state.needsButtonRelease = true;
+        state.snapTurnLatched = false;
+        this.spatialHUD?.onPointerRelease(`controller_${i}`);
+        continue;
+      }
+      if (state.needsButtonRelease) {
+        if (source.gamepad?.buttons.some((b: GamepadButton) => b.pressed || b.value > 0.35)) continue;
+        state.needsButtonRelease = false;
+        state.prevButtons.fill(false);
+      }
       state.rayLine.visible = true;
 
       if (!source.gamepad) continue;
@@ -553,8 +610,14 @@ export class XRManager {
         if (source.handedness === 'left') {
           if (this.currentViewMode === 'first-person') {
             const isTurbo = buttons[0]?.pressed || false;
-            const metersDelta = computeThumbstickWalkDelta(stickY, isTurbo, dt);
+            let metersDelta = computeThumbstickWalkDelta(stickY, isTurbo, dt);
+            if (this.comfort.movement === 'step') {
+              if (Math.abs(stickY) < 0.25) state.walkStepLatched = false;
+              metersDelta = Math.abs(stickY) > 0.65 && !state.walkStepLatched ? -Math.sign(stickY) : 0;
+              if (metersDelta !== 0) state.walkStepLatched = true;
+            }
             if (metersDelta !== 0) {
+              this.callbacks.onLocomotion?.();
               this.callbacks.onScrubDistance?.(metersDelta);
 
               this.hapticDistanceAccumulator += Math.abs(metersDelta);
@@ -575,9 +638,18 @@ export class XRManager {
 
         // --- Right Controller: ROTATE & ZOOM ---
         if (source.handedness === 'right' || source.handedness === 'none') {
-          const rotY = computeThumbstickRotation(stickX, dt);
+          let rotY = computeThumbstickRotation(stickX, dt);
+          if (this.currentViewMode === 'first-person' && this.comfort.turning === 'snap') {
+            // One 30° turn per deliberate deflection; return to center to re-arm.
+            if (Math.abs(stickX) < 0.25) state.snapTurnLatched = false;
+            rotY = Math.abs(stickX) > 0.65 && !state.snapTurnLatched ? Math.sign(stickX) * Math.PI / 6 : 0;
+            if (rotY !== 0) state.snapTurnLatched = true;
+          }
           if (rotY !== 0) {
-            if (this.currentViewMode === 'first-person') this.callbacks.onTurn?.(-rotY);
+            if (this.currentViewMode === 'first-person') {
+              this.callbacks.onLocomotion?.();
+              this.callbacks.onTurn?.(-rotY);
+            }
             else this.sceneManager.dioramaRoot.rotation.y -= rotY;
           }
           if (this.currentViewMode === 'diorama') {
@@ -599,7 +671,7 @@ export class XRManager {
       const b5_secondary = buttons[5]?.pressed || false;
 
       // Controller Grip Interaction
-      if (b1_grip) {
+      if (b1_grip && this.currentViewMode === 'diorama' && !state.isDraggingHUD && !state.isInteractingWithHUD) {
         _scratchGripQuat.setFromRotationMatrix(state.grip.matrixWorld);
         if (!state.isGripping) {
           state.isGripping = true;
@@ -655,8 +727,6 @@ export class XRManager {
     }
 
     // 2. WebXR Bare Hand Tracking & Pinch Detection
-    const handGrabs = this.processHandGrabs();
-    activeGrabs.push(...handGrabs);
 
     // 3. Unified 6DOF Diorama Manipulation (for bare hands and controllers)
     this.applyManipulation(activeGrabs);
@@ -672,19 +742,8 @@ export class XRManager {
     // 1. Check connected controller states
     for (const ctrl of this.controllers) {
       const src = ctrl.inputSource;
-      if (src && !src.hand && src.handedness === handedness) {
+      if (src && !src.hand && src.handedness === handedness && ctrl.controller.visible && ctrl.grip.visible) {
         return true;
-      }
-    }
-
-    // 2. Check active XR session input sources directly as defensive fallback
-    const session = this.renderer.xr.getSession();
-    if (session && session.inputSources) {
-      for (let i = 0; i < session.inputSources.length; i++) {
-        const src = session.inputSources[i];
-        if (src && !src.hand && src.handedness === handedness) {
-          return true;
-        }
       }
     }
 
@@ -740,6 +799,8 @@ export class XRManager {
       const hand = state.hand;
       const joints = (hand as any).joints;
       if (!joints) {
+        state.indexTipTracked = false;
+        state.isClickingHUD = false;
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
         state.pinchTracker = createPinchTracker();
@@ -760,6 +821,8 @@ export class XRManager {
       }
 
       if (!hasTrackedJoint) {
+        state.indexTipTracked = false;
+        state.isClickingHUD = false;
         state.visualOutline.group.visible = false;
         state.pinchReticle.visible = false;
         state.pinchTracker = createPinchTracker();
@@ -854,6 +917,7 @@ export class XRManager {
       const wristPos = state.jointPosMap.get('wrist');
       const thumbJoint = joints['thumb-tip'];
       const indexJoint = joints['index-finger-tip'];
+      state.indexTipTracked = !!indexJoint && indexJoint.visible !== false;
 
       const tipsTracked = thumbTipPos && indexTipPos &&
         (!thumbJoint || thumbJoint.visible !== false) &&
@@ -879,6 +943,7 @@ export class XRManager {
         state.isPinching = state.pinchTracker.isPinching;
       } else {
         // Tip tracking lost: cancel pinch and active diorama manipulation immediately (Stage V1)
+        state.isClickingHUD = false;
         state.pinchTracker = createPinchTracker();
         state.prevPinching = state.isPinching;
         state.isPinching = false;
@@ -894,8 +959,13 @@ export class XRManager {
 
     for (let i = 0; i < this.hands.length; i++) {
       const state = this.hands[i];
-      if (!state.visualOutline.group.visible) {
+      state.directHUDThisFrame = false;
+      state.directWaypointThisFrame = false;
+      if (!state.visualOutline.group.visible || state.indexTipTracked === false) {
         state.activeInteraction = 'none';
+        state.isClickingHUD = false;
+        state.hudGrabOffset = undefined;
+        this.spatialHUD?.onPointerRelease(`hand_${state.inputSource?.handedness ?? 'unknown'}`);
         state.pinchReticle.visible = false;
         continue;
       }
@@ -904,7 +974,11 @@ export class XRManager {
       if (!indexTipPos) continue;
 
       // 1. Check direct fingertip touch / poke on Spatial HUD
-      const isDirectTouchHUD = this.checkHandHUDInteraction(state, indexTipPos, state.isPinching);
+      const ownsTerrain = state.isPinching && state.activeInteraction === 'diorama';
+      const ownsWaypoint = state.isPinching && state.activeInteraction === 'waypoint';
+      const ownsHUD = state.isPinching && state.activeInteraction === 'hud';
+      const isDirectTouchHUD = !ownsTerrain && !ownsWaypoint && this.checkHandHUDInteraction(state, indexTipPos, state.isPinching);
+      state.directHUDThisFrame = isDirectTouchHUD;
 
       // 2. Check if this hand's laser pointer is hovering or interacting with the HUD
       const matchingCtrl = this.controllers.find(
@@ -915,7 +989,9 @@ export class XRManager {
       const isEngagedWithHUD = isDirectTouchHUD || isLaserHUD;
 
       // 3. Check direct fingertip hover / touch on Waypoints (Section 31)
-      const isEngagedWithWaypoint = this.checkHandWaypointInteraction(state, indexTipPos, state.isPinching);
+      const isEngagedWithWaypoint = !ownsTerrain && !ownsHUD && !isDirectTouchHUD
+        && this.checkHandWaypointInteraction(state, indexTipPos, state.isPinching);
+      state.directWaypointThisFrame = isEngagedWithWaypoint;
 
       // Check whether hand is virtually touching the tabletop diorama
       const proximity = this.getDioramaProximity(state.pinchWorldPos);
@@ -1038,24 +1114,35 @@ export class XRManager {
 
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
-    if (!this.spatialHUD || !this.spatialHUD.group.visible) return false;
+    const pointerId = `hand_${state.inputSource?.handedness ?? 'unknown'}`;
+    if (!this.spatialHUD || !this.spatialHUD.group.visible) {
+      state.isClickingHUD = false;
+      state.hudGrabOffset = undefined;
+      this.spatialHUD?.onPointerRelease?.(pointerId);
+      return false;
+    }
 
     // Convert world position of fingertip to local space of Spatial HUD
     const hudGroup = this.spatialHUD.group;
+    if (!isPinching) state.hudGrabOffset = undefined;
     const local = _scratchV1.copy(fingerPos);
     hudGroup.worldToLocal(local);
 
     // 1. Check if user is grabbing the HUD top grab bar / handle
-    const isNearGrabHandle = local.y >= 0.18 && local.y <= 0.38 && Math.abs(local.x) <= 0.38 && Math.abs(local.z) < 0.08;
-    if (isNearGrabHandle && isPinching) {
+    const isNearGrabHandle = Math.abs(local.z) < 0.08 && local.y <= 0.335 && (
+      (local.y >= 0.23 && Math.abs(local.x) <= 0.16) ||
+      (local.y >= 0.265 && Math.abs(local.x) <= 0.24)
+    );
+    if ((isNearGrabHandle || state.hudGrabOffset) && isPinching) {
       const activeCam = this.getActiveCamera();
       activeCam.getWorldPosition(_scratchV3);
-      this.spatialHUD.group.position.copy(fingerPos).add(_scratchV2.set(0, -0.26, 0.05));
+      state.hudGrabOffset ??= hudGroup.position.clone().sub(fingerPos);
+      hudGroup.position.copy(fingerPos).add(state.hudGrabOffset);
       this.spatialHUD.group.lookAt(_scratchV3.x, this.spatialHUD.group.position.y, _scratchV3.z);
       return true; // Exclude from diorama grab
     }
 
-    // Spatial HUD mesh is PlaneGeometry(0.8, 0.53) centered at origin
+    // Spatial HUD mesh is centered at origin; use its actual geometry dimensions.
     const halfW = 0.40;
     const halfH = 0.265;
 
@@ -1070,14 +1157,19 @@ export class XRManager {
 
       // Click when pinching or when finger pokes deeply into surface (< 1.5cm)
       const isPoke = local.z < 0.015 && local.z > -0.025;
-      if ((isPinching || isPoke) && !state.isClickingHUD) {
+      if ((isPinching || isPoke) && !state.isClickingHUD && !(isPinching && state.prevPinching && state.activeInteraction === 'hud')) {
         state.isClickingHUD = true;
-        this.spatialHUD.onPointerClick(uv);
+        this.spatialHUD.onPointerClick(uv, pointerId);
+      } else if ((isPinching || isPoke) && state.isClickingHUD) {
+        this.spatialHUD.onPointerDrag(uv, pointerId);
       } else if (!isPinching && !isPoke) {
         state.isClickingHUD = false;
+        this.spatialHUD.onPointerRelease(pointerId);
       }
       return true; // Hand is engaged with HUD
     }
+    state.isClickingHUD = false;
+    this.spatialHUD.onPointerRelease(pointerId);
     return false;
   }
 
@@ -1198,7 +1290,8 @@ export class XRManager {
         g0.prevWristQuat,
         g0.wristQuat,
         g1.prevWristQuat,
-        g1.wristQuat
+        g1.wristQuat,
+        this.horizonLocked
       );
     } else if (grabs.length === 1) {
       const g = grabs[0];
@@ -1207,7 +1300,8 @@ export class XRManager {
         g.prevWorldPos,
         g.worldPos,
         g.prevWristQuat,
-        g.wristQuat
+        g.wristQuat,
+        this.horizonLocked
       );
     }
   }
@@ -1218,6 +1312,14 @@ export class XRManager {
     isTriggerDown: boolean,
     isHand: boolean = false
   ): void {
+    const pointerId = isHand ? `hand_${state.inputSource?.handedness ?? 'unknown'}` : `controller_${controllerIdx}`;
+    if (!isHand && state.isGripping) {
+      state.rayLine.visible = false;
+      state.reticle.visible = false;
+      state.isHoveringHUD = state.isInteractingWithHUD = false;
+      this.spatialHUD?.onPointerRelease(pointerId);
+      return;
+    }
     // If hand is actively manipulating the diorama, hide HUD pointer ray to avoid HUD clicks or clutter
     if (isHand) {
       const matchingHand = this.hands.find(
@@ -1260,6 +1362,7 @@ export class XRManager {
       } else {
         state.isDraggingHUD = false;
         state.isInteractingWithHUD = false;
+        this.spatialHUD.setAngularSize(this.getActiveCamera().getWorldPosition(_scratchV3).distanceTo(this.spatialHUD.group.position), this.comfort.panelScale);
         this.triggerHaptic(controllerIdx, 0.4, 25);
       }
     }
@@ -1355,14 +1458,14 @@ export class XRManager {
             this.triggerHaptic(controllerIdx, 0.8, 40);
             return;
           }
-          const handled = this.spatialHUD!.onPointerClick(hudHit.uv);
+          const handled = this.spatialHUD!.onPointerClick(hudHit.uv, pointerId);
           if (handled) {
             this.triggerHaptic(controllerIdx, 0.9, 60);
           }
         } else if (isTriggerDown) {
-          this.spatialHUD!.onPointerDrag(hudHit.uv);
+          this.spatialHUD!.onPointerDrag(hudHit.uv, pointerId);
         } else if (state.prevButtons[0] && !isTriggerDown) {
-          this.spatialHUD!.onPointerRelease();
+          this.spatialHUD!.onPointerRelease(pointerId);
         }
       }
       return;
@@ -1374,7 +1477,7 @@ export class XRManager {
       state.isInteractingWithHUD = false;
     }
     if (state.prevButtons[0] && !isTriggerDown && this.spatialHUD) {
-      this.spatialHUD.onPointerRelease();
+      this.spatialHUD.onPointerRelease(pointerId);
     }
 
     // 4. Raycast against Waypoint Pins in diorama mode (Controllers & Hands pointing)
@@ -1479,7 +1582,7 @@ export class XRManager {
     state.reticle.visible = false;
 
     if (state.prevButtons[0] && !isTriggerDown && this.spatialHUD) {
-      this.spatialHUD.onPointerRelease();
+      this.spatialHUD.onPointerRelease(pointerId);
     }
   }
 

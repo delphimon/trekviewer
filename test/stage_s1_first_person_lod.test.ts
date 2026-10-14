@@ -81,7 +81,6 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       // Hiker at progress = 0.2
       lod.setRouteProgress(0.2);
       const tel = routeGeometry.getTelemetryAtProgress(0.2);
-      const expectedCenterTile = latLonToTile(tel.currentPoint.lat, tel.currentPoint.lon, 18);
 
       const camera = new THREE.PerspectiveCamera(60, 1.6, 0.1, 1000);
       camera.position.set(tel.position.x, tel.position.y + 1.8, tel.position.z);
@@ -93,7 +92,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       lod.update(camera, dioramaRoot, false, 0.2);
 
       // Wait for patches to mount
-      await new Promise((r) => setTimeout(r, 150));
+      await waitForStreaming(lod);
 
       const diag = lod.getDiagnostics();
       expect(diag.viewMode).toBe('first-person');
@@ -104,7 +103,10 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       const patchGroup = lod.group;
       let foundClosePatch = false;
       patchGroup.traverse((child) => {
-        if (child.name.includes(`${expectedCenterTile.x}`) || child.name.includes(`${expectedCenterTile.x - 1}`) || child.name.includes(`${expectedCenterTile.x + 1}`)) {
+        if (!child.name.startsWith('ImageryPatch_')) return;
+        const [, zoom, x, y] = child.name.replace('ImageryPatch_', '').split(':');
+        const expected = latLonToTile(tel.currentPoint.lat, tel.currentPoint.lon, Number(zoom));
+        if (Number(zoom) >= 18 && Math.abs(Number(x) - expected.x) <= 1 && Math.abs(Number(y) - expected.y) <= 1) {
           foundClosePatch = true;
         }
       });
@@ -131,7 +133,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       const dioramaRoot = new THREE.Group();
 
       lod.update(camera, dioramaRoot, false, 0.1);
-      await new Promise((r) => setTimeout(r, 150));
+      await waitForStreaming(lod);
 
       const patchGroup = lod.group;
       const firstPatch = patchGroup.children[0] as THREE.Mesh;
@@ -166,7 +168,6 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       const currentDist = telCurrent.currentPoint.distanceFromStart;
       const telForward = routeGeometry.getTelemetryAtDistance(currentDist + 250);
 
-      const forwardTile = latLonToTile(telForward.currentPoint.lat, telForward.currentPoint.lon, 18);
 
       const camera = new THREE.PerspectiveCamera(60, 1.6, 0.1, 1000);
       camera.position.set(telCurrent.position.x, telCurrent.position.y + 1.8, telCurrent.position.z);
@@ -174,7 +175,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
 
       lod.update(camera, dioramaRoot, false, 0.3);
 
-      await new Promise((r) => setTimeout(r, 150));
+      await waitForStreaming(lod);
 
       // Verify that forward tile was among requested tiles
       const requestedTileCoords = loadTileSpy.mock.calls.map((call) => ({
@@ -184,7 +185,10 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       }));
 
       const hasForwardTile = requestedTileCoords.some(
-        (t) => t.zoom === 18 && Math.abs(t.x - forwardTile.x) <= 1 && Math.abs(t.y - forwardTile.y) <= 1
+        (t) => {
+          const expected = latLonToTile(telForward.currentPoint.lat, telForward.currentPoint.lon, t.zoom);
+          return t.zoom >= 17 && Math.abs(t.x - expected.x) <= 1 && Math.abs(t.y - expected.y) <= 1;
+        }
       );
       expect(hasForwardTile).toBe(true);
 
@@ -212,7 +216,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
 
       // Initial evaluation at progress 0.1
       lod.update(camera, dioramaRoot, false, 0.1);
-      await new Promise((r) => setTimeout(r, 150));
+      await waitForStreaming(lod);
 
       const initialCreated = lod.getDiagnostics().patchesCreatedTotal;
       expect(initialCreated).toBeGreaterThan(0);
@@ -290,3 +294,11 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
     });
   });
 });
+
+async function waitForStreaming(lod: ImageryLODManager): Promise<void> {
+  await vi.waitFor(() => {
+    const state = lod.getDiagnostics();
+    expect(state.pendingRequestsCount).toBe(0);
+    expect(state.requestQueueLength).toBe(0);
+  }, { timeout: 3000, interval: 10 });
+}

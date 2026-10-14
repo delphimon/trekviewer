@@ -7,6 +7,21 @@ export interface TerrainGridLayout {
   segmentsZ: number;
 }
 
+export interface TerrainSurfaceData extends TerrainGridLayout { heights: Float32Array; }
+
+/** The same diagonal and unscaled heights used by Three.js PlaneGeometry. */
+export function sampleTerrainSurface(grid: TerrainSurfaceData, x: number, z: number): number {
+  const gx = Math.max(0, Math.min(grid.segmentsX, (x + grid.width / 2) * grid.segmentsX / grid.width));
+  const gz = Math.max(0, Math.min(grid.segmentsZ, (z + grid.depth / 2) * grid.segmentsZ / grid.depth));
+  const ix = Math.min(grid.segmentsX - 1, Math.floor(gx));
+  const iz = Math.min(grid.segmentsZ - 1, Math.floor(gz));
+  const u = gx - ix, v = gz - iz, row = grid.segmentsX + 1;
+  const a = iz * row + ix, b = a + 1, c = a + row, d = c + 1;
+  return u + v <= 1
+    ? (1 - u - v) * grid.heights[a] + u * grid.heights[b] + v * grid.heights[c]
+    : (1 - u) * grid.heights[c] + (u + v - 1) * grid.heights[d] + (1 - v) * grid.heights[b];
+}
+
 /** Snap a replacement to whole coarse cells and subdivide those cells by integers.
  * Shared boundaries then reproduce the coarse triangles exactly, including valleys.
  */

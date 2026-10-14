@@ -66,7 +66,8 @@ export class TextureBudget {
     // Target cell size: ~120m for Quest (100-150m), ~75m for desktop (60-100m)
     // A bounded override permits an on-headset geometry A/B run without
     // changing the normal High profile or allowing an unbounded vertex grid.
-    const targetCellSize = targetCellSizeOverrideM === 60 ? 60 : isConstrained ? 120 : 75;
+    const targetCellSize = targetCellSizeOverrideM !== undefined && [60, 75, 120].includes(targetCellSizeOverrideM)
+      ? targetCellSizeOverrideM : isConstrained ? 120 : 75;
     // Maximum vertex budget: ~125k vertices on Quest (within 100k-150k budget), ~200k on desktop
     const maxVertices = isConstrained ? 125000 : 200000;
 

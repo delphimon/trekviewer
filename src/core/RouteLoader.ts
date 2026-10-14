@@ -10,17 +10,21 @@ import { TrekSession } from './TrekSession.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { QualityProfileManager } from '../terrain/QualityProfile.ts';
+import { runTerrainJob } from '../terrain/TerrainJobs.ts';
 
 export interface RouteLoaderOptions {
   dioramaRoot: THREE.Group;
   getIsXR: () => boolean;
   baseTerrainCellSizeM?: number;
+  getBaseTerrainCellSizeM?: () => number | undefined;
   regionalBase?: boolean;
+  tiledTerrain?: boolean;
   getCurrentTrailColorMode?: () => TrailColorMode;
   session?: TrekSession;
   onProgress?: (message: string, progress?: number | null) => void;
   onError?: (error: Error, routeName?: string) => void;
   onTrekCommitted?: (trek: LoadedTrek, previousTrek: LoadedTrek | null) => void;
+  prepareRender?: (trek: LoadedTrek, signal: AbortSignal) => Promise<void>;
 }
 
 export interface RouteLoadContext {
@@ -177,7 +181,9 @@ export class RouteLoader {
       // 3. Phase 2: Finalize track metrics and missing elevations using real DEM sampler
       this.options.session?.setLoadingStatus('parsing', 'Normalizing elevations with DEM surface...', 0.45);
       this.options.onProgress?.('Normalizing elevations with DEM surface...', 0.45);
-      const track = GPXParser.finalizeWithDEM(raw, preparedElevation.elevationSamplerForGeo);
+      const track = await runTerrainJob({
+        kind: 'finalize', raw, dem: preparedElevation.demGrid, regional: preparedElevation.regionalGrid,
+      }, () => GPXParser.finalizeWithDEM(raw, preparedElevation.elevationSamplerForGeo), context.abortController.signal);
 
       if (this.isStale(context)) {
         return null;
@@ -201,7 +207,7 @@ export class RouteLoader {
         1.0,
         isXR,
         preparedElevation,
-        this.options.baseTerrainCellSizeM
+        this.options.baseTerrainCellSizeM ?? this.options.getBaseTerrainCellSizeM?.()
       );
 
       if (this.isStale(context)) {
@@ -271,6 +277,7 @@ export class RouteLoader {
 
       // 5. Assemble LoadedTrek off-scene
       trek = new LoadedTrek({
+        tiledTerrain: this.options.tiledTerrain,
         track,
         terrainResult: terrain,
         trailResult: trail,
@@ -284,8 +291,13 @@ export class RouteLoader {
         return null;
       }
 
+      // Warm shaders while the existing trek remains interactive and visible.
+      await this.options.prepareRender?.(trek, context.abortController.signal);
+      if (this.isStale(context)) { trek.dispose(); return null; }
+
       // 6. ATOMIC SCENE COMMIT
       // Active diorama remains mounted and rendered until this atomic step.
+      terrain.detachLoadSignal?.();
       const previousTrek = this.activeTrek;
       if (previousTrek) {
         this.options.dioramaRoot.remove(previousTrek.group);

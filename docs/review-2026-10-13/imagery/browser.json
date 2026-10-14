@@ -1,0 +1,119 @@
+{
+  "setup": {
+    "route": "Mount Rainier via Emmons",
+    "initialTextures": [
+      {
+        "width": 1024,
+        "height": 1024
+      },
+      {
+        "width": 2560,
+        "height": 1536
+      }
+    ],
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "switched": {
+    "style": "topo",
+    "selected": "true",
+    "canvases": [
+      {
+        "width": 2560,
+        "height": 1536
+      }
+    ],
+    "textures": [
+      {
+        "width": 1024,
+        "height": 1024,
+        "mipmaps": true
+      },
+      {
+        "width": 2560,
+        "height": 1536,
+        "mipmaps": true
+      },
+      {
+        "width": 2560,
+        "height": 1536,
+        "mipmaps": false
+      }
+    ],
+    "uploads": [
+      {
+        "method": "texSubImage2D",
+        "width": 2560,
+        "height": 1536
+      }
+    ]
+  },
+  "pending": {
+    "oldMounted": true,
+    "disposed": false,
+    "images": [
+      {
+        "width": 1024,
+        "height": 1024
+      },
+      {
+        "width": 2560,
+        "height": 1536
+      },
+      {
+        "width": 2560,
+        "height": 1536
+      }
+    ]
+  },
+  "recovered": {
+    "oldMounted": true,
+    "progress": 0,
+    "camera": [
+      -0.5048773947952404,
+      1.2060504845186208,
+      0.45767212958569603
+    ],
+    "target": [
+      -0.5048773947952404,
+      -0.08554500679367917,
+      -1.0618519778405395
+    ],
+    "images": [
+      {
+        "width": 1024,
+        "height": 1024
+      },
+      {
+        "width": 2560,
+        "height": 1536
+      },
+      {
+        "width": 2560,
+        "height": 1536
+      }
+    ],
+    "glError": 0,
+    "drawCalls": 81
+  },
+  "replaced": {
+    "oldDisposed": true,
+    "images": [
+      {
+        "width": 1,
+        "height": 1
+      },
+      {
+        "width": 1,
+        "height": 1
+      },
+      {
+        "width": 1,
+        "height": 1
+      }
+    ],
+    "route": "Mount Baker July 2026",
+    "glError": 0
+  },
+  "errors": [],
+  "warnings": []
+}

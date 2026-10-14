@@ -221,6 +221,11 @@ describe('Stage M: Adaptive High-Resolution Map Imagery LOD', () => {
       // Wait for image loads to resolve
       await new Promise((r) => setTimeout(r, 150));
 
+      await vi.waitFor(() => {
+        const diag = lod.getDiagnostics();
+        assert.strictEqual(diag.pendingRequestsCount, 0);
+        assert.strictEqual(diag.requestQueueLength, 0);
+      }, { timeout: 3000, interval: 10 });
       const initialCreated = lod.getDiagnostics().patchesCreatedTotal;
       assert(initialCreated > 0, 'Initial evaluation should create patches');
 

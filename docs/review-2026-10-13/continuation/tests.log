@@ -1,0 +1,11 @@
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+
+ Test Files  87 passed | 1 skipped (88)
+      Tests  446 passed | 5 skipped (451)
+   Start at  19:39:27
+   Duration  38.41s (tests 86%, import 10%, transform 3%, worker 1%)
+
+    Isolate  88 workers spawned · ~162ms startup each (spawn + environment, per file)
+             at least ~6.97s faster with isolate: false — reuses workers across files instead of one per file

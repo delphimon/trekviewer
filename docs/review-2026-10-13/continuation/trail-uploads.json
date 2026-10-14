@@ -1,0 +1,13 @@
+{
+  "sourceBytes": 82632,
+  "writes": [
+    {
+      "offset": 37524,
+      "bytes": 7824
+    },
+    {
+      "offset": 35568,
+      "bytes": 11808
+    }
+  ]
+}

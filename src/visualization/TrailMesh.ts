@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SurfaceVertexIndex } from './SurfaceVertexIndex.ts';
 import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/TrackTypes.ts';
 import { RouteGeometry, yawForForwardVector } from './RouteGeometry.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
@@ -20,6 +21,7 @@ export interface TrailResult {
   setVerticalExaggeration: (factor: number) => void;
   reprojectToSurface?: (sampler: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds) => void;
   dispose: () => void;
+  getGraphicsResources?: () => (THREE.BufferGeometry | THREE.Material)[];
 }
 
 export class TrailMesh {
@@ -69,6 +71,8 @@ export class TrailMesh {
       1.0,
       elevationSampler
     );
+    firstPersonGeo.computeVertexNormals();
+    (firstPersonGeo.attributes.normal as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
 
     // Color application helper with smoothed broad bands and run-length filtering (Sections 14-18)
     const applyColorsToGeo = (geo: THREE.BufferGeometry, mode: TrailColorMode) => {
@@ -282,7 +286,7 @@ export class TrailMesh {
       for (let i = 0; i < unscaledGroundY.length; i++) {
         posArray[i * 3 + 1] = unscaledGroundY[i] * factor + dioramaElevationOffset;
       }
-      dioramaGeo.attributes.position.needsUpdate = true;
+      dioramaVertexIndex.updatePositions(dioramaVertexIndex.verticesIn());
 
       // Update start and finish beacons with constant +8.0 offset
       startBeacon.position.y = startGroundY * factor + 8.0;
@@ -300,6 +304,8 @@ export class TrailMesh {
       hikerMarker.position.y = hikerGroundY * factor + dioramaElevationOffset;
     };
 
+    const dioramaVertexIndex = new SurfaceVertexIndex(dioramaGeo, 500, false);
+    const firstPersonVertexIndex = new SurfaceVertexIndex(firstPersonGeo);
     const reprojectToSurface = (
       sampler: (x: number, z: number) => number,
       bounds?: TerrainSurfaceBounds
@@ -309,8 +315,8 @@ export class TrailMesh {
       // 1. Reproject diorama ribbon
       const posAttr = dioramaGeo.attributes.position as THREE.BufferAttribute;
       const posArray = posAttr.array as Float32Array;
-      let dioramaChanged = false;
-      for (let i = 0; i < unscaledGroundY.length; i++) {
+      const changedDiorama: number[] = [];
+      for (const i of dioramaVertexIndex.verticesIn(bounds)) {
         const vx = posArray[i * 3];
         const vz = posArray[i * 3 + 2];
         if (
@@ -318,23 +324,24 @@ export class TrailMesh {
           (vx >= bounds.minX && vx <= bounds.maxX && vz >= bounds.minZ && vz <= bounds.maxZ)
         ) {
           const sampled = sampler(vx, vz);
-          if (!isNaN(sampled)) {
+          if (Number.isFinite(sampled)) {
             unscaledGroundY[i] = sampled;
             posArray[i * 3 + 1] = sampled * currentExaggeration + dioramaElevationOffset;
-            dioramaChanged = true;
+            changedDiorama.push(i);
           }
         }
       }
-      if (dioramaChanged) {
-        posAttr.needsUpdate = true;
-        dioramaGeo.computeVertexNormals();
+      if (changedDiorama.length) {
+        dioramaVertexIndex.updatePositions(changedDiorama);
+        // The tabletop ribbon is unlit; it does not consume a normal attribute.
       }
 
       // 2. Reproject first-person ribbon
       const fpPosAttr = firstPersonGeo.attributes.position as THREE.BufferAttribute;
       const fpPosArray = fpPosAttr.array as Float32Array;
       let fpChanged = false;
-      for (let i = 0; i < firstPersonUnscaledGroundY.length; i++) {
+      const changedFP: number[] = [];
+      for (const i of firstPersonVertexIndex.verticesIn(bounds)) {
         const vx = fpPosArray[i * 3];
         const vz = fpPosArray[i * 3 + 2];
         if (
@@ -342,16 +349,17 @@ export class TrailMesh {
           (vx >= bounds.minX && vx <= bounds.maxX && vz >= bounds.minZ && vz <= bounds.maxZ)
         ) {
           const sampled = sampler(vx, vz);
-          if (!isNaN(sampled)) {
+          if (Number.isFinite(sampled)) {
             firstPersonUnscaledGroundY[i] = sampled;
             fpPosArray[i * 3 + 1] = sampled * 1.0 + 0.08;
             fpChanged = true;
+            changedFP.push(i);
           }
         }
       }
       if (fpChanged) {
-        fpPosAttr.needsUpdate = true;
-        firstPersonGeo.computeVertexNormals();
+        firstPersonVertexIndex.updatePositions(changedFP);
+        firstPersonVertexIndex.updateNormals(changedFP);
       }
 
       // 3. Reproject start beacon
@@ -422,6 +430,7 @@ export class TrailMesh {
       setViewMode,
       setVerticalExaggeration,
       reprojectToSurface,
+      getGraphicsResources: () => [dioramaGeo, firstPersonGeo, dioramaMat, firstPersonMat],
       dispose,
     };
   }

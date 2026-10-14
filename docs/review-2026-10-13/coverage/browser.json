@@ -1,0 +1,58 @@
+{
+  "setup": {
+    "grid": {
+      "width": 13503.704548402802,
+      "depth": 8467.382469057,
+      "segmentsX": 226,
+      "segmentsZ": 142
+    },
+    "coverage": {
+      "mismatches": 0,
+      "expectedIndices": 183336,
+      "drawnIndices": 183336,
+      "totalIndices": 192552,
+      "holes": 24
+    },
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "exaggerated": {
+    "coverage": {
+      "mismatches": 0,
+      "expectedIndices": 183336,
+      "drawnIndices": 183336,
+      "totalIndices": 192552,
+      "holes": 24
+    },
+    "uploads": [
+      {
+        "offset": 0,
+        "elements": 183336,
+        "bytes": 366672
+      }
+    ]
+  },
+  "retired": {
+    "coverage": {
+      "mismatches": 0,
+      "expectedIndices": 192552,
+      "drawnIndices": 192552,
+      "totalIndices": 192552,
+      "holes": 0
+    },
+    "uploads": [
+      {
+        "offset": 0,
+        "elements": 183336,
+        "bytes": 366672
+      },
+      {
+        "offset": 0,
+        "elements": 192552,
+        "bytes": 385104
+      }
+    ],
+    "glError": 0
+  },
+  "errors": [],
+  "warnings": []
+}

@@ -12,6 +12,8 @@ You do **not** need to keep your laptop or local development server running to u
 
 Open your deployed HTTPS URL in Meta Quest Browser and select the app's VR or MR entry button. Browser installation affordances vary by headset/browser version; opening a hosted URL is the basic supported path.
 
+Completed implementation checkpoints must be checked in and published, as requested October 14, 2026. Run `npm run verify` and the relevant browser checks, commit the checkpoint's source, tests and review evidence, and push to `origin`. Rebuild from the clean commit before publishing `dist/` to [trekviewer.surge.sh](https://trekviewer.surge.sh), so `build-info.json` identifies the committed revision. Verify the hosted build metadata and a production browser load before reporting the checkpoint as published. Keep credentials and temporary validation files out of commits.
+
 ### Method 2: Sideloadable Meta Quest APK
 
 The wrapper loads the hosted website. It is **not an offline bundle**: startup, routes, elevation, and imagery need network access. There is currently no service-worker shell cache or offline region-download feature.
@@ -159,25 +161,49 @@ npm run build
 
 ## 🔒 Privacy
 
-- **Your Data Remains Private**: Uploaded GPX files and personal track data stay strictly in your local browser/device memory and are never uploaded or transmitted to any third-party server.
-- **Tile Requests**: Outgoing network traffic consists exclusively of anonymous HTTP GET requests to public map and DEM tile servers.
+- **Local GPX Processing**: Uploaded GPX files, timestamps, and track metadata are processed in your browser and its local worker; the application does not upload the GPX file.
+- **External Map Requests**: Loading imagery and elevation sends geographic tile coordinates to the configured map/DEM providers. Provider requests may use credentials when a configured provider requires them.
 
 ### First-person navigation and HUD placement
 
 Entering first-person establishes the route heading once. Right-stick turning remains under your control during playback and while paused; bends in the route no longer force headset yaw. The HUD is placed beside you on entry and stays where you dock or drag it. Click the **right thumbstick** to hide it or summon it again; the **left thumbstick** focuses the hiker. Docking and switching view modes also restore the HUD.
 
+Trail entry pauses playback and anchors the route at your current floor-projected headset position and heading. Walking defaults to 1.4 m/s (2 m/s while holding the trigger), with 30° snap turns. Settings offers 1 m steps, optional smooth turning, a motion vignette, and larger panel text; these preferences are saved locally. Immersive playback stays at walking pace, and HUD step buttons move 1 m. Accelerated time playback remains available in tabletop mode. Panel targets scale with dock distance, and mobile Settings exposes style, quality, landmarks, and comfort controls.
+
+### Desktop inspection and horizon
+
+Desktop wheel/pinch zoom follows the pointer and supports much closer inspection. Near and far clipping adapt to the tabletop view, preserving nearby terrain and depth precision; walking and XR use their metre-scale clipping range. Desktop waypoint markers shrink during close inspection so they keep the terrain visible.
+
+**Lock horizon level** is enabled by default and saved locally. It keeps the model upright during hand manipulation while allowing yaw, movement and scaling. Desktop orbiting keeps the camera upright while allowing views from above and from the sides. **Level horizon** removes model pitch and roll without resetting pan, zoom or route progress. Both controls appear in the desktop/mobile settings and the spatial HUD.
+
+**Fit terrain** frames the whole terrain between the desktop controls, preserving model pose and trail progress. Automatic views adapt to resizing; manually zoomed or orbited views retain their camera position and target. Mobile fitting closes Settings. See the [terrain framing validation](docs/review-2026-10-13/FRAMING.md) for its checks and desktop/mobile captures.
+
 ### Performance validation
+
+VR and passthrough availability are checked separately. Unavailable modes have disabled entry controls with an explanation. Passthrough never silently switches to VR; choose **Enter VR** explicitly when that mode is available. Connecting or changing an XR device refreshes the availability check.
+
+Trail refinements maintain conservative rendering bounds and upload changed position/normal spans, preserving trail visibility as terrain detail and exaggeration change. See the [rendering and XR availability continuation](docs/review-2026-10-13/CONTINUATION.md) for its validation and upload measurements.
+
+Graphics interruptions pause playback and preserve the current trek and desktop inspection position. Rendering resumes after resources are prepared; use **Retry graphics** if recovery preparation fails, then press Play when ready to continue. Desktop controls expose selected states to assistive technology. See the [graphics recovery validation](docs/review-2026-10-13/RECOVERY.md) for native interruption checks and hardware limits.
+
+Terrain refinements reuse a coarse-cell coverage mask and upload the drawn index prefix, preserving the same terrain triangles and visual detail while reducing update work. See the [terrain coverage measurements](docs/review-2026-10-13/COVERAGE.md) for its tests, browser checks and CPU benchmark.
+
+Map styles share pending and completed imagery compositions, and terrain disposal releases owned canvases and GPU textures. The visible route retains its imagery while a replacement loads. Overview composition is capped at 120 tiles, including wide polar terrain bounds. See the [imagery streaming validation](docs/review-2026-10-13/IMAGERY.md) for its tests and browser lifecycle evidence.
+
+Close desktop inspection uses the actual viewed distance to select source imagery and responds to small zoom steps within the existing tile budgets. Terrain raycasts stop after the nearest valid cell hit. See the [close-up detail validation](docs/review-2026-10-13/DETAIL.md) for its tests, before/after images and isolated CPU measurements.
+
+Local trail updates look up nearby numeric spatial buckets, with a bounded scan for broad footprints. Vertex selection and sampling order stay the same. See the [trail lookup validation](docs/review-2026-10-13/LOOKUP.md) for the latest tests, matched rendering and isolated CPU measurements.
 
 Append `?debug=1` to display callback pacing, CPU submission p95, tile coverage, draw calls, and cache diagnostics. The panel reports the actual XR refresh rate when available; desktop rate is shown as unknown. Callback estimates are not GPU/compositor measurements. Debug geometry and logging also add overhead, so compare against a normal headset session.
 
 For repeatable headset runs, append `?profile=1` to the hosted URL. The production build records bounded one-second CPU, callback, rendering, cache, and quality samples locally. Entering XR starts the recorder; exiting stops it. Press **Download JSON** on the page to save the report. Pair it with Meta's device GPU/FPS/thermal metrics. See the [Quest 3 profiling procedure](docs/QUEST_PROFILE.md) for exact steps and measurement limits.
 
-For a controlled geometry experiment, use `?profile=1&terrainGrid=60` and reload the route. This reduces the Quest base terrain's target cell spacing from about 120 m to 60 m while retaining the 125,000-vertex cap; it does not change imagery selection or the local DEM chunk. The profile records the resulting cell spacing and DEM zoom, plus how many sampled first-person rays hit the local versus base terrain. Compare the same viewpoint with `?profile=1` before treating the experimental grid as a quality setting. Its GPU and thermal cost has not yet been measured on the headset.
+High quality now targets a 60 m base grid and approximately 10 m terrain refinements. Stable terrain tiles retain parent coverage until detailed geometry and its imagery are prepared, then publish together. Quest High is bounded to 12 refinement tiles / 96,000 refinement vertices; desktop High uses up to 24 / 160,000. Balanced uses up to 9 / 40,000 at about 25 m spacing. Base meshes retain the existing 125,000-vertex Quest and 200,000-vertex desktop limits. Changing quality affects streaming immediately; reload the route to rebuild the base grid.
 
-For an independent elevation-source experiment at Colchuck Lake and Asgard Pass, use `?profile=1&regionalDem=1` on the Enchantments route. This serves a 2.7 MB packaged set of 26 z15 Terrarium PNGs derived from the public-domain USGS 3DEP 1-metre WA Eastern Cascades 2019 DEM. The pack is loaded only as the local terrain chunk requests covered tiles; uncovered positions and failed packaged requests use the existing AWS DEM. Outer tile edges blend to AWS over 24 pixels to avoid source-boundary steps. The profile records whether the pack was enabled, its USGS/AWS tile counts, and the visible local mesh cell size. Keep `terrainGrid=60` off for the initial A/B comparison so the DEM source is the only changed variable. This experiment does not make distant base-mesh peaks sharper, since that mesh still uses its original elevation source and grid.
+The Enchantments' packaged regional DEM is enabled for local and base terrain where available. It contains 26 z15 Terrarium PNGs derived from the USGS 3DEP 1-metre WA Eastern Cascades 2019 source. Uncovered positions and failed packaged requests fall back to AWS; packaged edges blend to AWS over 24 pixels. The 1 m source is resampled into z15 tiles; the renderer does not imply 1 m mesh spacing. The profile records source counts, DEM zoom, and actual mesh cell sizes.
 
-Use `?profile=1&regionalBase=1` to load the same regional elevation as an additional source for the full-route base mesh, while leaving the local chunk on AWS. This makes 26 packaged USGS tiles available to base-mesh vertices in the Enchantments area; uncovered positions retain the original route DEM. It does not increase the base mesh's triangle count. Compare this separately against `?profile=1&regionalDem=1` (local only), then try both flags together and finally add `terrainGrid=60` if the headset budget permits. The profile reports regional base zoom and tile count separately from the local source. The regional base load temporarily holds a roughly 8 MB float elevation grid, plus decode canvases and cached tile images, and must be evaluated on the headset before making it a default.
+For controlled comparisons, `terrainGrid=60`, `75`, or `120` selects the base spacing without changing imagery selection. `regionalDem=0` and `regionalBase=0` disable the respective regional sources, and `terrainTiles=0` restores the legacy single-refinement streamer. Keep other flags and the viewpoint fixed when comparing. High's new defaults have browser and regression coverage; their Quest GPU, thermal, and subjective comfort costs still require a connected headset. Decoded local DEM caching is bounded to 64 MiB; base/regional grids, live terrain, and worker staging are additional memory.
 
 To regenerate the pack, install `rasterio`, `numpy`, and `Pillow` in a Python environment and run `python3 scripts/build-regional-dem.py`. The source COG URL, tile footprint, coordinate conversion, and resampling method are recorded in `src/terrain/data/enchantments-3dep-2019.json`. The build-time geospatial packages are not needed on the headset.
 
-Save `dist/build-info.json` with each device test: it includes the source SHA, modified-tree marker, and timestamped build ID. See the [current validation record](docs/review-2026-09-26/IMPLEMENTATION.md) for verified results and pending hardware checks.
+Save `dist/build-info.json` with each device test: it includes the source SHA, modified-tree marker, and timestamped build ID. See the [October implementation and validation record](docs/review-2026-10-13/IMPLEMENTATION.md) for verified results and pending hardware checks.

@@ -1,0 +1,325 @@
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+stderr | test/route_transaction.test.ts > Route Transaction Architecture & State Atomicity (Stage F) > guarantees error rollback: failure leaves active route untouched and cleans up partial assets
+[RouteLoader] Failed to build trek: Error: No GPS track points found in GPX file.
+    at GPXParser.parseRaw (E:/Development/delphimon/trekviewer/src/gpx/GPXParser.ts:141:13)
+    at RouteLoader.loadRouteFromXml (E:/Development/delphimon/trekviewer/src/core/RouteLoader.ts:151:29)
+    at E:/Development/delphimon/trekviewer/test/route_transaction.test.ts:215:37
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:20
+
+stderr | test/route_transaction.test.ts > Route Transaction Architecture & State Atomicity (Stage F) > guarantees error rollback: failure leaves active route untouched and cleans up partial assets
+[RouteLoader] Failed to fetch route: Error: HTTP error 500: Could not fetch route from /routes/network-fail.gpx
+    at RouteLoader.loadRouteFromUrl (E:/Development/delphimon/trekviewer/src/core/RouteLoader.ts:101:15)
+    at E:/Development/delphimon/trekviewer/test/route_transaction.test.ts:227:27
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:20
+
+stderr | test/stage_x7_tabletop_focus_and_priority.test.ts > Stage X7: Tabletop Inspection Focus & Global Request Prioritization > Part 3: Tabletop Inspection Focus in LocalTerrainStreamer (Section 9) > keeps local chunks invisible in diorama mode when no inspection focus is provided
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.fetchAndApplyStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:203:10)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:400:16)
+    at E:/Development/delphimon/trekviewer/test/stage_x7_tabletop_focus_and_priority.test.ts:334:16
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20
+    at new Promise (<anonymous>)
+
+stderr | test/stage_x7_tabletop_focus_and_priority.test.ts > Stage X7: Tabletop Inspection Focus & Global Request Prioritization > Part 4: End-to-End Integration in LoadedTrek & ImageryLODManager > exposes inspected geo from ImageryLODManager and forwards it to LocalTerrainStreamer
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.updateTabletopFocus (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:483:10)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:299:12)
+    at LocalTerrainStreamer.update (file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/spy.DQ0ZsPbi.js:320:40)
+    at LoadedTrek.updateHikerProgress (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:170:32)
+    at E:/Development/delphimon/trekviewer/test/stage_x7_tabletop_focus_and_priority.test.ts:527:12
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.fetchAndApplyStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:203:10)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:400:16)
+    at LocalTerrainStreamer.update (file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/spy.DQ0ZsPbi.js:320:40)
+    at LoadedTrek.updateHikerProgress (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:170:32)
+    at E:/Development/delphimon/trekviewer/test/stage_x7_tabletop_focus_and_priority.test.ts:527:12
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.fetchAndApplyStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:203:10)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:400:16)
+    at LocalTerrainStreamer.update (file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/spy.DQ0ZsPbi.js:320:40)
+    at LoadedTrek.updateHikerProgress (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:170:32)
+    at E:/Development/delphimon/trekviewer/test/stage_x7_tabletop_focus_and_priority.test.ts:527:12
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+
+stderr | test/stage_x3_1_stabilization.test.ts > Stage X3.1: Visual Corruption Emergency Stabilization > Test H: DEM Quality Rejection Threshold (< 70%) > fetchLocalElevationGrid rejects grid if valid tile ratio is below 70%
+[ElevationTileService] Rejecting local DEM: coverage too low (50.0% < 70%)
+
+x··x··········································································································stdout | test/production_elevation_pipeline.test.ts > Production RouteLoader Two-Phase Elevation Pipeline (Stage K) > production RouteLoader repairs missing elevations from DEM, snaps waypoints, and fetches DEM only once
+✓ Verified: Exactly one DEM fetch performed during route loading transaction
+✓ Point 1 repaired with authentic DEM elevation: 2450m (provenance=dem)
+✓ Waypoint "Camp One (No Ele)" snapped to DEM height: 2450m
+✓ Elevation Provenance Stats verified: 67% GPX, 33% DEM
+✓ Production RouteLoader Two-Phase Elevation Pipeline integration test passed successfully!
+
+stderr | test/stage_u5_provider.test.ts > Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful Sources > Section 65: Provider Failure Test (Global fallback without mixed Bing/Esri layer) > falls back to Esri globally before route loading when Cesium fails, preventing mixed layers
+[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to Esri World Imagery.
+
+stderr | test/stage_u5_provider.test.ts > Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful Sources > Sections 50, 51, 71: Truthful Cache Keys & No Per-Tile Cross-Provider Fallback > identifies a Cesium 403 instead of reporting an unspecified outage
+[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to Esri World Imagery.
+
+stderr | test/stage_u5_provider.test.ts > Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful Sources > Sections 49 & 52: Full State Matrix & UI Attribution > returns honest state and attribution for cesium-bing with missing token
+[TextureProvider] Cesium Bing provider requested but no valid Cesium Ion token found. Falling back to Esri World Imagery.
+
+···························································stdout | test/scale_and_heading.test.ts > Scale-Adaptive Route, 1:1 Forward Angle & Topo Tile URLs > evaluates scale adaptation, 1:1 heading, and topo tile URLs
+Rainier Extent: 9.0 km
+Bailey Range Extent: 27.3 km
+Rainier World Ribbon Width: 2.6m
+Bailey Range World Ribbon Width: 53.7m
+Rainier Hiker Jewel Height: 108.0m
+Bailey Range Hiker Jewel Height: 327.2m
+✓ Scale-adaptive route ribbon and hiker beacon verified across 15km and 50km+ treks!
+1:1 WebXR World Rotation Y: -1.437 rad (-82.3°)
+1:1 WebXR World Position Offset: { x: -3372.4, y: 0.0, z: -4078.7 }
+Trail tangent in WebXR Room Space: { x: -0.011, y: 0.000, z: -1.000 }
+✓ 1:1 mode rotates 180° into travel heading facing forward along -Z in room space!
+Topo Tile Grid at Zoom 14: 9x6 tiles (54 total)
+Sample USGS Topo URL: https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/14/5768/2649
+Sample ArcGIS Topo URL: https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/14/5768/2649
+Sample OpenTopoMap URL: https://a.tile.opentopomap.org/14/2649/5768.png
+✓ High-res Topographic tile URLs and Web Mercator bounds verified!
+✓ All scale, heading, and topo map tests passed!
+
+·······················stdout | test/hybrid_and_color.test.ts > Hybrid Map View, Trail Color Modes & Radiant Hiker Beacon > evaluates hybrid map view, trail color modes, and hiker beacon
+Trail vertices: 6886, Color tuples: 6886
+✓ Trail ribbon vertex colors initialized properly (Solid mode default)
+Sample Grade RGB at segment 50: (0.040, 0.509, 0.939)
+Sample Pace/Speed RGB at segment 50: (0.040, 0.509, 0.939)
+Sample Elevation RGB at segment 50: (0.040, 0.509, 0.939)
+✓ Trail color mode successfully toggled between Solid, Grade, Speed/Pace, and Elevation
+Beacon components: jewelFound=true (elevated y=108.0m), coreFound=true, pillarFound=true, rings=2, arrowFound=true
+✓ Prominent hiker beacon verified: diamond jewel, core, laser pillar, radar reticle, and heading arrow
+Rainier Tile Grid zoom=14, 9x6 tiles
+Sample Hybrid USGS Tile URL: https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/14/5768/2649
+Sample Esri Reference Overlay Tile URL: https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/14/5768/2649
+Sample Esri Places/Landmarks Tile URL: https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/14/5768/2649
+✓ Hybrid imagery and reference label tile URLs validated
+✓ All Hybrid Map View, Trail Color, and Hiker Beacon tests passed successfully!
+
+stderr | test/stage_x1_quality_profile.test.ts > Stage X1: Single-Source Quality Profile Architecture > LoadedTrek Single-Source Quality Profile Ownership > initializes ImageryLODManager using active profile without hardcoding maxPatches
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:409:14)
+    at new LoadedTrek (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:80:33)
+    at E:/Development/delphimon/trekviewer/test/stage_x1_quality_profile.test.ts:156:20
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20
+    at new Promise (<anonymous>)
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:409:14)
+    at new LoadedTrek (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:80:33)
+    at E:/Development/delphimon/trekviewer/test/stage_x1_quality_profile.test.ts:156:20
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20
+    at new Promise (<anonymous>)
+
+stderr | test/stage_x1_quality_profile.test.ts > Stage X1: Single-Source Quality Profile Architecture > LoadedTrek Single-Source Quality Profile Ownership > propagates setQualityProfile to both imageryLOD and localTerrainStreamer
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:409:14)
+    at new LoadedTrek (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:80:33)
+    at E:/Development/delphimon/trekviewer/test/stage_x1_quality_profile.test.ts:181:20
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20
+    at new Promise (<anonymous>)
+Failed to fetch local elevation chunk: ReferenceError: document is not defined
+    at ElevationTileService.decodeTileGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:254:20)
+    at ElevationTileService.fetchLocalElevationGrid (E:/Development/delphimon/trekviewer/src/terrain/ElevationTiles.ts:203:31)
+    at LocalTerrainStreamer.fetchStationDEM (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:176:38)
+    at LocalTerrainStreamer.update (E:/Development/delphimon/trekviewer/src/terrain/LocalTerrainStreamer.ts:409:14)
+    at new LoadedTrek (E:/Development/delphimon/trekviewer/src/core/LoadedTrek.ts:80:33)
+    at E:/Development/delphimon/trekviewer/test/stage_x1_quality_profile.test.ts:181:20
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20
+    at new Promise (<anonymous>)
+
+··········································stdout | test/trail_ribbon.test.ts > 2D Trail Ribbon & Alpine Hiker Beacon > evaluates trail ribbon geometry and hiker beacon components
+Trail Ribbon Vertices: 6886
+Trail Ribbon Triangles: 6884
+✓ Trail ribbon has proper 2D upward normals and zero 3D cylinder bulk
+✓ Elevated beacon jewel (y=28m), laser pillar, ground rings, and directional chevron verified!
+Hiker position at 50% trek progress: { x: -4499.5, y: 4.5, z: 2803.5 }
+✓ Hiker position tracking along trail curve verified!
+✓ All 2D Trail Ribbon & Alpine Hiker Beacon tests passed!
+
+·······················stdout | test/track_geometry_fidelity.test.ts > Track Geometry Fidelity & Adaptive Resolution > evaluates RDP simplification, switchbacks, cumulative distance telemetry, and texture budget
+Testing RDP simplification with alpine switchbacks and hairpin turns...
+Original switchback vertices: 9, Simplified: 6
+✓ Alpine switchback and 180° hairpin apexes preserved within 6m tolerance
+Testing sharp glacier zigzags (crevasse navigation)...
+Original glacier zigzag vertices: 7, Simplified: 7
+✓ Glacier zigzags and crevasse detours preserved
+Testing sparse track handling...
+✓ Sparse tracks preserved without point loss
+Testing RouteGeometry analytical cumulative distance binary search...
+✓ Cumulative distance binary search correctly interpolates elevation, grade, and speed
+Testing adaptive terrain mesh segment allocation...
+✓ Adaptive terrain resolution scales conservatively within Quest GPU budget
+✓ All Track Geometry Fidelity & Adaptive Resolution tests passed successfully!
+
+stdout | test/track_geometry_fidelity.test.ts > Track Geometry Fidelity & Adaptive Resolution > verifies RouteGeometry Ground Tier provides pure DEM coordinates without presentation offsets
+✓ RouteGeometry ground tier passes through pure DEM coordinates without baked display offsets
+
+···················stdout | test/vertical_exaggeration_alignment.test.ts > Vertical Exaggeration Alignment (Terrain, Trail & Waypoints) > evaluates rigorous vertical exaggeration scaling alignment between trail, beacons, hiker, and waypoints
+✓ At 1.0x exaggeration: terrainGroundY = 250.00m, trailY = 252.50m (offset = 2.50m constant), waypointY = 258.00m, beaconY = 258.00m
+✓ At 1.5x exaggeration: terrainGroundY = 375.00m, trailY = 377.50m (offset = 2.50m constant), waypointY = 383.00m, beaconY = 383.00m
+✓ At 2.0x exaggeration: terrainGroundY = 500.00m, trailY = 502.50m (offset = 2.50m constant), waypointY = 508.00m, beaconY = 508.00m
+✓ At 3.0x exaggeration: terrainGroundY = 750.00m, trailY = 752.50m (offset = 2.50m constant), waypointY = 758.00m, beaconY = 758.00m
+✓ Verified: Trail elevation offset remains strictly constant and is never scaled by exaggeration factor
+✓ First-person 1:1 path correctly sits 0.08m above DEM ground elevation
+✓ All Vertical Exaggeration Alignment tests passed successfully!
+
+stdout | test/vertical_exaggeration_alignment.test.ts > Vertical Exaggeration Alignment (Terrain, Trail & Waypoints) > labels finish beacon as FINISH when final point is not at peak elevation
+✓ Neutral endpoint semantics verified: labeled FINISH for loop route ending at low elevation
+
+stderr | test/regional_base_elevation.test.ts > regional elevation for base terrain > continues with the route DEM if optional regional loading fails
+Regional elevation unavailable; using route DEM: Error: offline
+    at E:/Development/delphimon/trekviewer/test/regional_base_elevation.test.ts:65:84
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:1628:35
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:2783:26
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3319:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3314:10)
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3299:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3257:10)
+    at file:///E:/Development/delphimon/trekviewer/node_modules/vitest/dist/chunks/run.C5UmxDPh.js:3876:64
+
+···································stdout | test/track_segments.test.ts > Multi-Segment GPX Track Support (<trkseg>) > evaluates multi-segment parsing, gap isolation, and trail ribbon generation
+✓ Parsed 2 segments: Seg1=1177m, Seg2=1280m, Total=2457m
+✓ Multi-segment trail ribbon constructed and disposed without phantom bridges
+✓ All Track Segment tests passed successfully!
+
+···················stdout | test/hand_gestures.test.ts > Hand Tracking & 6DOF Manipulation Gestures > evaluates gestures, isolation, and 6DOF manipulation
+Testing pinch detection and hysteresis thresholds...
+✓ Strict pinch hysteresis thresholds (<=20mm engage, >28mm release) verified successfully
+Testing two-handed 6DOF manipulation math...
+✓ Pulling hands apart correctly expands scale (1.5x zoom)
+✓ Pushing hands together correctly reduces scale (0.75x zoom)
+✓ Dual-hand translation moves diorama 1:1 in 3D room space
+✓ Dual-hand steering wheel gesture correctly rotates diorama around vertical axis
+✓ Midpoint pivot anchoring preserves contact location during simultaneous scale + rotate
+✓ Dual-hand vertical separation correctly tilts diorama pitch in 3D
+✓ Two-handed rigid contact invariance verified: zero slippage for both hands under 6DOF line transform
+✓ Dual-hand handlebar wrist twist tilts diorama pitch while hands remain fixed
+✓ Dual-hand upright protection guarantees diorama never flips upside down
+Testing one-handed direct manipulation...
+✓ One-handed 1:1 translation, wrist-twist yaw rotation, and wrist pitch tilt verified
+✓ One-handed off-center contact-anchored invariance verified: zero slippage under wrist yaw & pitch
+✓ One-handed upright protection guarantees diorama never flips upside down
+Testing fingertip Spatial HUD direct touch / poke projection...
+✓ Spatial HUD direct fingertip poke and pinch click projection verified
+Testing Hand vs. Controller isolation...
+✓ Hand vs. Controller isolation verified: hands cleanly suppress controller meshes and laser drag
+Testing HUD grab exclusivity...
+✓ HUD grab exclusivity verified: pinching on HUD (laser or direct touch) does not trigger diorama translation/scale
+Testing Hand Outline Skeleton structure...
+✓ Hand Outline Skeleton structure verified: 25 joints, 28 bones, 168 vertex floats packed cleanly
+Testing Hand / Controller click alignment (verifying clicks are not reversed)...
+✓ Hand / Controller click alignment verified: clicks map strictly 1:1 to pointed hand and are never reversed
+Testing Diorama Virtual Touch Proximity Math (tabletop height, 18cm envelope)...
+✓ Diorama tabletop height and 18cm touch envelope verified successfully
+Testing Proximity Grab Gating & Dynamic Hand Outline Visuals...
+✓ Proximity Grab Gating & Dynamic Hand Outline Visuals verified successfully!
+✓ All Hand Gestures, 6DOF Manipulation, Skeleton, Touch Proximity & Visuals passed successfully!
+
+··················stdout | test/uv_mapping.test.ts > Satellite & DEM UV Orthorectification Alignment > evaluates UV orthorectification alignment
+Tile Grid Bounds at Zoom 13 : {
+  tileXMin: 1322,
+  tileXMax: 1327,
+  tileYMin: 2883,
+  tileYMax: 2888,
+  numTilesX: 6,
+  numTilesY: 6,
+  totalTiles: 36
+}
+NW Corner UV (should be small u, large v near top): { u: 0.1717850051509989, v: 0.8337764686574095 }
+SE Corner UV (should be large u, small v near bottom): { u: 0.9198966541082806, v: 0.085664253565786 }
+Center UV (should be near 0.5, 0.5): { u: 0.5458408296296208, v: 0.4594854683970576 }
+Summit UV: { u: 0.5458408296296208, v: 0.4594854683970576 }
+✓ All UV orthorectification alignment tests passed!
+
+·······································stdout | test/desktop_status_banner.test.ts > DesktopOverlay Status Banner & Spinner Lifecycle > hides spinner and auto-dismisses on ready and completion messages
+✓ Desktop status banner and spinner lifecycle logic verified successfully!
+
+···
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/stage_s1_first_person_lod.test.ts > Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suite > 1:1 Trail Mode Imagery Profile & Zone Allocation (Section 11) > centers high-resolution patch tile generation on hiker route position in first-person mode
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/stage_s1_first_person_lod.test.ts:111:31
+    109|         }
+    110|       });
+    111|       expect(foundClosePatch).toBe(true);
+       |                               ^
+    112|
+    113|       lod.dispose();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/stage_s1_first_person_lod.test.ts > Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suite > Directional Forward Prefetch & Reevaluation Threshold (Section 12) > suppresses reevaluation when user moves less than 50m along the route without view turn
+AssertionError: expected 84 to be 60 // Object.is equality
+
+- Expected
++ Received
+
+- 60
++ 84
+
+ ❯ test/stage_s1_first_person_lod.test.ts:227:56
+    225|
+    226|       // Must NOT have created new patches (reevaluation suppressed un…
+    227|       expect(lod.getDiagnostics().patchesCreatedTotal).toBe(initialCre…
+       |                                                        ^
+    228|
+    229|       // Now move progress by >100m (e.g. +0.02 progress = ~280m)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 80 passed (81)
+      Tests  2 failed | 388 passed (390)
+   Start at  11:38:24
+   Duration  23.02s (tests 76%, import 18%, transform 5%, worker 1%)
+
+    Isolate  81 workers spawned · ~158ms startup each (spawn + environment, per file)
+             at least ~6.24s faster with isolate: false — reuses workers across files instead of one per file

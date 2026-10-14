@@ -1,0 +1,57 @@
+{
+  "baseline": {
+    "selected": [
+      881,
+      886
+    ],
+    "bounds": {
+      "minX": -3456.3492358742355,
+      "maxX": -2156.3492358742355,
+      "minZ": 835.55617051786,
+      "maxZ": 2135.5561705178598
+    },
+    "vertices": [
+      6886,
+      6886
+    ],
+    "calls": 63,
+    "textures": 84,
+    "patches": 80,
+    "coverage": 100,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "current": {
+    "equality": [
+      {
+        "positions": true,
+        "normals": true
+      },
+      {
+        "positions": true,
+        "normals": true
+      }
+    ],
+    "calls": 63,
+    "textures": 84,
+    "glError": 0
+  },
+  "renderingDifference": {
+    "changedPixels": 0,
+    "maxChannelDifference": 0,
+    "totalPixels": 1012293
+  },
+  "previousRepeatDifference": {
+    "changedPixels": 0,
+    "maxChannelDifference": 0,
+    "totalPixels": 1012293
+  },
+  "currentRepeatDifference": {
+    "changedPixels": 0,
+    "maxChannelDifference": 0,
+    "totalPixels": 1012293
+  },
+  "imageSha256": "f0b648d717868874a70d73d0562e5f3d98266d919278015f1df5fcb3058a90f4",
+  "errors": [],
+  "warnings": []
+}

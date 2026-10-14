@@ -154,7 +154,7 @@ describe('WebXR Entry Button & Loading Phase Lifecycle (Regression Fix)', () => 
   });
 
   it('DesktopOverlay setXREnabled toggles disabled property on VR and AR buttons', () => {
-    const container = { innerHTML: '' } as HTMLElement;
+    const container = { innerHTML: '', addEventListener: vi.fn() } as unknown as HTMLElement;
     const overlay = new DesktopOverlay(container, {
       onSelectRoute: () => {},
       onUploadGPX: () => {},

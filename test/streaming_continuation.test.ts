@@ -141,7 +141,7 @@ it.each(['resolve','reject'] as const)('isolates cache generations when old requ
 
 it('finishes the current style status without an old style completion overwriting it',async()=>{
   const canvas={width:1,height:1} as any;
-  vi.spyOn(TextureProvider,'generateTopoTexture').mockReturnValue(new THREE.CanvasTexture(canvas));
+  vi.spyOn(TextureProvider,'generateTopoTextureAsync').mockResolvedValue(new THREE.CanvasTexture(canvas));
   vi.spyOn(TextureProvider,'fetchSatelliteTexture').mockResolvedValue(new THREE.CanvasTexture(canvas));
   const topo=deferred<THREE.CanvasTexture|null>();
   vi.spyOn(TextureProvider,'fetchTopoTexture').mockReturnValue(topo.promise);

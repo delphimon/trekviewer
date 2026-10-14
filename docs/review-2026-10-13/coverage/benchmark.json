@@ -1,0 +1,54 @@
+{
+  "runtime": "v24.21.0",
+  "measurement": "isolated-cpu-coverage-update",
+  "results": [
+    {
+      "grid": {
+        "width": 13503.704548402802,
+        "depth": 8467.382469057,
+        "segmentsX": 226,
+        "segmentsZ": 142
+      },
+      "holes": 24,
+      "cells": 32092,
+      "maskBytes": 32092,
+      "indexBytes": 385104,
+      "drawnIndices": 183336,
+      "exactMatch": true,
+      "previous": {
+        "medianMs": 1.4148000000000138,
+        "p95Ms": 1.647100000000023,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.05639999999999645,
+        "p95Ms": 0.08550000000002456,
+        "samples": 200
+      }
+    },
+    {
+      "grid": {
+        "width": 26001.71,
+        "depth": 27379.43,
+        "segmentsX": 439,
+        "segmentsZ": 451
+      },
+      "holes": 24,
+      "cells": 197989,
+      "maskBytes": 197989,
+      "indexBytes": 4751736,
+      "drawnIndices": 1178718,
+      "exactMatch": true,
+      "previous": {
+        "medianMs": 11.394800000000032,
+        "p95Ms": 12.608299999999872,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.6079999999997199,
+        "p95Ms": 0.801600000000235,
+        "samples": 200
+      }
+    }
+  ]
+}

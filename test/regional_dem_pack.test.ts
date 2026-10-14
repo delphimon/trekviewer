@@ -37,7 +37,7 @@ describe('optional Enchantments 3DEP pack', () => {
     let calls = 0;
     vi.spyOn(ElevationTileService as any, 'decodeTileGrid').mockImplementation(async () => {
       calls++;
-      return { quality: { validTileRatio: 1 }, sourceCall: calls };
+      return { quality: { validTileRatio: 1 }, sourceCall: calls, data: new Float32Array(256 * 256), tileValidity: new Uint8Array([1]) };
     });
     ElevationTileService.setRegionalDEMEnabled(false);
     await ElevationTileService.fetchLocalElevationGrid(47.49, -120.83, 500, 15, 16);

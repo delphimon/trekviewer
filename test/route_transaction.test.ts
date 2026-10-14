@@ -122,11 +122,17 @@ describe('Route Transaction Architecture & State Atomicity (Stage F)', () => {
   it('LoadedTrek encapsulates all 3D components, adjusts vertical exaggeration, and disposes completely', async () => {
     const dioramaRoot = new THREE.Group();
     let committedTrek: LoadedTrek | null = null;
+    let loadSignalDetached = false;
 
     const loader = new RouteLoader({
       dioramaRoot,
       getIsXR: () => false,
+      prepareRender: async (trek) => {
+        const detach = trek.terrainResult.detachLoadSignal!;
+        trek.terrainResult.detachLoadSignal = () => { detach(); loadSignalDetached = true; };
+      },
       onTrekCommitted: (trek) => {
+        assert.strictEqual(loadSignalDetached, true, 'Committed terrain must own its imagery lifetime');
         committedTrek = trek;
       },
     });

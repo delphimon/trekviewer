@@ -23,6 +23,8 @@ export class FlyoverController {
   private viewMode: ViewMode = 'diorama';
   private navigationYaw: number | null = null;
   private readonly navigationOffset = new THREE.Vector3();
+  private readonly viewerAnchor = new THREE.Vector3();
+  private viewerHeading: number = 0;
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
   private elevationSampler?: (x: number, z: number) => number;
 
@@ -42,15 +44,36 @@ export class FlyoverController {
   }
 
   public setViewMode(mode: ViewMode): void {
-    if (this.viewMode !== mode) this.navigationYaw = null;
+    if (this.viewMode !== mode) {
+      this.navigationYaw = null;
+      this.viewerAnchor.set(0, 0, 0);
+      this.viewerHeading = 0;
+      if (mode === 'first-person') this.pause();
+    }
     this.viewMode = mode;
   }
 
-  public turn(radians: number): void {
+  /** Capture the current local-floor viewer pose, preserving subsequent physical movement. */
+  public recenterViewer(camera: THREE.Camera): void {
+    camera.getWorldPosition(this.viewerAnchor);
+    this.viewerAnchor.y = 0;
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    this.viewerHeading = Math.atan2(-forward.x, -forward.z);
+    this.navigationYaw = null;
+  }
+
+  public turn(radians: number, camera?: THREE.Camera): void {
     if (this.navigationYaw === null) {
       this.navigationYaw = headingForForwardVector(this.trailResult.routeGeometry.getRouteForwardAtProgress(this.progress));
     }
     this.navigationYaw += radians;
+    if (camera) {
+      const pivot = new THREE.Vector3();
+      camera.getWorldPosition(pivot);
+      pivot.y = 0;
+      this.viewerAnchor.sub(pivot).applyAxisAngle(new THREE.Vector3(0, 1, 0), radians).add(pivot);
+    }
   }
 
   public getViewMode(): ViewMode {
@@ -116,6 +139,11 @@ export class FlyoverController {
    * Steps forward/backward by a duration scaled to the trek's total time.
    */
   public stepSeconds(seconds: number): void {
+    if (this.viewMode === 'first-person') {
+      this.pause();
+      this.stepDistanceMeters(Math.sign(seconds));
+      return;
+    }
     const timeDelta = seconds * this.playbackSpeed;
     const newTime = Math.max(0, Math.min(this.totalPlaybackSeconds, this.playbackTime + timeDelta));
     this.playbackTime = newTime;
@@ -151,6 +179,7 @@ export class FlyoverController {
     isWebXRPresenting: boolean = false
   ): void {
     if (this.isPlaying) {
+      const previousProgress = this.progress;
       // True temporal multiplier: 1x = 1 real second per trek second (e.g. 20x advances 20 trek seconds per second)
       const simRate = this.playbackSpeed;
       this.playbackTime += deltaSeconds * simRate;
@@ -161,6 +190,14 @@ export class FlyoverController {
         this.isPlaying = false;
       } else {
         this.progress = this.timeToProgress(this.playbackTime);
+      }
+
+      if (this.viewMode === 'first-person') {
+        // Recorded gaps and accelerated tabletop playback must not become high-speed locomotion.
+        const maxProgress = previousProgress + Math.max(0, deltaSeconds) * 1.4 / Math.max(this.track.totalDistance, 1);
+        this.progress = Math.min(this.progress, maxProgress, 1);
+        this.playbackTime = this.progressToTime(this.progress);
+        this.isPlaying = this.progress < 1;
       }
 
       this.updatePosition();
@@ -184,7 +221,7 @@ export class FlyoverController {
         // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)
         // Rotate so increasing route direction points forward (-Z) in room space (Section 6)
         // Align on entry, then preserve user heading through bends and paused frames.
-        if (this.navigationYaw === null) this.navigationYaw = headingForForwardVector(forward);
+        if (this.navigationYaw === null) this.navigationYaw = headingForForwardVector(forward) + this.viewerHeading;
         const rotY = this.navigationYaw;
         dioramaRoot.rotation.set(0, rotY, 0);
 
@@ -194,6 +231,7 @@ export class FlyoverController {
           -groundY,
           pos.x * Math.sin(rotY) - pos.z * Math.cos(rotY)
         );
+        offset.add(this.viewerAnchor);
         dioramaRoot.position.copy(offset);
         dioramaRoot.scale.set(1, 1, 1);
       } else if (camera) {

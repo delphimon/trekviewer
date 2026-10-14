@@ -1,0 +1,18 @@
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+stdout | test/review_oct13_reproductions.test.ts > reproduces the advertised 25-tile DEM budget overflowing at minimum zoom
+Dateline DEM request footprint: { zoom: 10, tiles: 1024, width: 262144, height: 256 }
+
+ ✓ test/review_oct13_reproductions.test.ts > reproduces a direct poke remaining latched after withdrawal and reentry 3ms
+ ✓ test/review_oct13_reproductions.test.ts > reproduces both ray and direct HUD dispatch for the same hand pinch 5ms
+ ✓ test/review_oct13_reproductions.test.ts > reproduces a HUD action while a hand still owns a diorama grab 1ms
+ ✓ test/review_oct13_reproductions.test.ts > reproduces route scrubbing without a captured chart press 0ms
+ ✓ test/review_oct13_reproductions.test.ts > reproduces the advertised 25-tile DEM budget overflowing at minimum zoom 3ms
+ ✓ test/review_oct13_reproductions.test.ts > reproduces dispatching an untracked controller and making its stale pose visible 1ms
+ ✓ test/review_oct13_reproductions.test.ts > reproduces first-person entry anchoring the trail to reference origin instead of current feet 1ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  11:38:35
+   Duration  718ms (transform 48%, import 47%, tests 3%, worker 1%)

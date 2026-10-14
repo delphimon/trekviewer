@@ -33,7 +33,7 @@ describe('XR Frame-Rate Independence & Timing Math (Stage N)', () => {
     const frameRates = [60, 72, 90, 120];
     const stickY = -1.0; // full forward
 
-    // Normal speed (18 m/s)
+    // Normal walking pace (1.4 m/s)
     const normalResults = frameRates.map((fps) => {
       const dt = 1 / fps;
       let totalDist = 0;
@@ -44,10 +44,10 @@ describe('XR Frame-Rate Independence & Timing Math (Stage N)', () => {
     });
 
     for (const dist of normalResults) {
-      assert(Math.abs(dist - 18.0) < 1e-5, `Expected 18.0m, got ${dist}`);
+      assert(Math.abs(dist - 1.4) < 1e-5, `Expected 1.4m, got ${dist}`);
     }
 
-    // Turbo speed (75 m/s)
+    // Brisk walking pace (2 m/s)
     const turboResults = frameRates.map((fps) => {
       const dt = 1 / fps;
       let totalDist = 0;
@@ -58,7 +58,7 @@ describe('XR Frame-Rate Independence & Timing Math (Stage N)', () => {
     });
 
     for (const dist of turboResults) {
-      assert(Math.abs(dist - 75.0) < 1e-5, `Expected 75.0m, got ${dist}`);
+      assert(Math.abs(dist - 2.0) < 1e-5, `Expected 2.0m, got ${dist}`);
     }
 
     // Deadzone check (|stickY| <= 0.1)

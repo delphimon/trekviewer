@@ -210,7 +210,8 @@ export function applyBimanualTransform(
   wrist0Prev?: THREE.Quaternion,
   wrist0Curr?: THREE.Quaternion,
   wrist1Prev?: THREE.Quaternion,
-  wrist1Curr?: THREE.Quaternion
+  wrist1Curr?: THREE.Quaternion,
+  horizonLocked: boolean = false
 ): void {
   const target = diorama as any;
   if (!target.quaternion) {
@@ -296,6 +297,12 @@ export function applyBimanualTransform(
     }
   }
 
+  // Constrain the actual pivot rotation before moving the model, preserving contact.
+  if (horizonLocked) {
+    _scratchEuler.setFromQuaternion(_scratchRot, 'YXZ');
+    _scratchRot.setFromAxisAngle(_scratchYAxis, _scratchEuler.y);
+  }
+
   // 4. Scale calculation
   const currentScale = typeof target.scale === 'number' ? target.scale : target.scale.x;
   const targetScale = Math.max(0.000005, Math.min(0.05, currentScale * scaleFactor));
@@ -330,7 +337,8 @@ export function applyOneHandedManipulation(
   prevHandPos: THREE.Vector3,
   currHandPos: THREE.Vector3,
   prevWristQuat?: THREE.Quaternion,
-  currWristQuat?: THREE.Quaternion
+  currWristQuat?: THREE.Quaternion,
+  horizonLocked: boolean = false
 ): void {
   const target = diorama as any;
   if (!target.quaternion) {
@@ -382,6 +390,11 @@ export function applyOneHandedManipulation(
     }
   }
 
+  if (horizonLocked) {
+    _scratchEuler.setFromQuaternion(_scratchRot, 'YXZ');
+    _scratchRot.setFromAxisAngle(_scratchYAxis, _scratchEuler.y);
+  }
+
   // Physical pivot transformation around contact point:
   // Invariant: The virtual point on the diorama being held under prevHandPos lands exactly at currHandPos
   _scratchOffset.copy(target.position).sub(prevHandPos);
@@ -407,11 +420,11 @@ export function clampDeltaSeconds(deltaSeconds: number): number {
 
 /**
  * Computes first-person thumbstick walking distance delta in meters.
- * Speed: 18.0 m/s normal, 75.0 m/s turbo.
+ * Comfortable walking pace; trigger permits a modest brisk walking pace.
  */
 export function computeThumbstickWalkDelta(stickY: number, isTurbo: boolean, dt: number): number {
   if (Math.abs(stickY) <= 0.1) return 0;
-  const baseSpeedMps = isTurbo ? 75.0 : 18.0;
+  const baseSpeedMps = isTurbo ? 2.0 : 1.4;
   return -stickY * baseSpeedMps * dt;
 }
 

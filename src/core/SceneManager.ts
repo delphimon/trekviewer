@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import { TextureProvider } from '../terrain/TextureProvider.ts';
+import { updateInspectionClipping } from './InspectionView.ts';
 
 export class SceneManager {
   public scene: THREE.Scene;
@@ -18,6 +19,8 @@ export class SceneManager {
   private targetPosition: THREE.Vector3 = new THREE.Vector3();
   private targetRotationY: number = 0;
   private onWindowResizeBound: () => void;
+  private readonly vignette: THREE.Mesh;
+  private terrainExtent = 1000;
 
   constructor(container: HTMLElement) {
     // 1. Scene
@@ -53,6 +56,15 @@ export class SceneManager {
     this.renderer.xr.enabled = true;
     container.appendChild(this.renderer.domElement);
     TextureProvider.setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
+    this.vignette = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: { strength: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 screenUV; void main(){screenUV=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
+      fragmentShader: 'varying vec2 screenUV; uniform float strength; void main(){float edge=smoothstep(0.25,0.67,length(screenUV-0.5));if(edge<0.01)discard;gl_FragColor=vec4(0.0,0.0,0.0,edge*strength);}',
+    }));
+    this.vignette.frustumCulled = false;
+    this.vignette.renderOrder = 2000;
+    this.vignette.visible = false;
+    this.scene.add(this.vignette);
 
     // 5. Lighting
     this.hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.2);
@@ -114,6 +126,7 @@ export class SceneManager {
 
   public setViewMode(mode: ViewMode, extentMeters: number): void {
     this.currentViewMode = mode;
+    this.terrainExtent = Math.max(1000, extentMeters);
 
     if (mode === 'diorama') {
       // Scale down so entire mountain fits on an 0.8m - 1.0m table
@@ -146,6 +159,20 @@ export class SceneManager {
     this.renderer.render(this.scene, this.camera);
   }
 
+  public updateCameraClipping(targetDistance: number): void {
+    updateInspectionClipping(this.camera,
+      this.currentViewMode === 'diorama' && !this.renderer.xr.isPresenting,
+      targetDistance, this.camera.position.distanceTo(this.dioramaRoot.position),
+      this.terrainExtent * this.dioramaRoot.scale.length());
+  }
+
+  public updateMotionVignette(active: boolean, delta: number): void {
+    const uniform = (this.vignette.material as THREE.ShaderMaterial).uniforms.strength;
+    const target = active ? 0.8 : 0;
+    uniform.value += (target - uniform.value) * (1 - Math.exp(-Math.max(0, delta) * 10));
+    this.vignette.visible = this.renderer.xr.isPresenting && uniform.value > 0.005;
+  }
+
   private createSkyDome(): THREE.Mesh {
     const skyGeo = new THREE.SphereGeometry(40000, 32, 16);
     // Invert geometry to view from inside
@@ -170,7 +197,17 @@ export class SceneManager {
       map: skyTex,
       depthWrite: false,
     });
-    return new THREE.Mesh(skyGeo, skyMat);
+    // Sky is a background, independent of the scene's inspection clipping range.
+    skyMat.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>',
+        '#include <project_vertex>\ngl_Position.z = gl_Position.w;');
+    };
+    skyMat.customProgramCacheKey = () => 'sky-at-far-depth-v1';
+    const mesh = new THREE.Mesh(skyGeo, skyMat);
+    mesh.frustumCulled = false;
+    // Draw the opaque background after terrain; early depth rejection avoids shading covered sky pixels.
+    mesh.renderOrder = 1000;
+    return mesh;
   }
 
   private onWindowResize(): void {
@@ -193,8 +230,10 @@ export class SceneManager {
    * Complete teardown of Three.js scene, renderer, event listeners, and GPU resources.
    */
   public dispose(): void {
+    this.renderer.setAnimationLoop(null);
     window.removeEventListener('resize', this.onWindowResizeBound);
     disposeObject3D(this.skyMesh);
+    disposeObject3D(this.vignette);
     disposeObject3D(this.dioramaRoot);
     this.sunLight.shadow.map?.dispose();
     this.renderer.dispose();

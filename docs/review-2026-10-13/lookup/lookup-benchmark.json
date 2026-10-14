@@ -1,0 +1,250 @@
+{
+  "runtime": "v24.21.0",
+  "queriesPerSample": 24,
+  "warmupSamples": 40,
+  "results": [
+    {
+      "fixture": "MountRainierViaEmmons.gpx",
+      "vertices": 6886,
+      "footprint": "300m square",
+      "meanSelected": 183.79166666666666,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.011733333333332041,
+        "p95Ms": 0.01515000000000081,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.0026249999999995075,
+        "p95Ms": 0.003091666666667455,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 0.5933999999999742,
+        "p95Ms": 0.6408000000000129,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 0.2646000000000299,
+        "p95Ms": 0.3342000000000098,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "MountRainierViaEmmons.gpx",
+      "vertices": 6886,
+      "footprint": "1300m square",
+      "meanSelected": 844.0833333333334,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.017533333333332735,
+        "p95Ms": 0.022612499999998665,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.007704166666670176,
+        "p95Ms": 0.010145833333335,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 0.5933999999999742,
+        "p95Ms": 0.6408000000000129,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 0.2646000000000299,
+        "p95Ms": 0.3342000000000098,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "MountRainierViaEmmons.gpx",
+      "vertices": 6886,
+      "footprint": "entire ribbon",
+      "meanSelected": 6886,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.06816249999999968,
+        "p95Ms": 0.08652499999999463,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.049350000000004,
+        "p95Ms": 0.061449999999998305,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 0.5933999999999742,
+        "p95Ms": 0.6408000000000129,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 0.2646000000000299,
+        "p95Ms": 0.3342000000000098,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "GlacierPeakTraverse2026.gpx",
+      "vertices": 13640,
+      "footprint": "300m square",
+      "meanSelected": 188.58333333333334,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.019029166666664803,
+        "p95Ms": 0.025979166666663406,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.0024833333333352434,
+        "p95Ms": 0.0033333333333303017,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 1.0378000000000611,
+        "p95Ms": 1.199500000000171,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 0.47710000000006403,
+        "p95Ms": 0.509900000000016,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "GlacierPeakTraverse2026.gpx",
+      "vertices": 13640,
+      "footprint": "1300m square",
+      "meanSelected": 904.2083333333334,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.026112500000001166,
+        "p95Ms": 0.03291666666667462,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.007645833333337275,
+        "p95Ms": 0.008916666666664241,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 1.0378000000000611,
+        "p95Ms": 1.199500000000171,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 0.47710000000006403,
+        "p95Ms": 0.509900000000016,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "GlacierPeakTraverse2026.gpx",
+      "vertices": 13640,
+      "footprint": "entire ribbon",
+      "meanSelected": 13640,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.13053749999998368,
+        "p95Ms": 0.1519124999999993,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.09021666666666306,
+        "p95Ms": 0.11421666666666397,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 1.0378000000000611,
+        "p95Ms": 1.199500000000171,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 0.47710000000006403,
+        "p95Ms": 0.509900000000016,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "400km synthetic ribbon, 100km extent",
+      "vertices": 100002,
+      "footprint": "300m square",
+      "meanSelected": 71,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.26751249999999044,
+        "p95Ms": 0.2845999999999928,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.0024999999999787783,
+        "p95Ms": 0.0034458333333304836,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 8.093600000000151,
+        "p95Ms": 8.672499999999673,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 3.8571999999999207,
+        "p95Ms": 4.309799999999996,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "400km synthetic ribbon, 100km extent",
+      "vertices": 100002,
+      "footprint": "1300m square",
+      "meanSelected": 787.9166666666666,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 0.2765708333333426,
+        "p95Ms": 0.29500416666667206,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 0.010100000000003698,
+        "p95Ms": 0.013158333333346187,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 8.093600000000151,
+        "p95Ms": 8.672499999999673,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 3.8571999999999207,
+        "p95Ms": 4.309799999999996,
+        "samples": 40
+      }
+    },
+    {
+      "fixture": "400km synthetic ribbon, 100km extent",
+      "vertices": 100002,
+      "footprint": "entire ribbon",
+      "meanSelected": 100002,
+      "identicalOrderedSelections": true,
+      "previous": {
+        "medianMs": 1.7743791666666766,
+        "p95Ms": 1.8667874999999488,
+        "samples": 200
+      },
+      "current": {
+        "medianMs": 1.388320833333258,
+        "p95Ms": 1.4563208333333175,
+        "samples": 200
+      },
+      "constructionPrevious": {
+        "medianMs": 8.093600000000151,
+        "p95Ms": 8.672499999999673,
+        "samples": 40
+      },
+      "constructionCurrent": {
+        "medianMs": 3.8571999999999207,
+        "p95Ms": 4.309799999999996,
+        "samples": 40
+      }
+    }
+  ]
+}

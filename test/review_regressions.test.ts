@@ -33,14 +33,22 @@ it('promotes a delayed focus once despite 72 waiting frames', async () => {
 });
 
 it.each([100, 300])('renders and samples the same refined surface at DEM height %s', async (localHeight) => {
-  vi.spyOn(TextureProvider,'generateTopoTexture').mockReturnValue(new THREE.CanvasTexture({width:1,height:1} as any));
+  vi.spyOn(TextureProvider,'generateTopoTextureAsync').mockResolvedValue(new THREE.CanvasTexture({width:1,height:1} as any));
   vi.spyOn(TextureProvider,'fetchSatelliteTexture').mockResolvedValue(null);
   const base:any = {zoom:12,isRealDEM:true,tileValidity:new Uint8Array([1]),minElevation:0,maxElevation:200};
   const local:any = {...base,zoom:15};
   vi.spyOn(ElevationTileService,'sampleElevation').mockImplementation((g)=>({isValid:true,elevation:g===local?localHeight:200}));
   const terrain = await TerrainGenerator.generate({bounds,points:[{lat:46.85,lon:-121.75,ele:200}],minElevation:0} as any,undefined,undefined,1,false,{demGrid:base,terrainGeoBounds:bounds,elevationSamplerForGeo:()=>200});
-  const chunk = new LocalTerrainChunk({localGrid:local,centerLat:46.85,centerLon:-121.75,terrainBaseElevation:terrain.terrainBaseElevation,radiusMeters:300,segments:8,baseMeshGrid:terrain.baseMeshGrid,baseElevationSampler:terrain.sampleBaseSurfaceY});
+  const initialIndices = terrain.terrainMesh.geometry.index!.array.slice();
+  const initialNormals = terrain.terrainMesh.geometry.attributes.normal.array.slice();
+  terrain.terrainMesh.geometry.index!.clearUpdateRanges();
+  const createChunk = () => new LocalTerrainChunk({localGrid:local,centerLat:46.85,centerLon:-121.75,terrainBaseElevation:terrain.terrainBaseElevation,radiusMeters:300,segments:8,baseMeshGrid:terrain.baseMeshGrid,baseElevationSampler:terrain.sampleBaseSurfaceY});
+  const chunk = createChunk();
   terrain.attachLocalChunk!(chunk);
+  const coveredGeometry = terrain.terrainMesh.geometry;
+  expect(coveredGeometry.drawRange.count).toBeLessThan(initialIndices.length);
+  expect(coveredGeometry.index!.updateRanges).toEqual([{ start: 0, count: coveredGeometry.drawRange.count }]);
+  expect(coveredGeometry.attributes.normal.array).toEqual(initialNormals);
   terrain.group.updateMatrixWorld(true);
   const hits = new THREE.Raycaster(new THREE.Vector3(0,1000,0),new THREE.Vector3(0,-1,0)).intersectObjects([terrain.terrainMesh,chunk.mesh]);
   expect(terrain.sampleRenderedSurfaceY!(0,0)).toBe(localHeight + 30);
@@ -56,13 +64,23 @@ it.each([100, 300])('renders and samples the same refined surface at DEM height 
   const patchHits = new THREE.Raycaster(new THREE.Vector3(0,1000,0),new THREE.Vector3(0,-1,0)).intersectObject(patchMesh);
   expect(patchHits[0].point.y).toBeCloseTo(hits[0].point.y + .04, 3);
   terrain.setVerticalExaggeration(2);
+  expect(coveredGeometry.index!.updateRanges).toEqual([{ start: 0, count: coveredGeometry.drawRange.count }]);
   terrain.group.updateMatrixWorld(true);
   const scaledHits = new THREE.Raycaster(new THREE.Vector3(0,2000,0),new THREE.Vector3(0,-1,0)).intersectObjects([terrain.terrainMesh,chunk.mesh]);
   expect(scaledHits[0].point.y).toBeCloseTo(terrain.sampleRenderedSurfaceY!(0,0)*2,3);
   terrain.detachLocalChunk!(chunk);
   expect(terrain.terrainMesh.geometry.index).toBe(index);
   expect(terrain.terrainMesh.geometry.drawRange.count).toBe(index!.count);
+  expect(index!.array).toEqual(initialIndices);
+  expect(index!.updateRanges).toEqual([{ start: 0, count: index!.count }]);
   expect(terrain.sampleRenderedSurfaceY!(0,0)).toBe(230);
+  // A restore followed by a promotion before rendering must retain the larger pending upload.
+  terrain.attachLocalChunk!(createChunk());
+  expect(coveredGeometry.drawRange.count).toBeLessThan(index!.count);
+  expect(index!.updateRanges).toEqual([{ start: 0, count: index!.count }]);
+  const indexVersion = index!.version;
+  terrain.notifySurfaceChange!();
+  expect(index!.version).toBe(indexVersion); // unchanged coverage does no extra GPU work
   patch.dispose(); patchMesh.material.dispose();
   terrain.dispose();
 });

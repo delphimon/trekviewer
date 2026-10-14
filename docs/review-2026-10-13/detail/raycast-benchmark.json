@@ -1,0 +1,46 @@
+{
+  "runtime": "v24.21.0",
+  "fixture": "400m square grid, flat interior, two remote corner height extremes; diagonal near-surface rays",
+  "results": [
+    {
+      "segments": 128,
+      "vertices": 16641,
+      "measurement": "synthetic-grid-cpu-raycast",
+      "exactNativeHits": true,
+      "previousTriangles": 244,
+      "currentTriangles": 26,
+      "previous": {
+        "medianMsPerRay": 0.008541666666666003,
+        "p95MsPerRay": 0.01106666666666456,
+        "samples": 200,
+        "raysPerSample": 24
+      },
+      "current": {
+        "medianMsPerRay": 0.0017208333333347998,
+        "p95MsPerRay": 0.0027250000000004584,
+        "samples": 200,
+        "raysPerSample": 24
+      }
+    },
+    {
+      "segments": 446,
+      "vertices": 199809,
+      "measurement": "synthetic-grid-cpu-raycast",
+      "exactNativeHits": true,
+      "previousTriangles": 848,
+      "currentTriangles": 86,
+      "previous": {
+        "medianMsPerRay": 0.028891666666666538,
+        "p95MsPerRay": 0.033041666666666934,
+        "samples": 200,
+        "raysPerSample": 24
+      },
+      "current": {
+        "medianMsPerRay": 0.0033583333333335,
+        "p95MsPerRay": 0.003912499999998431,
+        "samples": 200,
+        "raysPerSample": 24
+      }
+    }
+  ]
+}

@@ -73,6 +73,7 @@ export class TerrainRaycast {
     const c = new THREE.Vector3(), d = new THREE.Vector3();
     const scratch = new THREE.Vector3();
     let nearest: TerrainHit | null = null;
+    let nearestT = Infinity;
     // A diagonal ray can cross at most sx + sz - 1 cells. The extra iterations
     // accommodate an entry exactly on a grid boundary.
     for (let steps = 0; steps <= sx + sz + 2 && x >= 0 && x < sx && z >= 0 && z < sz; steps++) {
@@ -96,10 +97,14 @@ export class TerrainRaycast {
           if (distance >= raycaster.near && distance <= raycaster.far &&
               (!nearest || distance < nearest.distance)) {
             nearest = { point: worldPoint, distance, mesh };
+            nearestT = point.distanceTo(localRay.origin);
           }
         }
       }
       const nextCrossing = Math.min(crossX, crossZ);
+      // Cells are visited in ray order. Once a valid hit lies within this cell's
+      // interval, later cells cannot contain a closer hit on the same mesh.
+      if (nearest && nearestT <= nextCrossing) return nearest;
       if (nextCrossing > lastT + 1e-7 || !Number.isFinite(nextCrossing)) break;
       if (crossX <= nextCrossing + 1e-9) { x += stepX; crossX += deltaX; }
       if (crossZ <= nextCrossing + 1e-9) { z += stepZ; crossZ += deltaZ; }

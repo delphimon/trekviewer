@@ -1,0 +1,307 @@
+{
+  "summary": {
+    "title": "Mount Rainier via Emmons",
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "parallelShaders": true,
+    "tasks": [
+      {
+        "start": 114.5,
+        "duration": 1360
+      },
+      {
+        "start": 1489.5,
+        "duration": 141
+      },
+      {
+        "start": 1659.199999988079,
+        "duration": 76
+      },
+      {
+        "start": 3678.800000011921,
+        "duration": 61
+      },
+      {
+        "start": 3885.5,
+        "duration": 218
+      },
+      {
+        "start": 4135.5,
+        "duration": 153
+      },
+      {
+        "start": 4407.399999976158,
+        "duration": 55
+      }
+    ],
+    "bodyWidth": 1440,
+    "viewport": 1440
+  },
+  "layouts": {
+    "320": {
+      ".top-bar": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 214,
+        "display": "flex"
+      },
+      ".player-bar": {
+        "x": 10,
+        "y": 602,
+        "width": 300,
+        "height": 232,
+        "display": "flex"
+      },
+      "#btnEnterVR": {
+        "x": 97.296875,
+        "y": 115,
+        "width": 106.25,
+        "height": 40,
+        "display": "flex"
+      },
+      "#btnEnterAR": {
+        "x": 12,
+        "y": 163,
+        "width": 167.671875,
+        "height": 40,
+        "display": "flex"
+      },
+      "#btnViewToggle": {
+        "x": 23,
+        "y": 663,
+        "width": 138.734375,
+        "height": 40,
+        "display": "flex"
+      },
+      "#scrubberInput": {
+        "x": 23,
+        "y": 807,
+        "width": 274,
+        "height": 16,
+        "display": "block"
+      },
+      "#canvasChart": {
+        "x": 23,
+        "y": 753,
+        "width": 274,
+        "height": 50,
+        "display": "block"
+      },
+      "#btnSettings": {
+        "x": 12,
+        "y": 115,
+        "width": 77.296875,
+        "height": 40,
+        "display": "flex"
+      },
+      "#routeSelect": {
+        "x": 12,
+        "y": 67,
+        "width": 169.03125,
+        "height": 36,
+        "display": "block"
+      }
+    },
+    "390": {
+      ".top-bar": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 214,
+        "display": "flex"
+      },
+      ".player-bar": {
+        "x": 10,
+        "y": 602,
+        "width": 370,
+        "height": 232,
+        "display": "flex"
+      },
+      "#btnEnterVR": {
+        "x": 97.296875,
+        "y": 115,
+        "width": 106.25,
+        "height": 40,
+        "display": "flex"
+      },
+      "#btnEnterAR": {
+        "x": 12,
+        "y": 163,
+        "width": 167.671875,
+        "height": 40,
+        "display": "flex"
+      },
+      "#btnViewToggle": {
+        "x": 23,
+        "y": 663,
+        "width": 138.734375,
+        "height": 40,
+        "display": "flex"
+      },
+      "#scrubberInput": {
+        "x": 23,
+        "y": 807,
+        "width": 344,
+        "height": 16,
+        "display": "block"
+      },
+      "#canvasChart": {
+        "x": 23,
+        "y": 753,
+        "width": 344,
+        "height": 50,
+        "display": "block"
+      },
+      "#btnSettings": {
+        "x": 12,
+        "y": 115,
+        "width": 77.296875,
+        "height": 40,
+        "display": "flex"
+      },
+      "#routeSelect": {
+        "x": 12,
+        "y": 67,
+        "width": 239.03125,
+        "height": 36,
+        "display": "block"
+      }
+    },
+    "768": {
+      ".top-bar": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 90,
+        "display": "flex"
+      },
+      ".player-bar": {
+        "x": 10,
+        "y": 691,
+        "width": 748,
+        "height": 143,
+        "display": "flex"
+      },
+      "#btnEnterVR": {
+        "x": 444.078125,
+        "y": 26,
+        "width": 118.25,
+        "height": 37,
+        "display": "flex"
+      },
+      "#btnEnterAR": {
+        "x": 572.328125,
+        "y": 26,
+        "width": 179.671875,
+        "height": 37,
+        "display": "flex"
+      },
+      "#btnViewToggle": {
+        "x": 278.96875,
+        "y": 704,
+        "width": 146.734375,
+        "height": 35,
+        "display": "flex"
+      },
+      "#scrubberInput": {
+        "x": 31,
+        "y": 805,
+        "width": 706,
+        "height": 16,
+        "display": "block"
+      },
+      "#canvasChart": {
+        "x": 31,
+        "y": 751,
+        "width": 706,
+        "height": 50,
+        "display": "block"
+      },
+      "#btnSettings": {
+        "x": 348.78125,
+        "y": 26,
+        "width": 85.296875,
+        "height": 37,
+        "display": "flex"
+      },
+      "#routeSelect": {
+        "x": 326.59375,
+        "y": 26.5,
+        "width": 30,
+        "height": 36,
+        "display": "block"
+      }
+    },
+    "1024": {
+      ".top-bar": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 70,
+        "display": "flex"
+      },
+      ".player-bar": {
+        "x": 24,
+        "y": 681,
+        "width": 976,
+        "height": 143,
+        "display": "flex"
+      },
+      "#btnEnterVR": {
+        "x": 700.078125,
+        "y": 16,
+        "width": 118.25,
+        "height": 37,
+        "display": "flex"
+      },
+      "#btnEnterAR": {
+        "x": 828.328125,
+        "y": 16,
+        "width": 179.671875,
+        "height": 37,
+        "display": "flex"
+      },
+      "#btnViewToggle": {
+        "x": 292.96875,
+        "y": 694,
+        "width": 146.734375,
+        "height": 35,
+        "display": "flex"
+      },
+      "#scrubberInput": {
+        "x": 45,
+        "y": 795,
+        "width": 934,
+        "height": 16,
+        "display": "block"
+      },
+      "#canvasChart": {
+        "x": 45,
+        "y": 741,
+        "width": 934,
+        "height": 50,
+        "display": "block"
+      },
+      "#btnSettings": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none"
+      },
+      "#routeSelect": {
+        "x": 363.328125,
+        "y": 16.5,
+        "width": 185.78125,
+        "height": 36,
+        "display": "block"
+      }
+    }
+  },
+  "pausedOnEntry": "▶ Walk",
+  "workers": [
+    "https://127.0.0.1:4175/assets/TerrainWorker-DoftLwIY.js"
+  ],
+  "errors": [],
+  "logs": []
+}

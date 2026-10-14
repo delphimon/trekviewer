@@ -307,19 +307,19 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
         } as unknown as HTMLImageElement;
       });
 
-      // Very wide bounds that span hundreds of tiles at initial zoom (e.g. 13)
+      // A supported mountain area requiring a zoom reduction within the hard tile cap.
       const wideBounds: GeoBounds = {
-        minLat: 45.0,
-        maxLat: 47.0,
+        minLat: 46.5,
+        maxLat: 46.8,
         minLon: 6.0,
-        maxLon: 9.0,
-        centerLat: 46.0,
-        centerLon: 7.5,
+        maxLon: 6.4,
+        centerLat: 46.65,
+        centerLon: 6.2,
         minEle: 500,
         maxEle: 4810,
         elevationSpan: 4310,
-        widthMeters: 230000,
-        depthMeters: 220000,
+        widthMeters: 31000,
+        depthMeters: 33000,
       };
 
       const grid = await ElevationTileService.fetchElevationGrid(wideBounds, 0.05);
@@ -328,8 +328,8 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
       const tilesY = grid!.tileYMax - grid!.tileYMin + 1;
       const totalTiles = tilesX * tilesY;
       assert.ok(
-        totalTiles <= 25 || grid!.zoom === 10,
-        `Total DEM tiles (${totalTiles}) must be <= 25 or clamped at min zoom 10`
+        totalTiles <= 25,
+        `Total DEM tiles (${totalTiles}) must be <= 25 at every zoom`
       );
     });
   });

@@ -1,0 +1,93 @@
+import { it, expect, vi, afterEach } from 'vitest';
+import * as THREE from 'three';
+import { XRManager } from '../src/core/XRManager.ts';
+import { SpatialHUD } from '../src/ui/SpatialHUD.ts';
+import { GPXParser } from '../src/gpx/GPXParser.ts';
+import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
+import { FlyoverController } from '../src/visualization/FlyoverController.ts';
+
+afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
+
+function directHUD() {
+  const xr:any=Object.create(XRManager.prototype);
+  xr.spatialHUD={group:new THREE.Group(),onPointerHover:vi.fn(),onPointerClick:vi.fn()};
+  xr.getActiveCamera=()=>new THREE.PerspectiveCamera();
+  return xr;
+}
+
+it('reproduces a direct poke remaining latched after withdrawal and reentry',()=>{
+  const xr=directHUD(), hand:any={isClickingHUD:false};
+  xr.checkHandHUDInteraction(hand,new THREE.Vector3(0,0,0),false);
+  xr.checkHandHUDInteraction(hand,new THREE.Vector3(0,0,.2),false);
+  xr.checkHandHUDInteraction(hand,new THREE.Vector3(0,0,0),false);
+  expect(xr.spatialHUD.onPointerClick).toHaveBeenCalledTimes(1);
+  expect(hand.isClickingHUD).toBe(true);
+});
+
+it('reproduces both ray and direct HUD dispatch for the same hand pinch',()=>{
+  const xr=directHUD();
+  xr.spatialHUD.group.position.z=-.5;
+  xr.spatialHUD.mesh=new THREE.Mesh(new THREE.PlaneGeometry(.8,.53),new THREE.MeshBasicMaterial());
+  xr.spatialHUD.grabMesh=new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.1));
+  xr.spatialHUD.grabMesh.position.y=2;
+  xr.spatialHUD.group.add(xr.spatialHUD.mesh,xr.spatialHUD.grabMesh);
+  xr.spatialHUD.group.updateMatrixWorld(true);
+  xr.spatialHUD.isHoveringDragHandle=()=>false;
+  xr.currentViewMode='diorama'; xr.raycaster=new THREE.Raycaster(); xr.triggerHaptic=vi.fn();
+  const controller=new THREE.Group();controller.updateMatrixWorld(true);
+  const hand:any={inputSource:{handedness:'left'},activeInteraction:'none',isClickingHUD:false};xr.hands=[hand];
+  const ctrl:any={controller,inputSource:{handedness:'left'},prevButtons:[false],rayLine:new THREE.Line(new THREE.BufferGeometry()),reticle:new THREE.Mesh()};
+  xr.updatePointerRaycast(0,ctrl,true,true);
+  xr.checkHandHUDInteraction(hand,new THREE.Vector3(0,0,-.5),true);
+  expect(xr.spatialHUD.onPointerClick).toHaveBeenCalledTimes(2);
+});
+
+it('reproduces a HUD action while a hand still owns a diorama grab',()=>{
+  const xr=directHUD();
+  const hand:any={visualOutline:{group:{visible:true}},jointPosMap:new Map([['index-finger-tip',new THREE.Vector3()]]),inputSource:{handedness:'left'},isPinching:true,activeInteraction:'diorama',isClickingHUD:false,pinchWorldPos:new THREE.Vector3(),prevPinchWorldPos:new THREE.Vector3(),wristWorldPos:new THREE.Vector3(),prevWristWorldPos:new THREE.Vector3(),wristWorldQuat:new THREE.Quaternion(),prevWristWorldQuat:new THREE.Quaternion(),indexTipWorldPos:new THREE.Vector3()};
+  xr.hands=[hand];xr.controllers=[];xr.checkHandWaypointInteraction=()=>false;xr.getDioramaProximity=()=>({isTouching:true,proximityFactor:1});xr.updateHandVisuals=()=>{};
+  const grabs=xr.processHandGrabs();
+  expect(grabs).toHaveLength(1);
+  expect(xr.spatialHUD.onPointerClick).toHaveBeenCalledTimes(1);
+});
+
+it('reproduces route scrubbing without a captured chart press',()=>{
+  const hud:any=Object.create(SpatialHUD.prototype);hud.canvas={width:1024,height:680};hud.callbacks={onScrub:vi.fn()};hud.drawHUD=vi.fn();hud.isDraggingScrubber=false;
+  hud.onPointerDrag(new THREE.Vector2(.5,.6));
+  expect(hud.callbacks.onScrub).toHaveBeenCalledTimes(1);
+});
+
+it('reproduces the advertised 25-tile DEM budget overflowing at minimum zoom',async()=>{
+  const raw=GPXParser.parseRaw('<gpx><trk><trkseg><trkpt lat="46" lon="179.999"><ele>100</ele></trkpt><trkpt lat="46.001" lon="-179.999"><ele>100</ele></trkpt></trkseg></trk></gpx>');
+  const bounds=GPXParser.calculateRawBounds(raw);
+  const spy=vi.spyOn(ElevationTileService as any,'decodeTileGrid').mockResolvedValue(null);
+  await ElevationTileService.fetchElevationGrid(bounds);
+  const [z,minX,maxX,minY,maxY]=spy.mock.calls[0] as number[];
+  const count=(maxX-minX+1)*(maxY-minY+1);
+  console.log('Dateline DEM request footprint:',{zoom:z,tiles:count,width:(maxX-minX+1)*256,height:(maxY-minY+1)*256});
+  expect(z).toBe(10);expect(count).toBeGreaterThan(25);
+});
+
+it('reproduces dispatching an untracked controller and making its stale pose visible',()=>{
+  const xr:any=Object.create(XRManager.prototype);
+  const controller=new THREE.Group(),grip=new THREE.Group();controller.visible=false;grip.visible=false;
+  const state:any={controller,grip,inputSource:{handedness:'right',gamepad:{axes:[],buttons:[]}},rayLine:new THREE.Line(),reticle:new THREE.Mesh(),prevButtons:[],prevGripWorldPos:new THREE.Vector3()};
+  xr.renderer={xr:{getSession:()=>({})}};xr.controllers=[state];xr.activePointerRay=null;
+  xr.updateHandTracking=()=>{};xr.updatePointerRaycast=vi.fn();xr.processHandGrabs=()=>[];xr.applyManipulation=()=>{};
+  xr.update();
+  expect(controller.visible).toBe(true);expect(grip.visible).toBe(true);
+  expect(xr.updatePointerRaycast).toHaveBeenCalledTimes(1);
+});
+
+it('reproduces first-person entry anchoring the trail to reference origin instead of current feet',()=>{
+  const point=new THREE.Vector3(100,50,200);
+  const trail:any={routeGeometry:{getTelemetryAtProgress:()=>({position:point}),getRouteForwardAtProgress:()=>new THREE.Vector3(0,0,-1)}};
+  const controller=new FlyoverController(trail,{totalPlaybackSeconds:60} as any,()=>50);
+  controller.setViewMode('first-person');
+  const camera=new THREE.PerspectiveCamera();camera.position.set(2,1.6,3);
+  const root=new THREE.Group();
+  controller.update(0,camera,root,true);root.updateMatrixWorld(true);
+  const worldPoint=point.clone().applyMatrix4(root.matrixWorld);
+  expect(worldPoint.toArray()).toEqual([0,0,0]);
+  expect(worldPoint.x).not.toBe(camera.position.x);expect(worldPoint.z).not.toBe(camera.position.z);
+});

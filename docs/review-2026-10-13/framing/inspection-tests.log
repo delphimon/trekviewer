@@ -1,0 +1,8 @@
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  10:28:56
+   Duration  1.32s (transform 51%, import 46%, tests 2%)

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes.ts';
+import type { GPXPoint, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 
@@ -17,6 +17,8 @@ export interface SpatialHUDCallbacks {
   onFocusHiker: () => void;
   onDockHUD?: (side: 'left' | 'right' | 'center') => void;
   onSelectWaypoint?: (name: string, lat?: number, lon?: number) => void;
+  onSetHorizonLocked?: (locked: boolean) => void;
+  onResetHorizon?: () => void;
 }
 
 interface InteractiveArea {
@@ -55,10 +57,12 @@ export class SpatialHUD {
 
   private currentProgress: number = 0;
   private currentElevation: number = 0;
+  private currentPoint: GPXPoint | null = null;
   private elevationProvenance?: ElevationProvenanceStats;
   private isPlaying: boolean = false;
   private currentSpeed: number = 1.0;
   private currentViewMode: ViewMode = 'diorama';
+  private horizonLocked = true;
   private currentTextureStyle: TextureStyle = 'satellite';
   private currentTrailColorMode: TrailColorMode = 'solid';
   private verticalExaggeration: number = 1.0;
@@ -72,6 +76,7 @@ export class SpatialHUD {
   private hoveredAreaId: string | null = null;
   private interactiveAreas: InteractiveArea[] = [];
   private isDraggingScrubber: boolean = false;
+  private scrubPointer: string | null = null;
   private allLandmarksSorted: {
     name: string;
     lat: number;
@@ -81,22 +86,23 @@ export class SpatialHUD {
     progress: number;
   }[] = [];
 
-  constructor(track: TrackStats, callbacks: SpatialHUDCallbacks) {
+  constructor(track: TrackStats, callbacks: SpatialHUDCallbacks, initiallyVisible: boolean = true) {
     this.track = track;
     this.callbacks = callbacks;
     this.group = new THREE.Group();
     this.group.name = 'SpatialHUDGroup';
+    this.group.visible = initiallyVisible;
 
     // Canvas resolution: 1024 x 680
     this.canvas = document.createElement('canvas');
     this.canvas.width = 1024;
-    this.canvas.height = 680;
+    this.canvas.height = 740;
     this.ctx = this.canvas.getContext('2d')!;
 
     // Static offscreen canvas for invariant background, labels, and elevation curve
     this.staticCanvas = document.createElement('canvas');
     this.staticCanvas.width = 1024;
-    this.staticCanvas.height = 680;
+    this.staticCanvas.height = this.canvas.height;
     this.staticCtx = this.staticCanvas.getContext('2d')!;
 
     // Cache elevation profile samples once upon construction
@@ -152,8 +158,8 @@ export class SpatialHUD {
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 
-    // Physical dimensions in VR: 0.8m wide, 0.53m tall
-    const geo = new THREE.PlaneGeometry(0.8, 0.53);
+    // Preserve canvas aspect and existing target sizes when adding the horizon row.
+    const geo = new THREE.PlaneGeometry(0.8, 0.8 * this.canvas.height / this.canvas.width);
     const mat = new THREE.MeshBasicMaterial({
       map: this.texture,
       transparent: true,
@@ -493,7 +499,22 @@ export class SpatialHUD {
         h: 50,
         action: () => this.jumpToNextLandmark(),
       },
+      {
+        id: 'btn-horizon-lock', x: 35, y: 620, w: 300, h: 54,
+        action: () => this.callbacks.onSetHorizonLocked?.(!this.horizonLocked),
+      },
+      {
+        id: 'btn-horizon-level', x: 350, y: 620, w: 260, h: 54,
+        action: () => this.callbacks.onResetHorizon?.(),
+      },
     ];
+  }
+
+  public setHorizonLocked(locked: boolean): void {
+    if (this.horizonLocked === locked) return;
+    this.horizonLocked = locked;
+    this.dynamicDirty = true;
+    this.drawHUD(true);
   }
 
   public jumpToPreviousLandmark(): void {
@@ -552,7 +573,8 @@ export class SpatialHUD {
     textureStyle: TextureStyle,
     speed?: number,
     trailColorMode?: TrailColorMode,
-    verticalExaggeration?: number
+    verticalExaggeration?: number,
+    currentPoint?: GPXPoint | null
   ): void {
     const playStateChanged = this.isPlaying !== isPlaying;
     const viewModeChanged = this.currentViewMode !== viewMode;
@@ -563,6 +585,7 @@ export class SpatialHUD {
 
     this.currentProgress = progress;
     this.currentElevation = currentEle;
+    this.currentPoint = currentPoint ?? null;
     this.isPlaying = isPlaying;
     this.currentViewMode = viewMode;
     this.currentTextureStyle = textureStyle;
@@ -571,11 +594,13 @@ export class SpatialHUD {
     if (verticalExaggeration !== undefined) this.verticalExaggeration = verticalExaggeration;
 
     // Force immediate redraw if major state changed or playback stopped
-    const force = playStateChanged || viewModeChanged || textureChanged || speedChanged || trailColorChanged || exagChanged || !isPlaying;
+    const force = playStateChanged || viewModeChanged || textureChanged || speedChanged || trailColorChanged || exagChanged;
     this.drawHUD(force);
   }
 
   public update(): void {
+    if (!this.group.visible) return;
+    if (this.staticDirty) this.drawHUD();
     if (this.dynamicDirty) {
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
@@ -625,12 +650,18 @@ export class SpatialHUD {
   public onPointerLeave(): void {
     if (this.hoveredAreaId !== null) {
       this.hoveredAreaId = null;
-      this.isDraggingScrubber = false;
       this.drawHUD(true);
     }
   }
 
-  public onPointerClick(uv: THREE.Vector2): boolean {
+  /** Maintain a 2.7° button height at the settled dock distance; 10px gaps exceed 12mm. */
+  public setAngularSize(distanceM: number, preference: number = 1): void {
+    const buttonHeight = 0.8 * 58 / 1024;
+    const scale = Math.max(1.55, 2 * Math.max(0.5, distanceM) * Math.tan(2.7 * Math.PI / 360) / buttonHeight);
+    this.group.scale.setScalar(Math.min(4, scale) * preference);
+  }
+
+  public onPointerClick(uv: THREE.Vector2, pointerId: string = 'default'): boolean {
     const pt = this.uvToCanvas(uv);
 
     for (const area of this.interactiveAreas) {
@@ -640,6 +671,7 @@ export class SpatialHUD {
         pt.y >= area.y &&
         pt.y <= area.y + area.h
       ) {
+        if (area.id.startsWith('spd-') && this.currentViewMode === 'first-person') return false;
         area.action();
         this.drawHUD(true);
         return true;
@@ -648,9 +680,11 @@ export class SpatialHUD {
 
     // Click on elevation profile chart
     if (pt.x >= 35 && pt.x <= 989 && pt.y >= 190 && pt.y <= 395) {
+      if (this.scrubPointer !== null && this.scrubPointer !== pointerId) return false;
       const chartWidth = 918; // 989 - 35 - 36
       const progress = Math.min(Math.max((pt.x - 53) / chartWidth, 0), 1);
       this.isDraggingScrubber = true;
+      this.scrubPointer = pointerId;
       this.callbacks.onScrub(progress);
       this.drawHUD(true);
       return true;
@@ -659,7 +693,8 @@ export class SpatialHUD {
     return false;
   }
 
-  public onPointerDrag(uv: THREE.Vector2): void {
+  public onPointerDrag(uv: THREE.Vector2, pointerId: string = 'default'): void {
+    if (!this.isDraggingScrubber || this.scrubPointer !== pointerId) return;
     const pt = this.uvToCanvas(uv);
     if (pt.y >= 170 && pt.y <= 405) {
       const chartWidth = 918;
@@ -669,11 +704,17 @@ export class SpatialHUD {
     }
   }
 
-  public onPointerRelease(): void {
+  public onPointerRelease(pointerId?: string): void {
+    if (pointerId !== undefined && this.scrubPointer !== pointerId) return;
     this.isDraggingScrubber = false;
+    this.scrubPointer = null;
   }
 
   private drawHUD(force: boolean = false): void {
+    if (!this.group.visible) {
+      this.dynamicDirty = true;
+      return;
+    }
     if (this.staticDirty) {
       this.renderStaticLayer();
       this.staticDirty = false;
@@ -811,7 +852,7 @@ export class SpatialHUD {
       ctx.beginPath();
       for (let i = 0; i < samples.length; i++) {
         const s = samples[i];
-        const px = chartX + 18 + (i / (samples.length - 1)) * (chartW - 36);
+        const px = chartX + 18 + (samples[i].distance / Math.max(this.track.totalDistance, 1)) * (chartW - 36);
         const normH = (s.elevation - minE) / spanE;
         const py = chartY + chartH - 24 - normH * (chartH - 48);
 
@@ -902,8 +943,8 @@ export class SpatialHUD {
     // 4. Footer Controller & Hand Gestures Guide
     ctx.fillStyle = '#94a3b8';
     ctx.font = '12px sans-serif';
-    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 620);
-    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 638);
+    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 688);
+    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 706);
 
     // Compact Attribution & Elevation quality badge
     const qualityLabel = this.terrainQuality === 'dem' ? 'DEM' : this.terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
@@ -913,7 +954,7 @@ export class SpatialHUD {
     const metaStr = `Elevation: ${qualityLabel}${provStr}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
     ctx.fillStyle = '#64748b';
     ctx.font = '11px sans-serif';
-    ctx.fillText(metaStr, 45, 656);
+    ctx.fillText(metaStr, 45, 724);
   }
 
   private renderDynamicLayer(): void {
@@ -925,6 +966,20 @@ export class SpatialHUD {
 
     // 1. Blit pre-rendered static layer
     ctx.drawImage(this.staticCanvas, 0, 0);
+
+    for (const button of [
+      { id: 'btn-horizon-lock', x: 35, width: 300, text: this.horizonLocked ? 'Horizon locked' : 'Horizon unlocked' },
+      { id: 'btn-horizon-level', x: 350, width: 260, text: 'Level horizon' },
+    ]) {
+      const hover = this.hoveredAreaId === button.id;
+      ctx.fillStyle = hover ? '#0284c7' : 'rgba(30, 41, 59, 0.85)';
+      ctx.beginPath(); ctx.roundRect(button.x, 620, button.width, 54, 12); ctx.fill();
+      ctx.strokeStyle = hover ? '#ffffff' : 'rgba(56, 189, 248, 0.4)';
+      ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(button.text, button.x + button.width / 2, 655);
+    }
+    ctx.textAlign = 'left';
 
     // Top Drag Handle Hover effect
     if (this.hoveredAreaId === 'hud-drag') {
@@ -1049,11 +1104,15 @@ export class SpatialHUD {
       // Tooltip above handle
       const curDistMi = (this.track.totalDistance * this.currentProgress * 0.000621371).toFixed(1);
       const curEleFt = Math.round(this.currentElevation * 3.28084);
-      const ptIdx = Math.min(
-        Math.floor(this.currentProgress * (this.track.points.length - 1)),
-        this.track.points.length - 1
-      );
-      const pt = this.track.points[ptIdx];
+      const distance = this.currentProgress * this.track.totalDistance;
+      let lo = 0, hi = this.track.points.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (this.track.points[mid].distanceFromStart < distance) lo = mid + 1;
+        else hi = mid;
+      }
+      const ptIdx = Math.max(0, lo - (this.track.points[lo]?.distanceFromStart > distance ? 1 : 0));
+      const pt = this.currentPoint ?? this.track.points[ptIdx];
       let tipDetail = '';
       if (this.currentTrailColorMode === 'grade' && pt?.grade !== undefined) {
         tipDetail = ` • ${Math.round(Math.abs(pt.grade))}% slope`;
@@ -1107,7 +1166,7 @@ export class SpatialHUD {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 19px sans-serif';
-    ctx.fillText(this.isPlaying ? '⏸ Pause' : '▶ Play Flyover', 50, 447);
+    ctx.fillText(this.isPlaying ? '⏸ Pause' : this.currentViewMode === 'first-person' ? '▶ Walk Route' : '▶ Play Flyover', 50, 447);
 
     // Step -10s Button
     const stepBackHover = this.hoveredAreaId === 'btn-step-back';
@@ -1117,7 +1176,7 @@ export class SpatialHUD {
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('⏪ -10s', 242, 446);
+    ctx.fillText(this.currentViewMode === 'first-person' ? '⏪ -1 m' : '⏪ -10s', 242, 446);
 
     // Step +10s Button
     const stepFwdHover = this.hoveredAreaId === 'btn-step-fwd';
@@ -1127,12 +1186,17 @@ export class SpatialHUD {
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('+10s ⏩', 345, 446);
+    ctx.fillText(this.currentViewMode === 'first-person' ? '+1 m ⏩' : '+10s ⏩', 345, 446);
 
     // Speeds: 1x, 5x, 20x, 60x
     const speeds = [1.0, 5.0, 20.0, 60.0];
     const speedXs = [445, 535, 625, 715];
-    speeds.forEach((spd, idx) => {
+    if (this.currentViewMode === 'first-person') {
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath(); ctx.roundRect(445, 410, 350, 58, 12); ctx.fill();
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '20px sans-serif';
+      ctx.fillText('Walking pace • 1.4 m/s', 470, 446);
+    } else speeds.forEach((spd, idx) => {
       const sx = speedXs[idx];
       const isSelected = Math.abs(this.currentSpeed - spd) < 0.05;
       const hover = this.hoveredAreaId === `spd-${spd}`;

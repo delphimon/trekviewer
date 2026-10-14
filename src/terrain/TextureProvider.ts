@@ -8,8 +8,7 @@ import {
   USGSTopoProvider,
   EsriReferenceOverlayProvider,
 } from './providers/ImageryProvider.ts';
-import { TileImageCache, TilePriority } from './TileImageCache.ts';
-import { TextureBudget } from './TextureBudget.ts';
+import { composeImagery, MAX_COMPOSITE_TILES } from './CompositeImagery.ts';
 
 export interface TileGridBounds {
   zoom: number;
@@ -259,8 +258,9 @@ export class TextureProvider {
     let numTilesX = tileXMax - tileXMin + 1;
     let numTilesY = tileYMax - tileYMin + 1;
 
-    const MAX_TILES = 120;
-    while (numTilesX * numTilesY > MAX_TILES && zoom > 11) {
+    // Mercator tiles cover less ground near the poles. Keep coarsening the
+    // overview until it actually fits; local inspection tiles retain their own zoom.
+    while (numTilesX * numTilesY > MAX_COMPOSITE_TILES && zoom > 0) {
       zoom--;
       const minT = latLonToTile(maxLat, minLon, zoom);
       const maxT = latLonToTile(minLat, maxLon, zoom);
@@ -299,382 +299,49 @@ export class TextureProvider {
     };
   }
 
-  /**
-   * Fetches high-resolution satellite imagery tiles covering the tile grid bounds.
-   * Leverages TileImageCache and TextureBudget to stay within Quest GPU memory constraints.
-   */
-  public static async fetchSatelliteTexture(
+  /** Streams a route composite with bounded uploads and complete fallback coverage. */
+  public static fetchSatelliteTexture(
     grid: TileGridBounds,
     onProgressUpdate?: (texture: THREE.CanvasTexture, loadedCount: number, totalCount: number) => void,
     signal?: AbortSignal,
     isXR: boolean = false,
     fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
-    try {
-      const TILE_SIZE = 256;
-      const { width, height } = TextureBudget.getAssembledTextureSize(
-        grid.numTilesX,
-        grid.numTilesY,
-        isXR,
-        TILE_SIZE
-      );
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      // Stage X3.1: Pre-populate composite canvas with complete fallback image.
-      // Every pixel is valid from millisecond 0; unloaded and failed tiles retain fallback imagery!
-      if (fallbackImage) {
-        try {
-          ctx.drawImage(fallbackImage, 0, 0, width, height);
-        } catch {
-          ctx.fillStyle = '#6b7280';
-          ctx.fillRect(0, 0, width, height);
-        }
-      } else {
-        ctx.fillStyle = '#6b7280';
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      const scaleX = canvas.width / (grid.numTilesX * TILE_SIZE);
-      const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
-      texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = this.maxAnisotropy;
-      texture.generateMipmaps = false; // Req #27: Disable mipmap generation during intermediate compositing
-
-      const provider = this.activeSatelliteProvider;
-      const tasks: { tx: number; ty: number }[] = [];
-      for (let tx = grid.tileXMin; tx <= grid.tileXMax; tx++) {
-        for (let ty = grid.tileYMin; ty <= grid.tileYMax; ty++) {
-          tasks.push({ tx, ty });
-        }
-      }
-
-      const totalCount = tasks.length;
-      let completedCount = 0;
-      let successCount = 0;
-      let tilesSinceLastUpload = 0;
-      let lastUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-
-      const worker = async () => {
-        while (tasks.length > 0) {
-          if (signal?.aborted) break;
-          const task = tasks.shift();
-          if (!task) break;
-          const { tx, ty } = task;
-
-          const x0 = Math.round((tx - grid.tileXMin) * TILE_SIZE * scaleX);
-          const x1 = Math.round((tx - grid.tileXMin + 1) * TILE_SIZE * scaleX);
-          const y0 = Math.round((ty - grid.tileYMin) * TILE_SIZE * scaleY);
-          const y1 = Math.round((ty - grid.tileYMin + 1) * TILE_SIZE * scaleY);
-
-          try {
-            const img = await TileImageCache.loadTile(provider, grid.zoom, tx, ty, 4500, signal, TilePriority.OVERVIEW);
-            ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
-            successCount++;
-          } catch {
-            // Ignore single tile failure
-          }
-
-          completedCount++;
-          tilesSinceLastUpload++;
-          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-          // Req #26: Throttle whole-route composite canvas uploads (500-1000ms or every N tiles)
-          if (
-            completedCount < totalCount &&
-            (tilesSinceLastUpload >= TextureProvider.TILE_BATCH_THRESHOLD ||
-              now - lastUpdateTime >= TextureProvider.UPLOAD_THROTTLE_MS)
-          ) {
-            lastUpdateTime = now;
-            tilesSinceLastUpload = 0;
-            texture.needsUpdate = true;
-            onProgressUpdate?.(texture, completedCount, totalCount);
-          }
-        }
-      };
-
-      const concurrency = Math.min(12, totalCount);
-      const workers = Array.from({ length: concurrency }, () => worker());
-      await Promise.all(workers);
-
-      if (signal?.aborted) return null;
-      if (successCount === 0) return null;
-
-      // Req #27: Enable mipmap generation and LinearMipmapLinearFilter only on final completion
-      texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.needsUpdate = true;
-      onProgressUpdate?.(texture, completedCount, totalCount);
-      return texture;
-    } catch (e) {
-      console.warn('Failed to fetch high-res satellite imagery:', e);
-      return null;
-    }
+    return this.fetchComposite(grid, this.activeSatelliteProvider, 4500, onProgressUpdate, signal, isXR, fallbackImage);
   }
 
-  /**
-   * Fetches high-resolution Hybrid texture (Satellite base + transparent Topographic labels).
-   * REUSES previously fetched satellite tiles from TileImageCache so no duplicate imagery is downloaded!
-   */
-  public static async fetchHybridTexture(
+  /** Reuses decoded satellite tiles, adding transparent reference labels. */
+  public static fetchHybridTexture(
     grid: TileGridBounds,
     onProgressUpdate?: (texture: THREE.CanvasTexture, loadedCount: number, totalCount: number) => void,
     signal?: AbortSignal,
     isXR: boolean = false,
     fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
-    try {
-      const TILE_SIZE = 256;
-      const { width, height } = TextureBudget.getAssembledTextureSize(
-        grid.numTilesX,
-        grid.numTilesY,
-        isXR,
-        TILE_SIZE
-      );
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      // Stage X3.1: Pre-populate composite canvas with complete fallback image.
-      if (fallbackImage) {
-        try {
-          ctx.drawImage(fallbackImage, 0, 0, width, height);
-        } catch {
-          ctx.fillStyle = '#6b7280';
-          ctx.fillRect(0, 0, width, height);
-        }
-      } else {
-        ctx.fillStyle = '#6b7280';
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      const scaleX = canvas.width / (grid.numTilesX * TILE_SIZE);
-      const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
-      texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = this.maxAnisotropy;
-      texture.generateMipmaps = false; // Req #27: Disable mipmap generation during intermediate compositing
-
-      const satProvider = this.activeSatelliteProvider;
-      const labelProvider = this.referenceOverlayProvider;
-
-      const tasks: { tx: number; ty: number }[] = [];
-      for (let tx = grid.tileXMin; tx <= grid.tileXMax; tx++) {
-        for (let ty = grid.tileYMin; ty <= grid.tileYMax; ty++) {
-          tasks.push({ tx, ty });
-        }
-      }
-
-      const totalCount = tasks.length;
-      let completedCount = 0;
-      let successCount = 0;
-      let tilesSinceLastUpload = 0;
-      let lastUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-
-      const worker = async () => {
-        while (tasks.length > 0) {
-          if (signal?.aborted) break;
-          const task = tasks.shift();
-          if (!task) break;
-          const { tx, ty } = task;
-
-          const x0 = Math.round((tx - grid.tileXMin) * TILE_SIZE * scaleX);
-          const x1 = Math.round((tx - grid.tileXMin + 1) * TILE_SIZE * scaleX);
-          const y0 = Math.round((ty - grid.tileYMin) * TILE_SIZE * scaleY);
-          const y1 = Math.round((ty - grid.tileYMin + 1) * TILE_SIZE * scaleY);
-          const dw = x1 - x0;
-          const dh = y1 - y0;
-
-          // 1. Draw base satellite tile (retrieved from cache if satellite was already loaded!)
-          let baseDrawn = false;
-          try {
-            const satImg = await TileImageCache.loadTile(satProvider, grid.zoom, tx, ty, 4500, signal, TilePriority.OVERVIEW);
-            ctx.drawImage(satImg, x0, y0, dw, dh);
-            baseDrawn = true;
-            successCount++;
-          } catch {
-            // Base tile load failed
-          }
-
-          // 2. Overlay transparent labels & reference data
-          if (baseDrawn) {
-            try {
-              const labelImg = await TileImageCache.loadTile(labelProvider, grid.zoom, tx, ty, 3500, signal, TilePriority.OVERVIEW);
-              ctx.drawImage(labelImg, x0, y0, dw, dh);
-            } catch {
-              // Ignore single label tile failure
-            }
-          }
-
-          completedCount++;
-          tilesSinceLastUpload++;
-          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-          // Req #26: Throttle whole-route composite canvas uploads (500-1000ms or every N tiles)
-          if (
-            completedCount < totalCount &&
-            (tilesSinceLastUpload >= TextureProvider.TILE_BATCH_THRESHOLD ||
-              now - lastUpdateTime >= TextureProvider.UPLOAD_THROTTLE_MS)
-          ) {
-            lastUpdateTime = now;
-            tilesSinceLastUpload = 0;
-            texture.needsUpdate = true;
-            onProgressUpdate?.(texture, completedCount, totalCount);
-          }
-        }
-      };
-
-      const concurrency = Math.min(12, totalCount);
-      const workers = Array.from({ length: concurrency }, () => worker());
-      await Promise.all(workers);
-
-      if (signal?.aborted) return null;
-      if (successCount === 0) return null;
-
-      // Req #27: Enable mipmap generation and LinearMipmapLinearFilter only on final completion
-      texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.needsUpdate = true;
-      onProgressUpdate?.(texture, completedCount, totalCount);
-      return texture;
-    } catch (e) {
-      console.warn('Failed to fetch hybrid texture:', e);
-      return null;
-    }
+    return this.fetchComposite(grid, this.activeSatelliteProvider, 4500, onProgressUpdate, signal, isXR, fallbackImage, this.referenceOverlayProvider);
   }
 
-  /**
-   * Fetches authentic high-resolution topographic raster map tiles covering the tile grid bounds.
-   */
-  public static async fetchTopoTexture(
+  public static fetchTopoTexture(
     grid: TileGridBounds,
     onProgressUpdate?: (texture: THREE.CanvasTexture, loadedCount: number, totalCount: number) => void,
     signal?: AbortSignal,
     isXR: boolean = false,
     fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
+    return this.fetchComposite(grid, this.usgsTopoProvider, 4000, onProgressUpdate, signal, isXR, fallbackImage);
+  }
+
+  private static async fetchComposite(
+    grid: TileGridBounds, provider: ImageryProvider, timeoutMs: number,
+    onProgress: ((texture: THREE.CanvasTexture, completed: number, total: number) => void) | undefined,
+    signal: AbortSignal | undefined, isXR: boolean, fallbackImage?: CanvasImageSource | null, overlay?: ImageryProvider
+  ): Promise<THREE.CanvasTexture | null> {
     try {
-      const TILE_SIZE = 256;
-      const { width, height } = TextureBudget.getAssembledTextureSize(
-        grid.numTilesX,
-        grid.numTilesY,
-        isXR,
-        TILE_SIZE
-      );
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      // Stage X3.1: Pre-populate composite canvas with complete fallback image.
-      if (fallbackImage) {
-        try {
-          ctx.drawImage(fallbackImage, 0, 0, width, height);
-        } catch {
-          ctx.fillStyle = '#6b7280';
-          ctx.fillRect(0, 0, width, height);
-        }
-      } else {
-        ctx.fillStyle = '#6b7280';
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      const scaleX = canvas.width / (grid.numTilesX * TILE_SIZE);
-      const scaleY = canvas.height / (grid.numTilesY * TILE_SIZE);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearFilter; // Req #27: LinearFilter during intermediate progressive composition
-      texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = this.maxAnisotropy;
-      texture.generateMipmaps = false; // Req #27: Disable mipmap generation during intermediate compositing
-
-      const provider = this.usgsTopoProvider;
-      const tasks: { tx: number; ty: number }[] = [];
-      for (let tx = grid.tileXMin; tx <= grid.tileXMax; tx++) {
-        for (let ty = grid.tileYMin; ty <= grid.tileYMax; ty++) {
-          tasks.push({ tx, ty });
-        }
-      }
-
-      const totalCount = tasks.length;
-      let completedCount = 0;
-      let successCount = 0;
-      let tilesSinceLastUpload = 0;
-      let lastUpdateTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-
-      const worker = async () => {
-        while (tasks.length > 0) {
-          if (signal?.aborted) break;
-          const task = tasks.shift();
-          if (!task) break;
-          const { tx, ty } = task;
-
-          const x0 = Math.round((tx - grid.tileXMin) * TILE_SIZE * scaleX);
-          const x1 = Math.round((tx - grid.tileXMin + 1) * TILE_SIZE * scaleX);
-          const y0 = Math.round((ty - grid.tileYMin) * TILE_SIZE * scaleY);
-          const y1 = Math.round((ty - grid.tileYMin + 1) * TILE_SIZE * scaleY);
-
-          try {
-            const img = await TileImageCache.loadTile(provider, grid.zoom, tx, ty, 4000, signal, TilePriority.OVERVIEW);
-            ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
-            successCount++;
-          } catch {
-            // Ignore single tile error
-          }
-
-          completedCount++;
-          tilesSinceLastUpload++;
-          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-          // Req #26: Throttle whole-route composite canvas uploads (500-1000ms or every N tiles)
-          if (
-            completedCount < totalCount &&
-            (tilesSinceLastUpload >= TextureProvider.TILE_BATCH_THRESHOLD ||
-              now - lastUpdateTime >= TextureProvider.UPLOAD_THROTTLE_MS)
-          ) {
-            lastUpdateTime = now;
-            tilesSinceLastUpload = 0;
-            texture.needsUpdate = true;
-            onProgressUpdate?.(texture, completedCount, totalCount);
-          }
-        }
-      };
-
-      const concurrency = Math.min(12, totalCount);
-      const workers = Array.from({ length: concurrency }, () => worker());
-      await Promise.all(workers);
-
-      if (signal?.aborted) return null;
-      if (successCount === 0) return null;
-
-      // Req #27: Enable mipmap generation and LinearMipmapLinearFilter only on final completion
-      texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.needsUpdate = true;
-      onProgressUpdate?.(texture, completedCount, totalCount);
-      return texture;
-    } catch (e) {
-      console.warn('Failed to fetch high-res topographic map tiles:', e);
+      return await composeImagery({ grid, provider, timeoutMs, overlay, signal, isXR, fallbackImage,
+        anisotropy: this.maxAnisotropy, uploadIntervalMs: this.UPLOAD_THROTTLE_MS,
+        uploadBatchSize: this.TILE_BATCH_THRESHOLD, onProgress });
+    } catch (error) {
+      if (!signal?.aborted) console.warn('Failed to compose route imagery:', error);
       return null;
     }
   }
@@ -689,6 +356,33 @@ export class TextureProvider {
     width: number = 1024,
     height: number = 1024
   ): THREE.CanvasTexture {
+    const build = this.buildTopoTexture(bounds, grid, elevationSampler, width, height);
+    let step = build.next();
+    while (!step.done) step = build.next();
+    return step.value;
+  }
+
+  public static async generateTopoTextureAsync(
+    bounds: GeoBounds, grid: TileGridBounds,
+    elevationSampler: (lat: number, lon: number) => number,
+    width: number = 1024, height: number = 1024, signal?: AbortSignal
+  ): Promise<THREE.CanvasTexture> {
+    const build = this.buildTopoTexture(bounds, grid, elevationSampler, width, height);
+    while (true) {
+      if (signal?.aborted) throw new DOMException('Texture generation cancelled', 'AbortError');
+      const step = build.next();
+      if (step.done) return step.value;
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  private static *buildTopoTexture(
+    bounds: GeoBounds,
+    grid: TileGridBounds,
+    elevationSampler: (lat: number, lon: number) => number,
+    width: number = 1024,
+    height: number = 1024
+  ): Generator<void, THREE.CanvasTexture, void> {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -757,6 +451,7 @@ export class TextureProvider {
         data[idx + 2] = b;
         data[idx + 3] = 255;
       }
+      if (py % 8 === 7) yield;
     }
 
     ctx.putImageData(imgData, 0, 0);

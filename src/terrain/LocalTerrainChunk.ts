@@ -5,6 +5,17 @@ import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { TextureProvider, type TileGridBounds } from './TextureProvider.ts';
 import { refinementGrid, type TerrainGridLayout } from './TerrainGrid.ts';
 import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
+import type { TerrainSurfaceData } from './TerrainGrid.ts';
+import { runTerrainJob } from './TerrainJobs.ts';
+
+export interface TerrainChunkData {
+  positions: Float32Array;
+  normals: Float32Array;
+  uvs: Float32Array;
+  heights: Float32Array;
+  fallbackCount: number;
+  maxDiffFromBase: number;
+}
 
 export interface LocalTerrainChunkOptions {
   localGrid: ElevationGrid;
@@ -21,6 +32,8 @@ export interface LocalTerrainChunkOptions {
   tileGrid?: TileGridBounds;
   mapTexture?: THREE.Texture | null;
   baseMeshGrid?: TerrainGridLayout;
+  layout?: TerrainGridLayout & { bounds: TerrainSurfaceBounds };
+  preparedData?: TerrainChunkData;
 }
 
 export interface ChunkValidationResult {
@@ -68,8 +81,35 @@ export class LocalTerrainChunk {
   private readonly blendMargin: number;
   private currentExaggeration: number;
   private isDisposed: boolean = false;
+  private uvGridKey: string = '';
+  private baseSampler?: (x: number, z: number) => number;
+  private preserveParentEdges: boolean;
+
+  public static async createAsync(options: LocalTerrainChunkOptions, base?: TerrainSurfaceData, signal?: AbortSignal): Promise<LocalTerrainChunk> {
+    if (typeof Worker === 'undefined' || !base) return new LocalTerrainChunk(options);
+    const { mapTexture: _map, baseElevationSampler: _sampler, ...serializable } = options;
+    const data = await runTerrainJob<TerrainChunkData>({ kind: 'chunk', options: serializable, base }, () => {
+      const candidate = new LocalTerrainChunk(options);
+      const data = candidate.getBuildData();
+      candidate.dispose();
+      return data;
+    }, signal);
+    if (signal?.aborted) throw new DOMException('Chunk cancelled', 'AbortError');
+    return new LocalTerrainChunk({ ...options, preparedData: data });
+  }
+
+  public getBuildData(): TerrainChunkData {
+    return {
+      positions: this.geometry.attributes.position.array as Float32Array,
+      normals: this.geometry.attributes.normal.array as Float32Array,
+      uvs: this.geometry.attributes.uv.array as Float32Array,
+      heights: this.unscaledHeights, fallbackCount: this.fallbackCount, maxDiffFromBase: this.maxDiffFromBase,
+    };
+  }
 
   constructor(options: LocalTerrainChunkOptions) {
+    this.baseSampler = options.baseElevationSampler;
+    this.preserveParentEdges = !!(options.layout || options.baseMeshGrid);
     this.currentGrid = options.localGrid;
     this.isRealHighRes = options.localGrid.zoom >= 14 && options.localGrid.isRealDEM;
     this.centerLat = options.centerLat;
@@ -91,9 +131,9 @@ export class LocalTerrainChunk {
       this.referenceCenterLon,
       0
     );
-    const aligned = options.baseMeshGrid
+    const aligned = options.layout ?? (options.baseMeshGrid
       ? refinementGrid(options.baseMeshGrid, centerMeters.x, centerMeters.z, this.radiusMeters, this.segments)
-      : null;
+      : null);
     this.localBounds = aligned?.bounds ?? {
       minX: centerMeters.x - this.radiusMeters, maxX: centerMeters.x + this.radiusMeters,
       minZ: centerMeters.z - this.radiusMeters, maxZ: centerMeters.z + this.radiusMeters,
@@ -108,6 +148,11 @@ export class LocalTerrainChunk {
     this.segmentsZ = aligned?.segmentsZ ?? this.segments;
     this.blendMargin = options.blendMarginRatio ?? 0.15;
 
+    if (![this.widthM, this.depthM, this.segmentsX, this.segmentsZ].every(Number.isFinite)
+      || this.widthM <= 0 || this.depthM <= 0 || this.segmentsX < 1 || this.segmentsZ < 1
+      || (this.segmentsX + 1) * (this.segmentsZ + 1) > 200_000) {
+      throw new RangeError('Local terrain exceeds the vertex budget or has invalid dimensions.');
+    }
     this.geometry = new THREE.PlaneGeometry(this.widthM, this.depthM, this.segmentsX, this.segmentsZ);
     this.geometry.rotateX(-Math.PI / 2);
 
@@ -119,7 +164,15 @@ export class LocalTerrainChunk {
     this.maxDiffFromBase = 0;
 
 
-    for (let i = 0; i < vertexCount; i++) {
+    if (options.preparedData) {
+      const prepared = options.preparedData;
+      (posAttr.array as Float32Array).set(prepared.positions);
+      (this.geometry.attributes.normal.array as Float32Array).set(prepared.normals);
+      (this.geometry.attributes.uv.array as Float32Array).set(prepared.uvs);
+      this.unscaledHeights = prepared.heights;
+      this.fallbackCount = prepared.fallbackCount;
+      this.maxDiffFromBase = prepared.maxDiffFromBase;
+    } else for (let i = 0; i < vertexCount; i++) {
       const vx = posAttr.getX(i);
       const vz = posAttr.getZ(i);
       const geo = localMetersToGeo(this.localCenter.x + vx, this.localCenter.z + vz, this.referenceCenterLat, this.referenceCenterLon);
@@ -133,7 +186,7 @@ export class LocalTerrainChunk {
       let isHighResValid = false;
 
       if (sample.isValid && !isNaN(sample.elevation)) {
-        hLocal = Math.max(0, sample.elevation - this.terrainBaseElevation);
+        hLocal = sample.elevation - this.terrainBaseElevation;
         isHighResValid = true;
       } else {
         // Stage X3.1: NEVER convert missing local DEM data to zero height!
@@ -158,12 +211,13 @@ export class LocalTerrainChunk {
     }
 
     posAttr.needsUpdate = true;
-    this.geometry.computeVertexNormals();
+    if (!options.preparedData) this.geometry.computeVertexNormals();
+    if (!options.preparedData) this.applyParentEdgeNormals();
     this.geometry.computeBoundingBox();
     this.geometry.computeBoundingSphere();
 
     // Map local chunk vertices to global geographic UVs (Stage X3)
-    if (options.tileGrid) {
+    if (options.tileGrid && !options.preparedData) {
       const uvAttr = this.geometry.attributes.uv;
       for (let i = 0; i < vertexCount; i++) {
         const vx = posAttr.getX(i);
@@ -191,6 +245,7 @@ export class LocalTerrainChunk {
     this.mesh.name = 'LocalHighResTerrainMesh';
     this.mesh.position.set(this.localCenter.x, 0, this.localCenter.z);
     this.mesh.receiveShadow = true;
+    if (options.tileGrid) this.uvGridKey = JSON.stringify(options.tileGrid);
   }
 
   /**
@@ -250,6 +305,26 @@ export class LocalTerrainChunk {
     return t * t * (3 - 2 * t);
   }
 
+  private applyParentEdgeNormals(): void {
+    if (this.baseSampler && this.preserveParentEdges) {
+      // Independent child meshes share the parent's edge normal as well as its height.
+      // This removes lighting seams without hiding real interior relief.
+      const posAttr = this.geometry.attributes.position;
+      const normals = this.geometry.attributes.normal;
+      for (let row = 0; row <= this.segmentsZ; row++) {
+        for (let col = 0; col <= this.segmentsX; col++) {
+          if (row !== 0 && row !== this.segmentsZ && col !== 0 && col !== this.segmentsX) continue;
+          const i = row * (this.segmentsX + 1) + col;
+          const x = this.localCenter.x + posAttr.getX(i), z = this.localCenter.z + posAttr.getZ(i);
+          const dx = (this.baseSampler(x + 1, z) - this.baseSampler(x - 1, z)) * this.currentExaggeration;
+          const dz = (this.baseSampler(x, z + 1) - this.baseSampler(x, z - 1)) * this.currentExaggeration;
+          const length = Math.hypot(dx, 2, dz);
+          normals.setXYZ(i, -dx / length, 2 / length, -dz / length);
+        }
+      }
+    }
+  }
+
   public outlineMesh?: THREE.LineSegments;
 
   /**
@@ -261,6 +336,7 @@ export class LocalTerrainChunk {
   ): void {
     if (this.isDisposed) return;
     this.currentGrid = newGrid;
+    if (baseElevationSampler) this.baseSampler = baseElevationSampler;
     this.isRealHighRes = newGrid.zoom >= 14 && newGrid.isRealDEM;
 
     const posAttr = this.geometry.attributes.position;
@@ -284,7 +360,7 @@ export class LocalTerrainChunk {
       let isHighResValid = false;
 
       if (sample.isValid && !isNaN(sample.elevation)) {
-        hLocal = Math.max(0, sample.elevation - this.terrainBaseElevation);
+        hLocal = sample.elevation - this.terrainBaseElevation;
         isHighResValid = true;
       } else {
         // Stage X3.1: NEVER convert missing local DEM data to zero height!
@@ -373,10 +449,13 @@ export class LocalTerrainChunk {
    */
   public setMapTexture(texture: THREE.Texture | null, tileGrid?: TileGridBounds): void {
     if (this.isDisposed) return;
+    const shaderChanged = !!this.material.map !== !!texture;
     this.material.map = texture;
-    this.material.needsUpdate = true;
+    if (shaderChanged) this.material.needsUpdate = true;
 
-    if (tileGrid) {
+    const gridKey = tileGrid ? JSON.stringify(tileGrid) : '';
+    if (tileGrid && gridKey !== this.uvGridKey) {
+      this.uvGridKey = gridKey;
       const posAttr = this.geometry.attributes.position;
       const uvAttr = this.geometry.attributes.uv;
       const vertexCount = posAttr.count;
@@ -393,7 +472,9 @@ export class LocalTerrainChunk {
 
   public setVerticalExaggeration(factor: number): void {
     if (this.isDisposed) return;
-    this.currentExaggeration = Math.max(1.0, Math.min(3.0, factor));
+    const next = Math.max(1.0, Math.min(3.0, factor));
+    if (next === this.currentExaggeration) return;
+    this.currentExaggeration = next;
     const posAttr = this.geometry.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
       posAttr.setY(i, this.unscaledHeights[i] * this.currentExaggeration);

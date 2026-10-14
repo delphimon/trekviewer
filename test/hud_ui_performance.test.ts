@@ -293,8 +293,8 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
         onFocusHiker: () => {},
       });
 
-      // Click on btn-exag (x=800, y=500 in canvas space, UV: x=800/1024, y=1 - 500/680)
-      const uvExag = new THREE.Vector2(850 / 1024, 1 - 510 / 680);
+      // Convert canvas-space coordinates using the current HUD dimensions.
+      const uvExag = new THREE.Vector2(850 / 1024, 1 - 510 / (hud as any).canvas.height);
 
       // 1st click: 1.0x -> 1.5x
       const handled1 = hud.onPointerClick(uvExag);
@@ -319,7 +319,7 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
 
   describe('DesktopOverlay File Guard & Sample Caching', () => {
     it('rejects files larger than 25 MB before calling readAsText', () => {
-      const container = { innerHTML: '' } as HTMLElement;
+      const container = { innerHTML: '', addEventListener: vi.fn() } as unknown as HTMLElement;
       let uploadCalled = false;
 
       const overlay = new DesktopOverlay(container, {
@@ -383,7 +383,7 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
     });
 
     it('caches elevation samples on updateTrack and blits static canvas on scrubber update without re-sampling', () => {
-      const container = { innerHTML: '' } as HTMLElement;
+      const container = { innerHTML: '', addEventListener: vi.fn() } as unknown as HTMLElement;
       const sampleSpy = vi.spyOn(GPXParser, 'sampleElevationProfile');
 
       const overlay = new DesktopOverlay(container, {

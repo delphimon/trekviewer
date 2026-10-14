@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
+import { snapshotSurfaceMesh, buildPromotedSurfacePatches, type SurfacePatchData } from './SurfacePromotion.ts';
+import { runTerrainJob } from './TerrainJobs.ts';
+import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
@@ -855,6 +858,8 @@ export class ImageryLODManager {
 
   private isDisposed: boolean = false;
   private currentGeneration: number = 0;
+  private readonly surfaceLifetime = new AbortController();
+  private readonly preparedSurfaceKeys = new Set<string>();
 
   private currentTextureStyle: TextureStyle;
   private verticalExaggeration: number;
@@ -864,6 +869,7 @@ export class ImageryLODManager {
   private enableFadeIn: boolean;
   private debugPatchBounds: boolean;
   private lastIsXR: boolean = false;
+  private lastTabletopViewDistance: number = Infinity;
 
   // Reconciliation state (Section 14, 30, 37)
   private desiredTileKeys: Set<string> = new Set();
@@ -1176,6 +1182,82 @@ export class ImageryLODManager {
     }
   }
 
+  /** Prepare imagery for a hidden child; its publisher swaps arrays in the same frame as terrain. */
+  public async prepareSurfacePromotion(candidate: LocalTerrainChunk): Promise<() => boolean> {
+    return this.prepareSurfaceChange(candidate.getSurfaceBounds(), candidate);
+  }
+
+  /** Keep the old children visible until parent imagery is ready to replace them. */
+  public async prepareSurfaceRemoval(retiring: LocalTerrainChunk[]): Promise<() => boolean> {
+    const footprints = retiring.map(chunk => chunk.getSurfaceBounds());
+    const bounds = {
+      minX: Math.min(...footprints.map(b => b.minX)), maxX: Math.max(...footprints.map(b => b.maxX)),
+      minZ: Math.min(...footprints.map(b => b.minZ)), maxZ: Math.max(...footprints.map(b => b.maxZ)),
+    };
+    return this.prepareSurfaceChange(bounds, undefined, retiring);
+  }
+
+  private async prepareSurfaceChange(bounds: TerrainSurfaceBounds, candidate?: LocalTerrainChunk, retiring: LocalTerrainChunk[] = []): Promise<() => boolean> {
+    const base = this.options.terrainMesh;
+    if (!(base?.geometry instanceof THREE.PlaneGeometry)) return () => true;
+    const signature = () => JSON.stringify(base.geometry.userData.surfaceHoles ?? []);
+    const originalSignature = signature();
+    const factor = this.verticalExaggeration;
+    const generation = this.currentGeneration;
+    const intersectingPatches = () => [...this.patches.values()].filter(patch => {
+      const geometry = patch.mesh.geometry;
+      if (!geometry.boundingBox) geometry.computeBoundingBox();
+      const b = geometry.boundingBox;
+      return b && b.max.x >= bounds.minX && b.min.x <= bounds.maxX && b.max.z >= bounds.minZ && b.min.z <= bounds.maxZ;
+    });
+    const patches = intersectingPatches();
+    const canPublish = () => !this.isDisposed && generation === this.currentGeneration
+      && factor === this.verticalExaggeration && originalSignature === signature()
+      // New imagery can arrive during worker preparation. Retry instead of synchronously rebuilding it.
+      && intersectingPatches().every(patch => patches.includes(patch));
+    if (!patches.length) return canPublish;
+    const retiringMeshes = new Set(retiring.map(chunk => chunk.mesh));
+    const sources = [snapshotSurfaceMesh(base), ...(base.parent?.children.filter(
+      (child): child is THREE.Mesh => {
+        if (!(child instanceof THREE.Mesh) || !child.visible || retiringMeshes.has(child) || child.name !== 'LocalHighResTerrainMesh') return false;
+        const grid = (child.geometry as THREE.PlaneGeometry).parameters;
+        return patches.some(patch => {
+          const b = patch.mesh.geometry.boundingBox!;
+          return child.position.x + grid.width / 2 >= b.min.x && child.position.x - grid.width / 2 <= b.max.x
+            && child.position.z + grid.height / 2 >= b.min.z && child.position.z - grid.height / 2 <= b.max.z;
+        });
+      }
+    ).map(snapshotSurfaceMesh) ?? []), ...(candidate ? [snapshotSurfaceMesh(candidate.mesh)] : [])];
+    const retiredBounds = retiring.map(chunk => chunk.getSurfaceBounds());
+    const remainingHoles = sources[0].holes.filter(hole => !retiredBounds.some(b =>
+      b.minX === hole.minX && b.maxX === hole.maxX && b.minZ === hole.minZ && b.maxZ === hole.maxZ));
+    sources[0] = { ...sources[0], holes: candidate ? [...remainingHoles, bounds] : remainingHoles };
+    const input = { sources, centerLat: this.options.terrainGeoBounds.centerLat, centerLon: this.options.terrainGeoBounds.centerLon,
+      tiles: patches.map(patch => ({ key: patch.key, zoom: patch.zoom, x: patch.x, y: patch.y })) };
+    const result = await runTerrainJob<SurfacePatchData[]>({ kind: 'surface', input }, () => buildPromotedSurfacePatches(input), this.surfaceLifetime.signal);
+    return () => {
+      if (!canPublish()) return false;
+      for (const data of result) {
+        const patch = this.patches.get(data.key);
+        if (!patch || !patches.includes(patch)) continue;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3));
+        geometry.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
+        geometry.setIndex(new THREE.BufferAttribute(data.indices, 1));
+        geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+        patch.mesh.geometry.dispose(); patch.mesh.geometry = geometry;
+        this.preparedSurfaceKeys.add(data.key);
+        if (patch.outlineMesh) {
+          patch.mesh.remove(patch.outlineMesh); patch.outlineMesh.geometry.dispose();
+          (patch.outlineMesh.material as THREE.Material).dispose();
+          patch.outlineMesh = this.buildPatchOutline(geometry, patch.zoom); patch.mesh.add(patch.outlineMesh);
+        }
+      }
+      return true;
+    };
+  }
+
   public reprojectPatches(sampler?: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds): void {
     if (this.isDisposed) return;
     this.evaluationDirty = true;
@@ -1184,6 +1266,7 @@ export class ImageryLODManager {
     }
 
     for (const patch of this.patches.values()) {
+      if (this.preparedSurfaceKeys.delete(patch.key)) continue;
       const geo = patch.mesh.geometry as THREE.BufferGeometry;
       if (bounds) {
         if (!geo.boundingBox) {
@@ -1331,6 +1414,7 @@ export class ImageryLODManager {
   ): void {
     if (this.isDisposed || !ENABLE_ADAPTIVE_IMAGERY_LOD) return;
 
+    if (this.lastIsXR !== isXR) this.evaluationDirty = true;
     this.lastIsXR = isXR;
 
     if (routeProgress !== undefined) {
@@ -1411,8 +1495,9 @@ export class ImageryLODManager {
       this.lastEvalProgress = this.currentProgress;
     } else {
       const hasPendingZoomChange = this.pendingPromoteZoom !== null || this.pendingDemoteZoom !== null;
+      const cameraMovementThreshold = isXR ? 0.04 : Math.min(0.04, Math.max(1e-7, this.lastTabletopViewDistance * 0.04));
       if (!isFirstRun && !this.evaluationDirty && !pointerChanged && !hasPendingZoomChange &&
-          dioramaPosDelta < 0.015 && rotationDelta < 0.015 && posDelta < 0.04 && dirAngle < 0.03 && scaleRatio < 0.04) {
+          dioramaPosDelta < 0.015 && rotationDelta < 0.015 && posDelta < cameraMovementThreshold && dirAngle < 0.03 && scaleRatio < 0.04) {
         return;
       }
     }
@@ -1696,9 +1781,11 @@ export class ImageryLODManager {
 
     // 2. Compute LOD resolution using viewed-region geometry (Stage V5.2)
     // Distance from active camera to actual viewed terrain hit (or diorama center if missed)
+    const minimumDistance = this.lastIsXR ? 0.2 : 1e-7;
     const camDist = hitWorldPos
-      ? Math.max(metrics.worldPosition.distanceTo(hitWorldPos), 0.2)
-      : Math.max(metrics.worldPosition.distanceTo(dioramaWorldPos), 0.2);
+      ? Math.max(metrics.worldPosition.distanceTo(hitWorldPos), minimumDistance)
+      : Math.max(metrics.worldPosition.distanceTo(dioramaWorldPos), minimumDistance);
+    this.lastTabletopViewDistance = camDist;
 
     const rawTargetZoom = ImageryLODManager.calculateTargetZoom(
       camDist,
@@ -2505,7 +2592,27 @@ export class ImageryLODManager {
   }
 
   private buildPatchOutline(geo: THREE.BufferGeometry, zoom: number): THREE.LineSegments {
-    const edges = new THREE.EdgesGeometry(geo, 40);
+    // Diagnostic tile perimeter, bounded independently of the detailed mesh triangle count.
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const box = geo.boundingBox!;
+    const points: number[] = [];
+    const sample = (x: number, z: number) => {
+      const height = this.options.elevationSampler(x, z) * this.verticalExaggeration + 0.1;
+      points.push(x, Number.isFinite(height) ? height : box.max.y, z);
+    };
+    for (let side = 0; side < 4; side++) {
+      for (let i = 0; i < 16; i++) {
+        for (const fraction of [i / 16, (i + 1) / 16]) {
+          const x = side === 0 ? THREE.MathUtils.lerp(box.min.x, box.max.x, fraction)
+            : side === 1 ? box.max.x : side === 2 ? THREE.MathUtils.lerp(box.max.x, box.min.x, fraction) : box.min.x;
+          const z = side === 0 ? box.min.z : side === 1 ? THREE.MathUtils.lerp(box.min.z, box.max.z, fraction)
+            : side === 2 ? box.max.z : THREE.MathUtils.lerp(box.max.z, box.min.z, fraction);
+          sample(x, z);
+        }
+      }
+    }
+    const edges = new THREE.BufferGeometry();
+    edges.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
     let color = 0x818cf8; // default / base (indigo)
     if (zoom >= 19) {
       color = 0x22c55e; // z19 (vibrant emerald green)
@@ -2677,6 +2784,7 @@ export class ImageryLODManager {
   }
 
   public dispose(): void {
+    this.surfaceLifetime.abort();
     if (this.isDisposed) return;
     this.isDisposed = true;
 

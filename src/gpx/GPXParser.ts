@@ -32,6 +32,13 @@ export class GPXParser {
     if (xmlContent.length > 25 * 1024 * 1024) {
       throw new Error('GPX file exceeds 25 MB limit.');
     }
+    // Bound derived geometry and landmark work before constructing the XML DOM.
+    if ((xmlContent.match(/<(?:trkpt|rtept)\b/gi)?.length ?? 0) > 100_000) {
+      throw new Error('GPX exceeds 100,000 track points. Simplify the track before importing.');
+    }
+    if ((xmlContent.match(/<wpt\b/gi)?.length ?? 0) > 1_000) {
+      throw new Error('GPX exceeds 1,000 waypoints. Reduce the waypoint count before importing.');
+    }
 
     let trackName = fallbackName || 'Unnamed Trek';
     const rawSegments: RawTrackPoint[][] = [];
@@ -64,7 +71,7 @@ export class GPXParser {
         const desc = wpt.querySelector('desc')?.textContent?.trim();
         const sym = wpt.querySelector('sym')?.textContent?.trim();
 
-        if (!isNaN(lat) && !isNaN(lon)) {
+        if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 85 && Math.abs(lon) <= 180) {
           waypoints.push({ lat, lon, ele, name, desc, sym });
         }
       }
@@ -110,7 +117,7 @@ export class GPXParser {
         const descMatch = inner.match(/<desc>([^<]+)<\/desc>/i);
         const symMatch = inner.match(/<sym>([^<]+)<\/sym>/i);
 
-        if (!isNaN(lat) && !isNaN(lon)) {
+        if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 85 && Math.abs(lon) <= 180) {
           waypoints.push({
             lat,
             lon,
@@ -194,10 +201,20 @@ export class GPXParser {
     if (!isFinite(minEle)) minEle = 0;
     if (!isFinite(maxEle)) maxEle = 1000;
 
+    if (!Number.isFinite(minLat) || Math.max(Math.abs(minLat), Math.abs(maxLat)) > 85) {
+      throw new Error('Routes must be between 85° south and 85° north for terrain mapping.');
+    }
+    if (maxLon - minLon > 180) {
+      throw new Error('Routes crossing the date line are not supported. Import a route on one side of the date line.');
+    }
+
     const centerLat = (minLat + maxLat) / 2;
     const centerLon = (minLon + maxLon) / 2;
     const widthMeters = haversineDistance(centerLat, minLon, centerLat, maxLon);
     const depthMeters = haversineDistance(minLat, centerLon, maxLat, centerLon);
+    if (Math.max(widthMeters, depthMeters) > 100_000) {
+      throw new Error('Route area exceeds 100 km. Split the trek into smaller sections before importing.');
+    }
     const elevationSpan = Math.max(maxEle - minEle, 10);
 
     return {
@@ -223,6 +240,7 @@ export class GPXParser {
     raw: RawParsedGPX,
     demElevationSampler?: (lat: number, lon: number) => number | undefined
   ): TrackStats {
+    this.calculateRawBounds(raw);
     const trackName = raw.trackName;
     const waypoints = raw.waypoints;
     const allWarnings = [...raw.warnings];
@@ -280,6 +298,9 @@ export class GPXParser {
           distDelta = haversineDistance(prev.lat, prev.lon, cur.lat, cur.lon);
           segDistance += distDelta;
           cumulativeDistance += distDelta;
+          if (cumulativeDistance > 400_000) {
+            throw new Error('Route exceeds 400 km and the visual-station budget. Split it into smaller treks.');
+          }
 
           const eleDelta = ele - prev.ele!;
           const slope = distDelta > 0.5 ? eleDelta / distDelta : 0;
@@ -407,6 +428,7 @@ export class GPXParser {
 
     // 3. Derive semantic landmarks from GPS data
     const landmarks = this.deriveLandmarks(points, bounds, finalizedWaypoints);
+    if (landmarks.length >= 200) allWarnings.push('Derived landmark display limited to 200 markers. The full track is preserved.');
 
     // Compute elevation provenance stats
     let gpxCount = 0;
@@ -729,19 +751,29 @@ export class GPXParser {
     }
 
     // 4. Significant Stops (> 20 min dwell) & Day Boundaries
-    let prevDateStr = start.time?.toDateString();
+    // Resolve local calendar boundaries once per day, rather than formatting every point.
+    const dayWindow = (time: Date): [number, number] => {
+      const midnight = new Date(time);
+      midnight.setHours(0, 0, 0, 0);
+      const next = new Date(midnight);
+      next.setDate(next.getDate() + 1);
+      return [midnight.getTime(), next.getTime()];
+    };
+    let calendarWindow = start.time ? dayWindow(start.time) : undefined;
     let dayCount = 1;
 
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
       const cur = points[i];
 
+      if (landmarks.length >= 200) break;
+
       // Day boundary check
-      if (cur.time && prevDateStr) {
-        const curDateStr = cur.time.toDateString();
-        if (curDateStr !== prevDateStr) {
+      if (cur.time && calendarWindow) {
+        const timestamp = cur.time.getTime();
+        if (timestamp < calendarWindow[0] || timestamp >= calendarWindow[1]) {
           dayCount++;
-          prevDateStr = curDateStr;
+          calendarWindow = dayWindow(cur.time);
           landmarks.push({
             lat: cur.lat,
             lon: cur.lon,

@@ -14,7 +14,7 @@ function fixture(body='exit 0') {
     env:{...process.env,PATH:bin+':/usr/bin:/bin',QUEST_ANDROID_DIR:project,...extra},encoding:'utf8'});
   return {dir,project,run};
 }
-describe('Quest package artifact checks (stub CLI, no Android build)',()=>{
+describe.skipIf(process.platform === 'win32')('Quest package artifact checks (requires POSIX bash and symlinks)',()=>{
   it('rejects missing hosted manifest configuration',()=>{
     const f=fixture(); const result=f.run(['--init'],{QUEST_MANIFEST_URL:''});
     expect(result.status).toBe(1); expect(result.stderr).toContain('HTTPS manifest');

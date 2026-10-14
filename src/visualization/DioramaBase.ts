@@ -12,6 +12,7 @@ const _scratchCamPos = new THREE.Vector3();
 const _scratchLabelPos = new THREE.Vector3();
 const _scratchWorldScale = new THREE.Vector3();
 const _scratchPinWorldScale = new THREE.Vector3();
+const _scratchPinPosition = new THREE.Vector3();
 
 export class DioramaBase {
   /**
@@ -421,7 +422,8 @@ export class DioramaBase {
     baseGroup: THREE.Group,
     camera: THREE.Camera,
     dioramaScale: number,
-    delta: number
+    delta: number,
+    desktopViewportHeight?: number
   ): void {
     const wpGroup = baseGroup.getObjectByName('Waypoints');
     if (!wpGroup || wpGroup.children.length === 0) return;
@@ -434,6 +436,8 @@ export class DioramaBase {
 
     const camWorldPos = _scratchCamPos;
     camera.getWorldPosition(camWorldPos);
+    const metresPerPixelAtUnitDistance = desktopViewportHeight && (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+      ? 2 * Math.tan(THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov / 2)) / desktopViewportHeight : 0;
 
     for (const child of wpGroup.children) {
       const pin = child as THREE.Group;
@@ -458,7 +462,14 @@ export class DioramaBase {
 
       // Enlarge marker slightly on hover/select (1.3x) (Section 32)
       const scaleMult = isActive ? 1.3 : 1.0;
-      pin.scale.setScalar(baseMarkerScale * scaleMult);
+      let markerScale = baseMarkerScale;
+      if (metresPerPixelAtUnitDistance) {
+        pin.getWorldPosition(_scratchPinPosition);
+        const diameter = Math.min(DESIRED_MARKER_DIAMETER_WORLD,
+          _scratchPinPosition.distanceTo(camWorldPos) * metresPerPixelAtUnitDistance * 22);
+        markerScale = diameter / (BASE_MARKER_DIAMETER_LOCAL * parentWorldScale);
+      }
+      pin.scale.setScalar(markerScale * scaleMult);
 
       // Visual feedback: bright halo/ring and luminous emissive intensity (Section 32)
       const diamond = pin.getObjectByName('WaypointPinMesh') as THREE.Mesh | null;
@@ -479,7 +490,9 @@ export class DioramaBase {
           const labelWorldPos = _scratchLabelPos;
           label.getWorldPosition(labelWorldPos);
           const distToCam = labelWorldPos.distanceTo(camWorldPos);
-          const desiredWorldWidth = Math.max(0.12, Math.min(0.85, distToCam * 0.175));
+          const desiredWorldWidth = metresPerPixelAtUnitDistance
+            ? Math.min(0.85, distToCam * metresPerPixelAtUnitDistance * 240)
+            : Math.max(0.12, Math.min(0.85, distToCam * 0.175));
           const desiredWorldHeight = desiredWorldWidth * (128 / 384);
 
           // Robust local scale from pin world scale (Section 34)

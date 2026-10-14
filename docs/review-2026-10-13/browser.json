@@ -1,0 +1,185 @@
+{
+  "summary": {
+    "title": "Mount Rainier via Emmons",
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "tasks": [
+      {
+        "start": 1529.699999988079,
+        "duration": 1151
+      },
+      {
+        "start": 2681.800000011921,
+        "duration": 82
+      },
+      {
+        "start": 2901.300000011921,
+        "duration": 72
+      },
+      {
+        "start": 3826.300000011921,
+        "duration": 502
+      },
+      {
+        "start": 4340.899999976158,
+        "duration": 697
+      },
+      {
+        "start": 5038.5,
+        "duration": 56
+      },
+      {
+        "start": 5097.899999976158,
+        "duration": 463
+      },
+      {
+        "start": 5688.100000023842,
+        "duration": 104
+      },
+      {
+        "start": 6488.899999976158,
+        "duration": 55
+      },
+      {
+        "start": 6592.100000023842,
+        "duration": 78
+      }
+    ],
+    "bodyWidth": 1440,
+    "viewport": 1440,
+    "rangeLabel": null
+  },
+  "mobile": {
+    ".top-bar": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 140,
+      "display": "flex"
+    },
+    ".player-bar": {
+      "x": 10,
+      "y": 714,
+      "width": 370,
+      "height": 120,
+      "display": "flex"
+    },
+    "#btnEnterVR": {
+      "x": 866.28125,
+      "y": 35,
+      "width": 71.78125,
+      "height": 69,
+      "display": "flex"
+    },
+    "#btnEnterAR": {
+      "x": 948.0625,
+      "y": 35,
+      "width": 121.5625,
+      "height": 69,
+      "display": "flex"
+    },
+    "#btnViewToggle": {
+      "x": 263.015625,
+      "y": 734,
+      "width": 63.859375,
+      "height": 80,
+      "display": "flex"
+    },
+    "#scrubberInput": {
+      "x": 346.875,
+      "y": 793,
+      "width": 0,
+      "height": 16,
+      "display": "block"
+    },
+    "#canvasChart": {
+      "x": 346.875,
+      "y": 739,
+      "width": 0,
+      "height": 50,
+      "display": "block"
+    }
+  },
+  "errors": [],
+  "topFunctions": [
+    [
+      "(idle) @ :0",
+      3312.9179999999997
+    ],
+    [
+      "(program) @ :0",
+      1081.927
+    ],
+    [
+      "C @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4162",
+      471.121
+    ],
+    [
+      "deriveLandmarks @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      465.9719999999998
+    ],
+    [
+      "ke @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      425.5779999999996
+    ],
+    [
+      "renderDynamicLayer @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      283.235
+    ],
+    [
+      "sampleElevation @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4391",
+      151.12099999999992
+    ],
+    [
+      "renderStaticLayer @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      68.89099999999998
+    ],
+    [
+      "decodeTileGrid @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4391",
+      58.80300000000001
+    ],
+    [
+      "parseRaw @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      53.374999999999986
+    ],
+    [
+      "(garbage collector) @ :0",
+      39.299
+    ],
+    [
+      "n @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4072",
+      38.102000000000004
+    ],
+    [
+      "generateTopoTexture @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      28.42699999999999
+    ],
+    [
+      "getUVForGeo @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      25.424000000000007
+    ],
+    [
+      "h @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4169",
+      22.668
+    ],
+    [
+      "ju @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4220",
+      21.877000000000002
+    ],
+    [
+      "e @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:1",
+      20.565
+    ],
+    [
+      "l @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:4413",
+      19.372999999999998
+    ],
+    [
+      "computeVertexNormals @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:1",
+      18.694999999999997
+    ],
+    [
+      "getX @ https://127.0.0.1:4373/assets/index-ChCUTs7C.js:1",
+      17.706
+    ]
+  ]
+}

@@ -6,8 +6,10 @@ import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
 import { LocalTerrainStreamer } from '../terrain/LocalTerrainStreamer.ts';
+import { TiledTerrainStreamer } from '../terrain/TiledTerrainStreamer.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import { type QualityProfile, QualityProfileManager } from '../terrain/QualityProfile.ts';
+import type { GraphicsResource } from './GraphicsResources.ts';
 
 export interface LoadedTrekParams {
   track: TrackStats;
@@ -18,6 +20,7 @@ export interface LoadedTrekParams {
   imageryLOD?: ImageryLODManager;
   localTerrainStreamer?: LocalTerrainStreamer;
   qualityProfile?: QualityProfile;
+  tiledTerrain?: boolean;
 }
 
 /**
@@ -31,7 +34,7 @@ export class LoadedTrek {
   public readonly dioramaBase: THREE.Group;
   public readonly flyoverController: FlyoverController;
   public readonly imageryLOD: ImageryLODManager;
-  public readonly localTerrainStreamer?: LocalTerrainStreamer;
+  public readonly localTerrainStreamer?: LocalTerrainStreamer | TiledTerrainStreamer;
   public readonly group: THREE.Group;
   private _isDisposed: boolean = false;
   private currentVerticalExaggeration: number = 1.0;
@@ -70,12 +73,15 @@ export class LoadedTrek {
     if (params.localTerrainStreamer) {
       this.localTerrainStreamer = params.localTerrainStreamer;
     } else if (this.terrainResult.demGrid && this.trailResult.routeGeometry) {
-      this.localTerrainStreamer = new LocalTerrainStreamer({
+      const Streamer = params.tiledTerrain && this.terrainResult.baseMeshGrid ? TiledTerrainStreamer : LocalTerrainStreamer;
+      this.localTerrainStreamer = new Streamer({
         terrainResult: this.terrainResult,
         routeGeometry: this.trailResult.routeGeometry,
         demGrid: this.terrainResult.demGrid,
         qualityProfile,
         initialViewMode: 'diorama',
+        prepareSurfacePromotion: (chunk) => this.imageryLOD.prepareSurfacePromotion(chunk),
+        prepareSurfaceRemoval: (chunks) => this.imageryLOD.prepareSurfaceRemoval(chunks),
       });
       this.localTerrainStreamer.update(0);
     }
@@ -94,8 +100,13 @@ export class LoadedTrek {
     return this._isDisposed;
   }
 
+  public getGraphicsResources(): GraphicsResource[] {
+    return [...(this.terrainResult.getGraphicsResources?.() ?? []), ...(this.trailResult.getGraphicsResources?.() ?? [])];
+  }
+
   public setVerticalExaggeration(factor: number): void {
     if (this._isDisposed) return;
+    if (factor === this.currentVerticalExaggeration) return;
     this.currentVerticalExaggeration = factor;
     this.terrainResult.setVerticalExaggeration(factor);
     this.localTerrainStreamer?.setVerticalExaggeration(factor);
@@ -157,9 +168,9 @@ export class LoadedTrek {
     this.terrainResult.setDebugPatchBounds?.(enabled);
   }
 
-  public updateWaypoints(camera: THREE.Camera, dioramaScale: number, delta: number): void {
+  public updateWaypoints(camera: THREE.Camera, dioramaScale: number, delta: number, desktopViewportHeight?: number): void {
     if (this._isDisposed) return;
-    DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta);
+    DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta, desktopViewportHeight);
   }
 
   public updateHikerProgress(

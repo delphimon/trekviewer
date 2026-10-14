@@ -16,6 +16,8 @@ export interface LocalTerrainStreamerOptions {
   maxChunks?: number;
   evalThresholdM?: number;
   initialViewMode?: ViewMode;
+  prepareSurfacePromotion?: (chunk: LocalTerrainChunk) => Promise<() => boolean>;
+  prepareSurfaceRemoval?: (chunks: LocalTerrainChunk[]) => Promise<() => boolean>;
 }
 
 /**

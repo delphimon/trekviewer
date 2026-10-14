@@ -1,0 +1,97 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { chromium } = require('C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const out = path.resolve('.review-cache/inspection'); fs.mkdirSync(out, { recursive: true });
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4176', '--strictPort'], { stdio: 'pipe', windowsHide: true });
+let browser;
+const errors = [], warnings = [];
+try {
+  await new Promise((resolve, reject) => { server.stdout.on('data', d => { if (d.toString().includes('4176')) resolve(); }); server.on('error', reject); setTimeout(() => reject(Error('preview timeout')), 15000); });
+  browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
+  const page = await browser.newPage({ viewport: { width: 1233, height: 821 }, ignoreHTTPSErrors: true });
+  page.on('pageerror', error => errors.push(String(error)));
+  page.on('console', msg => { if (['warning', 'error'].includes(msg.type())) warnings.push(msg.text()); });
+  await page.goto('https://127.0.0.1:4176/?profile=1', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__trekViewerApp?.activeTrek?.track.name.includes('Rainier'), null, { timeout: 90000 });
+  await page.waitForTimeout(5000);
+  const setup = await page.evaluate(() => {
+    const app = window.__trekViewerApp, scene = app.sceneManager, camera = scene.camera, mesh = app.terrainResult.terrainMesh;
+    scene.renderer.setAnimationLoop(null); app.flyoverController.pause(); scene.scene.updateMatrixWorld(true);
+    document.getElementById('buildBadge')?.remove();
+    document.getElementById('profile-controls')?.remove();
+    const pos = mesh.geometry.attributes.position;
+    let peak = 0; for (let i = 1; i < pos.count; i++) if (pos.getY(i) > pos.getY(peak)) peak = i;
+    const target = camera.position.clone().fromBufferAttribute(pos, peak); mesh.localToWorld(target);
+    app.controls.enableDamping = false; app.controls.target.copy(target);
+    camera.position.copy(target).add(camera.position.clone().set(0, 0.036, 0.048)); camera.lookAt(target);
+    app.controls.update(); scene.updateCameraClipping(camera.position.distanceTo(app.controls.target));
+    app.activeTrek.updateWaypoints(camera, scene.dioramaRoot.scale.x, 0, innerHeight);
+    const fixed = { near: camera.near, far: camera.far, distance: camera.position.distanceTo(target), targetDepth: target.clone().project(camera).z };
+    camera.near = 0.1; camera.updateProjectionMatrix(); scene.render();
+    return { fixed, old: { near: camera.near, targetDepth: target.clone().project(camera).z }, renderer: scene.renderer.getContext().getParameter(scene.renderer.getContext().getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL) };
+  });
+  assert(setup.old.targetDepth < -1); assert(setup.fixed.targetDepth > -1 && setup.fixed.targetDepth < 1);
+  await page.screenshot({ path: path.join(out, 'close-old-clipping.png') });
+  await page.evaluate(() => { const app = window.__trekViewerApp; app.sceneManager.updateCameraClipping(app.sceneManager.camera.position.distanceTo(app.controls.target)); app.sceneManager.render(); });
+  await page.screenshot({ path: path.join(out, 'close-fixed-clipping.png') });
+  const zoom = await page.evaluate(() => {
+    const app = window.__trekViewerApp, camera = app.sceneManager.camera, controls = app.controls;
+    const offset = camera.position.clone().sub(controls.target).normalize().multiplyScalar(0.01);
+    camera.position.copy(controls.target).add(offset); controls.update(); app.sceneManager.updateCameraClipping(controls.getDistance()); app.activeTrek.updateWaypoints(camera, app.sceneManager.dioramaRoot.scale.x, 0, innerHeight); app.sceneManager.render();
+    return { distance: controls.getDistance(), near: camera.near, targetDepth: controls.target.clone().project(camera).z, zoomToCursor: controls.zoomToCursor };
+  });
+  assert(zoom.distance < 0.2); assert(zoom.targetDepth > -1); assert(zoom.zoomToCursor);
+  await page.screenshot({ path: path.join(out, 'extreme-close.png') });
+  await page.mouse.move(740, 350); await page.mouse.wheel(0, -200);
+  const wheel = await page.evaluate(() => {
+    const app = window.__trekViewerApp;
+    app.sceneManager.updateCameraClipping(app.controls.getDistance()); app.startProfile();
+    app.sceneManager.renderer.setAnimationLoop((timestamp, frame) => app.animate(timestamp, frame));
+    return { distance: app.controls.getDistance(), target: app.controls.target.toArray() };
+  });
+  assert(wheel.distance < zoom.distance);
+  await page.waitForTimeout(8000);
+  await page.screenshot({ path: path.join(out, 'settled-close.png') });
+  const profile = await page.evaluate(() => { const app = window.__trekViewerApp; app.stopProfile(); app.sceneManager.renderer.setAnimationLoop(null); return app.completedProfile; });
+  fs.writeFileSync(path.join(out, 'close-profile.json'), JSON.stringify(profile, null, 2));
+  await page.uncheck('#horizonLocked');
+  const beforeReset = await page.evaluate(() => {
+    const app = window.__trekViewerApp, root = app.sceneManager.dioramaRoot;
+    root.rotation.set(0.4, 0.7, -0.2, 'YXZ'); app.session.setProgress(0.37);
+    return { position: root.position.toArray(), scale: root.scale.toArray(), camera: app.sceneManager.camera.position.toArray(), target: app.controls.target.toArray(), distance: app.controls.getDistance(), progress: app.session.getState().progress };
+  });
+  await page.click('#btnResetHorizon');
+  const afterReset = await page.evaluate(() => {
+    const app = window.__trekViewerApp, root = app.sceneManager.dioramaRoot;
+    return { position: root.position.toArray(), scale: root.scale.toArray(), camera: app.sceneManager.camera.position.toArray(), target: app.controls.target.toArray(), distance: app.controls.getDistance(), progress: app.session.getState().progress, rotation: root.rotation.toArray(), locked: app.horizonLocked };
+  });
+  for (const key of ['position', 'scale', 'camera', 'target', 'distance', 'progress']) assert.deepEqual(afterReset[key], beforeReset[key]);
+  assert(Math.abs(afterReset.rotation[0]) < 1e-10); assert(Math.abs(afterReset.rotation[2]) < 1e-10); assert.equal(afterReset.locked, false);
+  await page.evaluate(() => { window.__trekViewerApp.sceneManager.dioramaRoot.rotation.set(0.3, 0.8, 0.4, 'YXZ'); });
+  await page.check('#horizonLocked');
+  const locked = await page.evaluate(() => ({ rotation: window.__trekViewerApp.sceneManager.dioramaRoot.rotation.toArray(), xr: window.__trekViewerApp.xrManager.horizonLocked, hud: window.__trekViewerApp.spatialHUD.horizonLocked, saved: localStorage.getItem('trekviewer.horizonLocked') }));
+  assert(Math.abs(locked.rotation[0]) < 1e-10 && Math.abs(locked.rotation[2]) < 1e-10); assert(locked.xr && locked.hud); assert.equal(locked.saved, 'true');
+  await page.evaluate(() => {
+    const app = window.__trekViewerApp; app.frameDesktopDiorama(); app.sceneManager.updateCameraClipping(app.controls.getDistance()); app.activeTrek.updateWaypoints(app.sceneManager.camera, app.sceneManager.dioramaRoot.scale.x, 0, innerHeight); app.sceneManager.render();
+    app.spatialHUD.group.visible = true; app.spatialHUD.update(); app.spatialHUD.group.visible = false;
+    const image = document.createElement('img'); image.src = app.spatialHUD.canvas.toDataURL(); image.id = 'hud-preview'; image.style.cssText = 'position:fixed;left:0;top:0;width:1024px;height:740px;z-index:999999'; document.body.append(image);
+  });
+  await page.locator('#hud-preview').screenshot({ path: path.join(out, 'spatial-hud.png') });
+  await page.evaluate(() => document.getElementById('hud-preview').remove());
+  await page.screenshot({ path: path.join(out, 'desktop.png') });
+  await page.setViewportSize({ width: 390, height: 844 }); await page.click('#btnSettings');
+  await page.locator('#btnResetHorizon').scrollIntoViewIfNeeded();
+  assert(await page.locator('#horizonLocked').isVisible()); await page.screenshot({ path: path.join(out, 'mobile-settings.png') });
+  await page.uncheck('#horizonLocked');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__trekViewerApp?.activeTrek, null, { timeout: 90000 });
+  const persisted = await page.evaluate(() => ({ app: window.__trekViewerApp.horizonLocked, checkbox: document.querySelector('#horizonLocked').checked, xr: window.__trekViewerApp.xrManager.horizonLocked, hud: window.__trekViewerApp.spatialHUD.horizonLocked }));
+  assert(Object.values(persisted).every(value => value === false));
+  assert.deepEqual(errors, []); assert.deepEqual(warnings, []);
+  fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify({ setup, zoom, wheel, beforeReset, afterReset, locked, persisted, errors, warnings }, null, 2));
+  console.log(JSON.stringify({ setup, zoom, wheel, locked, persisted, errors, warnings }));
+} finally { await browser?.close(); server.kill(); }

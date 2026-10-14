@@ -63,6 +63,7 @@ body, html {
 /* Top Navigation Bar */
 .top-bar {
   display: flex;
+  gap: 16px;
   align-items: center;
   justify-content: space-between;
   padding: 14px 24px;
@@ -100,9 +101,13 @@ body, html {
 
 .route-select-wrapper {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 12px;
 }
+
+#routeSelect { flex: 1; min-width: 0; width: 0; }
 
 .styled-select {
   background: rgba(30, 41, 59, 0.8);
@@ -581,4 +586,57 @@ body, html {
   .player-bar {
     margin: 0 10px 10px 10px;
   }
+}
+
+.settings-toggle { display: none; }
+.xr-support-status { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--text-muted); }
+.xr-support-status[hidden] { display: none; }
+.graphics-status { z-index: 120; gap: 12px; pointer-events: auto; animation: none; }
+.graphics-status [hidden] { display: none; }
+.play-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; filter: none; transform: none; }
+.top-bar:has(.xr-support-status:not([hidden])) { flex-wrap: wrap; }
+.comfort-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; font-size: 13px; }
+.comfort-option select { max-width: 180px; }
+.player-center { min-width: 160px; }
+.btn:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 3px solid var(--accent-amber);
+  outline-offset: 3px;
+}
+
+@media (max-width: 1150px) {
+  .top-bar { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
+  .route-select-wrapper { flex: 1; min-width: 0; }
+  #routeSelect { min-width: 0; max-width: 300px; flex: 1; }
+  .player-bar { flex-wrap: wrap; gap: 12px; }
+  .player-center { flex-basis: 100%; order: 3; }
+  .player-left { flex-wrap: wrap; }
+}
+
+@media (max-width: 900px) {
+  .settings-toggle { display: inline-flex; }
+  .stats-panel.settings-open {
+    display: block; position: absolute; z-index: 20;
+    top: 170px; left: 10px; right: 10px; width: auto;
+    max-height: calc(100dvh - 350px); overflow-y: auto; margin: 0;
+    background: rgba(11, 17, 32, 0.98);
+  }
+}
+
+@media (max-width: 600px) {
+  #profile-controls { top: auto !important; bottom: 180px; right: 10px !important; flex-wrap: wrap; max-width: calc(100vw - 20px); }
+  .top-bar { gap: 10px; padding: 10px 12px; }
+  .logo-group { flex-basis: 100%; }
+  .logo-subtitle { font-size: 10px; }
+  .route-select-wrapper { flex-basis: 100%; gap: 8px; }
+  .route-select-wrapper > label { display: none; }
+  #routeSelect { max-width: none; width: 0; }
+  .xr-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn { min-height: 40px; padding: 8px 12px; }
+  .player-bar { padding: 10px 12px; gap: 8px; }
+  .player-left { gap: 8px; flex: 1 1 100%; }
+  .player-right { justify-content: space-between; width: 100%; }
+  .player-center { min-width: 0; width: 100%; }
+  .speed-selector .btn-xs { min-height: 36px; }
+  .status-banner { max-width: calc(100vw - 24px); width: max-content; }
+  .stats-panel.settings-open { top: 166px; max-height: calc(100dvh - 340px); }
 }

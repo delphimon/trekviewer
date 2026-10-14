@@ -1,6 +1,7 @@
 import { RouteManifestItem, TrackStats, GPXWaypoint, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
 import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
+import type { ComfortPreferences } from '../xr/ComfortPreferences.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -15,6 +16,11 @@ export interface OverlayCallbacks {
   onSetVerticalExaggeration?: (val: number) => void;
   onSelectWaypoint?: (name: string, lat: number, lon: number) => void;
   onSetQualityMode?: (mode: 'high' | 'balanced') => void;
+  onSetComfort?: (preferences: Partial<ComfortPreferences>) => void;
+  onSetHorizonLocked?: (locked: boolean) => void;
+  onResetHorizon?: () => void;
+  onFitTerrain?: () => void;
+  onRetryGraphics?: () => void;
 }
 
 export class DesktopOverlay {
@@ -28,6 +34,9 @@ export class DesktopOverlay {
   private textureStyle: TextureStyle = 'satellite';
   private trailColorMode: TrailColorMode = 'solid';
   private verticalExaggeration: number = 1.0;
+  private xrEnabled = true;
+  private graphicsPaused = false;
+  private xrSupport: { vr: boolean | null; ar: boolean | null } = { vr: null, ar: null };
 
   // Cached elevation profile for high-performance scrubbing
   private cachedElevationSamples: { elevation: number; distance: number }[] = [];
@@ -51,6 +60,11 @@ export class DesktopOverlay {
     this.callbacks = callbacks;
     this.createDOM();
     this.setupEventListeners();
+    this.setTextureStyle(this.textureStyle);
+    this.setTrailColorMode(this.trailColorMode);
+    this.setVerticalExaggeration(this.verticalExaggeration);
+    this.setPlaybackSpeed(1);
+    this.setPlaying(false);
   }
 
   public setManifest(manifest: RouteManifestItem[]): void {
@@ -133,6 +147,7 @@ export class DesktopOverlay {
 
   public updateTrack(track: TrackStats): void {
     this.currentTrack = track;
+    this.updateFitAvailability();
     this.statsTitle.textContent = track.name;
 
     const warningsPill = (track.warnings && track.warnings.length > 0)
@@ -214,7 +229,7 @@ export class DesktopOverlay {
     ctx.beginPath();
     for (let i = 0; i < samples.length; i++) {
       const s = samples[i];
-      const px = (i / (samples.length - 1)) * w;
+      const px = (s.distance / Math.max(this.currentTrack.totalDistance, 1)) * w;
       const py = h - 6 - ((s.elevation - minE) / spanE) * (h - 16);
 
       if (i === 0) ctx.moveTo(px, py);
@@ -330,7 +345,24 @@ export class DesktopOverlay {
 
   public setPlaying(playing: boolean): void {
     this.isPlaying = playing;
-    this.playBtn.innerHTML = playing ? '⏸ Pause' : '▶ Play';
+    this.playBtn.innerHTML = playing ? '⏸ Pause' : this.viewMode === 'first-person' ? '▶ Walk' : '▶ Play';
+    this.playBtn.ariaPressed = String(playing);
+  }
+
+  public setViewMode(mode: ViewMode): void {
+    this.viewMode = mode;
+    this.updateFitAvailability();
+    const button = document.getElementById('btnViewToggle');
+    if (button) button.textContent = mode === 'diorama' ? '🚶 Walk Trail (1:1)' : '🏔 Tabletop Diorama';
+    if (button) button.ariaPressed = String(mode === 'first-person');
+    const speeds = this.container.querySelector<HTMLElement>('.speed-selector');
+    if (speeds) speeds.style.display = mode === 'first-person' ? 'none' : 'flex';
+    this.setPlaying(this.isPlaying);
+  }
+
+  private updateFitAvailability(): void {
+    const button = document.getElementById('btnFitTerrain') as HTMLButtonElement | null;
+    if (button) button.disabled = !this.currentTrack || this.viewMode !== 'diorama' || this.graphicsPaused;
   }
 
   private drawElevationChart(): void {
@@ -373,25 +405,31 @@ export class DesktopOverlay {
           <div class="route-select-wrapper">
             <label for="routeSelect">Select Trek:</label>
             <select id="routeSelect" class="styled-select"></select>
-            <label for="gpxUploadInput" class="btn btn-secondary upload-btn">
+            <button id="btnImportGPX" class="btn btn-secondary upload-btn" type="button">
               📂 Import GPX
-            </label>
+            </button>
             <input type="file" id="gpxUploadInput" accept=".gpx" style="display:none;" />
           </div>
 
           <!-- WebXR Meta Quest 3 Launch Buttons -->
           <div class="xr-buttons">
-            <button id="btnEnterVR" class="btn btn-primary xr-btn">
+            <button id="btnSettings" class="btn btn-secondary settings-toggle" aria-controls="trekSettings" aria-expanded="false">Settings</button>
+            <button id="btnEnterVR" class="btn btn-primary xr-btn" aria-describedby="xrSupportStatus">
               🥽 Enter VR
             </button>
-            <button id="btnEnterAR" class="btn btn-accent xr-btn">
+            <button id="btnEnterAR" class="btn btn-accent xr-btn" aria-describedby="xrSupportStatus">
               👓 Passthrough (MR)
             </button>
           </div>
+          <p id="xrSupportStatus" class="xr-support-status" role="status" hidden></p>
         </header>
 
         <!-- Status & Progress Notification Modal -->
-        <div id="statusBanner" class="status-banner glass-card" style="display:none;">
+        <div id="graphicsStatus" class="status-banner glass-card graphics-status" role="status" aria-live="polite" style="display:none;">
+          <span id="graphicsStatusText"></span>
+          <button id="btnRetryGraphics" class="btn btn-primary" type="button" hidden>Retry graphics</button>
+        </div>
+        <div id="statusBanner" class="status-banner glass-card" role="status" aria-live="polite" style="display:none;">
           <div class="status-content">
             <span class="status-spinner"></span>
             <span id="statusText">Loading trek...</span>
@@ -402,13 +440,21 @@ export class DesktopOverlay {
         </div>
 
         <!-- Left Stats Panel -->
-        <aside class="stats-panel glass-card">
+        <aside id="trekSettings" class="stats-panel glass-card" aria-label="Trek settings">
           <h2 id="statsTitle" class="trek-title">Loading Route...</h2>
           <p id="statsSubtitle" class="trek-meta">Cascades Mountaineering</p>
           <div id="statsGrid" class="stats-grid"></div>
 
           <!-- Map & Visualization Options -->
           <div class="controls-section">
+            <h3>Horizon</h3>
+            <label class="comfort-option"><span>Lock horizon level</span><input id="horizonLocked" type="checkbox" checked /></label>
+            <div class="btn-group">
+              <button id="btnResetHorizon" class="btn btn-sm">Level horizon</button>
+              <button id="btnFitTerrain" class="btn btn-sm" title="Show the whole terrain without changing trail progress" disabled>Fit terrain</button>
+            </div>
+            <p class="trek-meta">Keep the model upright while moving, zooming and turning. Level horizon preserves your position and zoom.</p>
+
             <h3>Visual Style</h3>
             <div class="btn-group">
               <button id="btnSatTex" class="btn btn-sm btn-active">🛰️ Aerial</button>
@@ -442,9 +488,22 @@ export class DesktopOverlay {
 
             <h3>Quality</h3>
             <div class="btn-group" id="groupQuality">
-              <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high">⚡ High</button>
-              <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced">🌱 Balanced</button>
+              <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high" aria-pressed="true">⚡ High</button>
+              <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced" aria-pressed="false">🌱 Balanced</button>
             </div>
+
+            <h3>VR Comfort</h3>
+            <label class="comfort-option">Movement
+              <select id="comfortMovement" class="styled-select"><option value="walk">Walking pace</option><option value="step">1 m steps</option></select>
+            </label>
+            <label class="comfort-option">Turning
+              <select id="comfortTurning" class="styled-select"><option value="snap">30° snap</option><option value="smooth">Smooth</option></select>
+            </label>
+            <label class="comfort-option">Panel size
+              <select id="comfortPanel" class="styled-select"><option value="1">Comfortable</option><option value="1.25">Larger text</option></select>
+            </label>
+            <label class="comfort-option"><span>Motion vignette</span><input id="comfortVignette" type="checkbox" checked /></label>
+            <p class="trek-meta">Trail entry pauses playback. Use landmarks to jump; walking playback stays at a walking pace.</p>
 
             <div class="landmarks-section" id="landmarksSection" style="display:none;">
               <div class="landmarks-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -481,7 +540,7 @@ export class DesktopOverlay {
               <button class="btn btn-xs speed-btn" data-speed="20">20x</button>
               <button class="btn btn-xs speed-btn" data-speed="60">60x</button>
             </div>
-            <button id="btnViewToggle" class="btn btn-secondary view-toggle-btn">
+            <button id="btnViewToggle" class="btn btn-secondary view-toggle-btn" aria-pressed="false">
               🚶 Walk Trail (1:1)
             </button>
           </div>
@@ -492,7 +551,7 @@ export class DesktopOverlay {
             </div>
             <div class="scrubber-wrapper">
               <div id="scrubberFill" class="scrubber-fill"></div>
-              <input type="range" id="scrubberInput" min="0" max="100" value="0" step="0.1" />
+              <input type="range" id="scrubberInput" aria-label="Route progress" min="0" max="100" value="0" step="0.1" />
             </div>
           </div>
 
@@ -523,6 +582,23 @@ export class DesktopOverlay {
   }
 
   private setupEventListeners(): void {
+    document.getElementById('btnRetryGraphics')?.addEventListener('click', () => this.callbacks.onRetryGraphics?.());
+    document.getElementById('horizonLocked')?.addEventListener('change', (event) => {
+      this.callbacks.onSetHorizonLocked?.((event.target as HTMLInputElement).checked);
+    });
+    document.getElementById('btnResetHorizon')?.addEventListener('click', () => this.callbacks.onResetHorizon?.());
+    document.getElementById('comfortMovement')?.addEventListener('change', (event) => {
+      this.callbacks.onSetComfort?.({ movement: (event.target as HTMLSelectElement).value as ComfortPreferences['movement'] });
+    });
+    document.getElementById('comfortTurning')?.addEventListener('change', (event) => {
+      this.callbacks.onSetComfort?.({ turning: (event.target as HTMLSelectElement).value as ComfortPreferences['turning'] });
+    });
+    document.getElementById('comfortPanel')?.addEventListener('change', (event) => {
+      this.callbacks.onSetComfort?.({ panelScale: Number((event.target as HTMLSelectElement).value) });
+    });
+    document.getElementById('comfortVignette')?.addEventListener('change', (event) => {
+      this.callbacks.onSetComfort?.({ vignette: (event.target as HTMLInputElement).checked });
+    });
     // Route Selection
     const select = document.getElementById('routeSelect') as HTMLSelectElement;
     select.addEventListener('change', () => {
@@ -533,6 +609,30 @@ export class DesktopOverlay {
     // File Upload (with 25 MB pre-read guard)
     const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
     const fileInput = document.getElementById('gpxUploadInput') as HTMLInputElement;
+    document.getElementById('btnImportGPX')?.addEventListener('click', () => fileInput.click());
+    const settingsButton = document.getElementById('btnSettings');
+    const settings = document.getElementById('trekSettings');
+    const closeSettings = () => {
+      settings?.classList.remove('settings-open');
+      settingsButton?.setAttribute('aria-expanded', 'false');
+    };
+    document.getElementById('btnFitTerrain')?.addEventListener('click', () => {
+      const wasOpen = settings?.classList.contains('settings-open');
+      closeSettings();
+      this.callbacks.onFitTerrain?.();
+      if (wasOpen) settingsButton?.focus();
+    });
+    settingsButton?.addEventListener('click', () => {
+      const open = settingsButton.getAttribute('aria-expanded') !== 'true';
+      settings?.classList.toggle('settings-open', open);
+      settingsButton.setAttribute('aria-expanded', String(open));
+    });
+    this.container.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeSettings();
+        settingsButton?.focus();
+      }
+    });
     fileInput.addEventListener('change', (e) => {
       const file = fileInput.files?.[0];
       if (file) {
@@ -591,9 +691,8 @@ export class DesktopOverlay {
     // Speed buttons
     document.querySelectorAll('.speed-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.speed-btn').forEach((b) => b.classList.remove('btn-active'));
-        btn.classList.add('btn-active');
         const spd = parseFloat(btn.getAttribute('data-speed') || '20');
+        this.setPlaybackSpeed(spd);
         this.callbacks.onSetSpeed(spd);
       });
     });
@@ -607,8 +706,7 @@ export class DesktopOverlay {
     // View Mode Toggle Button
     const viewBtn = document.getElementById('btnViewToggle')!;
     viewBtn.addEventListener('click', () => {
-      this.viewMode = this.viewMode === 'diorama' ? 'first-person' : 'diorama';
-      viewBtn.innerHTML = this.viewMode === 'diorama' ? '🚶 Walk Trail (1:1)' : '🏔 Tabletop Diorama';
+      this.setViewMode(this.viewMode === 'diorama' ? 'first-person' : 'diorama');
       this.callbacks.onToggleViewMode(this.viewMode);
     });
 
@@ -616,25 +714,16 @@ export class DesktopOverlay {
     const btnSat = document.getElementById('btnSatTex')!;
     const btnHybrid = document.getElementById('btnHybridTex')!;
     const btnTopo = document.getElementById('btnTopoTex')!;
-    const clearTexActive = () => {
-      btnSat.classList.remove('btn-active');
-      btnHybrid.classList.remove('btn-active');
-      btnTopo.classList.remove('btn-active');
-    };
-
     btnSat.addEventListener('click', () => {
-      clearTexActive();
-      btnSat.classList.add('btn-active');
+      this.setTextureStyle('satellite');
       this.callbacks.onSetTextureStyle('satellite');
     });
     btnHybrid.addEventListener('click', () => {
-      clearTexActive();
-      btnHybrid.classList.add('btn-active');
+      this.setTextureStyle('hybrid');
       this.callbacks.onSetTextureStyle('hybrid');
     });
     btnTopo.addEventListener('click', () => {
-      clearTexActive();
-      btnTopo.classList.add('btn-active');
+      this.setTextureStyle('topo');
       this.callbacks.onSetTextureStyle('topo');
     });
 
@@ -643,40 +732,28 @@ export class DesktopOverlay {
     const btnColGrade = document.getElementById('btnColorGrade')!;
     const btnColSpd = document.getElementById('btnColorSpeed')!;
     const btnColEle = document.getElementById('btnColorEle')!;
-    const clearColActive = () => {
-      btnColSolid.classList.remove('btn-active');
-      btnColGrade.classList.remove('btn-active');
-      btnColSpd.classList.remove('btn-active');
-      btnColEle.classList.remove('btn-active');
-    };
-
     btnColSolid.addEventListener('click', () => {
-      clearColActive();
-      btnColSolid.classList.add('btn-active');
+      this.setTrailColorMode('solid');
       this.callbacks.onSetTrailColorMode('solid');
     });
     btnColGrade.addEventListener('click', () => {
-      clearColActive();
-      btnColGrade.classList.add('btn-active');
+      this.setTrailColorMode('grade');
       this.callbacks.onSetTrailColorMode('grade');
     });
     btnColSpd.addEventListener('click', () => {
-      clearColActive();
-      btnColSpd.classList.add('btn-active');
+      this.setTrailColorMode('speed');
       this.callbacks.onSetTrailColorMode('speed');
     });
     btnColEle.addEventListener('click', () => {
-      clearColActive();
-      btnColEle.classList.add('btn-active');
+      this.setTrailColorMode('elevation');
       this.callbacks.onSetTrailColorMode('elevation');
     });
 
     // Vertical Exaggeration Buttons
     document.querySelectorAll('.btn-exag').forEach((btn) => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.btn-exag').forEach((b) => b.classList.remove('btn-active'));
-        btn.classList.add('btn-active');
         const factor = parseFloat(btn.getAttribute('data-exag') || '1');
+        this.setVerticalExaggeration(factor);
         this.callbacks.onSetVerticalExaggeration?.(factor);
       });
     });
@@ -685,13 +762,13 @@ export class DesktopOverlay {
     const btnQualityHigh = document.getElementById('btnQualityHigh');
     const btnQualityBalanced = document.getElementById('btnQualityBalanced');
     btnQualityHigh?.addEventListener('click', () => {
-      btnQualityHigh.classList.add('btn-active');
-      btnQualityBalanced?.classList.remove('btn-active');
+      DesktopOverlay.setButtonPressed(btnQualityHigh, true);
+      DesktopOverlay.setButtonPressed(btnQualityBalanced, false);
       this.callbacks.onSetQualityMode?.('high');
     });
     btnQualityBalanced?.addEventListener('click', () => {
-      btnQualityBalanced.classList.add('btn-active');
-      btnQualityHigh?.classList.remove('btn-active');
+      DesktopOverlay.setButtonPressed(btnQualityBalanced, true);
+      DesktopOverlay.setButtonPressed(btnQualityHigh, false);
       this.callbacks.onSetQualityMode?.('balanced');
     });
 
@@ -743,19 +820,31 @@ export class DesktopOverlay {
     });
   }
 
+  public setHorizonLocked(locked: boolean): void {
+    const input = document.getElementById('horizonLocked') as HTMLInputElement | null;
+    if (input) input.checked = locked;
+  }
+
+  public setComfortPreferences(value: ComfortPreferences): void {
+    (document.getElementById('comfortMovement') as HTMLSelectElement).value = value.movement;
+    (document.getElementById('comfortTurning') as HTMLSelectElement).value = value.turning;
+    (document.getElementById('comfortPanel') as HTMLSelectElement).value = String(value.panelScale);
+    (document.getElementById('comfortVignette') as HTMLInputElement).checked = value.vignette;
+  }
+
   public setQualityProfile(profileName: QualityProfileName): void {
     const isBalanced = profileName === 'quest-balanced';
     const btnHigh = document.getElementById('btnQualityHigh');
     const btnBalanced = document.getElementById('btnQualityBalanced');
-    btnHigh?.classList.toggle('btn-active', !isBalanced);
-    btnBalanced?.classList.toggle('btn-active', isBalanced);
+    DesktopOverlay.setButtonPressed(btnHigh, !isBalanced);
+    DesktopOverlay.setButtonPressed(btnBalanced, isBalanced);
   }
 
   public setVerticalExaggeration(factor: number): void {
     this.verticalExaggeration = factor;
     document.querySelectorAll('.btn-exag').forEach((btn) => {
       const f = parseFloat(btn.getAttribute('data-exag') || '1');
-      btn.classList.toggle('btn-active', Math.abs(f - factor) < 0.05);
+      DesktopOverlay.setButtonPressed(btn, Math.abs(f - factor) < 0.05);
     });
   }
 
@@ -764,9 +853,9 @@ export class DesktopOverlay {
     const btnSat = document.getElementById('btnSatTex');
     const btnHybrid = document.getElementById('btnHybridTex');
     const btnTopo = document.getElementById('btnTopoTex');
-    btnSat?.classList.toggle('btn-active', style === 'satellite');
-    btnHybrid?.classList.toggle('btn-active', style === 'hybrid');
-    btnTopo?.classList.toggle('btn-active', style === 'topo');
+    DesktopOverlay.setButtonPressed(btnSat, style === 'satellite');
+    DesktopOverlay.setButtonPressed(btnHybrid, style === 'hybrid');
+    DesktopOverlay.setButtonPressed(btnTopo, style === 'topo');
   }
 
   public setTrailColorMode(mode: TrailColorMode): void {
@@ -775,10 +864,10 @@ export class DesktopOverlay {
     const btnColGrade = document.getElementById('btnColorGrade');
     const btnColSpd = document.getElementById('btnColorSpeed');
     const btnColEle = document.getElementById('btnColorEle');
-    btnColSolid?.classList.toggle('btn-active', mode === 'solid');
-    btnColGrade?.classList.toggle('btn-active', mode === 'grade');
-    btnColSpd?.classList.toggle('btn-active', mode === 'speed');
-    btnColEle?.classList.toggle('btn-active', mode === 'elevation');
+    DesktopOverlay.setButtonPressed(btnColSolid, mode === 'solid');
+    DesktopOverlay.setButtonPressed(btnColGrade, mode === 'grade');
+    DesktopOverlay.setButtonPressed(btnColSpd, mode === 'speed');
+    DesktopOverlay.setButtonPressed(btnColEle, mode === 'elevation');
     this.updateTrailLegend(mode);
   }
 
@@ -905,15 +994,54 @@ export class DesktopOverlay {
   public setPlaybackSpeed(speed: number): void {
     document.querySelectorAll('.speed-btn').forEach((btn) => {
       const spd = parseFloat(btn.getAttribute('data-speed') || '1');
-      btn.classList.toggle('btn-active', Math.abs(spd - speed) < 0.05);
+      DesktopOverlay.setButtonPressed(btn, Math.abs(spd - speed) < 0.05);
     });
   }
 
   public setXREnabled(enabled: boolean): void {
+    this.xrEnabled = enabled;
+    this.updateXRButtons();
+  }
+
+  private static setButtonPressed(button: Element | null, pressed: boolean): void {
+    if (!button) return;
+    button.classList.toggle('btn-active', pressed);
+    button.ariaPressed = String(pressed);
+  }
+
+  public setGraphicsStatus(message: string, retry: boolean): void {
+    this.graphicsPaused = Boolean(message);
+    this.updateFitAvailability();
+    const status = document.getElementById('graphicsStatus');
+    const text = document.getElementById('graphicsStatusText');
+    const button = document.getElementById('btnRetryGraphics');
+    if (status) status.style.display = message ? 'flex' : 'none';
+    if (text) text.textContent = message;
+    if (button) button.hidden = !retry;
+    this.statusBanner.style.visibility = this.graphicsPaused ? 'hidden' : 'visible';
+    (this.playBtn as HTMLButtonElement).disabled = this.graphicsPaused;
+    this.scrubberInput.disabled = this.graphicsPaused;
+    this.updateXRButtons();
+  }
+
+  public setXRSupport(vr: boolean | null, ar: boolean | null, message: string): void {
+    this.xrSupport = { vr, ar };
+    const status = document.getElementById('xrSupportStatus');
+    if (status) { status.textContent = message; status.hidden = !message; }
+    this.updateXRButtons();
+  }
+
+  private updateXRButtons(): void {
     const vrBtn = document.getElementById('btnEnterVR') as HTMLButtonElement | null;
     const arBtn = document.getElementById('btnEnterAR') as HTMLButtonElement | null;
-    if (vrBtn) vrBtn.disabled = !enabled;
-    if (arBtn) arBtn.disabled = !enabled;
+    if (vrBtn) {
+      vrBtn.disabled = this.graphicsPaused || !this.xrEnabled || this.xrSupport.vr === false;
+      vrBtn.title = this.xrSupport.vr === false ? 'VR is unavailable in this browser or device.' : 'Enter virtual reality';
+    }
+    if (arBtn) {
+      arBtn.disabled = this.graphicsPaused || !this.xrEnabled || this.xrSupport.ar === false;
+      arBtn.title = this.xrSupport.ar === false ? 'Passthrough is unavailable. Use Enter VR if available.' : 'Enter mixed reality with passthrough';
+    }
   }
 
   public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats): void {

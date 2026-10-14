@@ -3,6 +3,8 @@ import { latLonToTile, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { AWSTerrariumElevationProvider } from './providers/ImageryProvider.ts';
 import { EnchantmentsRegionalDEMProvider } from './providers/RegionalDEMProvider.ts';
 import { TileImageCache } from './TileImageCache.ts';
+import { decodeTerrarium } from './TerrariumDecode.ts';
+import { runTerrainJob } from './TerrainJobs.ts';
 
 export interface LocalDEMQuality {
   validTileRatio: number;
@@ -77,6 +79,7 @@ export class ElevationTileService {
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal
   ): Promise<ElevationGrid | null> {
+    this.validateBounds(bounds);
     try {
       const latMargin = (bounds.maxLat - bounds.minLat) * marginRatio;
       const lonMargin = (bounds.maxLon - bounds.minLon) * marginRatio;
@@ -114,6 +117,9 @@ export class ElevationTileService {
         numTilesX = tileXMax - tileXMin + 1;
         numTilesY = tileYMax - tileYMin + 1;
       }
+      if (numTilesX * numTilesY > MAX_DEM_TILES) {
+        throw new RangeError('Route terrain exceeds the 25-tile elevation budget. Import a smaller area.');
+      }
 
       return await this.decodeTileGrid(
         zoom,
@@ -127,6 +133,7 @@ export class ElevationTileService {
         signal
       );
     } catch (e) {
+      if (e instanceof RangeError) throw e;
       console.warn('Failed to fetch elevation tiles:', e);
       return null;
     }
@@ -134,6 +141,16 @@ export class ElevationTileService {
 
   private static localDemGridCache = new Map<string, ElevationGrid>();
   private static readonly MAX_GRID_CACHE_ENTRIES = 24;
+  private static readonly MAX_GRID_CACHE_BYTES = 64 * 1024 * 1024;
+  private static validateBounds(bounds: GeoBounds): void {
+    if (![bounds.minLat, bounds.maxLat, bounds.minLon, bounds.maxLon].every(Number.isFinite)
+      || bounds.minLat > bounds.maxLat || bounds.minLon > bounds.maxLon
+      || Math.max(Math.abs(bounds.minLat), Math.abs(bounds.maxLat)) > 85
+      || Math.max(Math.abs(bounds.minLon), Math.abs(bounds.maxLon)) > 180
+      || bounds.maxLon - bounds.minLon > 180) {
+      throw new RangeError('Unsupported terrain bounds: use a finite route within ±85° latitude that does not cross the date line.');
+    }
+  }
 
   public static clearLocalGridCache(): void {
     this.localDemGridCache.clear();
@@ -193,10 +210,15 @@ export class ElevationTileService {
         numTilesX = tileXMax - tileXMin + 1;
         numTilesY = tileYMax - tileYMin + 1;
       }
+      if (numTilesX * numTilesY > Math.min(allowedTiles, 64)) {
+        throw new RangeError('Local elevation footprint exceeds the tile budget.');
+      }
 
       const cacheKey = `${this.regionalDEMEnabled ? 'regional' : 'aws'}_${zoom}_${tileXMin}_${tileXMax}_${tileYMin}_${tileYMax}`;
       const cached = this.localDemGridCache.get(cacheKey);
       if (cached) {
+        this.localDemGridCache.delete(cacheKey);
+        this.localDemGridCache.set(cacheKey, cached);
         return cached;
       }
 
@@ -221,15 +243,22 @@ export class ElevationTileService {
       }
 
       if (grid) {
-        if (this.localDemGridCache.size >= this.MAX_GRID_CACHE_ENTRIES) {
+        let bytes = grid.data.byteLength + grid.tileValidity.byteLength;
+        for (const retained of this.localDemGridCache.values()) bytes += retained.data.byteLength + retained.tileValidity.byteLength;
+        while (this.localDemGridCache.size >= this.MAX_GRID_CACHE_ENTRIES || bytes > this.MAX_GRID_CACHE_BYTES) {
           const firstKey = this.localDemGridCache.keys().next().value;
-          if (firstKey) this.localDemGridCache.delete(firstKey);
+          if (!firstKey) break;
+          const evicted = this.localDemGridCache.get(firstKey)!;
+          bytes -= evicted.data.byteLength + evicted.tileValidity.byteLength;
+          this.localDemGridCache.delete(firstKey);
         }
         this.localDemGridCache.set(cacheKey, grid);
       }
 
       return grid;
     } catch (e) {
+      if (signal?.aborted) throw new DOMException('Elevation request cancelled', 'AbortError');
+      if ((e as Error)?.name === 'AbortError') throw e;
       console.warn('Failed to fetch local elevation chunk:', e);
       return null;
     }
@@ -249,6 +278,13 @@ export class ElevationTileService {
   ): Promise<ElevationGrid | null> {
     const numTilesX = tileXMax - tileXMin + 1;
     const numTilesY = tileYMax - tileYMin + 1;
+
+    // Final guard shared by route, regional and local paths, before canvas/buffer allocation.
+    if (!Number.isInteger(numTilesX) || !Number.isInteger(numTilesY)
+      || numTilesX < 1 || numTilesY < 1 || numTilesX * numTilesY > 64
+      || numTilesX > 32 || numTilesY > 32) {
+      throw new RangeError('Elevation decode exceeds the bounded tile/pixel budget.');
+    }
 
     const TILE_SIZE = 256;
     const canvas = document.createElement('canvas');
@@ -324,40 +360,10 @@ export class ElevationTileService {
     const pixels = imgData.data;
     const gridW = canvas.width;
     const gridH = canvas.height;
-    const data = new Float32Array(gridW * gridH);
-
-    let minEle = Infinity;
-    let maxEle = -Infinity;
-
-    // Decode Terrarium: elevation = (R * 256 + G + B / 256) - 32768
-    for (let py = 0; py < gridH; py++) {
-      const tyOffset = Math.floor(py / TILE_SIZE);
-      for (let px = 0; px < gridW; px++) {
-        const txOffset = Math.floor(px / TILE_SIZE);
-        const tileIdx = tyOffset * numTilesX + txOffset;
-        const idx = py * gridW + px;
-
-        if (tileValidity[tileIdx] === 0) {
-          // Missing tile: store NaN so it never acts as -32768m
-          data[idx] = NaN;
-          continue;
-        }
-
-        const r = pixels[idx * 4];
-        const g = pixels[idx * 4 + 1];
-        const b = pixels[idx * 4 + 2];
-        const decoded = (r * 256 + g + b / 256) - 32768;
-
-        // Black pixel guard: Terrarium (0,0,0) decodes to -32768
-        if (decoded < -1000) {
-          data[idx] = NaN;
-        } else {
-          data[idx] = decoded;
-          minEle = Math.min(minEle, decoded);
-          maxEle = Math.max(maxEle, decoded);
-        }
-      }
-    }
+    const input = { width: gridW, height: gridH, pixels, validity: tileValidity };
+    const { data, min: minEle, max: maxEle } = await runTerrainJob(
+      { kind: 'decode', input }, () => decodeTerrarium(input), signal, [pixels.buffer]
+    );
 
     const validTileRatio = totalTiles > 0 ? successCount / totalTiles : 0;
     const quality: LocalDEMQuality = {

@@ -1,0 +1,198 @@
+{
+  "lost": {
+    "route": "Mount Rainier via Emmons",
+    "progress": 0.40000348275154024,
+    "playing": false,
+    "model": {
+      "position": [
+        0,
+        -0.2,
+        -1.1
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.00009441853496052719,
+        0.00009441853496052719,
+        0.00009441853496052719
+      ]
+    },
+    "camera": [
+      -0.5287417021451526,
+      1.300790230975961,
+      0.5008604454843195
+    ],
+    "target": [
+      -0.5287417021451526,
+      -0.05185578882937715,
+      -1.0904878131101963
+    ]
+  },
+  "restored": {
+    "route": "Mount Rainier via Emmons",
+    "progress": 0.40000348275154024,
+    "playing": false,
+    "model": {
+      "position": [
+        0,
+        -0.2,
+        -1.1
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.00009441853496052719,
+        0.00009441853496052719,
+        0.00009441853496052719
+      ]
+    },
+    "camera": [
+      -0.5287417021451526,
+      1.300790230975961,
+      0.5008604454843195
+    ],
+    "target": [
+      -0.5287417021451526,
+      -0.05185578882937715,
+      -1.0904878131101963
+    ]
+  },
+  "rendering": {
+    "memory": {
+      "geometries": 73,
+      "textures": 20
+    },
+    "render": {
+      "frame": 13,
+      "calls": 79,
+      "triangles": 404352,
+      "points": 0,
+      "lines": 0
+    },
+    "glError": 0
+  },
+  "selections": {
+    "#btnColorEle": [
+      {
+        "id": "btnColorSolid",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "btnColorGrade",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "btnColorSpeed",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "btnColorEle",
+        "pressed": "true",
+        "active": true,
+        "focused": true
+      }
+    ],
+    ".speed-btn[data-speed=\"5\"]": [
+      {
+        "id": "1",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "5",
+        "pressed": "true",
+        "active": true,
+        "focused": true
+      },
+      {
+        "id": "20",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "60",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      }
+    ],
+    ".btn-exag[data-exag=\"1.5\"]": [
+      {
+        "id": "1",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "1.5",
+        "pressed": "true",
+        "active": true,
+        "focused": true
+      },
+      {
+        "id": "2",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "3",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      }
+    ],
+    "#btnQualityBalanced": [
+      {
+        "id": "btnQualityHigh",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "btnQualityBalanced",
+        "pressed": "true",
+        "active": true,
+        "focused": true
+      }
+    ],
+    "#btnTopoTex": [
+      {
+        "id": "btnSatTex",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "btnHybridTex",
+        "pressed": "false",
+        "active": false,
+        "focused": false
+      },
+      {
+        "id": "btnTopoTex",
+        "pressed": "true",
+        "active": true,
+        "focused": true
+      }
+    ]
+  },
+  "errors": [],
+  "warnings": []
+}
