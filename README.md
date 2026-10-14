@@ -194,6 +194,8 @@ Close desktop inspection uses the actual viewed distance to select source imager
 
 Local trail updates look up nearby numeric spatial buckets, with a bounded scan for broad footprints. Vertex selection and sampling order stay the same. See the [trail lookup validation](docs/review-2026-10-13/LOOKUP.md) for the latest tests, matched rendering and isolated CPU measurements.
 
+Wanted detail terrain recovers automatically after temporary download failures, with retries from one to five minutes and visible base coverage while waiting. Settled streaming avoids repeated preparation scans and reuses unchanged geographic focus. See the [terrain streaming recovery validation](docs/review-2026-10-13/STREAMING.md) for the latest tests, real cooldown checks and isolated idle CPU measurements.
+
 Append `?debug=1` to display callback pacing, CPU submission p95, tile coverage, draw calls, and cache diagnostics. The panel reports the actual XR refresh rate when available; desktop rate is shown as unknown. Callback estimates are not GPU/compositor measurements. Debug geometry and logging also add overhead, so compare against a normal headset session.
 
 For repeatable headset runs, append `?profile=1` to the hosted URL. The production build records bounded one-second CPU, callback, rendering, cache, and quality samples locally. Entering XR starts the recorder; exiting stops it. Press **Download JSON** on the page to save the report. Pair it with Meta's device GPU/FPS/thermal metrics. See the [Quest 3 profiling procedure](docs/QUEST_PROFILE.md) for exact steps and measurement limits.

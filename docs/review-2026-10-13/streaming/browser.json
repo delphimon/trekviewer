@@ -1,0 +1,131 @@
+{
+  "before": {
+    "elapsedMs": 4260.900000035763,
+    "chunks": 0,
+    "vertices": 0,
+    "failures": 24,
+    "wanted": 24,
+    "busy": false,
+    "retryDelay": 59057.09999996424,
+    "probes": 0,
+    "surfaceRevision": 1,
+    "baseTriangles": 64184,
+    "camera": [
+      -0.39411296214612757,
+      0.9701596262329581,
+      0.17249152993755024
+    ],
+    "target": [
+      -0.39411296214612757,
+      -0.08496891563648815,
+      -1.0688361663794457
+    ],
+    "progress": 0,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "cooldown": {
+    "elapsedMs": 7398.199999988079,
+    "chunks": 0,
+    "vertices": 0,
+    "failures": 24,
+    "wanted": 24,
+    "busy": false,
+    "retryDelay": 55919.80000001192,
+    "probes": 0,
+    "surfaceRevision": 1,
+    "baseTriangles": 64184,
+    "camera": [
+      -0.39411296214612757,
+      0.9701596262329581,
+      0.17249152993755024
+    ],
+    "target": [
+      -0.39411296214612757,
+      -0.08496891563648815,
+      -1.0688361663794457
+    ],
+    "progress": 0,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "firstRecovery": {
+    "elapsedMs": 63797.10000002384,
+    "chunks": 1,
+    "vertices": 2401,
+    "failures": 23,
+    "wanted": 24,
+    "busy": true,
+    "retryDelay": null,
+    "probes": 2,
+    "surfaceRevision": 2,
+    "baseTriangles": 64056,
+    "camera": [
+      -0.39411296214612757,
+      0.9701596262329581,
+      0.17249152993755024
+    ],
+    "target": [
+      -0.39411296214612757,
+      -0.08496891563648815,
+      -1.0688361663794457
+    ],
+    "progress": 0,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "recovered": {
+    "elapsedMs": 66917.30000001192,
+    "chunks": 24,
+    "vertices": 57624,
+    "failures": 0,
+    "wanted": 24,
+    "busy": false,
+    "retryDelay": null,
+    "probes": 25,
+    "surfaceRevision": 25,
+    "baseTriangles": 61112,
+    "camera": [
+      -0.39411296214612757,
+      0.9701596262329581,
+      0.17249152993755024
+    ],
+    "target": [
+      -0.39411296214612757,
+      -0.08496891563648815,
+      -1.0688361663794457
+    ],
+    "progress": 0,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "idle": {
+    "elapsedMs": 69931.69999998808,
+    "chunks": 24,
+    "vertices": 57624,
+    "failures": 0,
+    "wanted": 24,
+    "busy": false,
+    "retryDelay": null,
+    "probes": 25,
+    "surfaceRevision": 25,
+    "baseTriangles": 61112,
+    "camera": [
+      -0.39411296214612757,
+      0.9701596262329581,
+      0.17249152993755024
+    ],
+    "target": [
+      -0.39411296214612757,
+      -0.08496891563648815,
+      -1.0688361663794457
+    ],
+    "progress": 0,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "injectedTileRequests": 23,
+  "expectedConsoleCount": 23,
+  "errors": [],
+  "unexpectedConsole": []
+}

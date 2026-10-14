@@ -26,6 +26,13 @@ export class TiledTerrainStreamer {
   private focusChanges = 0;
   private planKey = '';
   private plannedAt: { x: number; z: number } | null = null;
+  private nextWorkAt = 0;
+  private readonly failed = new Map<string, { attempts: number; retryAt: number }>();
+  private routeProgress = NaN;
+  private routeGeo: { lat: number; lon: number } | null = null;
+  private focusLat = NaN;
+  private focusLon = NaN;
+  private localFocus: { x: number; z: number } | null = null;
 
   constructor(private readonly options: LocalTerrainStreamerOptions) {
     this.mode = options.initialViewMode ?? 'diorama';
@@ -45,6 +52,7 @@ export class TiledTerrainStreamer {
     this.mode = mode;
     this.planKey = '';
     this.plannedAt = null;
+    this.nextWorkAt = 0;
   }
 
   public setQualityProfile(profile: QualityProfile): void {
@@ -58,10 +66,11 @@ export class TiledTerrainStreamer {
     this.failed.clear();
     this.planKey = '';
     this.plannedAt = null;
+    this.nextWorkAt = 0;
   }
 
   public setVerticalExaggeration(factor: number): void {
-    if (factor !== this.exaggeration) this.generation++;
+    if (factor !== this.exaggeration) { this.generation++; this.nextWorkAt = 0; }
     this.exaggeration = factor;
     for (const chunk of this.chunks.values()) chunk.setVerticalExaggeration(factor);
     this.ready?.chunk.setVerticalExaggeration(factor);
@@ -70,10 +79,18 @@ export class TiledTerrainStreamer {
   public update(progress: number, tabletopFocus?: { lat: number; lon: number } | null): void {
     if (this.disposed || !this.options.terrainResult.baseMeshGrid) return;
     const terrain = this.options.terrainResult;
-    const geo = this.mode === 'diorama' && tabletopFocus ? tabletopFocus
-      : this.options.routeGeometry.getTelemetryAtProgress(progress).currentPoint;
+    if (!(this.mode === 'diorama' && tabletopFocus) && (!this.routeGeo || progress !== this.routeProgress)) {
+      const point = this.options.routeGeometry.getTelemetryAtProgress(progress).currentPoint;
+      this.routeGeo = { lat: point.lat, lon: point.lon };
+      this.routeProgress = progress;
+    }
+    const geo = this.mode === 'diorama' && tabletopFocus ? tabletopFocus : this.routeGeo!;
     const center = terrain.terrainGeoBounds;
-    const local = geoToLocalMeters(geo.lat, geo.lon, 0, center.centerLat, center.centerLon, 0);
+    if (!this.localFocus || geo.lat !== this.focusLat || geo.lon !== this.focusLon) {
+      this.localFocus = geoToLocalMeters(geo.lat, geo.lon, 0, center.centerLat, center.centerLon, 0);
+      this.focusLat = geo.lat; this.focusLon = geo.lon;
+    }
+    const local = this.localFocus;
     if (!this.plannedAt || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
       this.plannedAt = { x: local.x, z: local.z };
       const balanced = this.profile.name === 'quest-balanced';
@@ -91,11 +108,14 @@ export class TiledTerrainStreamer {
         this.focus = { lat: geo.lat, lon: geo.lon };
         this.focusChanges++;
         this.wanted = new Map(plan.tiles.map(tile => [tile.id, tile]));
+        for (const id of this.failed.keys()) if (!this.wanted.has(id)) this.failed.delete(id);
+        this.nextWorkAt = 0;
       }
     }
     if (this.readyRemoval) {
       const { entries, generation, publish } = this.readyRemoval;
       this.readyRemoval = null;
+      this.nextWorkAt = 0;
       if (generation === this.generation && entries.every(([id, chunk]) => this.chunks.get(id) === chunk
         && (this.retireAll || !this.wanted.has(id))) && publish?.() !== false) {
         const bounds = entries.map(([, chunk]) => chunk.getSurfaceBounds());
@@ -115,6 +135,7 @@ export class TiledTerrainStreamer {
     if (this.ready) {
       const { id, chunk, generation, publish } = this.ready;
       this.ready = null;
+      this.nextWorkAt = 0;
       if (generation !== this.generation || !this.wanted.has(id) || publish?.() === false) chunk.dispose();
       else {
         chunk.setVerticalExaggeration(this.exaggeration);
@@ -122,15 +143,16 @@ export class TiledTerrainStreamer {
         chunk.mesh.visible = false;
         terrain.attachLocalChunk?.(chunk);
         this.chunks.set(id, chunk);
+        this.failed.delete(id);
         chunk.mesh.visible = true;
         terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
       }
     }
-    if (!this.busy && !this.ready && !this.readyRemoval) void this.prepareNext();
+    if (!this.busy && !this.ready && !this.readyRemoval && performance.now() >= this.nextWorkAt) void this.prepareNext();
   }
 
-  private failed = new Set<string>();
   private async prepareNext(): Promise<void> {
+    this.nextWorkAt = Infinity;
     const retiring = [...this.chunks.entries()].filter(([id]) => this.retireAll || !this.wanted.has(id));
     if (retiring.length) {
       this.busy = true;
@@ -143,10 +165,17 @@ export class TiledTerrainStreamer {
           console.warn('Async terrain retirement unavailable; restoring parent coverage:', error);
           this.readyRemoval = { entries: retiring, generation };
         }
-      } finally { this.busy = false; }
+      } finally { this.busy = false; this.nextWorkAt = 0; }
       return;
     }
-    const tile = [...this.wanted.values()].find(tile => !this.chunks.has(tile.id) && !this.failed.has(tile.id));
+    const now = performance.now();
+    let tile: TerrainTileLayout | undefined;
+    for (const wanted of this.wanted.values()) {
+      if (this.chunks.has(wanted.id)) continue;
+      const retryAt = this.failed.get(wanted.id)?.retryAt ?? 0;
+      if (retryAt <= now) { tile = wanted; break; }
+      this.nextWorkAt = Math.min(this.nextWorkAt, retryAt);
+    }
     if (!tile) return;
     this.busy = true;
     const generation = this.generation;
@@ -158,7 +187,7 @@ export class TiledTerrainStreamer {
       const grid = await ElevationTileService.fetchLocalElevationGrid(geo.lat, geo.lon,
         Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, this.lifetime.signal);
       if (this.disposed || generation !== this.generation || !this.wanted.has(tile.id)) return;
-      if (!grid) { this.failed.add(tile.id); return; }
+      if (!grid) { this.recordFailure(tile.id); return; }
       const chunk = await LocalTerrainChunk.createAsync({
         localGrid: grid, centerLat: geo.lat, centerLon: geo.lon,
         referenceCenterLat: terrain.terrainGeoBounds.centerLat, referenceCenterLon: terrain.terrainGeoBounds.centerLon,
@@ -167,8 +196,9 @@ export class TiledTerrainStreamer {
         initialExaggeration: this.exaggeration, blendMarginRatio: 0.06,
         tileGrid: terrain.tileGrid, mapTexture: (terrain.terrainMesh.material as THREE.MeshStandardMaterial).map,
       }, terrain.baseSurfaceData, this.lifetime.signal);
-      if (!chunk.validate().isValid || this.disposed || generation !== this.generation) {
-        chunk.dispose(); this.failed.add(tile.id); return;
+      if (this.disposed || generation !== this.generation || !this.wanted.has(tile.id)) { chunk.dispose(); return; }
+      if (!chunk.validate().isValid) {
+        chunk.dispose(); this.failed.set(tile.id, { attempts: 0, retryAt: Infinity }); return;
       }
       let publish: (() => boolean) | undefined;
       try { publish = await this.options.prepareSurfacePromotion?.(chunk); }
@@ -177,10 +207,19 @@ export class TiledTerrainStreamer {
       this.ready = { id: tile.id, chunk, generation, publish };
     } catch (error) {
       if (!this.disposed && generation === this.generation) {
-        this.failed.add(tile.id);
+        this.recordFailure(tile.id);
         console.warn('Terrain refinement unavailable; retaining base coverage:', error);
       }
-    } finally { this.busy = false; }
+    } finally { this.busy = false; this.nextWorkAt = 0; }
+  }
+
+  private recordFailure(id: string): void {
+    if (!this.wanted.has(id)) return;
+    const attempts = Math.min(4, (this.failed.get(id)?.attempts ?? 0) + 1);
+    // TileImageCache retains network failures for up to one minute. Avoid decoding
+    // that same failed footprint repeatedly during its negative-cache lifetime.
+    const delay = Math.min(300_000, 60_000 * 2 ** (attempts - 1));
+    this.failed.set(id, { attempts, retryAt: performance.now() + delay });
   }
 
   private clearChunks(): void {

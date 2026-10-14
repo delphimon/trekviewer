@@ -48,7 +48,9 @@ The later zoom/horizon work and its separate measurements are recorded in [INSPE
 
 ## Remaining validation and limits
 
-The latest [local trail lookup continuation](LOOKUP.md), implemented October 14, reduces spatial lookup and index-construction work while preserving ordered vertex selections and trail geometry. Its 486-test suite, matched production rendering and isolated CPU measurements are the current validation record.
+The latest [terrain streaming continuation](STREAMING.md), implemented October 14, recovers wanted detail after temporary failures and reduces idle preparation and focus work. Its 493-test local suite, production-browser outage recovery and isolated CPU measurements are the current validation record.
+
+The earlier [local trail lookup continuation](LOOKUP.md), implemented October 14, reduces spatial lookup and index-construction work while preserving ordered vertex selections and trail geometry. Its 486-test suite, matched production rendering and isolated CPU measurements record that implementation pass.
 
 The earlier [terrain framing continuation](FRAMING.md), implemented October 14, fits terrain between the controls, adds an explicit Fit terrain action and preserves manual camera inspection during resizing. Its 482-test suite and production desktop/mobile browser checks record that implementation pass.
 

@@ -1,0 +1,60 @@
+{
+  "runtime": "v24.21.0",
+  "fixture": "paused production route telemetry, all planned chunks resident as inert placeholders; no network/rendering",
+  "results": [
+    {
+      "fixture": "MountRainierViaEmmons.gpx",
+      "residentTiles": 24,
+      "updatesPerSample": 72,
+      "warmupSamples": 40,
+      "previous": {
+        "medianMsPerUpdate": 0.003694444444444716,
+        "p95MsPerUpdate": 0.005518055555555968,
+        "samples": 200
+      },
+      "current": {
+        "medianMsPerUpdate": 0.00014166666666663255,
+        "p95MsPerUpdate": 0.00017500000000028295,
+        "samples": 200
+      },
+      "totalCountersIncludingWarmup": {
+        "previous": {
+          "probes": 17280,
+          "telemetry": 17280
+        },
+        "current": {
+          "probes": 0,
+          "telemetry": 0
+        }
+      },
+      "sameResidentTileKeys": true
+    },
+    {
+      "fixture": "GlacierPeakTraverse2026.gpx",
+      "residentTiles": 24,
+      "updatesPerSample": 72,
+      "warmupSamples": 40,
+      "previous": {
+        "medianMsPerUpdate": 0.0028208333333334203,
+        "p95MsPerUpdate": 0.004316666666667067,
+        "samples": 200
+      },
+      "current": {
+        "medianMsPerUpdate": 0.00013611111111168207,
+        "p95MsPerUpdate": 0.00014444444444450255,
+        "samples": 200
+      },
+      "totalCountersIncludingWarmup": {
+        "previous": {
+          "probes": 17280,
+          "telemetry": 17280
+        },
+        "current": {
+          "probes": 0,
+          "telemetry": 0
+        }
+      },
+      "sameResidentTileKeys": true
+    }
+  ]
+}

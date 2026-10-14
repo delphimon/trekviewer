@@ -27,6 +27,107 @@ function fixture() {
 
 async function flushBuild(): Promise<void> { for (let i = 0; i < 6; i++) await Promise.resolve(); }
 
+function singleTileFixture() {
+  const result = fixture();
+  result.terrain.baseMeshGrid = { width: 960, depth: 960, segmentsX: 8, segmentsZ: 8 };
+  return result;
+}
+
+it('sleeps after all detail is published and caches stationary route focus', async () => {
+  const { streamer, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  const prepare = vi.spyOn(streamer as any, 'prepareNext');
+  const telemetry = vi.spyOn((streamer as any).options.routeGeometry, 'getTelemetryAtProgress');
+  streamer.update(0); await flushBuild(); streamer.update(0); await flushBuild();
+  expect(attached.size).toBe(1);
+  prepare.mockClear();
+  for (let i = 0; i < 200; i++) { streamer.update(0); await flushBuild(); }
+  expect(prepare).not.toHaveBeenCalled(); expect(fetch).toHaveBeenCalledTimes(1); expect(telemetry).toHaveBeenCalledTimes(1);
+  streamer.update(0.1);
+  expect(telemetry).toHaveBeenCalledTimes(2);
+  streamer.dispose();
+});
+
+it('retains base coverage and retries missing DEM after its cache cooldown, then publishes atomically', async () => {
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const { streamer, terrain, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValueOnce(null).mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(attached.size).toBe(0); expect(terrain.notifySurfaceChange).not.toHaveBeenCalled();
+  now = 59999;
+  for (let i = 0; i < 72; i++) streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  now = 60000; streamer.update(0); await flushBuild();
+  expect(fetch).toHaveBeenCalledTimes(2); expect(attached.size).toBe(0);
+  streamer.update(0); expect(attached.size).toBe(1);
+  expect(terrain.notifySurfaceChange).toHaveBeenCalledTimes(1); expect((streamer as any).failed.size).toBe(0);
+  streamer.dispose();
+});
+
+it('backs off repeated request errors to five minutes and avoids probes before the deadline', async () => {
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now); vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const { streamer, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockRejectedValue(new Error('network unavailable'));
+  const prepare = vi.spyOn(streamer as any, 'prepareNext');
+  for (const delay of [60000, 120000, 240000, 300000, 300000]) {
+    streamer.update(0); await flushBuild(); streamer.update(0);
+    const calls = fetch.mock.calls.length, probes = prepare.mock.calls.length;
+    now += delay - 1;
+    for (let frame = 0; frame < 72; frame++) streamer.update(0);
+    expect(fetch.mock.calls.length).toBe(calls); expect(prepare.mock.calls.length).toBe(probes);
+    now++;
+  }
+  expect(fetch).toHaveBeenCalledTimes(5); expect(attached.size).toBe(0);
+  streamer.dispose();
+});
+
+it('forgets failures outside the wanted footprint and recovers when that focus returns', async () => {
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const { streamer, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValueOnce(null).mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  expect((streamer as any).failed.size).toBe(1);
+  streamer.update(0, { lat: 47, lon: -119 }); await flushBuild();
+  expect((streamer as any).failed.size).toBe(0);
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(2); expect(attached.size).toBe(1);
+  streamer.dispose();
+});
+
+it('does not blacklist a tile when exaggeration invalidates its in-flight geometry', async () => {
+  const { streamer, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  let complete!: (chunk: LocalTerrainChunk) => void;
+  vi.spyOn(LocalTerrainChunk, 'createAsync').mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  streamer.update(0); await flushBuild(); streamer.setVerticalExaggeration(1.5);
+  const stale: any = { validate: () => ({ isValid: true }), dispose: vi.fn() };
+  complete(stale); await flushBuild(); expect(stale.dispose).toHaveBeenCalledTimes(1);
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(2); expect(attached.size).toBe(1);
+  expect(streamer.activeChunks[0].mesh.visible).toBe(true);
+  streamer.dispose();
+});
+
+it('keeps invalid geometry unpublished without retrying it every minute', async () => {
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const { streamer, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  const invalid: any = { validate: () => ({ isValid: false }), dispose: vi.fn() };
+  vi.spyOn(LocalTerrainChunk, 'createAsync').mockResolvedValue(invalid);
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  now = 600000; streamer.update(0); await flushBuild();
+  expect(fetch).toHaveBeenCalledTimes(1); expect(attached.size).toBe(0); expect(invalid.dispose).toHaveBeenCalledTimes(1);
+  streamer.dispose();
+});
+
+it('does not retry a failed request after the route is disposed', async () => {
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const { streamer } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue(null);
+  streamer.update(0); await flushBuild(); streamer.update(0); streamer.dispose();
+  now = 600000; streamer.update(0); await flushBuild(); expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it('keeps parent coverage through acquisition and publishes one validated tile per frame', async () => {
   const { streamer, terrain, attached } = fixture();
   let complete!: (grid: any) => void;
