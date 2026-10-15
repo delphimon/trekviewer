@@ -161,8 +161,7 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
         flyoverController: flyover,
       });
 
-      // Under quest-high tabletop mode, maxPatches must be 48 (not 36!)
-      expect((trek.imageryLOD as any).maxPatches).toBe(48);
+      expect((trek.imageryLOD as any).maxPatches).toBe(QUALITY_PROFILES['quest-high'].tabletopPatches);
       expect(trek.imageryLOD.getQualityProfile().name).toBe('quest-high');
 
       // LocalTerrainStreamer receives the active profile radius
@@ -186,7 +185,7 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
         flyoverController: flyover,
       });
 
-      expect((trek.imageryLOD as any).maxPatches).toBe(48);
+      expect((trek.imageryLOD as any).maxPatches).toBe(QUALITY_PROFILES['quest-high'].tabletopPatches);
       expect(trek.localTerrainStreamer?.chunkRadiusM).toBe(1250);
 
       // Change profile to quest-balanced

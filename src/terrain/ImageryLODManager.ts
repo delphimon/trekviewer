@@ -4,6 +4,7 @@ import { snapshotSurfaceMesh, buildPromotedSurfacePatches, type SurfacePatchData
 import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
+import { computeBroadDetailTiles, type DetailFocus } from './BroadDetailSelection.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import {
@@ -24,6 +25,10 @@ import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts'
 import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export const ENABLE_ADAPTIVE_IMAGERY_LOD = true;
+
+const DETAIL_VIEW_OFFSETS = [-1.15, -.85, -.4, 0, .4, .85, 1.15].flatMap(y =>
+  [-1.15, -.85, -.4, 0, .4, .85, 1.15].map(x => [x, y] as const)
+).sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
 
 export type RefinementGroupState = 'parent' | 'loading' | 'promoting' | 'children';
 
@@ -933,6 +938,9 @@ export class ImageryLODManager {
   // Active user interaction ray (e.g. pointer/laser in tabletop mode, Stage W3)
   private activeInteractionRay: THREE.Ray | null = null;
   private lastInspectedGeo: { lat: number; lon: number } | null = null;
+  private detailFocusPoints: readonly DetailFocus[] = [];
+  private detailFocusHistory: DetailFocus[] = [];
+  private detailViewDistance: number | null = null;
   private lastTimeToSharpMs: number = 0;
 
   constructor(options: ImageryLODManagerOptions) {
@@ -1072,6 +1080,46 @@ export class ImageryLODManager {
     return this.lastInspectedGeo;
   }
 
+  public getDetailFocusPoints(): readonly DetailFocus[] { return this.detailFocusPoints; }
+
+  private sampleDetailFocus(camera: THREE.Camera, root: THREE.Group, renderer?: THREE.WebGLRenderer): DetailFocus[] {
+    this.detailViewDistance = null;
+    const base = this.options.terrainMesh;
+    if (!base) return [];
+    base.parent?.updateWorldMatrix(true, true);
+    const surfaces = base.parent?.children.filter((obj): obj is THREE.Mesh =>
+      (obj as THREE.Mesh).isMesh && obj.visible && (obj === base || obj.name === 'LocalHighResTerrainMesh')) ?? [base];
+    const metrics = getViewMetrics(camera, renderer);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(metrics.worldQuaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(metrics.worldQuaternion);
+    const eye = (camera as THREE.ArrayCamera).isArrayCamera ? (camera as THREE.ArrayCamera).cameras[0] : camera;
+    const projection = (eye as THREE.PerspectiveCamera)?.projectionMatrix?.elements;
+    const aspect = projection && projection[0] ? Math.abs(projection[5] / projection[0]) : 1;
+    const halfTan = Math.tan(degToRad(metrics.verticalFov) / 2);
+    const points: DetailFocus[] = [];
+    for (const [x, y] of DETAIL_VIEW_OFFSETS) {
+      const direction = metrics.forward.clone().addScaledVector(right, x * halfTan * aspect).addScaledVector(up, y * halfTan).normalize();
+      const hit = this.terrainRaycast.closest(new THREE.Raycaster(metrics.worldPosition, direction), surfaces);
+      if (!hit) continue;
+      this.detailViewDistance ??= metrics.worldPosition.distanceTo(hit.point);
+      const local = root.worldToLocal(hit.point.clone());
+      points.push(localMetersToGeo(local.x, local.z, this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon));
+    }
+    return points;
+  }
+
+  private retainDetailFocus(points: DetailFocus[], zoom: number): readonly DetailFocus[] {
+    this.detailFocusPoints = points;
+    const seen = new Set<string>();
+    this.detailFocusHistory = [...points, ...this.detailFocusHistory].filter(point => {
+      const tile = latLonToTile(point.lat, point.lon, Math.max(13, zoom - 1));
+      const key = `${tile.x}:${tile.y}`;
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0, 48);
+    return this.detailFocusHistory;
+  }
+
   public getLastTimeToSharpMs(): number {
     return this.lastTimeToSharpMs;
   }
@@ -1096,6 +1144,7 @@ export class ImageryLODManager {
 
   public setViewMode(mode: ViewMode): void {
     if (this.isDisposed || this.viewMode === mode) return;
+    this.detailFocusPoints = []; this.detailFocusHistory = [];
     this.viewMode = mode;
     this.maxPatches = mode === 'first-person' ? this.qualityProfile.firstPersonPatches : this.qualityProfile.tabletopPatches;
     this.currentGeneration++;
@@ -1148,6 +1197,7 @@ export class ImageryLODManager {
   }
 
   public setQualityProfile(profile: QualityProfile): void {
+    this.detailFocusPoints = []; this.detailFocusHistory = [];
     this.evaluationDirty = true;
     this.lastSelectionGeo = null;
     this.lastSelectionZoom = -1;
@@ -1495,7 +1545,7 @@ export class ImageryLODManager {
       this.lastEvalProgress = this.currentProgress;
     } else {
       const hasPendingZoomChange = this.pendingPromoteZoom !== null || this.pendingDemoteZoom !== null;
-      const cameraMovementThreshold = isXR ? 0.04 : Math.min(0.04, Math.max(1e-7, this.lastTabletopViewDistance * 0.04));
+      const cameraMovementThreshold = isXR && this.qualityProfile.name === 'quest-balanced' ? 0.04 : Math.min(0.04, Math.max(1e-7, this.lastTabletopViewDistance * 0.04));
       if (!isFirstRun && !this.evaluationDirty && !pointerChanged && !hasPendingZoomChange &&
           dioramaPosDelta < 0.015 && rotationDelta < 0.015 && posDelta < cameraMovementThreshold && dirAngle < 0.03 && scaleRatio < 0.04) {
         return;
@@ -1778,19 +1828,25 @@ export class ImageryLODManager {
     }
 
     this.lastInspectedGeo = { lat: targetGeo.lat, lon: targetGeo.lon };
+    const broadHigh = this.qualityProfile.name !== 'quest-balanced' && this.maxPatches >= 293;
+    const sampledDetail = broadHigh ? this.sampleDetailFocus(camera, dioramaRoot, renderer) : [];
+    const coverageCenter = sampledDetail[0] ?? targetGeo;
 
     // 2. Compute LOD resolution using viewed-region geometry (Stage V5.2)
     // Distance from active camera to actual viewed terrain hit (or diorama center if missed)
-    const minimumDistance = this.lastIsXR ? 0.2 : 1e-7;
-    const camDist = hitWorldPos
+    const minimumDistance = this.lastIsXR && this.qualityProfile.name === 'quest-balanced' ? 0.2 : 1e-7;
+    const focusDistance = hitWorldPos
       ? Math.max(metrics.worldPosition.distanceTo(hitWorldPos), minimumDistance)
       : Math.max(metrics.worldPosition.distanceTo(dioramaWorldPos), minimumDistance);
+    // A controller can point far outside the user's close inspection. Preserve
+    // the actual view's density instead of lowering it to the pointer distance.
+    const camDist = broadHigh && this.detailViewDistance !== null ? Math.max(this.detailViewDistance, minimumDistance) : focusDistance;
     this.lastTabletopViewDistance = camDist;
 
     const rawTargetZoom = ImageryLODManager.calculateTargetZoom(
       camDist,
       dioramaScale,
-      targetGeo.lat,
+      broadHigh ? coverageCenter.lat : targetGeo.lat,
       metrics.verticalFov,
       metrics.viewportHeightPx,
       provider.maxZoom,
@@ -1848,7 +1904,8 @@ export class ImageryLODManager {
     // Coherent refinement rings (Sections 38, 39, 62, Stage W3)
     const selectionStart = profileTiming ? performance.now() : 0;
     const selectionGeo = this.stabilizeSelectionGeo(targetGeo, effectiveTargetZoom);
-    let candidates = computeCoherentLODTiles(
+    const detailPoints = broadHigh ? this.retainDetailFocus([...sampledDetail, targetGeo], effectiveTargetZoom) : [];
+    let candidates = broadHigh ? computeBroadDetailTiles(coverageCenter, effectiveTargetZoom, this.maxPatches - 32, this.options.terrainGeoBounds, detailPoints) : computeCoherentLODTiles(
       selectionGeo.lat,
       selectionGeo.lon,
       effectiveTargetZoom,
@@ -1860,7 +1917,7 @@ export class ImageryLODManager {
     // Never let hysteresis leave the inspected point outside the finest selected
     // footprint; sharpness at the user's focus takes precedence over stability.
     const focusTile = latLonToTile(targetGeo.lat, targetGeo.lon, effectiveTargetZoom);
-    if (!candidates.some((tile) => tile.zoom === effectiveTargetZoom && tile.x === focusTile.x && tile.y === focusTile.y)) {
+    if (!broadHigh && !candidates.some((tile) => tile.zoom === effectiveTargetZoom && tile.x === focusTile.x && tile.y === focusTile.y)) {
       this.lastSelectionGeo = { ...targetGeo };
       candidates = computeCoherentLODTiles(
         targetGeo.lat, targetGeo.lon, effectiveTargetZoom, this.maxPatches,
@@ -2010,7 +2067,13 @@ export class ImageryLODManager {
     }))];
 
     // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6, Stage W4)
-    const candidates = this.qualityProfile.name === 'quest-high' && innerZoom >= 19
+    const broadHigh = this.qualityProfile.name !== 'quest-balanced' && this.maxPatches >= 293;
+    const detailPoints = broadHigh ? this.retainDetailFocus([
+      { lat: hikerLat, lon: hikerLon }, ...this.sampleDetailFocus(camera, dioramaRoot, renderer),
+    ], innerZoom) : [];
+    const candidates = broadHigh ? computeBroadDetailTiles(
+      { lat: hikerLat, lon: hikerLon }, innerZoom, this.maxPatches - 32, this.options.terrainGeoBounds, detailPoints
+    ) : this.qualityProfile.name === 'quest-high' && innerZoom >= 19
       ? computeFirstPersonStableLODTiles(
           hikerLat, hikerLon, innerZoom, this.maxPatches, this.options.terrainGeoBounds
         )

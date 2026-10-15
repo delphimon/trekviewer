@@ -48,7 +48,9 @@ The later zoom/horizon work and its separate measurements are recorded in [INSPE
 
 ## Remaining validation and limits
 
-The latest [imagery patch construction continuation](PATCHES.md), implemented October 14, reduces interior vertex allocation and lookup work while preserving exact terrain overlays. Its 506-test local suite, maximum-detail production-browser comparison and isolated CPU measurements are the current validation record.
+The latest [broad view and 1:1 fidelity work](FIDELITY.md), implemented October 14, expands High imagery and DEM coverage, adds overscanned view selection, targets 5 m refined meshes and retains loaded terrain until replacement needs capacity. Its 516-test local suite, published-baseline comparisons and desktop/mobile checks are the current validation record.
+
+The earlier [imagery patch construction continuation](PATCHES.md), implemented October 14, reduces interior vertex allocation and lookup work while preserving exact terrain overlays. Its 506-test local suite, maximum-detail production-browser comparison and isolated CPU measurements record that implementation pass.
 
 The earlier [terrain picking continuation](PICKING.md), implemented October 14, reuses traversal storage while preserving owned hit points and exact surface selection. Its 498-test local suite, production-browser comparison and isolated CPU measurements record that implementation pass.
 

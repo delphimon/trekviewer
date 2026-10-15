@@ -10,7 +10,7 @@ it('grounds the viewer on the new surface before rendering its promotion',()=>{
   let ground=100, renderedFeet=NaN;
   const app:any=Object.create(TrekViewerApp.prototype), camera=new THREE.PerspectiveCamera(), root=new THREE.Group();
   const flyover={getProgress:()=>0,getIsPlaying:()=>false,update:(_dt:number,_camera:any,world:THREE.Group)=>{world.position.y=-ground;}};
-  const trek:any={terrainResult:{surfaceRevision:1},flyoverController:flyover,imageryLOD:{setActiveInteractionRay:()=>{},update:()=>{},getInspectedGeo:()=>null},
+  const trek:any={terrainResult:{surfaceRevision:1},flyoverController:flyover,imageryLOD:{setActiveInteractionRay:()=>{},update:()=>{},getInspectedGeo:()=>null,getDetailFocusPoints:()=>[]},
     updateHikerProgress:()=>{ground=200;trek.terrainResult.surfaceRevision++;},updateWaypoints:()=>{}};
   app.routeLoader={getActiveTrek:()=>trek};app.session={getState:()=>({viewMode:'first-person'})};
   app.sceneManager={camera,dioramaRoot:root,renderer:{xr:{isPresenting:true,getCamera:()=>camera}},updateCameraClipping:vi.fn(),updateMotionVignette:()=>{},render:()=>{renderedFeet=ground+root.position.y;}};

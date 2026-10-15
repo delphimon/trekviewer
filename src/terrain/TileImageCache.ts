@@ -56,15 +56,14 @@ export class TileImageCache {
   private static overviewWaitingCount: number = 0;
   private static highPriorityDrainResolvers: (() => void)[] = [];
 
-  // Desktop defaults (96MB / 360 tiles in desktop-high)
-  private static maxEntries: number = 360;
-  private static maxDecodedBytes: number = 96 * 1024 * 1024;
+  // Match the active High profile even before the first explicit device update.
+  private static maxEntries: number = QualityProfileManager.getDefaultProfile(false).tileCacheEntries;
+  private static maxDecodedBytes: number = QualityProfileManager.getDefaultProfile(false).tileCacheBytes;
   private static totalDecodedBytes: number = 0;
 
   /**
    * Configures cache limits based on target device and quality profile (Stage W).
-   * Quest profile defaults to 'quest-high': 240 entries, 64MB max (scalable to 320 / 80MB)
-   * Desktop profile defaults to 'desktop-high': 360 entries, 96MB max
+   * Use the current device profile's explicit decoded image bounds.
    */
   public static setTargetDevice(isQuest: boolean): void {
     const profile = QualityProfileManager.getDefaultProfile(isQuest);

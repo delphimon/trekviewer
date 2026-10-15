@@ -5,7 +5,7 @@ import { ElevationTileService } from './ElevationTiles.ts';
 import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import type { LocalTerrainStreamerOptions } from './LocalTerrainStreamer.ts';
 import type { QualityProfile } from './QualityProfile.ts';
-import { QualityProfileManager } from './QualityProfile.ts';
+import { QualityProfileManager, terrainDetailPolicy } from './QualityProfile.ts';
 import { planTerrainTiles, type TerrainTileLayout } from './TerrainTileLayout.ts';
 
 /** Stable terrain partitions, independent of gaze direction, with parent coverage until publication. */
@@ -33,6 +33,9 @@ export class TiledTerrainStreamer {
   private focusLat = NaN;
   private focusLon = NaN;
   private localFocus: { x: number; z: number } | null = null;
+  private detailFocusInput?: readonly { lat: number; lon: number }[];
+  private detailFocusKey = '';
+  private detailFocus: { x: number; z: number }[] = [];
 
   constructor(private readonly options: LocalTerrainStreamerOptions) {
     this.mode = options.initialViewMode ?? 'diorama';
@@ -64,6 +67,7 @@ export class TiledTerrainStreamer {
     this.readyRemoval = null;
     this.retireAll = this.chunks.size > 0;
     this.failed.clear();
+    this.detailFocusInput = undefined; this.detailFocusKey = ''; this.detailFocus = [];
     this.planKey = '';
     this.plannedAt = null;
     this.nextWorkAt = 0;
@@ -76,7 +80,7 @@ export class TiledTerrainStreamer {
     this.ready?.chunk.setVerticalExaggeration(factor);
   }
 
-  public update(progress: number, tabletopFocus?: { lat: number; lon: number } | null): void {
+  public update(progress: number, tabletopFocus?: { lat: number; lon: number } | null, detailFocus?: readonly { lat: number; lon: number }[]): void {
     if (this.disposed || !this.options.terrainResult.baseMeshGrid) return;
     const terrain = this.options.terrainResult;
     if (!(this.mode === 'diorama' && tabletopFocus) && (!this.routeGeo || progress !== this.routeProgress)) {
@@ -91,16 +95,34 @@ export class TiledTerrainStreamer {
       this.focusLat = geo.lat; this.focusLon = geo.lon;
     }
     const local = this.localFocus;
-    if (!this.plannedAt || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
+    let detailChanged = false;
+    if (detailFocus !== this.detailFocusInput) {
+      this.detailFocusInput = detailFocus;
+      const candidates = this.profile.name === 'quest-balanced' ? [] : (detailFocus ?? []).slice(0, 64).map(p => geoToLocalMeters(p.lat, p.lon, 0, center.centerLat, center.centerLon, 0));
+      this.detailFocus = [];
+      // Spread the bounded anchors across the whole view, rather than filling
+      // every slot with several adjacent samples near the central ray.
+      while (candidates.length && this.detailFocus.length < 25) {
+        let farthest = 0, distance = -1;
+        for (let i = 0; i < candidates.length; i++) {
+          const p = candidates[i];
+          let nearest = Math.hypot(p.x - local.x, p.z - local.z);
+          for (const anchor of this.detailFocus) nearest = Math.min(nearest, Math.hypot(p.x - anchor.x, p.z - anchor.z));
+          if (nearest > distance) { distance = nearest; farthest = i; }
+        }
+        if (distance < 60) break;
+        this.detailFocus.push(candidates.splice(farthest, 1)[0]);
+      }
+      const grid = terrain.baseMeshGrid!;
+      const key = [...new Set(this.detailFocus.map(p => `${Math.floor((p.x + grid.width / 2) / (grid.width / grid.segmentsX * 8))}:${Math.floor((p.z + grid.depth / 2) / (grid.depth / grid.segmentsZ * 8))}`))].sort().join('|');
+      detailChanged = key !== this.detailFocusKey; this.detailFocusKey = key;
+    }
+    if (!this.plannedAt || detailChanged || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
       this.plannedAt = { x: local.x, z: local.z };
-      const balanced = this.profile.name === 'quest-balanced';
-      const desktop = this.profile.name === 'desktop-high';
+      const policy = terrainDetailPolicy(this.profile);
       const plan = planTerrainTiles({
         parent: terrain.baseMeshGrid!, focusX: local.x, focusZ: local.z,
-        radiusM: balanced ? 1500 : desktop ? 3500 : 2500,
-        parentCellsPerTile: 8, targetCellM: balanced ? 25 : 10,
-        maxTiles: balanced ? 9 : desktop ? 24 : 12,
-        maxVertices: balanced ? 40_000 : desktop ? 160_000 : 96_000,
+        additionalFocus: this.detailFocus, ...policy, parentCellsPerTile: 8,
       });
       const key = plan.tiles.map(tile => tile.id).sort().join('|');
       if (key !== this.planKey) {
@@ -153,7 +175,16 @@ export class TiledTerrainStreamer {
 
   private async prepareNext(): Promise<void> {
     this.nextWorkAt = Infinity;
-    const retiring = [...this.chunks.entries()].filter(([id]) => this.retireAll || !this.wanted.has(id));
+    const policy = terrainDetailPolicy(this.profile);
+    const missing = [...this.wanted.values()].find(tile => !this.chunks.has(tile.id) && (this.failed.get(tile.id)?.retryAt ?? 0) <= performance.now());
+    let residentVertices = [...this.chunks.values()].reduce((n, chunk) => n + chunk.totalVertices, 0);
+    let residentCount = this.chunks.size;
+    const retiring = [...this.chunks.entries()].filter(([id, chunk]) => {
+      if (this.retireAll) return true;
+      if (this.wanted.has(id) || !missing) return false;
+      if (residentCount + 1 <= policy.residentTiles && residentVertices + missing.vertexCount <= policy.residentVertices) return false;
+      residentCount--; residentVertices -= chunk.totalVertices; return true;
+    });
     if (retiring.length) {
       this.busy = true;
       const generation = this.generation;

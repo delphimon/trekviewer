@@ -175,10 +175,12 @@ export class LoadedTrek {
 
   public updateHikerProgress(
     progress: number,
-    tabletopFocusGeo?: { lat: number; lon: number } | null
+    tabletopFocusGeo?: { lat: number; lon: number } | null,
+    detailFocus?: readonly { lat: number; lon: number }[]
   ): void {
     if (this._isDisposed) return;
-    this.localTerrainStreamer?.update(progress, tabletopFocusGeo);
+    if (this.localTerrainStreamer instanceof TiledTerrainStreamer) this.localTerrainStreamer.update(progress, tabletopFocusGeo, detailFocus);
+    else this.localTerrainStreamer?.update(progress, tabletopFocusGeo);
   }
 
   public dispose(): void {

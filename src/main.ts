@@ -1242,7 +1242,7 @@ export class TrekViewerApp {
       // Stream local high-resolution terrain geometry along route (Stage W6) or tabletop focus (Stage X7)
       const inspectedGeo = this.activeTrek.imageryLOD.getInspectedGeo();
       const previousSurfaceRevision = this.activeTrek.terrainResult.surfaceRevision;
-      this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo);
+      this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo, this.activeTrek.imageryLOD.getDetailFocusPoints());
       if (this.currentViewMode === 'first-person' && previousSurfaceRevision !== this.activeTrek.terrainResult.surfaceRevision) {
         // Ground the viewer on the promoted surface before this frame renders.
         this.flyoverController?.update(0, activeCamera, this.sceneManager.dioramaRoot, isPresenting);

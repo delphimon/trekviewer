@@ -99,10 +99,10 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
 ## 🛰️ Imagery Quality, Coherent LOD & Source Transparency (Stages T5, U4, U5)
 
 - **Coherent LOD & Dynamic Subdivision**:
-  - High-detail patches ($z \ge 18$) use **4x4 segments**, mid zoom ($z \ge 16$) use **6x6**, and base zoom use **8x8**, optimizing vertex throughput on Quest 3.
-  - Nested refinement rings: contiguous $3 \times 3$ center at $Z_{high}$ and outer perimeter at $Z_{mid}$, eliminating checkerboard holes.
-  - Atomic parent/child replacement: parent tiles remain visible until all 4 child tiles are ready; depthWrite-safe opacity crossfading prevents visual pop.
-  - 500ms promotion dwell time prevents rapid LOD thrashing during fast head turns.
+  - Imagery follows the actual rendered terrain triangles and smooth normals, including detailed DEM refinements.
+  - High keeps broad concentric coverage and samples terrain across the view and 15% beyond its edges. Its zoom-19 core has up to 144 finest tiles; visible slopes receive fine detail before extra guard tiles consume the budget.
+  - Atomic parent/child replacement retains coarse coverage until selected sibling tiles are ready; terrain geometry and its matching imagery publish together.
+  - High promotes after a short dwell and delays demotion for 8–10 seconds, with bounded retention for recently viewed terrain.
 - **Explicit Awaited Initialization**: Eliminates asynchronous startup races by awaiting provider environment configuration before route loading begins.
 - **Truthful Sources & Cache Isolation**: Cesium Bing provider requests only Bing URLs; per-tile fallback to Esri is eliminated, ensuring cache keys (`cesium-bing:z:x:y`) never contain mixed Esri imagery.
 - **UI Source Transparency**: Desktop and Spatial HUD clearly report active imagery provider and fallback status (e.g. `Bing Aerial via Cesium • up to Z19` or `Esri World Imagery • up to Z19 (fallback: Cesium unavailable)`).
@@ -182,7 +182,7 @@ Desktop wheel/pinch zoom follows the pointer and supports much closer inspection
 
 VR and passthrough availability are checked separately. Entry controls start disabled while checking and wait for a ready trek and graphics. Unavailable modes have disabled controls with an explanation. Passthrough never silently switches to VR; choose **Enter VR** explicitly when that mode is available. Connecting or changing an XR device refreshes the availability check. Automatic terrain fits follow header/timeline layout changes; manual camera views are preserved. See the [startup and layout validation](docs/review-2026-10-13/STARTUP.md).
 
-Terrain picking reuses traversal storage while keeping returned hit points independent. Imagery patch construction shares interior grid vertices through a compact index cache. The [latest performance validation](docs/review-2026-10-13/PATCHES.md) records exact overlay geometry, matched zoom-19 rendering, isolated CPU measurements, and the remaining headset validation limits.
+Terrain picking reuses traversal storage while keeping returned hit points independent. Imagery patch construction shares interior grid vertices through a compact index cache. The [latest fidelity validation](docs/review-2026-10-13/FIDELITY.md) records broader High coverage, tabletop and 1:1 imagery/DEM comparisons, resource limits and the remaining headset validation limits.
 
 Trail refinements maintain conservative rendering bounds and upload changed position/normal spans, preserving trail visibility as terrain detail and exaggeration change. See the [rendering and XR availability continuation](docs/review-2026-10-13/CONTINUATION.md) for its validation and upload measurements.
 
@@ -202,7 +202,9 @@ Append `?debug=1` to display callback pacing, CPU submission p95, tile coverage,
 
 For repeatable headset runs, append `?profile=1` to the hosted URL. The production build records bounded one-second CPU, callback, rendering, cache, and quality samples locally. Entering XR starts the recorder; exiting stops it. Press **Download JSON** on the page to save the report. Pair it with Meta's device GPU/FPS/thermal metrics. See the [Quest 3 profiling procedure](docs/QUEST_PROFILE.md) for exact steps and measurement limits.
 
-High quality now targets a 60 m base grid and approximately 10 m terrain refinements. Stable terrain tiles retain parent coverage until detailed geometry and its imagery are prepared, then publish together. Quest High is bounded to 12 refinement tiles / 96,000 refinement vertices; desktop High uses up to 24 / 160,000. Balanced uses up to 9 / 40,000 at about 25 m spacing. Base meshes retain the existing 125,000-vertex Quest and 200,000-vertex desktop limits. Changing quality affects streaming immediately; reload the route to rebuild the base grid.
+High quality targets a 60 m base grid and at most 5 m refined mesh spacing. It selects detailed terrain across the inspected view, including upper/lower slopes and an overscan margin. Quest High selects up to 48 tiles / 600,000 vertices and retains at most 64 / 800,000 including previously viewed detail; desktop High selects 96 / 1,200,000 and retains 128 / 1,600,000. Old detail stays visible until replacement needs its bounded resident capacity. Balanced retains 9 / 40,000 at about 25 m spacing. Base meshes keep the existing 125,000-vertex Quest and 200,000-vertex desktop limits. Changing quality affects streaming immediately; reload the route to rebuild the base grid. Mesh spacing does not imply equivalent accuracy in the source elevation data.
+
+High imagery budgets are 448 tabletop / 512 first-person patches on Quest and 640 / 768 on desktop. Decoded image caching is bounded to 192 MiB / 256 MiB respectively. High deliberately uses more memory and bandwidth to retain fine imagery around the view and in 1:1 mode. Balanced remains the explicit power-saving choice. See the [comparison and performance limits](docs/review-2026-10-13/FIDELITY.md).
 
 The Enchantments' packaged regional DEM is enabled for local and base terrain where available. It contains 26 z15 Terrarium PNGs derived from the USGS 3DEP 1-metre WA Eastern Cascades 2019 source. Uncovered positions and failed packaged requests fall back to AWS; packaged edges blend to AWS over 24 pixels. The 1 m source is resampled into z15 tiles; the renderer does not imply 1 m mesh spacing. The profile records source counts, DEM zoom, and actual mesh cell sizes.
 

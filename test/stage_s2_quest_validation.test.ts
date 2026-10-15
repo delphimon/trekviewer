@@ -102,7 +102,7 @@ describe('Stage S2: Quest Mixed Reality Validation & Invariance Suite', () => {
       loadedTrek.dispose();
     });
 
-    it('automatically applies conservative Quest profile in XR: maxPatches = 24, maxConcurrency = 4', async () => {
+    it('keeps the selected High coverage budget when entering XR', async () => {
       const lod = new ImageryLODManager({
         terrainGeoBounds: track.bounds,
         terrainBaseElevation: track.bounds.minEle,
@@ -110,6 +110,7 @@ describe('Stage S2: Quest Mixed Reality Validation & Invariance Suite', () => {
         enableInXR: true,
       });
 
+      lod.setDeviceProfile(true);
       const camera = new THREE.PerspectiveCamera(60, 1.6, 0.1, 100);
       camera.position.set(0, 1.5, 0);
       camera.lookAt(0, 0.82, -0.80);
@@ -120,9 +121,9 @@ describe('Stage S2: Quest Mixed Reality Validation & Invariance Suite', () => {
       lod.update(camera, dioramaRoot, true);
       await new Promise((r) => setTimeout(r, 150));
 
-      // Diagnostics should confirm conservative bounds
       const diag = lod.getDiagnostics();
-      expect(diag.activePatchesCount).toBeLessThanOrEqual(24);
+      expect((lod as any).maxPatches).toBe(lod.getQualityProfile().tabletopPatches);
+      expect(diag.activePatchesCount).toBeLessThanOrEqual(lod.getQualityProfile().tabletopPatches);
 
       lod.dispose();
     });

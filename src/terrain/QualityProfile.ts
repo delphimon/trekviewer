@@ -26,16 +26,16 @@ export interface QualityProfile {
 export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
   'quest-high': {
     name: 'quest-high',
-    displayName: 'Quest 3 High Quality (Stage X Default)',
-    tabletopPatches: 48,
-    firstPersonPatches: 64,
+    displayName: 'Quest High — Visual Fidelity',
+    tabletopPatches: 448,
+    firstPersonPatches: 512,
     concurrency: 6,
-    tileCacheEntries: 240,
-    tileCacheBytes: 64 * 1024 * 1024, // 64 MB
-    warmRetentionMs: 30000,           // 30 seconds
+    tileCacheEntries: 768,
+    tileCacheBytes: 192 * 1024 * 1024,
+    warmRetentionMs: 60000,
     evalIntervalMs: 120,              // 100-150 ms
     promotionDwellMs: 200,            // 150-250 ms (fast promotion)
-    demotionDwellMs: 3000,            // 2-5 sec (slow demotion)
+    demotionDwellMs: 8000,
     promotionZoomBias: 0.8,           // +0.7 to +1.0 zoom bias
     firstPersonEvalDistM: 15,         // 10-20 m route threshold
     firstPersonPrefetchAheadM: 650,   // 500-750 m forward prefetch corridor
@@ -69,15 +69,15 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
   'desktop-high': {
     name: 'desktop-high',
     displayName: 'Desktop High Quality',
-    tabletopPatches: 80,
-    firstPersonPatches: 96,
+    tabletopPatches: 640,
+    firstPersonPatches: 768,
     concurrency: 6,
-    tileCacheEntries: 360,
-    tileCacheBytes: 96 * 1024 * 1024, // 96 MB
-    warmRetentionMs: 45000,
+    tileCacheEntries: 1024,
+    tileCacheBytes: 256 * 1024 * 1024,
+    warmRetentionMs: 90000,
     evalIntervalMs: 100,
     promotionDwellMs: 150,
-    demotionDwellMs: 4000,
+    demotionDwellMs: 10000,
     promotionZoomBias: 0.85,
     firstPersonEvalDistM: 15,
     firstPersonPrefetchAheadM: 750,
@@ -88,6 +88,13 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
     localDemSegments: 160,
   },
 };
+
+/** High favors broad 5 m surface detail; Balanced retains its power-saving limits. */
+export function terrainDetailPolicy(profile: QualityProfile) {
+  if (profile.name === 'quest-balanced') return { radiusM: 1500, targetCellM: 25, maxTiles: 9, maxVertices: 40_000, residentTiles: 9, residentVertices: 40_000 };
+  if (profile.name === 'quest-high') return { radiusM: 4000, targetCellM: 5, maxTiles: 48, maxVertices: 600_000, residentTiles: 64, residentVertices: 800_000 };
+  return { radiusM: 6000, targetCellM: 5, maxTiles: 96, maxVertices: 1_200_000, residentTiles: 128, residentVertices: 1_600_000 };
+}
 
 export class QualityProfileManager {
   private static activeProfile: QualityProfile = QUALITY_PROFILES['desktop-high'];

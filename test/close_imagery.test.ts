@@ -50,16 +50,32 @@ it('reevaluates a sub-four-centimeter zoom after the normal interval and promoti
   } finally { dispose(); }
 });
 
-it('retains XR distance handling and reevaluates the same pose on returning to desktop', () => {
+it('uses actual close distance in High XR and reevaluates the same pose on returning to desktop', () => {
   let now = 1000; vi.spyOn(performance, 'now').mockImplementation(() => now);
   const { manager, root, camera, pose, dispose } = fixture();
   const calculate = vi.spyOn(ImageryLODManager, 'calculateTargetZoom');
   try {
     pose(0.025); manager.update(camera, root, true);
-    expect(calculate.mock.lastCall![0]).toBe(0.2);
+    expect(calculate.mock.lastCall![0]).toBeCloseTo(0.025, 7);
     now += 101; manager.update(camera, root, false);
     expect(calculate.mock.lastCall![0]).toBeCloseTo(0.025, 7);
     expect(calculate).toHaveBeenCalledTimes(2);
+  } finally { dispose(); }
+});
+
+it('keeps the close view sharp when the XR pointer inspects a distant slope', () => {
+  const { manager, root, camera, pose, dispose } = fixture();
+  const calculate = vi.spyOn(ImageryLODManager, 'calculateTargetZoom');
+  try {
+    pose(.025);
+    const origin = new THREE.Vector3(1, 1, 1), target = new THREE.Vector3(.2, 0, .2);
+    manager.setActiveInteractionRay(new THREE.Ray(origin, target.sub(origin).normalize()));
+    manager.update(camera, root, true);
+    expect(calculate.mock.lastCall![0]).toBeCloseTo(.025, 7);
+    expect(manager.getDiagnostics().targetZoom).toBe(19);
+    expect(Math.abs(manager.getInspectedGeo()!.lat - 46.85)).toBeGreaterThan(.001);
+    const finest = (manager as any).reconcileDesiredTiles.mock.calls[0][0].filter((tile: any) => tile.zoom === 19);
+    expect(finest.length).toBeGreaterThanOrEqual(144);
   } finally { dispose(); }
 });
 

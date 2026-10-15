@@ -19,6 +19,7 @@ export interface TerrainTilePlanOptions {
   parent: TerrainGridLayout;
   focusX: number;
   focusZ: number;
+  additionalFocus?: readonly { x: number; z: number }[];
   radiusM: number;
   parentCellsPerTile: number;
   targetCellM: number;
@@ -63,11 +64,18 @@ export function planTerrainTiles(options: TerrainTilePlanOptions): TerrainTilePl
   const rows = Math.ceil(parent.segmentsZ / cellsPerTile);
   const tileWidth = cellsPerTile * cellX;
   const tileDepth = cellsPerTile * cellZ;
-  const firstColumn = Math.max(0, Math.floor((focusX - radiusM + parent.width / 2) / tileWidth));
-  const lastColumn = Math.min(columns - 1, Math.floor((focusX + radiusM + parent.width / 2) / tileWidth));
-  const firstRow = Math.max(0, Math.floor((focusZ - radiusM + parent.depth / 2) / tileDepth));
-  const lastRow = Math.min(rows - 1, Math.floor((focusZ + radiusM + parent.depth / 2) / tileDepth));
+  const focuses = [{ x: focusX, z: focusZ }, ...(options.additionalFocus ?? []).filter(p => Number.isFinite(p.x) && Number.isFinite(p.z)).slice(0, 25)];
+  const distance = (bounds: TerrainSurfaceBounds) => {
+    let nearest = Infinity;
+    for (const p of focuses) nearest = Math.min(nearest, distanceToBoundsSquared(p.x, p.z, bounds));
+    return nearest;
+  };
+  const firstColumn = Math.max(0, Math.floor((Math.min(...focuses.map(p => p.x)) - radiusM + parent.width / 2) / tileWidth));
+  const lastColumn = Math.min(columns - 1, Math.floor((Math.max(...focuses.map(p => p.x)) + radiusM + parent.width / 2) / tileWidth));
+  const firstRow = Math.max(0, Math.floor((Math.min(...focuses.map(p => p.z)) - radiusM + parent.depth / 2) / tileDepth));
+  const lastRow = Math.min(rows - 1, Math.floor((Math.max(...focuses.map(p => p.z)) + radiusM + parent.depth / 2) / tileDepth));
   const candidates: TerrainTileLayout[] = [];
+  const distances = new Map<TerrainSurfaceBounds, number>();
 
   for (let row = firstRow; row <= lastRow; row++) {
     for (let column = firstColumn; column <= lastColumn; column++) {
@@ -81,7 +89,9 @@ export function planTerrainTiles(options: TerrainTilePlanOptions): TerrainTilePl
         minZ: startZ * cellZ - parent.depth / 2,
         maxZ: endZ * cellZ - parent.depth / 2,
       };
-      if (distanceToBoundsSquared(focusX, focusZ, bounds) > radiusM * radiusM) continue;
+      const distanceSquared = distance(bounds);
+      if (distanceSquared > radiusM * radiusM) continue;
+      distances.set(bounds, distanceSquared);
       const segmentsX = (endX - startX) * subdivisionsX;
       const segmentsZ = (endZ - startZ) * subdivisionsZ;
       candidates.push({
@@ -99,6 +109,7 @@ export function planTerrainTiles(options: TerrainTilePlanOptions): TerrainTilePl
   }
 
   candidates.sort((a, b) =>
+    distances.get(a.bounds)! - distances.get(b.bounds)! ||
     distanceToBoundsSquared(focusX, focusZ, a.bounds) - distanceToBoundsSquared(focusX, focusZ, b.bounds) ||
     a.row - b.row || a.column - b.column);
   const tiles: TerrainTileLayout[] = [];

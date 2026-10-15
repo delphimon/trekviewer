@@ -2,7 +2,7 @@ import { it, expect, vi, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { TiledTerrainStreamer } from '../src/terrain/TiledTerrainStreamer.ts';
 import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
-import { QUALITY_PROFILES } from '../src/terrain/QualityProfile.ts';
+import { QUALITY_PROFILES, terrainDetailPolicy } from '../src/terrain/QualityProfile.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
 import { planTerrainTiles } from '../src/terrain/TerrainTileLayout.ts';
 
@@ -146,10 +146,11 @@ it('keeps parent coverage through acquisition and publishes one validated tile p
 it('bounds total refinement vertices and reuses stable terrain when focus is stationary', async () => {
   const { streamer } = fixture();
   const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
-  for (let i = 0; i < 30; i++) { streamer.update(0); await flushBuild(); }
+  for (let i = 0; i < 40; i++) { streamer.update(0); await flushBuild(); }
   const chunks = streamer.activeChunks;
-  expect(chunks.length).toBeGreaterThan(1); expect(chunks.length).toBeLessThanOrEqual(12);
-  expect(chunks.reduce((sum, c) => sum + c.totalVertices, 0)).toBeLessThanOrEqual(96_000);
+  const policy = terrainDetailPolicy(QUALITY_PROFILES['quest-high']);
+  expect(chunks.length).toBeGreaterThan(1); expect(chunks.length).toBeLessThanOrEqual(policy.maxTiles);
+  expect(chunks.reduce((sum, c) => sum + c.totalVertices, 0)).toBeLessThanOrEqual(policy.maxVertices);
   const calls = fetch.mock.calls.length;
   for (let i = 0; i < 72; i++) { streamer.update(0); await flushBuild(); }
   expect(fetch.mock.calls.length).toBe(calls);
@@ -188,7 +189,7 @@ it('matches heights and normals across adjacent independently built terrain tile
   chunks.forEach(chunk => chunk.dispose());
 });
 
-it('retains old coverage until removal imagery is prepared, then replaces it atomically', async () => {
+it('retains old coverage until a quality change prepares removal imagery, then replaces it atomically', async () => {
   const { streamer, terrain, attached } = fixture();
   vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
   for (let i = 0; i < 15; i++) { streamer.update(0); await flushBuild(); }
@@ -198,6 +199,7 @@ it('retains old coverage until removal imagery is prepared, then replaces it ato
   const prepare = vi.fn().mockReturnValue(prepared);
   (streamer as any).options.prepareSurfaceRemoval = prepare;
   terrain.notifySurfaceChange.mockClear();
+  streamer.setQualityProfile(QUALITY_PROFILES['quest-balanced']);
   streamer.update(0, { lat: 46.01, lon: -119.99 }); await flushBuild();
   expect(prepare).toHaveBeenCalledTimes(1);
   const retiring: LocalTerrainChunk[] = prepare.mock.calls[0][0]; expect(retiring.length).toBeGreaterThan(0);
@@ -219,5 +221,32 @@ it('can change quality before the first tile without repeatedly retiring new til
   for (let i = 0; i < 15; i++) { streamer.update(0); await flushBuild(); }
   expect(streamer.activeChunks.length).toBeGreaterThan(1);
   expect(streamer.activeChunks.length).toBeLessThanOrEqual(9);
+  streamer.dispose();
+});
+
+it('keeps previously loaded detail visible until replacement needs its bounded resident capacity', async () => {
+  const { streamer, terrain, attached } = fixture();
+  terrain.baseMeshGrid = { width: 9600, depth: 9600, segmentsX: 160, segmentsZ: 160 };
+  vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  vi.spyOn(LocalTerrainChunk, 'createAsync').mockImplementation(async options => ({
+    mesh: new THREE.Mesh(), totalVertices: (options.layout!.segmentsX + 1) * (options.layout!.segmentsZ + 1),
+    setVerticalExaggeration: () => {}, setMapTexture: () => {}, validate: () => ({ isValid: true }), dispose: vi.fn(),
+    getSurfaceBounds: () => options.layout!.bounds,
+  }) as any);
+  for (let i = 0; i < 110; i++) { streamer.update(0); await flushBuild(); }
+  const old = [...attached]; expect(old.length).toBe(48);
+  const remove = vi.fn(async () => () => true); (streamer as any).options.prepareSurfaceRemoval = remove;
+  const focus = { lat: 46.03, lon: -119.96 };
+  streamer.update(0, focus); await flushBuild();
+  expect(old.every(chunk => attached.has(chunk) && chunk.mesh.visible)).toBe(true);
+  expect(remove).not.toHaveBeenCalled();
+  const policy = terrainDetailPolicy(QUALITY_PROFILES['quest-high']);
+  for (let i = 0; i < 180; i++) {
+    streamer.update(0, focus); await flushBuild();
+    expect(attached.size).toBeLessThanOrEqual(policy.residentTiles);
+    expect([...attached].reduce((n, chunk) => n + chunk.totalVertices, 0)).toBeLessThanOrEqual(policy.residentVertices);
+  }
+  expect(remove).toHaveBeenCalled();
+  expect([...((streamer as any).wanted.keys())].every(key => (streamer as any).chunks.has(key))).toBe(true);
   streamer.dispose();
 });

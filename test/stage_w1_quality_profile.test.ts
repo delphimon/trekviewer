@@ -31,15 +31,15 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
     it('provides quest-high as the default profile for Meta Quest / WebXR', () => {
       const questDefault = QualityProfileManager.getDefaultProfile(true);
       expect(questDefault.name).toBe('quest-high');
-      expect(questDefault.tabletopPatches).toBe(48);
-      expect(questDefault.firstPersonPatches).toBe(64);
+      expect(questDefault.tabletopPatches).toBe(448);
+      expect(questDefault.firstPersonPatches).toBe(512);
       expect(questDefault.concurrency).toBe(6);
-      expect(questDefault.tileCacheEntries).toBe(240);
-      expect(questDefault.tileCacheBytes).toBe(64 * 1024 * 1024);
-      expect(questDefault.warmRetentionMs).toBe(30000);
+      expect(questDefault.tileCacheEntries).toBe(768);
+      expect(questDefault.tileCacheBytes).toBe(192 * 1024 * 1024);
+      expect(questDefault.warmRetentionMs).toBe(60000);
       expect(questDefault.evalIntervalMs).toBe(120);
       expect(questDefault.promotionDwellMs).toBe(200);
-      expect(questDefault.demotionDwellMs).toBe(3000);
+      expect(questDefault.demotionDwellMs).toBe(8000);
       expect(questDefault.firstPersonPrefetchAheadM).toBe(650);
       expect(questDefault.firstPersonRetainBehindM).toBe(300);
       expect(questDefault.localTerrainRadiusM).toBe(1250);
@@ -48,12 +48,12 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
     it('provides desktop-high as the default profile for Desktop browsers', () => {
       const desktopDefault = QualityProfileManager.getDefaultProfile(false);
       expect(desktopDefault.name).toBe('desktop-high');
-      expect(desktopDefault.tabletopPatches).toBe(80);
-      expect(desktopDefault.firstPersonPatches).toBe(96);
+      expect(desktopDefault.tabletopPatches).toBe(640);
+      expect(desktopDefault.firstPersonPatches).toBe(768);
       expect(desktopDefault.concurrency).toBe(6);
-      expect(desktopDefault.tileCacheEntries).toBe(360);
-      expect(desktopDefault.tileCacheBytes).toBe(96 * 1024 * 1024);
-      expect(desktopDefault.warmRetentionMs).toBe(45000);
+      expect(desktopDefault.tileCacheEntries).toBe(1024);
+      expect(desktopDefault.tileCacheBytes).toBe(256 * 1024 * 1024);
+      expect(desktopDefault.warmRetentionMs).toBe(90000);
     });
 
     it('provides quest-balanced profile for conservative battery saving', () => {
@@ -76,18 +76,18 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
   });
 
   describe('TileImageCache Quality Scaling & Hit Rate Diagnostics', () => {
-    it('scales decoded image cache for Quest 3 to 240 entries / 64MB via QualityProfile', () => {
+    it('scales decoded image cache for Quest High to 768 entries / 192MB via QualityProfile', () => {
       TileImageCache.setTargetDevice(true);
       const stats = TileImageCache.getStats();
-      expect(stats.maxEntries).toBe(240);
-      expect(stats.maxDecodedBytes).toBe(64 * 1024 * 1024);
+      expect(stats.maxEntries).toBe(768);
+      expect(stats.maxDecodedBytes).toBe(192 * 1024 * 1024);
     });
 
-    it('scales decoded image cache for Desktop to 360 entries / 96MB', () => {
+    it('scales decoded image cache for Desktop to 1024 entries / 256MB', () => {
       TileImageCache.setTargetDevice(false);
       const stats = TileImageCache.getStats();
-      expect(stats.maxEntries).toBe(360);
-      expect(stats.maxDecodedBytes).toBe(96 * 1024 * 1024);
+      expect(stats.maxEntries).toBe(1024);
+      expect(stats.maxDecodedBytes).toBe(256 * 1024 * 1024);
     });
 
     it('accurately tracks cache hits, misses, and hit rate percentage in stats', () => {
@@ -117,7 +117,7 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
   });
 
   describe('ImageryLODManager View-Mode Specific Budgets', () => {
-    it('applies view-mode specific patch budgets under quest-high: 48 tabletop vs 64 first-person', () => {
+    it('applies the High coverage budgets in tabletop and first-person', () => {
       const lod = new ImageryLODManager({
         terrainGeoBounds: testBounds,
         terrainBaseElevation: 1500,
@@ -131,18 +131,15 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
       const profile = lod.getQualityProfile();
       expect(profile.name).toBe('quest-high');
 
-      // Tabletop diorama mode: 48 resident patches, concurrency 6
-      expect((lod as any).maxPatches).toBe(48);
+      expect((lod as any).maxPatches).toBe(448);
       expect((lod as any).maxConcurrency).toBe(6);
-      expect((lod as any).warmRetentionMs).toBe(30000);
+      expect((lod as any).warmRetentionMs).toBe(60000);
 
-      // Switching to 1:1 first-person mode expands patch budget to 64
       lod.setViewMode('first-person');
-      expect((lod as any).maxPatches).toBe(64);
+      expect((lod as any).maxPatches).toBe(512);
 
-      // Switching back to diorama returns budget to 48
       lod.setViewMode('diorama');
-      expect((lod as any).maxPatches).toBe(48);
+      expect((lod as any).maxPatches).toBe(448);
 
       lod.dispose();
     });

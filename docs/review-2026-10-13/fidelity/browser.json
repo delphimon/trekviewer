@@ -1,0 +1,2360 @@
+{
+  "condition": "Quest user-agent and Quest High policy in desktop Edge; no native immersive session or headset timing",
+  "variants": [
+    {
+      "name": "previous",
+      "url": "https://trekviewer.surge.sh/?profile=1&fidelity=previous",
+      "tabletop": {
+        "summary": {
+          "hitSamples": 21,
+          "highImagerySamples": 2,
+          "minImageryZoom": 14,
+          "meanImageryZoom": 16.38095238095238,
+          "detailedDemSamples": 17,
+          "maxSampleCellM": 59.75090508142833,
+          "meanSampleCellM": 19.422994931125995
+        },
+        "samples": [
+          {
+            "x": -0.85,
+            "y": -0.85,
+            "imageryZoom": 14,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": -0.85,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": -0.85,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": -0.85,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": -0.85,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": -0.4,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": -0.4,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": -0.4,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": -0.4,
+            "imageryZoom": 14,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0,
+            "imageryZoom": 18,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0,
+            "imageryZoom": 14,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0.4,
+            "imageryZoom": 14,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0.4,
+            "imageryZoom": 14,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0.4,
+            "imageryZoom": 14,
+            "detailedTerrain": false,
+            "cellXM": 59.75090508142833,
+            "cellZM": 59.62945400744366
+          },
+          {
+            "x": 0.4,
+            "y": 0.4,
+            "imageryZoom": 14,
+            "detailedTerrain": false,
+            "cellXM": 59.75090508142833,
+            "cellZM": 59.62945400744366
+          },
+          {
+            "x": 0.85,
+            "y": 0.4,
+            "imageryZoom": 14,
+            "detailedTerrain": false,
+            "cellXM": 59.75090508142833,
+            "cellZM": 59.62945400744366
+          },
+          {
+            "x": -0.85,
+            "y": 0.85,
+            "imageryZoom": 14,
+            "detailedTerrain": false,
+            "cellXM": 59.75090508142833,
+            "cellZM": 59.62945400744366
+          }
+        ],
+        "diagnostics": {
+          "activePatchesCount": 48,
+          "targetZoom": 19,
+          "calculatedDesiredZoom": 19,
+          "effectiveProviderClampedZoom": 19,
+          "providerMaxZoom": 19,
+          "inFlightRequests": 0,
+          "requestQueueLength": 0,
+          "pendingRequestsCount": 0,
+          "patchesCreatedTotal": 53,
+          "patchesDisposedTotal": 5,
+          "generation": 0,
+          "viewMode": "diorama",
+          "currentProgress": 0,
+          "debugPatchBounds": false,
+          "visibleByZoom": {},
+          "desiredZoom": 19,
+          "readyHighResCount": 24,
+          "totalDesiredHighResCount": 24,
+          "requestedCount": 38,
+          "readyCount": 48,
+          "visibleCount": 38,
+          "coveragePercent": 100,
+          "firstPersonViewSamples": 0,
+          "firstPersonHighResSamples": 0,
+          "firstPersonViewMinZoom": 0,
+          "firstPersonViewMeanZoom": 0,
+          "firstPersonLocalSurfaceRays": 0,
+          "firstPersonBaseSurfaceRays": 0,
+          "z19AheadDistanceMeters": 0,
+          "residentWarmCount": 10,
+          "evictionsTotal": 5,
+          "cacheHitRate": 7.1,
+          "lastTimeToSharpMs": 58
+        },
+        "profile": "quest-high",
+        "chunks": 12,
+        "detailedVertices": 28812,
+        "cellSizes": [
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023806,
+            "z": 9.938242334573943
+          }
+        ],
+        "camera": [
+          -0.26497138343883764,
+          0.020476192922056227,
+          -0.9397359627781334
+        ],
+        "quaternion": [
+          -0.3162277660168377,
+          0,
+          0,
+          0.948683298050514
+        ],
+        "progress": 0,
+        "glError": 0,
+        "drawCalls": 58,
+        "textures": 51,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "walking": {
+        "summary": {
+          "hitSamples": 25,
+          "highImagerySamples": 0,
+          "minImageryZoom": 16,
+          "meanImageryZoom": 16.96,
+          "detailedDemSamples": 25,
+          "maxSampleCellM": 9.95848418023805,
+          "meanSampleCellM": 9.948363257405994
+        },
+        "samples": [
+          {
+            "x": -0.85,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0.85,
+            "imageryZoom": 16,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          }
+        ],
+        "diagnostics": {
+          "activePatchesCount": 64,
+          "targetZoom": 19,
+          "calculatedDesiredZoom": 19,
+          "effectiveProviderClampedZoom": 19,
+          "providerMaxZoom": 19,
+          "inFlightRequests": 0,
+          "requestQueueLength": 0,
+          "pendingRequestsCount": 0,
+          "patchesCreatedTotal": 112,
+          "patchesDisposedTotal": 48,
+          "generation": 1,
+          "viewMode": "first-person",
+          "currentProgress": 0.4,
+          "debugPatchBounds": false,
+          "visibleByZoom": {},
+          "desiredZoom": 19,
+          "readyHighResCount": 16,
+          "totalDesiredHighResCount": 16,
+          "requestedCount": 61,
+          "readyCount": 64,
+          "visibleCount": 52,
+          "coveragePercent": 100,
+          "firstPersonViewSamples": 1,
+          "firstPersonHighResSamples": 0,
+          "firstPersonViewMinZoom": 17,
+          "firstPersonViewMeanZoom": 17,
+          "firstPersonLocalSurfaceRays": 6,
+          "firstPersonBaseSurfaceRays": 0,
+          "z19AheadDistanceMeters": 75,
+          "residentWarmCount": 12,
+          "evictionsTotal": 48,
+          "cacheHitRate": 6.5,
+          "lastTimeToSharpMs": 374
+        },
+        "profile": "quest-high",
+        "chunks": 12,
+        "detailedVertices": 28812,
+        "cellSizes": [
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023806,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023806,
+            "z": 9.938242334573943
+          }
+        ],
+        "camera": [
+          -2806.3492358742355,
+          2178.4435192589713,
+          1485.55617051786
+        ],
+        "quaternion": [
+          -0.004197366447261782,
+          0.9075714545176837,
+          0.009074807155193291,
+          0.4197786141940289
+        ],
+        "progress": 0.4,
+        "glError": 0,
+        "drawCalls": 57,
+        "textures": 54,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "turned": {
+        "summary": {
+          "hitSamples": 23,
+          "highImagerySamples": 0,
+          "minImageryZoom": 16,
+          "meanImageryZoom": 16.956521739130434,
+          "detailedDemSamples": 23,
+          "maxSampleCellM": 9.95848418023805,
+          "meanSampleCellM": 9.948363257405994
+        },
+        "samples": [
+          {
+            "x": -0.85,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": -0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": -0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.85,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": -0.4,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0.4,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0,
+            "y": 0.85,
+            "imageryZoom": 16,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.4,
+            "y": 0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          },
+          {
+            "x": 0.85,
+            "y": 0.85,
+            "imageryZoom": 17,
+            "detailedTerrain": true,
+            "cellXM": 9.95848418023805,
+            "cellZM": 9.938242334573943
+          }
+        ],
+        "diagnostics": {
+          "activePatchesCount": 64,
+          "targetZoom": 19,
+          "calculatedDesiredZoom": 19,
+          "effectiveProviderClampedZoom": 19,
+          "providerMaxZoom": 19,
+          "inFlightRequests": 0,
+          "requestQueueLength": 0,
+          "pendingRequestsCount": 0,
+          "patchesCreatedTotal": 112,
+          "patchesDisposedTotal": 48,
+          "generation": 1,
+          "viewMode": "first-person",
+          "currentProgress": 0.4,
+          "debugPatchBounds": false,
+          "visibleByZoom": {},
+          "desiredZoom": 19,
+          "readyHighResCount": 16,
+          "totalDesiredHighResCount": 16,
+          "requestedCount": 61,
+          "readyCount": 64,
+          "visibleCount": 52,
+          "coveragePercent": 100,
+          "firstPersonViewSamples": 3,
+          "firstPersonHighResSamples": 0,
+          "firstPersonViewMinZoom": 17,
+          "firstPersonViewMeanZoom": 17,
+          "firstPersonLocalSurfaceRays": 6,
+          "firstPersonBaseSurfaceRays": 0,
+          "z19AheadDistanceMeters": 75,
+          "residentWarmCount": 12,
+          "evictionsTotal": 48,
+          "cacheHitRate": 6.5,
+          "lastTimeToSharpMs": 374
+        },
+        "profile": "quest-high",
+        "chunks": 12,
+        "detailedVertices": 28812,
+        "cellSizes": [
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023805,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023806,
+            "z": 9.938242334573943
+          },
+          {
+            "x": 9.95848418023806,
+            "z": 9.938242334573943
+          }
+        ],
+        "camera": [
+          -2806.3492358742355,
+          2178.4435192589713,
+          1485.55617051786
+        ],
+        "quaternion": [
+          -0.006062019860113628,
+          0.9769151084172724,
+          0.007951221617596524,
+          0.2133937696749194
+        ],
+        "progress": 0.4,
+        "glError": 0,
+        "drawCalls": 44,
+        "textures": 57,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "current",
+      "url": "https://127.0.0.1:4187/?profile=1",
+      "tabletop": {
+        "summary": {
+          "hitSamples": 21,
+          "highImagerySamples": 21,
+          "minImageryZoom": 19,
+          "meanImageryZoom": 19,
+          "detailedDemSamples": 21,
+          "maxSampleCellM": 4.979242090119034,
+          "meanSampleCellM": 4.974181628702999
+        },
+        "samples": [
+          {
+            "x": -0.85,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119034,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.97924209011903,
+            "cellZM": 4.969121167286976
+          }
+        ],
+        "diagnostics": {
+          "activePatchesCount": 439,
+          "targetZoom": 19,
+          "calculatedDesiredZoom": 19,
+          "effectiveProviderClampedZoom": 19,
+          "providerMaxZoom": 19,
+          "inFlightRequests": 0,
+          "requestQueueLength": 0,
+          "pendingRequestsCount": 0,
+          "patchesCreatedTotal": 439,
+          "patchesDisposedTotal": 0,
+          "generation": 0,
+          "viewMode": "diorama",
+          "currentProgress": 0,
+          "debugPatchBounds": false,
+          "visibleByZoom": {},
+          "desiredZoom": 19,
+          "readyHighResCount": 208,
+          "totalDesiredHighResCount": 208,
+          "requestedCount": 416,
+          "readyCount": 439,
+          "visibleCount": 327,
+          "coveragePercent": 100,
+          "firstPersonViewSamples": 0,
+          "firstPersonHighResSamples": 0,
+          "firstPersonViewMinZoom": 0,
+          "firstPersonViewMeanZoom": 0,
+          "firstPersonLocalSurfaceRays": 0,
+          "firstPersonBaseSurfaceRays": 0,
+          "z19AheadDistanceMeters": 0,
+          "residentWarmCount": 112,
+          "evictionsTotal": 0,
+          "cacheHitRate": 11.7,
+          "lastTimeToSharpMs": 41
+        },
+        "profile": "quest-high",
+        "chunks": 48,
+        "detailedVertices": 451632,
+        "cellSizes": [
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          }
+        ],
+        "camera": [
+          -0.26497138343883764,
+          0.020476192922056227,
+          -0.9397359627781334
+        ],
+        "quaternion": [
+          -0.3162277660168377,
+          0,
+          0,
+          0.948683298050514
+        ],
+        "progress": 0,
+        "glError": 0,
+        "drawCalls": 240,
+        "textures": 216,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "walking": {
+        "summary": {
+          "hitSamples": 25,
+          "highImagerySamples": 25,
+          "minImageryZoom": 19,
+          "meanImageryZoom": 19,
+          "detailedDemSamples": 25,
+          "maxSampleCellM": 4.979242090119025,
+          "meanSampleCellM": 4.974181628702997
+        },
+        "samples": [
+          {
+            "x": -0.85,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          }
+        ],
+        "diagnostics": {
+          "activePatchesCount": 512,
+          "targetZoom": 19,
+          "calculatedDesiredZoom": 19,
+          "effectiveProviderClampedZoom": 19,
+          "providerMaxZoom": 19,
+          "inFlightRequests": 0,
+          "requestQueueLength": 0,
+          "pendingRequestsCount": 0,
+          "patchesCreatedTotal": 518,
+          "patchesDisposedTotal": 6,
+          "generation": 1,
+          "viewMode": "first-person",
+          "currentProgress": 0.4,
+          "debugPatchBounds": false,
+          "visibleByZoom": {},
+          "desiredZoom": 19,
+          "readyHighResCount": 156,
+          "totalDesiredHighResCount": 156,
+          "requestedCount": 305,
+          "readyCount": 512,
+          "visibleCount": 241,
+          "coveragePercent": 100,
+          "firstPersonViewSamples": 1,
+          "firstPersonHighResSamples": 1,
+          "firstPersonViewMinZoom": 19,
+          "firstPersonViewMeanZoom": 19,
+          "firstPersonLocalSurfaceRays": 6,
+          "firstPersonBaseSurfaceRays": 0,
+          "z19AheadDistanceMeters": 475,
+          "residentWarmCount": 271,
+          "evictionsTotal": 6,
+          "cacheHitRate": 12.3,
+          "lastTimeToSharpMs": 102
+        },
+        "profile": "quest-high",
+        "chunks": 58,
+        "detailedVertices": 545722,
+        "cellSizes": [
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          }
+        ],
+        "camera": [
+          -2806.3492358742355,
+          2177.913964233809,
+          1485.55617051786
+        ],
+        "quaternion": [
+          -0.004197366447261782,
+          0.9075714545176837,
+          0.009074807155193291,
+          0.4197786141940289
+        ],
+        "progress": 0.4,
+        "glError": 0,
+        "drawCalls": 148,
+        "textures": 323,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "turned": {
+        "summary": {
+          "hitSamples": 23,
+          "highImagerySamples": 23,
+          "minImageryZoom": 19,
+          "meanImageryZoom": 19,
+          "detailedDemSamples": 23,
+          "maxSampleCellM": 4.979242090119025,
+          "meanSampleCellM": 4.974181628702997
+        },
+        "samples": [
+          {
+            "x": -0.85,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": -0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": -0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.85,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": -0.4,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0.4,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.4,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          },
+          {
+            "x": 0.85,
+            "y": 0.85,
+            "imageryZoom": 19,
+            "detailedTerrain": true,
+            "cellXM": 4.979242090119025,
+            "cellZM": 4.969121167286971
+          }
+        ],
+        "diagnostics": {
+          "activePatchesCount": 512,
+          "targetZoom": 19,
+          "calculatedDesiredZoom": 19,
+          "effectiveProviderClampedZoom": 19,
+          "providerMaxZoom": 19,
+          "inFlightRequests": 0,
+          "requestQueueLength": 0,
+          "pendingRequestsCount": 0,
+          "patchesCreatedTotal": 526,
+          "patchesDisposedTotal": 14,
+          "generation": 1,
+          "viewMode": "first-person",
+          "currentProgress": 0.4,
+          "debugPatchBounds": false,
+          "visibleByZoom": {},
+          "desiredZoom": 19,
+          "readyHighResCount": 164,
+          "totalDesiredHighResCount": 164,
+          "requestedCount": 313,
+          "readyCount": 512,
+          "visibleCount": 247,
+          "coveragePercent": 100,
+          "firstPersonViewSamples": 2,
+          "firstPersonHighResSamples": 2,
+          "firstPersonViewMinZoom": 19,
+          "firstPersonViewMeanZoom": 19,
+          "firstPersonLocalSurfaceRays": 6,
+          "firstPersonBaseSurfaceRays": 0,
+          "z19AheadDistanceMeters": 475,
+          "residentWarmCount": 265,
+          "evictionsTotal": 14,
+          "cacheHitRate": 15.1,
+          "lastTimeToSharpMs": 34
+        },
+        "profile": "quest-high",
+        "chunks": 64,
+        "detailedVertices": 602176,
+        "cellSizes": [
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286976
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119034,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.97924209011903,
+            "z": 4.969121167286971
+          },
+          {
+            "x": 4.979242090119025,
+            "z": 4.969121167286971
+          }
+        ],
+        "camera": [
+          -2806.3492358742355,
+          2177.913964233809,
+          1485.55617051786
+        ],
+        "quaternion": [
+          -0.006062019860113628,
+          0.9769151084172724,
+          0.007951221617596524,
+          0.2133937696749194
+        ],
+        "progress": 0.4,
+        "glError": 0,
+        "drawCalls": 138,
+        "textures": 344,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "errors": [],
+      "warnings": []
+    }
+  ],
+  "checksPassed": true
+}
