@@ -125,6 +125,7 @@ interface PendingTileRequest {
   style: TextureStyle;
   abortController: AbortController;
   priority?: TilePriority;
+  requestGroup?: string;
 }
 
 interface QueuedTile {
@@ -135,6 +136,7 @@ interface QueuedTile {
   dist: number;
   style: TextureStyle;
   priority?: TilePriority;
+  requestGroup?: string;
 }
 
 export interface XRViewMetrics {
@@ -2159,6 +2161,7 @@ export class ImageryLODManager {
           y: c.y,
           dist: c.dist,
           style: this.currentTextureStyle,
+          requestGroup: provider.getTileRequestGroup?.(c.zoom, c.x, c.y),
         });
       }
     }
@@ -2363,19 +2366,34 @@ export class ImageryLODManager {
   private drainQueue(provider: ImageryProvider): void {
     if (this.isDisposed) return;
 
+    // Hybrid can retain both aerial and label exports for each geographic group.
+    const sharedSourcesPerGroup = this.currentTextureStyle === 'hybrid' && TextureProvider.getReferenceOverlayProvider().getTileRequestGroup ? 2 : 1;
+    const maxActiveGroups = Math.max(1, Math.floor(TileImageCache.MAX_SHARED_RASTERS / sharedSourcesPerGroup));
+    const activeGroups = new Set([...this.pendingRequests.values()].map(request => request.requestGroup).filter(group => group !== undefined));
     while (this.activeRequestCount < this.maxConcurrency && this.requestQueue.length > 0) {
-      const next = this.requestQueue.shift();
-      if (!next) break;
-
-      // Verify request is still desired
-      if (!this.desiredTileKeys.has(next.key) || this.patches.has(next.key)) {
-        continue;
+      let index = 0;
+      let requestGroup: string | undefined;
+      for (; index < this.requestQueue.length; index++) {
+        const candidate = this.requestQueue[index];
+        if (!this.desiredTileKeys.has(candidate.key) || this.patches.has(candidate.key) || this.pendingRequests.has(candidate.key)) {
+          this.requestQueue.splice(index--, 1);
+          continue;
+        }
+        requestGroup = candidate.requestGroup;
+        if (requestGroup !== undefined && (activeGroups.has(requestGroup) || activeGroups.size >= maxActiveGroups)) continue;
+        break;
       }
+      // The remaining consumers share pending exports. Their completion wakes
+      // the queue; do not spend every slot waiting for one source raster.
+      if (index === this.requestQueue.length) break;
+      const [next] = this.requestQueue.splice(index, 1);
+      if (requestGroup !== undefined) activeGroups.add(requestGroup);
 
       const abortController = new AbortController();
       const pending: PendingTileRequest = {
         ...next,
         abortController,
+        requestGroup,
       };
 
       this.pendingRequests.set(next.key, pending);

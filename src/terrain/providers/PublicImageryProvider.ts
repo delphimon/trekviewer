@@ -66,6 +66,10 @@ export class PublicImageryProvider implements ImageryProvider {
     return zoom >= 17 && isCONUS(lat, lon) ? { x: (x % 4) * 256, y: (y % 4) * 256, width: 256, height: 256 } : undefined;
   }
 
+  getTileRequestGroup(zoom: number, x: number, y: number): string | undefined {
+    return this.getTileImageRegion(zoom, x, y) ? `${zoom}:${Math.floor(x / 4)}:${Math.floor(y / 4)}` : undefined;
+  }
+
   isTileUsable(image: CanvasImageSource, url: string): boolean {
     if ((!url.startsWith(NAIP_SERVICE) && !url.startsWith(NAIP_PLUS_SERVICE) && !url.startsWith(GEOPLATFORM_NAIP_SERVICE)) || typeof document === 'undefined') return true;
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 16;
@@ -94,4 +98,7 @@ export class USGSReferenceProvider implements ImageryProvider {
     return [`https://carto.nationalmap.gov/arcgis/rest/services/geonames/MapServer/export?${params}`];
   }
   getTileImageRegion(zoom: number, x: number, y: number) { return zoom >= 2 ? { x: x % 4 * 256, y: y % 4 * 256, width: 256, height: 256 } : undefined; }
+  getTileRequestGroup(zoom: number, x: number, y: number): string | undefined {
+    return zoom >= 2 ? `${zoom}:${Math.floor(x / 4)}:${Math.floor(y / 4)}` : undefined;
+  }
 }

@@ -40,6 +40,7 @@ export interface TileCacheStats {
 }
 
 export class TileImageCache {
+  public static readonly MAX_SHARED_RASTERS = 4;
   private static generation = 0;
   private static cache: Map<string, TileImageSource> = new Map();
   private static entryBytes: Map<string, number> = new Map();
@@ -458,7 +459,7 @@ export class TileImageCache {
     const request = this.loadImageWithTimeout(url, timeout).then(image => {
       const bytes = this.calculateImageBytes(image);
       if (generation === this.generation && bytes <= this.maxDecodedBytes) {
-        while (this.rasterSources.size && (this.rasterSources.size >= 4 || this.totalDecodedBytes + this.rasterSourceBytes + bytes > this.maxDecodedBytes)) this.evictRasterSource();
+        while (this.rasterSources.size && (this.rasterSources.size >= this.MAX_SHARED_RASTERS || this.totalDecodedBytes + this.rasterSourceBytes + bytes > this.maxDecodedBytes)) this.evictRasterSource();
         if (this.totalDecodedBytes + this.rasterSourceBytes + bytes <= this.maxDecodedBytes) {
           this.rasterSources.set(key, image); this.rasterSourceBytes += bytes;
         }
