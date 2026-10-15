@@ -370,7 +370,7 @@ describe('Stage X5: True 4/4 Imagery Quadtree Refinement Groups', () => {
       manager.dispose();
     });
 
-    it('immediately hides remaining 3 children if 1 child is evicted from a 4/4 group', () => {
+    it('retains published children if one sibling is evicted from a 4/4 group', () => {
       const manager = new ImageryLODManager({
         terrainGeoBounds: testBounds,
         terrainBaseElevation: 1000,
@@ -405,10 +405,10 @@ describe('Stage X5: True 4/4 Imagery Quadtree Refinement Groups', () => {
       expect(group.state).toBe('loading');
       expect(group.readyChildren.size).toBe(3);
 
-      // The 3 surviving children MUST BE HIDDEN to prevent checkerboard exposure!
-      expect(c0.mesh.visible).toBe(false);
-      expect(c1.mesh.visible).toBe(false);
-      expect(c2.mesh.visible).toBe(false);
+      // Eviction must not cascade into losing three more resident detail tiles.
+      expect(c0.mesh.visible).toBe(true);
+      expect(c1.mesh.visible).toBe(true);
+      expect(c2.mesh.visible).toBe(true);
 
       manager.dispose();
     });

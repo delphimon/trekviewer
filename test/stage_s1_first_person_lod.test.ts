@@ -243,7 +243,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
   });
 
   describe('View Mode Transitions (Diorama <-> First-Person)', () => {
-    it('cleanly transitions between diorama and first-person mode and clears superseded patches', async () => {
+    it('preserves published imagery while transitioning between diorama and first-person mode', async () => {
       const lod = new ImageryLODManager({
         terrainGeoBounds: track.bounds,
         terrainBaseElevation: track.bounds.minEle,
@@ -270,9 +270,8 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       // 2. Switch to first-person mode
       lod.setViewMode('first-person');
       expect(lod.getDiagnostics().viewMode).toBe('first-person');
-      // Stage X6: Patches are retained in warm GPU-resident set, marked non-visible
-      expect(lod.getDiagnostics().visibleCount).toBe(0);
-      expect(lod.getDiagnostics().residentWarmCount).toBeGreaterThan(0);
+      // Published coverage remains visible during the selection handoff.
+      expect(lod.getDiagnostics().visibleCount).toBeGreaterThan(0);
       expect(lod.getDiagnostics().activePatchesCount).toBeGreaterThan(0);
 
       // 3. First-person update at progress 0.5
@@ -286,8 +285,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       // 4. Switch back to diorama mode
       lod.setViewMode('diorama');
       expect(lod.getDiagnostics().viewMode).toBe('diorama');
-      expect(lod.getDiagnostics().visibleCount).toBe(0);
-      expect(lod.getDiagnostics().residentWarmCount).toBeGreaterThan(0);
+      expect(lod.getDiagnostics().visibleCount).toBeGreaterThan(0);
       expect(lod.getDiagnostics().activePatchesCount).toBeGreaterThan(0);
 
       lod.dispose();

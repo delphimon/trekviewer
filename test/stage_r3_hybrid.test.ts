@@ -322,8 +322,8 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
 
       const mat = firstPatchMesh.material as THREE.MeshStandardMaterial;
       expect(mat.polygonOffset).toBe(true);
-      expect(mat.polygonOffsetFactor).toBe(-1.0);
-      expect(mat.polygonOffsetUnits).toBe(-1.0);
+      expect(mat.polygonOffsetFactor).toBeLessThan(0);
+      expect(mat.polygonOffsetUnits).toBeLessThan(0);
 
       const tex = mat.map as THREE.CanvasTexture;
       expect(tex).toBeDefined();

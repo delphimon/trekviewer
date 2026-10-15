@@ -267,10 +267,10 @@ describe('Stage X6: Persistent High-Res Across View Modes & Three-Tier Imagery A
       const diagAfterSwitch = lod.getDiagnostics();
       expect(diagAfterSwitch.viewMode).toBe('first-person');
 
-      // Crucial Stage X6 Invariant: Patches are NOT wiped to 0; they reside in Warm GPU set
+      // Mode changes preserve both resident textures and published coverage.
       expect(diagAfterSwitch.activePatchesCount).toBe(initialActiveCount);
-      expect(diagAfterSwitch.visibleCount).toBe(0);
-      expect(diagAfterSwitch.residentWarmCount).toBe(initialActiveCount);
+      expect(diagAfterSwitch.visibleCount).toBe(diagBefore.visibleCount);
+      expect(diagAfterSwitch.residentWarmCount).toBe(diagBefore.residentWarmCount);
 
       // Step 3: First-Person update activates overlapping resident patches immediately
       dioramaRoot.scale.set(1, 1, 1);
@@ -286,8 +286,8 @@ describe('Stage X6: Persistent High-Res Across View Modes & Three-Tier Imagery A
       const diagBack = lod.getDiagnostics();
       expect(diagBack.viewMode).toBe('diorama');
       expect(diagBack.activePatchesCount).toBeGreaterThan(0);
-      expect(diagBack.visibleCount).toBe(0);
-      expect(diagBack.residentWarmCount).toBe(diagBack.activePatchesCount);
+      expect(diagBack.visibleCount).toBe(diagFP.visibleCount);
+      expect(diagBack.residentWarmCount).toBe(diagFP.residentWarmCount);
 
       lod.dispose();
     });

@@ -44,7 +44,7 @@ it('promotes a selected perimeter group atomically without waiting for unselecte
   } finally {manager.dispose();}
 });
 
-it('restores desired coarse imagery and allows eviction after its children leave the footprint',()=>{
+it('retains finer published imagery until eviction requires the coarse fallback',()=>{
   const manager=makeManager(),state=manager as any;
   const parent=getTileKey('satellite',13,1325,2887);
   const children=getChildTileKeys('satellite',13,1325,2887);
@@ -54,9 +54,11 @@ it('restores desired coarse imagery and allows eviction after its children leave
   expect(state.patches.get(parent).mesh.visible).toBe(false);
   try {
     state.desiredTileKeys=new Set([parent]);manager.updatePatchVisibility();
-    expect(state.patches.get(parent).mesh.visible).toBe(true);
+    expect(state.patches.get(parent).mesh.visible).toBe(false);
+    expect(children.every(key=>state.patches.get(key).mesh.visible)).toBe(true);
     const removed=state.patches.get(children[3]);removed.dispose();state.patches.delete(children[3]);
     manager.updatePatchVisibility();
+    expect(state.patches.get(parent).mesh.visible).toBe(true);
     expect(state.hasPendingChildren(parent)).toBe(false);
   } finally {manager.dispose();}
 });

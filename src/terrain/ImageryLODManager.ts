@@ -183,8 +183,9 @@ export function getViewMetrics(
     verticalFov = 2 * Math.atan(1 / camera.projectionMatrix.elements[5]) * (180 / Math.PI);
   }
 
-  // 2. Check WebXR framebuffer height from renderer if presenting
-  if (renderer?.xr?.isPresenting) {
+  // Prefer the eye viewport: a stereo framebuffer may stack both eyes vertically.
+  const eyeViewportHeight = (arrayCam.cameras?.[0] as THREE.PerspectiveCamera & { viewport?: THREE.Vector4 })?.viewport?.w;
+  if (renderer?.xr?.isPresenting && !eyeViewportHeight) {
     const session = renderer.xr.getSession?.();
     const baseLayer = (renderer.xr as any).getBaseLayer
       ? (renderer.xr as any).getBaseLayer()
@@ -192,7 +193,7 @@ export function getViewMetrics(
     if (baseLayer?.framebufferHeight) {
       viewportHeightPx = baseLayer.framebufferHeight;
     }
-  } else if (renderer?.domElement) {
+  } else if (!renderer?.xr?.isPresenting && renderer?.domElement) {
     const size = new THREE.Vector2();
     renderer.getDrawingBufferSize(size);
     if (size.y > 0) {
@@ -207,6 +208,19 @@ export function getViewMetrics(
     verticalFov,
     viewportHeightPx,
   };
+}
+
+/** Sample each actual eye projection, including off-axis/asymmetric XR frusta.
+ * WebXRManager supplies eye matrixWorld directly; do not recompute it here.
+ */
+export function getTerrainViewRays(camera: THREE.Camera, offsets: readonly (readonly [number, number])[]): THREE.Raycaster[] {
+  const eyes = (camera as THREE.ArrayCamera).cameras;
+  return offsets.flatMap(([x, y]) => (eyes?.length ? eyes : [camera]).map(eye => {
+    const origin = new THREE.Vector3().setFromMatrixPosition(eye.matrixWorld);
+    const direction = new THREE.Vector3(x, y, .5)
+      .applyMatrix4(eye.projectionMatrixInverse).transformDirection(eye.matrixWorld);
+    return new THREE.Raycaster(origin, direction);
+  }));
 }
 
 /**
@@ -863,6 +877,9 @@ export class ImageryLODManager {
   public readonly group: THREE.Group;
   private options: ImageryLODManagerOptions;
   private patches: Map<string, ImageryPatch> = new Map();
+  // Publication is independent of request selection. Head motion can change
+  // what loads next, but must not revoke detail already shown to the user.
+  private readonly publishedTileKeys = new Set<string>();
 
   private isDisposed: boolean = false;
   private currentGeneration: number = 0;
@@ -1094,19 +1111,12 @@ export class ImageryLODManager {
     base.parent?.updateWorldMatrix(true, true);
     const surfaces = base.parent?.children.filter((obj): obj is THREE.Mesh =>
       (obj as THREE.Mesh).isMesh && obj.visible && (obj === base || obj.name === 'LocalHighResTerrainMesh')) ?? [base];
-    const metrics = getViewMetrics(camera, renderer);
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(metrics.worldQuaternion);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(metrics.worldQuaternion);
-    const eye = (camera as THREE.ArrayCamera).isArrayCamera ? (camera as THREE.ArrayCamera).cameras[0] : camera;
-    const projection = (eye as THREE.PerspectiveCamera)?.projectionMatrix?.elements;
-    const aspect = projection && projection[0] ? Math.abs(projection[5] / projection[0]) : 1;
-    const halfTan = Math.tan(degToRad(metrics.verticalFov) / 2);
+    getViewMetrics(camera, renderer); // Refresh the desktop/representative world pose.
     const points: DetailFocus[] = [];
-    for (const [x, y] of DETAIL_VIEW_OFFSETS) {
-      const direction = metrics.forward.clone().addScaledVector(right, x * halfTan * aspect).addScaledVector(up, y * halfTan).normalize();
-      const hit = this.terrainRaycast.closest(new THREE.Raycaster(metrics.worldPosition, direction), surfaces);
+    for (const ray of getTerrainViewRays(camera, DETAIL_VIEW_OFFSETS)) {
+      const hit = this.terrainRaycast.closest(ray, surfaces);
       if (!hit) continue;
-      this.detailViewDistance ??= metrics.worldPosition.distanceTo(hit.point);
+      this.detailViewDistance ??= ray.ray.origin.distanceTo(hit.point);
       const local = root.worldToLocal(hit.point.clone());
       points.push(localMetersToGeo(local.x, local.z, this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon));
     }
@@ -1181,10 +1191,10 @@ export class ImageryLODManager {
     // Retain compatible resident patches in GPU memory (Warm GPU-resident set).
     // Evict down to maxPatches if resident count exceeds the new mode's budget.
     while (this.patches.size > this.maxPatches) {
-      this.evictFurthestPatch();
+      if (!this.evictFurthestPatch(this.desiredTileKeys, false)) break;
     }
 
-    // Mark non-desired patches non-visible so they reside in the warm GPU-resident set
+    // Preserve published coverage while the new mode chooses its first footprint.
     this.updatePatchVisibility();
   }
 
@@ -1908,9 +1918,9 @@ export class ImageryLODManager {
 
     // Coherent refinement rings (Sections 38, 39, 62, Stage W3)
     const selectionStart = profileTiming ? performance.now() : 0;
-    const selectionGeo = this.stabilizeSelectionGeo(targetGeo, effectiveTargetZoom);
+    const selectionGeo = this.stabilizeSelectionGeo(broadHigh ? coverageCenter : targetGeo, effectiveTargetZoom);
     const detailPoints = broadHigh ? this.retainDetailFocus([...sampledDetail, targetGeo], effectiveTargetZoom) : [];
-    let candidates = broadHigh ? computeBroadDetailTiles(coverageCenter, effectiveTargetZoom, this.maxPatches - 32, this.options.terrainGeoBounds, detailPoints) : computeCoherentLODTiles(
+    let candidates = broadHigh ? computeBroadDetailTiles(selectionGeo, effectiveTargetZoom, this.maxPatches - 32, this.options.terrainGeoBounds, detailPoints) : computeCoherentLODTiles(
       selectionGeo.lat,
       selectionGeo.lon,
       effectiveTargetZoom,
@@ -2027,8 +2037,7 @@ export class ImageryLODManager {
       }
     }
 
-    // Sample visible terrain for diagnostics. Quest High keeps the selected
-    // footprint fixed during head turns, so these rays cannot cause churn.
+    // Sample both eyes for diagnostics using the same projections as selection.
     const visiblePoints: { lat: number; lon: number }[] = [];
     this.firstPersonLocalSurfaceRays = 0;
     this.firstPersonBaseSurfaceRays = 0;
@@ -2039,30 +2048,19 @@ export class ImageryLODManager {
       const surfaces = terrainMesh.parent?.children.filter((obj): obj is THREE.Mesh =>
         (obj as THREE.Mesh).isMesh && obj.visible &&
         (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
-      const metrics = getViewMetrics(camera, renderer);
-      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(metrics.worldQuaternion);
-      const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(metrics.worldQuaternion);
-      const halfTan = Math.tan(degToRad(metrics.verticalFov) / 2);
-      const aspect = (camera as THREE.PerspectiveCamera).aspect || 1;
-      for (const horizontal of [0, -0.55, 0.55]) {
-        for (const vertical of [0, -0.35]) {
-          const direction = metrics.forward.clone()
-            .addScaledVector(cameraRight, horizontal * halfTan * aspect)
-            .addScaledVector(cameraUp, vertical * halfTan)
-            .normalize();
-          const hit = this.terrainRaycast.closest(
-            new THREE.Raycaster(metrics.worldPosition, direction), surfaces
-          );
-          if (!hit) continue;
-          if (hit.mesh.name === 'LocalHighResTerrainMesh') this.firstPersonLocalSurfaceRays++;
-          else if (hit.mesh === terrainMesh) this.firstPersonBaseSurfaceRays++;
-          const local = dioramaRoot.worldToLocal(hit.point.clone());
-          visiblePoints.push(localMetersToGeo(
-            local.x, local.z,
-            this.options.terrainGeoBounds.centerLat,
-            this.options.terrainGeoBounds.centerLon
-          ));
-        }
+      getViewMetrics(camera, renderer);
+      const offsets = [0, -0.55, 0.55].flatMap(x => [0, -0.35].map(y => [x, y] as const));
+      for (const ray of getTerrainViewRays(camera, offsets)) {
+        const hit = this.terrainRaycast.closest(ray, surfaces);
+        if (!hit) continue;
+        if (hit.mesh.name === 'LocalHighResTerrainMesh') this.firstPersonLocalSurfaceRays++;
+        else if (hit.mesh === terrainMesh) this.firstPersonBaseSurfaceRays++;
+        const local = dioramaRoot.worldToLocal(hit.point.clone());
+        visiblePoints.push(localMetersToGeo(
+          local.x, local.z,
+          this.options.terrainGeoBounds.centerLat,
+          this.options.terrainGeoBounds.centerLon
+        ));
       }
     }
     if (profileTiming) profileTiming('imageryRaycast', performance.now() - viewRaycastStart);
@@ -2248,14 +2246,12 @@ export class ImageryLODManager {
    * require all four children; terrain-edge and coarse-perimeter groups require
    * all selected children, without waiting for tiles outside their footprint.
    * The coarse representation may be an adaptive parent tile or underlying base imagery.
-   * A partially loaded selection stays hidden in both view modes.
+   * New partial groups stay hidden. Once published, a tile remains eligible
+   * until eviction, even when a new request selection is incomplete.
    */
   public updatePatchVisibility(): void {
-    if (this.desiredTileKeys.size === 0) {
-      for (const patch of this.patches.values()) {
-        patch.mesh.visible = false;
-      }
-      return;
+    for (const key of this.publishedTileKeys) {
+      if (!this.patches.has(key)) this.publishedTileKeys.delete(key);
     }
 
     // 1. Identify which parent keys represent active RefinementGroups.
@@ -2319,7 +2315,7 @@ export class ImageryLODManager {
       }
     }
 
-    // 3. Set visibility on each loaded patch enforcing atomic selected groups
+    // 3. Admit new groups atomically without withdrawing published coverage.
     for (const [key, patch] of this.patches.entries()) {
       const parentKey = this.getTileRelations(key).parent;
 
@@ -2335,42 +2331,35 @@ export class ImageryLODManager {
         }
       }
 
-      if (!parentAllowsChildVisible) {
-        patch.mesh.visible = false;
-        continue;
-      }
-
       const ownChildGroup = this.refinementGroups.get(key);
       const isDesired = this.desiredTileKeys.has(key);
       const hasDesiredChildren =
         ownChildGroup !== undefined &&
         ownChildGroup.fourChildKeys.some((cKey) => this.desiredTileKeys.has(cKey));
-      const isParentOfLoadingOrPromoting =
-        hasDesiredChildren &&
-        (ownChildGroup.state === 'parent' ||
-          ownChildGroup.state === 'loading' ||
-          ownChildGroup.state === 'promoting');
-
-      // If neither desired nor providing coarse representation for loading/promoting children,
-      // it belongs to the warm GPU-resident set (visible = false).
-      if (!isDesired && !isParentOfLoadingOrPromoting) {
-        patch.mesh.visible = false;
-        continue;
+      if (hasDesiredChildren || (isDesired && parentAllowsChildVisible)) {
+        this.publishedTileKeys.add(key);
       }
+    }
 
-      // Warm children from an old footprint must not hide a newly desired parent.
-      if (hasDesiredChildren && ownChildGroup && (ownChildGroup.state === 'promoting' || ownChildGroup.state === 'children')) {
-        if (ownChildGroup.state === 'promoting') {
-          // Crossfade: parent remains visible underneath while children fade in
-          patch.mesh.visible = true;
-        } else {
-          // Fully promoted: hide parent
-          patch.mesh.visible = false;
-        }
-      } else {
-        // Not replaced by 4/4 children: patch remains visible
-        patch.mesh.visible = true;
-      }
+    // 4. Hide a coarse tile only when opaque published descendants cover its
+    // entire footprint. Propagate coverage through missing intermediate levels;
+    // otherwise evicting a parent can accidentally re-expose its grandparent.
+    const covered = new Set<string>();
+    const coveredChildren = new Map<string, number>();
+    const cover = (key: string): void => {
+      if (covered.has(key)) return;
+      covered.add(key);
+      const parent = this.getTileRelations(key).parent;
+      if (!parent) return;
+      const count = (coveredChildren.get(parent) ?? 0) + 1;
+      coveredChildren.set(parent, count);
+      if (count === 4) cover(parent);
+    };
+    for (const key of this.publishedTileKeys) {
+      if (!this.patches.get(key)!.isFading) cover(key);
+    }
+    for (const [key, patch] of this.patches) {
+      patch.mesh.visible = this.publishedTileKeys.has(key) && coveredChildren.get(key) !== 4;
     }
   }
 
@@ -2519,8 +2508,10 @@ export class ImageryLODManager {
       metalness: 0.0,
       // Polygon offset prevents z-fighting with the base terrain mesh
       polygonOffset: true,
-      polygonOffsetFactor: -1.0,
-      polygonOffsetUnits: -1.0,
+      // Partial retained child coverage can overlap its coarse fallback. Give
+      // finer imagery a deterministic depth priority in both stereo eyes.
+      polygonOffsetFactor: -(1 + (zoom - 13) / 8),
+      polygonOffsetUnits: -(1 + (zoom - 13) / 8),
       transparent: isFading,
       opacity: isFading ? 0.0 : 1.0,
       depthTest: true,
@@ -2529,6 +2520,8 @@ export class ImageryLODManager {
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = `ImageryPatch_${key}`;
+    // Keep imagery below the trail (renderOrder 5, stronger depth offset).
+    mesh.renderOrder = 1 + (zoom - 13) / 8;
 
     let outlineMesh: THREE.LineSegments | undefined;
     if (this.debugPatchBounds) {
@@ -2793,10 +2786,11 @@ export class ImageryLODManager {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     // 1. Retain warm tiles until budget is actually exceeded (Stage W5).
-    // Stale cold tiles (> warmRetentionMs * 2) with low score (< 500) can be gently pruned
+    // Only unpublished cold work may expire with spare capacity. Published
+    // imagery must not lose resolution just because its retention timer elapsed.
     const coldThresholdMs = this.warmRetentionMs * 2;
     for (const [key, patch] of this.patches.entries()) {
-      if (this.hasPendingChildren(key) || activeKeys.has(key)) continue;
+      if (this.publishedTileKeys.has(key) || this.hasPendingChildren(key) || activeKeys.has(key)) continue;
 
       const score = this.calculatePatchImportanceScore(patch, activeKeys, now);
       if (now - patch.lastUsed > coldThresholdMs && score < 500) {
@@ -2809,41 +2803,23 @@ export class ImageryLODManager {
     // 2. Memory-pressure driven eviction: when patch count exceeds maxPatches,
     // evict the lowest scoring tiles first (Stage W5)
     while (this.patches.size > this.maxPatches) {
-      let lowestScore = Infinity;
-      let victimKey: string | null = null;
-
-      for (const [key, patch] of this.patches.entries()) {
-        if (this.hasPendingChildren(key)) continue;
-
-        const score = this.calculatePatchImportanceScore(patch, activeKeys, now);
-        if (score < lowestScore) {
-          lowestScore = score;
-          victimKey = key;
-        }
-      }
-
-      if (victimKey) {
-        const patch = this.patches.get(victimKey);
-        patch?.dispose();
-        this.patches.delete(victimKey);
-        this.patchesDisposedTotal++;
-      } else {
-        break;
-      }
+      if (!this.evictFurthestPatch(activeKeys, false)) break;
     }
 
     this.updatePatchVisibility();
   }
 
-  private evictFurthestPatch(): void {
+  private evictFurthestPatch(activeKeys = this.desiredTileKeys, updateVisibility = true): boolean {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     let lowestScore = Infinity;
     let victimKey: string | null = null;
 
     for (const [key, patch] of this.patches.entries()) {
-      if (this.hasPendingChildren(key)) continue;
-
-      const score = this.calculatePatchImportanceScore(patch, this.desiredTileKeys, now);
+      // Prefer any unselected resident over evicting a selected tile and then
+      // immediately downloading it again. Loading parents remain preferred over
+      // other warm tiles, but cannot make the resident budget impossible to meet.
+      const score = this.calculatePatchImportanceScore(patch, activeKeys, now)
+        + (activeKeys.has(key) ? 1_000_000 : 0);
       if (score < lowestScore) {
         lowestScore = score;
         victimKey = key;
@@ -2856,12 +2832,15 @@ export class ImageryLODManager {
         patch.dispose();
         this.patches.delete(victimKey);
         this.patchesDisposedTotal++;
-        this.updatePatchVisibility();
+        if (updateVisibility) this.updatePatchVisibility();
+        return true;
       }
     }
+    return false;
   }
 
   private clearAllPatches(): void {
+    this.publishedTileKeys.clear();
     this.tileRelations.clear();
     this.refinementGroups.clear();
     for (const patch of this.patches.values()) {

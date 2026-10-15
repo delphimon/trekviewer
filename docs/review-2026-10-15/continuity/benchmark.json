@@ -1,0 +1,43 @@
+{
+  "baseline": "a7b06c2623c7850d5e3673c847f18504184f00ce",
+  "runtime": "v24.21.0",
+  "condition": "Isolated CPU visibility only, inert meshes, real broad tile selections changing view anchors with all replacement downloads delayed. No rendering/network/Quest timing. Alternating version order; 40 warmup and 100 measured batches of ten passes.",
+  "results": [
+    {
+      "budget": 512,
+      "residentTiles": 479,
+      "trackedFineTiles": 236,
+      "previousLostFineTiles": 92,
+      "currentLostFineTiles": 0,
+      "previous": {
+        "medianMs": 0.37899999999999634,
+        "p95Ms": 0.40798999999999525,
+        "samples": 100
+      },
+      "current": {
+        "medianMs": 0.5192600000000084,
+        "p95Ms": 0.5554199999999809,
+        "samples": 100
+      },
+      "cachedRelations": 675
+    },
+    {
+      "budget": 768,
+      "residentTiles": 735,
+      "trackedFineTiles": 372,
+      "previousLostFineTiles": 228,
+      "currentLostFineTiles": 0,
+      "previous": {
+        "medianMs": 0.6253600000000006,
+        "p95Ms": 0.6707800000000134,
+        "samples": 100
+      },
+      "current": {
+        "medianMs": 0.8121900000000096,
+        "p95Ms": 0.8590599999999995,
+        "samples": 100
+      },
+      "cachedRelations": 1187
+    }
+  ]
+}
