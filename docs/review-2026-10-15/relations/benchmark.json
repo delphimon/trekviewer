@@ -1,0 +1,45 @@
+{
+  "baseline": "4b26935db4fc44e3a63348732c4730205fc3806f",
+  "runtime": "v24.21.0",
+  "condition": "Isolated production CPU visibility + queue sort, synthetic broad High tile selection; inert meshes, no rendering/network. Alternating order, 40 warmup batches, 100 measured batches of 10 operations. State comparisons cover partial/completed loading, fading, changing selection and warm tiles.",
+  "results": [
+    {
+      "budget": 512,
+      "selectedTiles": 478,
+      "loadedTiles": 239,
+      "queuedTiles": 239,
+      "comparedStates": 24,
+      "identicalVisibilityGroupsAndPriorities": true,
+      "previous": {
+        "medianMs": 1.3617400000000088,
+        "p95Ms": 1.526890000000003,
+        "samples": 100
+      },
+      "current": {
+        "medianMs": 0.3761500000000069,
+        "p95Ms": 0.4565200000000004,
+        "samples": 100
+      },
+      "cachedKeys": 478
+    },
+    {
+      "budget": 768,
+      "selectedTiles": 491,
+      "loadedTiles": 245,
+      "queuedTiles": 246,
+      "comparedStates": 24,
+      "identicalVisibilityGroupsAndPriorities": true,
+      "previous": {
+        "medianMs": 1.3853000000000066,
+        "p95Ms": 1.439339999999993,
+        "samples": 100
+      },
+      "current": {
+        "medianMs": 0.3425299999999879,
+        "p95Ms": 0.3892899999999827,
+        "samples": 100
+      },
+      "cachedKeys": 491
+    }
+  ]
+}

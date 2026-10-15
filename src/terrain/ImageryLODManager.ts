@@ -886,6 +886,8 @@ export class ImageryLODManager {
   private nextRetryTime = Infinity;
   private activeRequestCount: number = 0;
   private refinementGroups: Map<string, RefinementGroup> = new Map();
+  // Tile relationships depend only on the key, never on loaded/desired state.
+  private readonly tileRelations = new Map<string, { parent: string | null; children: string[] }>();
 
   // View state tracking & debouncing (Stage W QualityProfile driven)
   private qualityProfile: QualityProfile;
@@ -2190,12 +2192,15 @@ export class ImageryLODManager {
    * Tie-breaker within tier: lowest distance from view center
    */
   private sortRequestQueue(defaultZoom: number = this.currentTargetZoom): void {
+    const readyByParent = new Map<string, number>();
     const computeTileRank = (q: QueuedTile): number => {
-      const parsed = parseTileKey(q.key);
-      const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      const parentKey = this.getTileRelations(q.key).parent;
       if (parentKey) {
-        const group = this.getOrCreateRefinementGroup(parentKey);
-        const readyCount = group ? group.readyChildren.size : 0;
+        let readyCount = readyByParent.get(parentKey);
+        if (readyCount === undefined) {
+          readyCount = this.getOrCreateRefinementGroup(parentKey).readyChildren.size;
+          readyByParent.set(parentKey, readyCount);
+        }
         if (readyCount === 3) return 0; // Completing 3/4 child group -> highest priority!
         if (readyCount === 2) return 1; // 2/4 ready -> outrank starting a new distant parent
         if (readyCount === 1) return 2;
@@ -2223,6 +2228,18 @@ export class ImageryLODManager {
       if (rA !== rB) return rA - rB;
       return a.dist - b.dist;
     });
+  }
+
+  private getTileRelations(key: string): { parent: string | null; children: string[] } {
+    let relations = this.tileRelations.get(key);
+    if (!relations) {
+      const tile = parseTileKey(key);
+      relations = { parent: getParentTileKey(tile.style, tile.zoom, tile.x, tile.y),
+        children: getChildTileKeys(tile.style, tile.zoom, tile.x, tile.y) };
+      if (this.tileRelations.size >= 4096) this.tileRelations.delete(this.tileRelations.keys().next().value!);
+      this.tileRelations.set(key, relations);
+    }
+    return relations;
   }
 
   /**
@@ -2254,8 +2271,7 @@ export class ImageryLODManager {
 
     // Check loaded patches: if patch has loaded or desired children, the patch itself is a parent
     for (const [key] of this.patches.entries()) {
-      const parsed = parseTileKey(key);
-      const childKeys = getChildTileKeys(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      const childKeys = this.getTileRelations(key).children;
       if (childKeys.some((cKey) => this.desiredTileKeys.has(cKey) || this.patches.has(cKey))) {
         activeParentKeys.add(key);
       }
@@ -2264,8 +2280,7 @@ export class ImageryLODManager {
     // Check desired tiles: count sibling children under each parent
     const desiredParentsCount = new Map<string, number>();
     for (const key of this.desiredTileKeys) {
-      const parsed = parseTileKey(key);
-      const pKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      const pKey = this.getTileRelations(key).parent;
       if (pKey) {
         desiredParentsCount.set(pKey, (desiredParentsCount.get(pKey) ?? 0) + 1);
       }
@@ -2279,8 +2294,7 @@ export class ImageryLODManager {
     // Also count loaded patch siblings under each parent
     const patchParentsCount = new Map<string, number>();
     for (const [key] of this.patches.entries()) {
-      const parsed = parseTileKey(key);
-      const pKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      const pKey = this.getTileRelations(key).parent;
       if (pKey) {
         patchParentsCount.set(pKey, (patchParentsCount.get(pKey) ?? 0) + 1);
       }
@@ -2306,8 +2320,7 @@ export class ImageryLODManager {
 
     // 3. Set visibility on each loaded patch enforcing atomic selected groups
     for (const [key, patch] of this.patches.entries()) {
-      const parsed = parseTileKey(key);
-      const parentKey = getParentTileKey(parsed.style, parsed.zoom, parsed.x, parsed.y);
+      const parentKey = this.getTileRelations(key).parent;
 
       // Check if patch belongs to a refinement group as a child
       let parentAllowsChildVisible = true;
@@ -2853,6 +2866,7 @@ export class ImageryLODManager {
   }
 
   private clearAllPatches(): void {
+    this.tileRelations.clear();
     this.refinementGroups.clear();
     for (const patch of this.patches.values()) {
       patch.dispose();

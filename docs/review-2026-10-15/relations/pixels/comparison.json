@@ -1,0 +1,50 @@
+{
+  "control": {
+    "changedChannels": 1178,
+    "maxDelta": 1
+  },
+  "baseline": {
+    "changedChannels": 1141,
+    "maxDelta": 1
+  },
+  "currentState": {
+    "visible": [
+      "satellite:13:1324:2884",
+      "satellite:13:1324:2885",
+      "satellite:13:1324:2886",
+      "satellite:13:1325:2884",
+      "satellite:13:1325:2885",
+      "satellite:13:1325:2886",
+      "satellite:13:1326:2884",
+      "satellite:13:1326:2885",
+      "satellite:13:1326:2886",
+      "satellite:13:1327:2884",
+      "satellite:13:1327:2885",
+      "satellite:13:1327:2886"
+    ],
+    "queue": []
+  },
+  "baselineState": {
+    "visible": [
+      "satellite:13:1324:2884",
+      "satellite:13:1324:2885",
+      "satellite:13:1324:2886",
+      "satellite:13:1325:2884",
+      "satellite:13:1325:2885",
+      "satellite:13:1325:2886",
+      "satellite:13:1326:2884",
+      "satellite:13:1326:2885",
+      "satellite:13:1326:2886",
+      "satellite:13:1327:2884",
+      "satellite:13:1327:2885",
+      "satellite:13:1327:2886"
+    ],
+    "queue": []
+  },
+  "channels": 4049172,
+  "glError": 0,
+  "stateChecksPassed": true,
+  "pixelComparison": "inconclusive: unchanged-code control is not pixel-repeatable",
+  "errors": [],
+  "warnings": []
+}
