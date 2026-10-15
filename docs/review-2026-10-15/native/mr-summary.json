@@ -1,0 +1,156 @@
+{
+  "build": {
+    "id": "feb2b33-2026-10-15T18:49:06.129Z",
+    "sha": "feb2b33d75fbbde5eff921764a34a8602981f5aa",
+    "shortSha": "feb2b33",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-15T18:49:06.129Z",
+    "label": "TrekViewer 1.0.0 • feb2b33"
+  },
+  "clientScripts": [
+    "https://trekviewer.surge.sh/assets/index-iiYYYSdn.js"
+  ],
+  "profileBuildId": "feb2b33-2026-10-15T18:49:06.129Z",
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36",
+  "condition": "User-driven Quest 3 Passthrough MR Walk Trail (1:1) on feb2b33. Route progress and head pose changed; no controlled FPS comparison.",
+  "profileDurationSeconds": 95.93390000000596,
+  "xrTargetWindows": 94,
+  "mrTrailSnapshots": 86,
+  "snapshotSpanSeconds": 87.223,
+  "eyeCounts": [
+    2
+  ],
+  "targetHz": [
+    90,
+    72
+  ],
+  "trackedFinePeak": 16,
+  "snapshotsWithFineTiles": 17,
+  "lostResidentFineTiles": [],
+  "evictedFineTiles": [],
+  "contextLost": false,
+  "exceptions": [],
+  "callbackHz": {
+    "samples": 94,
+    "min": 37.20689776719055,
+    "median": 69.12200033058444,
+    "max": 73.54489412053798
+  },
+  "cpuSubmitP95Ms": {
+    "samples": 94,
+    "min": 2.4000000059604645,
+    "median": 16.69999998807907,
+    "max": 21.899999976158142
+  },
+  "sampledViewWindows": 93,
+  "windowsWithAnyZ19ViewSamples": 9,
+  "selectedFineCoveragePercent": {
+    "samples": 94,
+    "min": 0,
+    "median": 0,
+    "max": 7
+  },
+  "lastView": {
+    "sampleCount": 2,
+    "highResSampleCount": 0,
+    "minZoom": 14,
+    "meanZoom": 14
+  },
+  "maxDrawCalls": 266,
+  "maxTriangles": 5040328,
+  "maxLocalVertices": 602176,
+  "elevationSources": [
+    "USGS 3DEP best available (public domain)"
+  ],
+  "meshCellXM": {
+    "samples": 94,
+    "min": 4.979242090119025,
+    "median": 4.979242090119025,
+    "max": 4.979242090119044
+  },
+  "meshCellZM": {
+    "samples": 94,
+    "min": 4.969121167286971,
+    "median": 4.969121167286971,
+    "max": 4.969121167286976
+  },
+  "consoleMessages": [
+    {
+      "type": "warning",
+      "text": "THREE.WebGLRenderer: KHR_parallel_shader_compile extension not supported."
+    }
+  ],
+  "networkFailures": [
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    }
+  ],
+  "imageryResourceTiming": [
+    {
+      "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "requests": 8,
+      "durationMs": {
+        "samples": 8,
+        "min": 34977.20000001788,
+        "median": 35000.69999998808,
+        "max": 35004.5
+      },
+      "responseStatusCounts": {
+        "0": 8
+      }
+    },
+    {
+      "service": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage",
+      "requests": 8,
+      "durationMs": {
+        "samples": 8,
+        "min": 1135.5,
+        "median": 1832.0999999940395,
+        "max": 2249.2000000178814
+      },
+      "responseStatusCounts": {
+        "200": 8
+      }
+    }
+  ],
+  "limits": "86 tile snapshots span 87.2 seconds within the approximately 94.5-second native MR session. No raw room images or head poses included. Retention did not imply high-resolution view coverage. Browser callbacks and CPU submission are not GPU/compositor measurements. Resource timing was retrieved after the run and may include requests completed just after XR exit.",
+  "nativeMRDurationSeconds": 94.49389999997615
+}

@@ -12,7 +12,7 @@ The actual local terrain source was USGS 3DEP best available. Sampled mesh cells
 
 The baseline did not consistently meet its 72 Hz target. After the first 15 seconds, median one-second callback rate was 61.8 Hz and median per-window CPU-submission p95 was 17.9 ms. One window's CPU-submission p95 reached 1,164.6 ms during this interactive run. Render counters reached 606 calls and approximately 5.0 million triangles across the stereo render. These are browser/application counters, **not GPU completion times or compositor FPS**. Route, scale and exaggeration changed, so this capture cannot serve as a controlled before/after frame-rate comparison. Larger frame stalls and render cost remain performance work.
 
-Quest Browser reported an unsupported `KHR_parallel_shader_compile` capability and a resize-during-XR warning. Eight image requests were cancelled during changing selections; these were `ERR_ABORTED`, not demonstrated public-source outages. The subsequent trail/MR capture contained zero XR snapshots and is excluded from the native VR result. **MR and a sustained 1:1 trail test remain pending.**
+Quest Browser reported an unsupported `KHR_parallel_shader_compile` capability and a resize-during-XR warning. Eight image requests were cancelled during changing selections; these were `ERR_ABORTED`, not demonstrated public-source outages. The first attempted trail/MR capture contained zero XR snapshots and is excluded from the native VR result. A later corrected recording captured [94.5 seconds of native MR trail use](MR.md), revealing repeated imagery-service timeouts despite stable retained tiles. Sustained thermal and full-view high-resolution validation remain pending.
 
 ## Reuse prepared geometry bounds
 

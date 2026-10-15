@@ -48,6 +48,7 @@ export class TileImageCache {
   private static rasterSources = new Map<string, HTMLImageElement>();
   private static rasterLoads = new Map<string, Promise<HTMLImageElement>>();
   private static rasterFailures = new Map<string, number>();
+  private static rasterServiceFailures = new Map<string, number>();
   private static rasterSourceBytes = 0;
   private static negativeCache: Map<string, FailedTileEntry> = new Map();
   private static failureCount: number = 0;
@@ -239,7 +240,7 @@ export class TileImageCache {
     this.cache.clear();
     this.entryBytes.clear();
     this.inFlight.clear();
-    this.rasterSources.clear(); this.rasterLoads.clear(); this.rasterFailures.clear(); this.rasterSourceBytes = 0;
+    this.rasterSources.clear(); this.rasterLoads.clear(); this.rasterFailures.clear(); this.rasterServiceFailures.clear(); this.rasterSourceBytes = 0;
     this.negativeCache.clear();
     this.totalDecodedBytes = 0;
     this.failureCount = 0;
@@ -358,15 +359,24 @@ export class TileImageCache {
       loadPromise = (async () => {
         this.activeByPriority[priority]++;
         try {
-          const urls = provider.getTileUrls(zoom, x, y);
+          const region = provider.getTileImageRegion?.(zoom, x, y);
+          const urls = [...provider.getTileUrls(zoom, x, y)];
+          if (region) {
+            // A source outage affects many exports, not just one tile URL. Try
+            // healthy configured mirrors first instead of repeating the same
+            // timeout for every new group. Cached preferred rasters still win.
+            const now = Date.now();
+            const coolingDown = (url: string) => !this.rasterSources.has(`${provider.id}:${url}`)
+              && (this.rasterServiceFailures.get(this.rasterServiceKey(provider.id, url)) ?? 0) > now;
+            urls.sort((a, b) => Number(coolingDown(a)) - Number(coolingDown(b)));
+          }
           let lastError: any = null;
 
           for (const url of urls) {
             try {
               // Shared network request executes with internal timeout to populate cache
-              const region = provider.getTileImageRegion?.(zoom, x, y);
               let img: TileImageSource = region
-                ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation)
+                ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation, provider.id)
                 : await this.loadImageWithTimeout(url, provider.requestTimeoutMs ?? timeoutMs);
               if (region) {
                 if (region.x + region.width > img.width || region.y + region.height > img.height) throw new Error('Incomplete source raster dimensions');
@@ -449,15 +459,23 @@ export class TileImageCache {
     this.rasterSources.delete(key);
   }
 
+  private static rasterServiceKey(providerId: string, url: string): string {
+    // Scope failures to an export service, keeping DEM, labels, overview and
+    // other services on the same host independent. Query bounds vary per tile.
+    return `${providerId}:${url.split('?')[0]}`;
+  }
+
   /** Sixteen fine tiles share one 1024px export; source rasters count toward the
    * same decoded-byte limit and retain at most four entries (16 MiB). */
-  private static loadRasterSource(key: string, url: string, timeout: number, generation: number): Promise<HTMLImageElement> {
+  private static loadRasterSource(key: string, url: string, timeout: number, generation: number, providerId: string): Promise<HTMLImageElement> {
     const cached = this.rasterSources.get(key);
     if (cached) { this.rasterSources.delete(key); this.rasterSources.set(key, cached); return Promise.resolve(cached); }
     const pending = this.rasterLoads.get(key); if (pending) return pending;
     if ((this.rasterFailures.get(key) ?? 0) > Date.now()) return Promise.reject(new Error('Source raster temporarily unavailable'));
+    const serviceKey = this.rasterServiceKey(providerId, url);
     const request = this.loadImageWithTimeout(url, timeout).then(image => {
       const bytes = this.calculateImageBytes(image);
+      if (generation === this.generation) this.rasterServiceFailures.delete(serviceKey);
       if (generation === this.generation && bytes <= this.maxDecodedBytes) {
         while (this.rasterSources.size && (this.rasterSources.size >= this.MAX_SHARED_RASTERS || this.totalDecodedBytes + this.rasterSourceBytes + bytes > this.maxDecodedBytes)) this.evictRasterSource();
         if (this.totalDecodedBytes + this.rasterSourceBytes + bytes <= this.maxDecodedBytes) {
@@ -467,6 +485,9 @@ export class TileImageCache {
       return image;
     }).catch(error => {
       if (generation === this.generation) {
+        this.rasterServiceFailures.delete(serviceKey);
+        this.rasterServiceFailures.set(serviceKey, Date.now() + 5 * 60_000);
+        while (this.rasterServiceFailures.size > 128) this.rasterServiceFailures.delete(this.rasterServiceFailures.keys().next().value!);
         this.rasterFailures.delete(key); this.rasterFailures.set(key, Date.now() + 60_000);
         while (this.rasterFailures.size > 128) this.rasterFailures.delete(this.rasterFailures.keys().next().value!);
       }
