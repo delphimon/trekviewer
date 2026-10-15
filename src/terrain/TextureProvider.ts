@@ -9,6 +9,7 @@ import {
   EsriReferenceOverlayProvider,
 } from './providers/ImageryProvider.ts';
 import { composeImagery, MAX_COMPOSITE_TILES } from './CompositeImagery.ts';
+import { PublicImageryProvider, USGSReferenceProvider } from './providers/PublicImageryProvider.ts';
 
 export interface TileGridBounds {
   zoom: number;
@@ -32,10 +33,12 @@ export interface ProviderInitState {
 
 export class TextureProvider {
   private static esriSatelliteProvider = new EsriWorldImageryProvider();
+  private static publicSatelliteProvider = new PublicImageryProvider();
+  private static publicReferenceProvider = new USGSReferenceProvider();
   private static usgsTopoProvider = new USGSTopoProvider();
   private static referenceOverlayProvider = new EsriReferenceOverlayProvider();
   private static cesiumProvider: CesiumBingImageryProvider | null = null;
-  private static activeSatelliteProvider: ImageryProvider = TextureProvider.esriSatelliteProvider;
+  private static activeSatelliteProvider: ImageryProvider = TextureProvider.publicSatelliteProvider;
   private static maxAnisotropy: number = 4; // Bounded default for non-WebGL/test environments
 
   private static initialized: boolean = false;
@@ -127,7 +130,7 @@ export class TextureProvider {
    */
   public static resetForTesting(): void {
     this.satelliteProviderSetting = 'auto';
-    this.activeSatelliteProvider = this.esriSatelliteProvider;
+    this.activeSatelliteProvider = this.publicSatelliteProvider;
     this.cesiumProvider = null;
     this.initialized = false;
     this.fallbackReason = undefined;
@@ -136,8 +139,8 @@ export class TextureProvider {
 
   /**
    * Sets or switches the active satellite imagery provider at runtime (Sections 32, 33).
-   * Supports 'auto' (Bing if valid token, else Esri), 'esri' (explicit), or 'cesium-bing'.
-   * Gracefully falls back to Esri World Imagery if Cesium fails or token is missing.
+   * Auto selects public sources; Esri and Cesium/Bing require explicit opt-in.
+   * Falls back to public sources if Cesium fails or its token is missing.
    */
   public static async setSatelliteProvider(
     providerType: 'auto' | 'esri' | 'cesium-bing',
@@ -152,16 +155,19 @@ export class TextureProvider {
       return true;
     }
 
+    // Auto is a no-paid-license policy. Merely having a token must not opt in to
+    // a provider whose account, quotas and imagery rights have separate terms.
+    if (providerType === 'auto') {
+      this.activeSatelliteProvider = this.publicSatelliteProvider;
+      this.fallbackReason = undefined; this.initialized = true;
+      return true;
+    }
+
     const resolvedToken = token !== undefined ? token : this.getEnvToken();
     if (!resolvedToken || resolvedToken.trim().length <= 10) {
-      if (providerType === 'cesium-bing') {
-        console.warn('[TextureProvider] Cesium Bing provider requested but no valid Cesium Ion token found. Falling back to Esri World Imagery.');
-        this.fallbackReason = 'Missing or invalid Cesium ion token';
-      } else {
-        // 'auto' mode without token defaults cleanly to Esri without error
-        this.fallbackReason = undefined;
-      }
-      this.activeSatelliteProvider = this.esriSatelliteProvider;
+      console.warn('[TextureProvider] Cesium Bing provider requested but no valid Cesium Ion token found. Falling back to public USGS imagery.');
+      this.fallbackReason = 'Missing or invalid Cesium ion token';
+      this.activeSatelliteProvider = this.publicSatelliteProvider;
       this.initialized = true;
       return false;
     }
@@ -175,16 +181,16 @@ export class TextureProvider {
         this.initialized = true;
         return true;
       } else {
-        console.warn('[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to Esri World Imagery.');
+        console.warn('[TextureProvider] Cesium Bing provider metadata initialization failed. Falling back to public USGS imagery.');
         this.fallbackReason = this.cesiumProvider.failureReason ?? 'Cesium unavailable';
-        this.activeSatelliteProvider = this.esriSatelliteProvider;
+        this.activeSatelliteProvider = this.publicSatelliteProvider;
         this.initialized = true;
         return false;
       }
     } catch (err) {
       console.warn('[TextureProvider] Error initializing Cesium provider:', err);
       this.fallbackReason = 'Cesium unavailable';
-      this.activeSatelliteProvider = this.esriSatelliteProvider;
+      this.activeSatelliteProvider = this.publicSatelliteProvider;
       this.initialized = true;
       return false;
     }
@@ -195,6 +201,7 @@ export class TextureProvider {
   }
 
   public static getReferenceOverlayProvider(): ImageryProvider {
+    if (this.activeSatelliteProvider.id === 'public-naip') return this.publicReferenceProvider;
     return this.referenceOverlayProvider;
   }
 
@@ -209,7 +216,14 @@ export class TextureProvider {
     }
   }
 
-  public static getAttributionForStyle(style: string): string {
+  public static getAttributionForStyle(style: string, bounds?: GeoBounds): string {
+    if ((style === 'satellite' || style === 'hybrid') && this.activeSatelliteProvider.id === 'public-naip') {
+      // Include a generous guard for the overview tiles surrounding the terrain.
+      const allCONUS = bounds && bounds.minLat > 25 && bounds.maxLat < 49 && bounds.minLon > -124 && bounds.maxLon < -67;
+      const credits = allCONUS ? 'USGS / USDA NAIP + HRO (public domain); USGS overview' : this.activeSatelliteProvider.attribution;
+      return credits + (this.fallbackReason ? ` (${this.fallbackReason})` : '')
+        + (style === 'hybrid' ? ` | ${this.publicReferenceProvider.attribution}` : '');
+    }
     const fallbackSuffix = this.fallbackReason ? ` (fallback: ${this.fallbackReason})` : '';
     switch (style) {
       case 'satellite':
@@ -246,6 +260,7 @@ export class TextureProvider {
     let zoom = 15;
     if (latSpan < 0.08) zoom = 16;
     else if (latSpan > 0.35) zoom = 14;
+    zoom = Math.min(zoom, this.activeSatelliteProvider.getMaxZoomForLocation?.(bounds.centerLat, bounds.centerLon) ?? this.activeSatelliteProvider.maxZoom);
 
     const minTile = latLonToTile(maxLat, minLon, zoom);
     const maxTile = latLonToTile(minLat, maxLon, zoom);
@@ -318,7 +333,7 @@ export class TextureProvider {
     isXR: boolean = false,
     fallbackImage?: CanvasImageSource | null
   ): Promise<THREE.CanvasTexture | null> {
-    return this.fetchComposite(grid, this.activeSatelliteProvider, 4500, onProgressUpdate, signal, isXR, fallbackImage, this.referenceOverlayProvider);
+    return this.fetchComposite(grid, this.activeSatelliteProvider, 4500, onProgressUpdate, signal, isXR, fallbackImage, this.getReferenceOverlayProvider());
   }
 
   public static fetchTopoTexture(

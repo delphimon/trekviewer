@@ -80,7 +80,7 @@ export class LoadedTrek {
         demGrid: this.terrainResult.demGrid,
         qualityProfile,
         initialViewMode: 'diorama',
-        prepareSurfacePromotion: (chunk) => this.imageryLOD.prepareSurfacePromotion(chunk),
+        prepareSurfacePromotion: (chunk, replacing) => this.imageryLOD.prepareSurfacePromotion(chunk, replacing),
         prepareSurfaceRemoval: (chunks) => this.imageryLOD.prepareSurfaceRemoval(chunks),
       });
       this.localTerrainStreamer.update(0);

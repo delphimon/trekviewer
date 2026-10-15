@@ -20,6 +20,7 @@
     "package:apk": "bash scripts/package-quest-apk.sh"
   },
   "dependencies": {
+    "lerc": "^4.2.0",
     "three": "^0.186.0"
   },
   "devDependencies": {

@@ -23,6 +23,10 @@ export interface ProfileCounters {
   baseDemZoom?: number;
   regionalBaseDemZoom?: number;
   regionalBaseTiles?: number;
+  baseElevationSource?: string;
+  localElevationSource?: string;
+  localElevationSampleSpacingM?: number;
+  residentUSGSRasterMB?: number;
   visibleLocalDemZoom?: number;
   visibleLocalCellXM?: number;
   visibleLocalCellZM?: number;

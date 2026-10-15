@@ -160,12 +160,15 @@ export class TiledTerrainStreamer {
       this.nextWorkAt = 0;
       if (generation !== this.generation || !this.wanted.has(id) || publish?.() === false) chunk.dispose();
       else {
+        const previous = this.chunks.get(id);
         chunk.setVerticalExaggeration(this.exaggeration);
         chunk.setMapTexture((terrain.terrainMesh.material as THREE.MeshStandardMaterial).map, terrain.tileGrid);
         chunk.mesh.visible = false;
         terrain.attachLocalChunk?.(chunk);
+        if (previous) { previous.mesh.visible = false; terrain.detachLocalChunk?.(previous); }
         this.chunks.set(id, chunk);
-        this.failed.delete(id);
+        if (chunk.currentGrid?.preferredSourceRetry) this.recordFailure(id);
+        else this.failed.delete(id);
         chunk.mesh.visible = true;
         terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
       }
@@ -202,7 +205,8 @@ export class TiledTerrainStreamer {
     const now = performance.now();
     let tile: TerrainTileLayout | undefined;
     for (const wanted of this.wanted.values()) {
-      if (this.chunks.has(wanted.id)) continue;
+      const existing = this.chunks.get(wanted.id);
+      if (existing && !existing.currentGrid?.preferredSourceRetry) continue;
       const retryAt = this.failed.get(wanted.id)?.retryAt ?? 0;
       if (retryAt <= now) { tile = wanted; break; }
       this.nextWorkAt = Math.min(this.nextWorkAt, retryAt);
@@ -219,6 +223,10 @@ export class TiledTerrainStreamer {
         Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, this.lifetime.signal);
       if (this.disposed || generation !== this.generation || !this.wanted.has(tile.id)) return;
       if (!grid) { this.recordFailure(tile.id); return; }
+      // A temporary fallback stays visible while the preferred source retries;
+      // another fallback result must not rebuild or replace the same geometry.
+      const previous = this.chunks.get(tile.id);
+      if (previous && grid.preferredSourceRetry) { this.recordFailure(tile.id); return; }
       const chunk = await LocalTerrainChunk.createAsync({
         localGrid: grid, centerLat: geo.lat, centerLon: geo.lon,
         referenceCenterLat: terrain.terrainGeoBounds.centerLat, referenceCenterLon: terrain.terrainGeoBounds.centerLon,
@@ -232,7 +240,7 @@ export class TiledTerrainStreamer {
         chunk.dispose(); this.failed.set(tile.id, { attempts: 0, retryAt: Infinity }); return;
       }
       let publish: (() => boolean) | undefined;
-      try { publish = await this.options.prepareSurfacePromotion?.(chunk); }
+      try { publish = await this.options.prepareSurfacePromotion?.(chunk, previous); }
       catch (error) { chunk.dispose(); throw error; }
       if (this.disposed || generation !== this.generation) { chunk.dispose(); return; }
       this.ready = { id: tile.id, chunk, generation, publish };

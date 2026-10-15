@@ -1,0 +1,44 @@
+{
+  "source": "USGS 3DEP (public domain)",
+  "retrieved": "2026-10-15T03:13:18.440Z",
+  "bounds": {
+    "minLat": 46.8518,
+    "maxLat": 46.8522,
+    "minLon": -121.7603,
+    "maxLon": -121.7597
+  },
+  "request": {
+    "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13554295.336966168%2C5917916.780431059%2C-13554227.061011814%2C5917983.370246839&bboxSR=3857&imageSR=3857&size=46%2C45&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+    "width": 46,
+    "height": 45,
+    "sampleSpacingMeters": 1.0150634122283495,
+    "rasterBounds": {
+      "west": -13554294.59483623,
+      "east": -13554227.803141752,
+      "south": 5917917.520317901,
+      "north": 5917982.630359997
+    }
+  },
+  "info": {
+    "version": 0,
+    "dimCount": 1,
+    "width": 46,
+    "height": 45,
+    "validPixelCount": 2070,
+    "bandCount": 1,
+    "blobSize": 8347,
+    "maskCount": 0,
+    "depthCount": 1,
+    "dataType": 6,
+    "minValue": 4369.04443359375,
+    "maxValue": 4386.2255859375,
+    "maxZerror": 0,
+    "statistics": [
+      {
+        "minValue": 4369.04443359375,
+        "maxValue": 4386.2255859375
+      }
+    ],
+    "bandCountWithNoData": 0
+  }
+}

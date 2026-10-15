@@ -105,7 +105,7 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
   - High promotes after a short dwell and delays demotion for 8–10 seconds, with bounded retention for recently viewed terrain.
 - **Explicit Awaited Initialization**: Eliminates asynchronous startup races by awaiting provider environment configuration before route loading begins.
 - **Truthful Sources & Cache Isolation**: Cesium Bing provider requests only Bing URLs; per-tile fallback to Esri is eliminated, ensuring cache keys (`cesium-bing:z:x:y`) never contain mixed Esri imagery.
-- **UI Source Transparency**: Desktop and Spatial HUD clearly report active imagery provider and fallback status (e.g. `Bing Aerial via Cesium • up to Z19` or `Esri World Imagery • up to Z19 (fallback: Cesium unavailable)`).
+- **UI Source Transparency**: Desktop and Spatial HUD show public imagery credits, the elevation source and fallback status. Source resolution is distinct from mesh spacing and tile zoom. See [data sources and licenses](public/data-sources.html).
 - **Diagnostics (`?debug=1`)**: Telemetry and on-screen `#buildBadge` monitor requested provider, active provider, initialized state, fallback reason, LOD visible counts by zoom, and tile cache failure counts.
 - **Configurable Satellite Provider**:
   ```bash
@@ -113,16 +113,16 @@ TrekViewer seamlessly supports both **Bare Hands** and **Touch Plus Controllers*
   VITE_SATELLITE_PROVIDER=auto       # 'auto' (default), 'esri', or 'cesium-bing'
   VITE_CESIUM_ION_TOKEN=your_token   # Optional: Cesium Ion public access token for Microsoft Bing Aerial
   ```
-  - **`esri`**: Global high-resolution Esri World Imagery (default, no token required).
-  - **`cesium-bing`**: Microsoft Bing Maps Aerial via Cesium Ion. Falls back to Esri World Imagery globally if token is missing or network fails.
-  - **`auto`**: Uses Bing Aerial if a valid Cesium token is configured, otherwise Esri World Imagery.
+  - **`esri`**: Explicit opt-in to Esri World Imagery; verify your own imagery and service rights. A public URL is not itself a license.
+  - **`cesium-bing`**: Explicit opt-in to Bing via Cesium Ion under your account terms. Missing or rejected credentials fall back to public sources.
+  - **`auto`**: Default no-paid-license policy. Conterminous US detail prefers public-domain USGS NAIP Plus / HRO, with GeoPlatform NAIP and USGS NAIP detail fallbacks. The initial overview uses USGS cached imagery. Outside CONUS, EOX Sentinel-2 cloudless 2025 is free for personal/noncommercial use under CC BY-NC-SA 4.0, with displayed attribution. An optional Cesium token alone does not change this policy.
 
 #### Cesium Ion Token Scoping & Security Guidelines
 Because TrekViewer is a 100% client-side WebXR static PWA, any token provided via `VITE_CESIUM_ION_TOKEN` is compiled into the client-side JavaScript bundle and transmitted directly to Cesium Ion from the client browser.
 - **Never use secret or administrator tokens**: Generate a dedicated, scoped client token in your [Cesium Ion Tokens Dashboard](https://ion.cesium.com/tokens).
-- **Scope by URL Domain / Origin**: In the Cesium Ion token settings, configure the allowed URLs for where you serve the app. The USB-forwarded Quest workflow uses `http://localhost:4173/`; a token allowed only for `https://trekviewer.surge.sh/` receives HTTP 403 on localhost and TrekViewer correctly uses Esri. Cesium requires a matching `Referer` for URL-restricted tokens. Prefer a separate public, asset-read-only token for local development instead of broadening the hosted token to all localhost sites.
+- **Scope by URL Domain / Origin**: In the Cesium Ion token settings, configure the allowed URLs for where you serve the app. The USB-forwarded Quest workflow uses `http://localhost:4173/`; a token allowed only for `https://trekviewer.surge.sh/` receives HTTP 403 on localhost and TrekViewer uses public imagery. Cesium requires a matching `Referer` for URL-restricted tokens. Prefer a separate public, asset-read-only token for local development instead of broadening the hosted token to all localhost sites.
 - **Restrict Asset Permissions**: Restrict the token's asset permissions strictly to **Asset 2 (Bing Maps Aerial)** and disallow write, asset creation, or geocoding privileges.
-- **Zero-Token Fallback**: If `VITE_CESIUM_ION_TOKEN` is omitted, TrekViewer automatically uses Esri World Imagery with zero degradation, zero error dialogs, and full quadtree LOD streaming.
+- **No key required by default**: Public-source mode needs no account or paid license for personal use. Service outages keep existing imagery; failed fine requests do not install enlarged overview tiles under high-detail keys. Paid-provider fallbacks are not automatic.
 
 For detailed hardware acceptance verification, manual testing procedures, and engineering results across all Stage V improvements, see:
 - [Stage V Meta Quest 3 Hardware Acceptance & Interaction Precision Report](docs/STAGE_V_QUEST_ACCEPTANCE.md)
@@ -155,7 +155,7 @@ npm run build
 
 - **Client-Side Architecture**: TrekViewer runs 100% clientside inside your browser or WebXR runtime. There is no custom backend server.
 - **Hosted WebXR & APK wrapper**: Use Quest Browser directly or package the hosted site with Bubblewrap. Both currently require network access.
-- **Network Tile Access**: While the app shell and bundled GPX routes are served locally, real-world DEM elevation grids and high-resolution satellite/topographic imagery tiles are streamed dynamically over Wi-Fi from public providers (AWS Terrarium, Esri World Imagery, USGS Topo). An active internet connection is required to fetch new terrain and map textures.
+- **Network Tile Access**: While the app shell and bundled GPX routes are served locally, real-world DEM elevation grids and high-resolution satellite/topographic imagery tiles are streamed dynamically over Wi-Fi from public providers (USGS 3DEP, public aerial imagery, EOX Sentinel and the Mapzen/AWS fallback). An active internet connection is required to fetch new terrain and map textures.
 
 ---
 
@@ -204,11 +204,13 @@ For repeatable headset runs, append `?profile=1` to the hosted URL. The producti
 
 High quality targets a 60 m base grid and at most 5 m refined mesh spacing. It selects detailed terrain across the inspected view, including upper/lower slopes and an overscan margin. Quest High selects up to 48 tiles / 600,000 vertices and retains at most 64 / 800,000 including previously viewed detail; desktop High selects 96 / 1,200,000 and retains 128 / 1,600,000. Old detail stays visible until replacement needs its bounded resident capacity. Balanced retains 9 / 40,000 at about 25 m spacing. Base meshes keep the existing 125,000-vertex Quest and 200,000-vertex desktop limits. Changing quality affects streaming immediately; reload the route to rebuild the base grid. Mesh spacing does not imply equivalent accuracy in the source elevation data.
 
-High imagery budgets are 448 tabletop / 512 first-person patches on Quest and 640 / 768 on desktop. Decoded image caching is bounded to 192 MiB / 256 MiB respectively. High deliberately uses more memory and bandwidth to retain fine imagery around the view and in 1:1 mode. Balanced remains the explicit power-saving choice. See the [comparison and performance limits](docs/review-2026-10-13/FIDELITY.md).
+High imagery budgets are 448 tabletop / 512 first-person patches on Quest and 640 / 768 on desktop. Decoded image caching is bounded to 192 MiB / 256 MiB respectively. High deliberately uses more memory and bandwidth to retain fine imagery around the view and in 1:1 mode. Balanced remains the explicit power-saving choice. See the [comparison and performance limits](docs/review-2026-10-13/FIDELITY.md) and [public-source validation](docs/review-2026-10-13/SOURCES.md).
 
-The Enchantments' packaged regional DEM is enabled for local and base terrain where available. It contains 26 z15 Terrarium PNGs derived from the USGS 3DEP 1-metre WA Eastern Cascades 2019 source. Uncovered positions and failed packaged requests fall back to AWS; packaged edges blend to AWS over 24 pixels. The 1 m source is resampled into z15 tiles; the renderer does not imply 1 m mesh spacing. The profile records source counts, DEM zoom, and actual mesh cell sizes.
+The default elevation path now requests USGS 3DEP best-available raw floating-point data across supported US coverage. It requests local samples at approximately 1 m, with a 1024-pixel side limit, without claiming universally native 1 m coverage. The shared terrain worker decodes lossless LERC data, validates NoData and preserves the full height range. High's approximately 5 m mesh spacing and broad coverage budgets are unchanged. Temporary fallback chunks retry the preferred source after one to five minutes and replace their terrain and imagery together.
 
-For controlled comparisons, `terrainGrid=60`, `75`, or `120` selects the base spacing without changing imagery selection. `regionalDem=0` and `regionalBase=0` disable the respective regional sources, and `terrainTiles=0` restores the legacy single-refinement streamer. Keep other flags and the viewpoint fixed when comparing. High's new defaults have browser and regression coverage; their Quest GPU, thermal, and subjective comfort costs still require a connected headset. Decoded local DEM caching is bounded to 64 MiB; base/regional grids, live terrain, and worker staging are additional memory.
+The Enchantments' packaged regional DEM remains enabled as a fallback for local and base terrain where available. It contains 26 z15 Terrarium PNGs derived from the USGS 3DEP 1-metre WA Eastern Cascades 2019 source. Uncovered positions and failed packaged requests fall back to AWS; packaged edges blend to AWS over 24 pixels. The 1 m source is resampled into z15 tiles; the renderer does not imply 1 m mesh spacing. The profile records source counts, DEM zoom, and actual mesh cell sizes.
+
+For controlled comparisons, `terrainGrid=60`, `75`, or `120` selects the base spacing without changing imagery selection. `bestDem=0` disables live USGS elevation for comparisons; `regionalDem=0` and `regionalBase=0` disable the respective packaged regional sources, and `terrainTiles=0` restores the legacy single-refinement streamer. Keep other flags and the viewpoint fixed when comparing. High's new defaults have browser and regression coverage; their Quest GPU, thermal, and subjective comfort costs still require a connected headset. Decoded local DEM caching is bounded to 64 MiB; base/regional grids, live terrain grids and worker staging are additional memory. Sixteen adjacent fine imagery tiles share each 1024-pixel export with exact 256-pixel crops; up to four shared rasters count toward the existing decoded-image byte limit. This reduces public-service request overhead without reducing image resolution.
 
 To regenerate the pack, install `rasterio`, `numpy`, and `Pillow` in a Python environment and run `python3 scripts/build-regional-dem.py`. The source COG URL, tile footprint, coordinate conversion, and resampling method are recorded in `src/terrain/data/enchantments-3dep-2019.json`. The build-time geospatial packages are not needed on the headset.
 

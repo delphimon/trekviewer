@@ -5,6 +5,7 @@ import { EnchantmentsRegionalDEMProvider } from './providers/RegionalDEMProvider
 import { TileImageCache } from './TileImageCache.ts';
 import { decodeTerrarium } from './TerrariumDecode.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
+import { fetchBestAvailableElevation, clearBestElevationFailures, hasUSGSElevationCoverage } from './BestAvailableElevation.ts';
 
 export interface LocalDEMQuality {
   validTileRatio: number;
@@ -13,6 +14,7 @@ export interface LocalDEMQuality {
   zoom: number;
   regionalTiles?: number;
   awsTiles?: number;
+  usgsRasters?: number;
 }
 
 export interface ElevationGrid {
@@ -31,6 +33,11 @@ export interface ElevationGrid {
   maxElevation: number;
   isRealDEM: boolean;
   quality?: LocalDEMQuality;
+  /** Raw ImageServer sample centres in EPSG:3857, independent of XYZ tile size. */
+  rasterBounds?: { west: number; east: number; south: number; north: number };
+  source?: string;
+  sampleSpacingMeters?: number;
+  preferredSourceRetry?: boolean;
 }
 
 export interface ElevationSampleResult {
@@ -42,6 +49,13 @@ export class ElevationTileService {
   private static elevationProvider = new AWSTerrariumElevationProvider();
   private static regionalProvider = new EnchantmentsRegionalDEMProvider();
   private static regionalDEMEnabled = false;
+  private static bestAvailableEnabled = false;
+
+  public static setBestAvailableEnabled(enabled: boolean): void {
+    if (enabled === this.bestAvailableEnabled) return;
+    this.bestAvailableEnabled = enabled;
+    this.clearLocalGridCache(); clearBestElevationFailures();
+  }
 
   public static setRegionalDEMEnabled(enabled: boolean): void {
     if (this.regionalDEMEnabled === enabled) return;
@@ -87,6 +101,11 @@ export class ElevationTileService {
       const maxLat = bounds.maxLat + latMargin;
       const minLon = bounds.minLon - lonMargin;
       const maxLon = bounds.maxLon + lonMargin;
+
+      if (this.bestAvailableEnabled) {
+        const best = await fetchBestAvailableElevation({ minLat, maxLat, minLon, maxLon }, 5, signal);
+        if (best) { onProgress?.(1, 1); return best; }
+      }
 
       const latSpan = maxLat - minLat;
       let zoom = 12;
@@ -156,6 +175,19 @@ export class ElevationTileService {
     this.localDemGridCache.clear();
   }
 
+  private static retainLocalGrid(key: string, grid: ElevationGrid): void {
+    let bytes = grid.data.byteLength + grid.tileValidity.byteLength;
+    for (const retained of this.localDemGridCache.values()) bytes += retained.data.byteLength + retained.tileValidity.byteLength;
+    while (this.localDemGridCache.size >= this.MAX_GRID_CACHE_ENTRIES || bytes > this.MAX_GRID_CACHE_BYTES) {
+      const firstKey = this.localDemGridCache.keys().next().value;
+      if (!firstKey) break;
+      const evicted = this.localDemGridCache.get(firstKey)!;
+      bytes -= evicted.data.byteLength + evicted.tileValidity.byteLength;
+      this.localDemGridCache.delete(firstKey);
+    }
+    this.localDemGridCache.set(key, grid);
+  }
+
   /**
    * Fetches a bounded local high-resolution DEM chunk around a specific route coordinate (Stage V7 & X2).
    * Used for high-fidelity terrain geometry and micro-terrain elevation sampling around 1:1 first-person view.
@@ -186,6 +218,18 @@ export class ElevationTileService {
       const maxLat = Math.max(nw.lat, se.lat);
       const minLon = Math.min(nw.lon, se.lon);
       const maxLon = Math.max(nw.lon, se.lon);
+      const wantsBestSource = this.bestAvailableEnabled && hasUSGSElevationCoverage({ minLat, maxLat, minLon, maxLon });
+
+      if (wantsBestSource) {
+        const bestKey = `usgs_${centerLat.toFixed(7)}_${centerLon.toFixed(7)}_${radiusMeters.toFixed(2)}`;
+        const retained = this.localDemGridCache.get(bestKey);
+        if (retained) {
+          this.localDemGridCache.delete(bestKey); this.localDemGridCache.set(bestKey, retained);
+          return retained;
+        }
+        const best = await fetchBestAvailableElevation({ minLat, maxLat, minLon, maxLon }, 1, effectiveSignal);
+        if (best) { this.retainLocalGrid(bestKey, best); return best; }
+      }
 
       let minTile = latLonToTile(maxLat, minLon, zoom);
       let maxTile = latLonToTile(minLat, maxLon, zoom);
@@ -219,7 +263,7 @@ export class ElevationTileService {
       if (cached) {
         this.localDemGridCache.delete(cacheKey);
         this.localDemGridCache.set(cacheKey, cached);
-        return cached;
+        return wantsBestSource ? { ...cached, preferredSourceRetry: true } : cached;
       }
 
       const grid = await this.decodeTileGrid(
@@ -243,19 +287,10 @@ export class ElevationTileService {
       }
 
       if (grid) {
-        let bytes = grid.data.byteLength + grid.tileValidity.byteLength;
-        for (const retained of this.localDemGridCache.values()) bytes += retained.data.byteLength + retained.tileValidity.byteLength;
-        while (this.localDemGridCache.size >= this.MAX_GRID_CACHE_ENTRIES || bytes > this.MAX_GRID_CACHE_BYTES) {
-          const firstKey = this.localDemGridCache.keys().next().value;
-          if (!firstKey) break;
-          const evicted = this.localDemGridCache.get(firstKey)!;
-          bytes -= evicted.data.byteLength + evicted.tileValidity.byteLength;
-          this.localDemGridCache.delete(firstKey);
-        }
-        this.localDemGridCache.set(cacheKey, grid);
+        this.retainLocalGrid(cacheKey, grid);
       }
 
-      return grid;
+      return grid && wantsBestSource ? { ...grid, preferredSourceRetry: true } : grid;
     } catch (e) {
       if (signal?.aborted) throw new DOMException('Elevation request cancelled', 'AbortError');
       if ((e as Error)?.name === 'AbortError') throw e;
@@ -318,7 +353,7 @@ export class ElevationTileService {
         try {
           const regional = useRegionalDEM && this.regionalProvider.covers(zoom, task.tx, task.ty);
           let usedRegional = regional;
-          let img: HTMLImageElement;
+          let img: CanvasImageSource;
           if (regional) {
             try {
               img = await TileImageCache.loadTile(this.regionalProvider, zoom, task.tx, task.ty, 4000, signal);
@@ -390,6 +425,7 @@ export class ElevationTileService {
       minElevation: isFinite(minEle) ? minEle : fallbackMinEle,
       maxElevation: isFinite(maxEle) ? maxEle : fallbackMaxEle,
       isRealDEM: true,
+      source: regionalTiles > 0 ? 'Packaged USGS 3DEP / Mapzen Terrarium fallback' : 'Mapzen Terrarium fallback',
       quality,
     };
   }
@@ -430,15 +466,18 @@ export class ElevationTileService {
     const latRad = (lat * Math.PI) / 180;
     const yGlobal = ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n;
 
-    const gx = (xGlobal - grid.tileXMin) * 256;
-    const gy = (yGlobal - grid.tileYMin) * 256;
+    const raster = grid.rasterBounds;
+    const mercatorX = lon * Math.PI * 6378137 / 180;
+    const mercatorY = Math.asinh(Math.tan(latRad)) * 6378137;
+    const gx = raster ? (mercatorX - raster.west) * (grid.width - 1) / (raster.east - raster.west) : (xGlobal - grid.tileXMin) * 256;
+    const gy = raster ? (raster.north - mercatorY) * (grid.height - 1) / (raster.north - raster.south) : (yGlobal - grid.tileYMin) * 256;
 
     if (gx < 0 || gx >= grid.width - 1 || gy < 0 || gy >= grid.height - 1) {
       return { elevation: NaN, isValid: false };
     }
 
-    const tx = Math.floor(gx / 256);
-    const ty = Math.floor(gy / 256);
+    const tx = raster ? 0 : Math.floor(gx / 256);
+    const ty = raster ? 0 : Math.floor(gy / 256);
     if (tx < 0 || tx >= grid.numTilesX || ty < 0 || ty >= grid.numTilesY) {
       return { elevation: NaN, isValid: false };
     }

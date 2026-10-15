@@ -1,0 +1,6 @@
+TrekViewer includes LERC JS / WebAssembly 4.2.0.
+Copyright 2017-2026 Esri. Licensed under Apache License 2.0.
+Source: https://github.com/Esri/lerc
+License: lerc-LICENSE.txt
+
+Geographic data credits and licenses: ../data-sources.html

@@ -136,7 +136,8 @@ it.each(['resolve','reject'] as const)('isolates cache generations when old requ
   current.resolve(img('new'));await second;await flush();
   expect(TileImageCache.getInFlightCount()).toBe(0);
   expect(TileImageCache.getStats().activeRequestsByClass.high).toBe(0);
-  expect(TileImageCache.get(TileImageCache.getTileKey(source.id,19,1,1))?.src).toBe('new');
+  const cached = TileImageCache.get(TileImageCache.getTileKey(source.id,19,1,1));
+  expect(cached && 'src' in cached ? cached.src : undefined).toBe('new');
 });
 
 it('finishes the current style status without an old style completion overwriting it',async()=>{

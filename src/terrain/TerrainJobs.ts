@@ -4,8 +4,10 @@ import type { TerrariumDecodeInput } from './TerrariumDecode.ts';
 import type { LocalTerrainChunkOptions } from './LocalTerrainChunk.ts';
 import type { TerrainSurfaceData } from './TerrainGrid.ts';
 import type { SurfacePromotionInput } from './SurfacePromotion.ts';
+import type { LercElevationInput } from './LercElevation.ts';
 
 export type TerrainJob =
+  | { kind: 'lerc'; input: LercElevationInput }
   | { kind: 'decode'; input: TerrariumDecodeInput }
   | { kind: 'surface'; input: SurfacePromotionInput }
   | { kind: 'chunk'; options: Omit<LocalTerrainChunkOptions, 'mapTexture' | 'baseElevationSampler'>; base: TerrainSurfaceData }

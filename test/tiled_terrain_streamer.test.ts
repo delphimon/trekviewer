@@ -33,6 +33,30 @@ function singleTileFixture() {
   return result;
 }
 
+it('retains fallback terrain while retrying the preferred source, then replaces terrain and imagery atomically', async () => {
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const { streamer, attached } = singleTileFixture();
+  const fallback = { zoom: 15, isRealDEM: true, preferredSourceRetry: true } as any;
+  const native = { zoom: 0, isRealDEM: true, source: 'USGS 3DEP' } as any;
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValueOnce(fallback).mockResolvedValueOnce(fallback).mockResolvedValue(native);
+  const prepare = vi.fn(async () => () => true); (streamer as any).options.prepareSurfacePromotion = prepare;
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(attached.size).toBe(1); const previous = [...attached][0];
+  expect(previous.currentGrid.preferredSourceRetry).toBe(true);
+  now = 59_999; streamer.update(0); await flushBuild(); expect(fetch).toHaveBeenCalledTimes(1);
+  now = 60_000; streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(2); expect(attached.has(previous)).toBe(true);
+  expect(prepare).toHaveBeenCalledTimes(1); // Repeated fallback does not rebuild geometry.
+  now = 180_000; streamer.update(0); await flushBuild();
+  expect(attached.has(previous) && previous.mesh.visible).toBe(true);
+  expect(prepare).toHaveBeenLastCalledWith(expect.any(LocalTerrainChunk), previous);
+  streamer.update(0);
+  expect(attached.size).toBe(1); expect(attached.has(previous)).toBe(false);
+  expect([...attached][0].currentGrid).toBe(native);
+  expect((streamer as any).failed.size).toBe(0);
+  streamer.dispose();
+});
+
 it('sleeps after all detail is published and caches stationary route focus', async () => {
   const { streamer, attached } = singleTileFixture();
   const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);

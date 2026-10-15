@@ -5,11 +5,15 @@ import { GPXParser } from '../gpx/GPXParser.ts';
 import { LocalTerrainChunk } from '../terrain/LocalTerrainChunk.ts';
 import { sampleTerrainSurface } from '../terrain/TerrainGrid.ts';
 import { buildPromotedSurfacePatches } from '../terrain/SurfacePromotion.ts';
+import { decodeLercElevation } from '../terrain/LercElevation.ts';
 
-self.onmessage = (event: MessageEvent<TerrainJob>) => {
+self.onmessage = async (event: MessageEvent<TerrainJob>) => {
   try {
     const job = event.data;
-    if (job.kind === 'decode') {
+    if (job.kind === 'lerc') {
+      const result = await decodeLercElevation(job.input);
+      self.postMessage({ result }, { transfer: [result.data.buffer] });
+    } else if (job.kind === 'decode') {
       const result = decodeTerrarium(job.input);
       self.postMessage({ result }, { transfer: [result.data.buffer] });
     } else if (job.kind === 'surface') {

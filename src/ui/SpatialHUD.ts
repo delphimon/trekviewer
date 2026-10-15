@@ -69,6 +69,7 @@ export class SpatialHUD {
   private currentDockSide: 'left' | 'right' | 'center' = 'left';
   private attribution: string = '';
   private terrainQuality: string = 'dem';
+  private elevationSource = '';
 
   private statusMessage: string | null = null;
   private statusProgress: number = 0;
@@ -96,7 +97,7 @@ export class SpatialHUD {
     // Canvas resolution: 1024 x 680
     this.canvas = document.createElement('canvas');
     this.canvas.width = 1024;
-    this.canvas.height = 740;
+    this.canvas.height = 768;
     this.ctx = this.canvas.getContext('2d')!;
 
     // Static offscreen canvas for invariant background, labels, and elevation curve
@@ -256,8 +257,11 @@ export class SpatialHUD {
     this.drawHUD(true);
   }
 
-  public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats): void {
+  public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats, elevationSource?: string): void {
     let changed = false;
+    if (elevationSource !== undefined && elevationSource !== this.elevationSource) {
+      this.elevationSource = elevationSource; changed = true;
+    }
     if (attribution !== undefined && attribution !== this.attribution) {
       this.attribution = attribution;
       changed = true;
@@ -951,10 +955,17 @@ export class SpatialHUD {
     const provStr = this.elevationProvenance && (this.elevationProvenance.demPercent > 0 || this.elevationProvenance.interpolatedPercent > 0)
       ? ` (${this.elevationProvenance.gpxPercent}% GPX, ${this.elevationProvenance.demPercent}% DEM)`
       : '';
-    const metaStr = `Elevation: ${qualityLabel}${provStr}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
+    const metaStr = `Elevation: ${qualityLabel}${this.elevationSource ? ` • ${this.elevationSource}` : ''}${provStr}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
     ctx.fillStyle = '#64748b';
     ctx.font = '11px sans-serif';
-    ctx.fillText(metaStr, 45, 724);
+    let line = '', y = 724;
+    for (const word of metaStr.split(' ')) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > this.canvas.width - 90) {
+        ctx.fillText(line, 45, y); y += 12; line = word;
+      } else line = next;
+    }
+    if (line) ctx.fillText(line, 45, y);
   }
 
   private renderDynamicLayer(): void {

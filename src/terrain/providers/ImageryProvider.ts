@@ -3,6 +3,10 @@ export interface ImageryProvider {
   readonly displayName: string;
   readonly attribution: string;
   readonly maxZoom: number;
+  readonly requestTimeoutMs?: number;
+  getMaxZoomForLocation?(lat: number, lon: number): number;
+  getTileImageRegion?(zoom: number, x: number, y: number): { x: number; y: number; width: number; height: number } | undefined;
+  isTileUsable?(image: CanvasImageSource, url: string): boolean;
   getTileUrls(zoom: number, x: number, y: number): string[];
 }
 
@@ -112,11 +116,8 @@ export class USGSTopoProvider implements ImageryProvider {
   readonly maxZoom = 16;
 
   getTileUrls(zoom: number, x: number, y: number): string[] {
-    const otmSub = ['a', 'b', 'c'][(x + y) % 3];
     return [
       `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/${zoom}/${y}/${x}`,
-      `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${zoom}/${y}/${x}`,
-      `https://${otmSub}.tile.opentopomap.org/${zoom}/${x}/${y}.png`,
     ];
   }
 }

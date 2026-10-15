@@ -8,6 +8,8 @@ export enum TilePriority {
   OVERVIEW = 3, // Whole-route background composite tiles
 }
 
+export type TileImageSource = HTMLImageElement | HTMLCanvasElement;
+
 export interface ActiveRequestsByClass {
   critical: number;
   high: number;
@@ -39,9 +41,13 @@ export interface TileCacheStats {
 
 export class TileImageCache {
   private static generation = 0;
-  private static cache: Map<string, HTMLImageElement> = new Map();
+  private static cache: Map<string, TileImageSource> = new Map();
   private static entryBytes: Map<string, number> = new Map();
-  private static inFlight: Map<string, Promise<HTMLImageElement>> = new Map();
+  private static inFlight: Map<string, Promise<TileImageSource>> = new Map();
+  private static rasterSources = new Map<string, HTMLImageElement>();
+  private static rasterLoads = new Map<string, Promise<HTMLImageElement>>();
+  private static rasterFailures = new Map<string, number>();
+  private static rasterSourceBytes = 0;
   private static negativeCache: Map<string, FailedTileEntry> = new Map();
   private static failureCount: number = 0;
   private static cacheHits: number = 0;
@@ -89,7 +95,7 @@ export class TileImageCache {
   }
 
   public static getEstimatedDecodedBytes(): number {
-    return this.totalDecodedBytes;
+    return this.totalDecodedBytes + this.rasterSourceBytes;
   }
 
   public static getFailureCount(): number {
@@ -102,7 +108,7 @@ export class TileImageCache {
     return {
       entries: this.cache.size,
       maxEntries: this.maxEntries,
-      decodedBytes: this.totalDecodedBytes,
+      decodedBytes: this.totalDecodedBytes + this.rasterSourceBytes,
       maxDecodedBytes: this.maxDecodedBytes,
       inFlight: this.inFlight.size,
       failureCount: this.failureCount,
@@ -150,9 +156,9 @@ export class TileImageCache {
     return false;
   }
 
-  private static calculateImageBytes(img: HTMLImageElement): number {
-    const width = img.naturalWidth || img.width || 256;
-    const height = img.naturalHeight || img.height || 256;
+  private static calculateImageBytes(img: TileImageSource): number {
+    const width = ('naturalWidth' in img ? img.naturalWidth : 0) || img.width || 256;
+    const height = ('naturalHeight' in img ? img.naturalHeight : 0) || img.height || 256;
     // 4 bytes per RGBA pixel
     return width * height * 4;
   }
@@ -161,7 +167,7 @@ export class TileImageCache {
     return `${providerId}:${zoom}:${x}:${y}`;
   }
 
-  public static get(key: string): HTMLImageElement | undefined {
+  public static get(key: string): TileImageSource | undefined {
     const item = this.cache.get(key);
     if (item) {
       // Refresh LRU order: remove and re-insert
@@ -174,7 +180,7 @@ export class TileImageCache {
     return undefined;
   }
 
-  public static set(key: string, img: HTMLImageElement): void {
+  public static set(key: string, img: TileImageSource): void {
     const incomingBytes = this.calculateImageBytes(img);
     // Oversized images can still be used by the caller without displacing the cache.
     if (incomingBytes > this.maxDecodedBytes) return;
@@ -187,11 +193,12 @@ export class TileImageCache {
       this.entryBytes.delete(key);
     }
 
+    while (this.rasterSources.size && this.totalDecodedBytes + this.rasterSourceBytes + incomingBytes > this.maxDecodedBytes) this.evictRasterSource();
     // Evict oldest entries until within both entry count and byte capacity
     while (
       this.cache.size > 0 &&
       (this.cache.size >= this.maxEntries ||
-        this.totalDecodedBytes + incomingBytes > this.maxDecodedBytes)
+        this.totalDecodedBytes + this.rasterSourceBytes + incomingBytes > this.maxDecodedBytes)
     ) {
       this.evictOldest();
     }
@@ -213,6 +220,7 @@ export class TileImageCache {
   }
 
   private static enforceLimits(): void {
+    while (this.rasterSources.size && this.totalDecodedBytes + this.rasterSourceBytes > this.maxDecodedBytes) this.evictRasterSource();
     while (
       this.cache.size > 0 &&
       (this.cache.size > this.maxEntries || this.totalDecodedBytes > this.maxDecodedBytes)
@@ -230,6 +238,7 @@ export class TileImageCache {
     this.cache.clear();
     this.entryBytes.clear();
     this.inFlight.clear();
+    this.rasterSources.clear(); this.rasterLoads.clear(); this.rasterFailures.clear(); this.rasterSourceBytes = 0;
     this.negativeCache.clear();
     this.totalDecodedBytes = 0;
     this.failureCount = 0;
@@ -303,7 +312,7 @@ export class TileImageCache {
     timeoutMs: number = 4500,
     signal?: AbortSignal,
     priority: TilePriority = TilePriority.NORMAL
-  ): Promise<HTMLImageElement> {
+  ): Promise<TileImageSource> {
     const generation = this.generation;
     const key = this.getTileKey(provider.id, zoom, x, y);
     const cached = this.get(key);
@@ -354,7 +363,19 @@ export class TileImageCache {
           for (const url of urls) {
             try {
               // Shared network request executes with internal timeout to populate cache
-              const img = await this.loadImageWithTimeout(url, timeoutMs);
+              const region = provider.getTileImageRegion?.(zoom, x, y);
+              let img: TileImageSource = region
+                ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation)
+                : await this.loadImageWithTimeout(url, provider.requestTimeoutMs ?? timeoutMs);
+              if (region) {
+                if (region.x + region.width > img.width || region.y + region.height > img.height) throw new Error('Incomplete source raster dimensions');
+                const canvas = document.createElement('canvas'); canvas.width = region.width; canvas.height = region.height;
+                const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Cannot crop imagery raster');
+                ctx.drawImage(img, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
+                if (canvas.dataset) canvas.dataset.sourceUrl = url;
+                img = canvas;
+              }
+              if (provider.isTileUsable && !provider.isTileUsable(img, url)) throw new Error('Imagery has incomplete source coverage');
               if (generation === this.generation) this.set(key, img);
               return img;
             } catch (err) {
@@ -393,7 +414,7 @@ export class TileImageCache {
       return loadPromise;
     }
 
-    return new Promise<HTMLImageElement>((resolve, reject) => {
+    return new Promise<TileImageSource>((resolve, reject) => {
       if (signal.aborted) {
         return reject(new Error('Tile load aborted'));
       }
@@ -418,6 +439,41 @@ export class TileImageCache {
           reject(err);
         });
     });
+  }
+
+  private static evictRasterSource(): void {
+    const key = this.rasterSources.keys().next().value;
+    if (!key) return;
+    this.rasterSourceBytes -= this.calculateImageBytes(this.rasterSources.get(key)!);
+    this.rasterSources.delete(key);
+  }
+
+  /** Sixteen fine tiles share one 1024px export; source rasters count toward the
+   * same decoded-byte limit and retain at most four entries (16 MiB). */
+  private static loadRasterSource(key: string, url: string, timeout: number, generation: number): Promise<HTMLImageElement> {
+    const cached = this.rasterSources.get(key);
+    if (cached) { this.rasterSources.delete(key); this.rasterSources.set(key, cached); return Promise.resolve(cached); }
+    const pending = this.rasterLoads.get(key); if (pending) return pending;
+    if ((this.rasterFailures.get(key) ?? 0) > Date.now()) return Promise.reject(new Error('Source raster temporarily unavailable'));
+    const request = this.loadImageWithTimeout(url, timeout).then(image => {
+      const bytes = this.calculateImageBytes(image);
+      if (generation === this.generation && bytes <= this.maxDecodedBytes) {
+        while (this.rasterSources.size && (this.rasterSources.size >= 4 || this.totalDecodedBytes + this.rasterSourceBytes + bytes > this.maxDecodedBytes)) this.evictRasterSource();
+        if (this.totalDecodedBytes + this.rasterSourceBytes + bytes <= this.maxDecodedBytes) {
+          this.rasterSources.set(key, image); this.rasterSourceBytes += bytes;
+        }
+      }
+      return image;
+    }).catch(error => {
+      if (generation === this.generation) {
+        this.rasterFailures.delete(key); this.rasterFailures.set(key, Date.now() + 60_000);
+        while (this.rasterFailures.size > 128) this.rasterFailures.delete(this.rasterFailures.keys().next().value!);
+      }
+      throw error;
+    });
+    this.rasterLoads.set(key, request);
+    void request.finally(() => { if (this.rasterLoads.get(key) === request) this.rasterLoads.delete(key); }).catch(() => {});
+    return request;
   }
 
   private static loadImageWithTimeout(

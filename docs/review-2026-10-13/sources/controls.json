@@ -1,0 +1,35 @@
+{
+  "mobile": {
+    "fitted": true,
+    "center": [
+      5.559256981806704e-17,
+      0.005361862462994037,
+      0.999534590927006
+    ],
+    "width": 390,
+    "scrollWidth": 390,
+    "attribution": {
+      "left": 8,
+      "right": 382,
+      "bottom": 836
+    },
+    "glError": 0,
+    "camera": [
+      -4.458101351985394e-17,
+      1.897268473996697,
+      1.1963247507212509
+    ]
+  },
+  "global": {
+    "url": "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/15/11545/17248.jpg",
+    "width": 256,
+    "height": 256,
+    "redMin": 0,
+    "redMax": 174,
+    "canvasCorsReadable": true
+  },
+  "creditsPage": true,
+  "errors": [],
+  "warnings": [],
+  "checksPassed": true
+}

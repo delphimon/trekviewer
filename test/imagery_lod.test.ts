@@ -3,14 +3,18 @@ import assert from 'node:assert';
 import * as THREE from 'three';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
+import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import { EsriWorldImageryProvider, USGSTopoProvider } from '../src/terrain/providers/ImageryProvider.ts';
 import type { GeoBounds } from '../src/gpx/TrackTypes.ts';
 
 describe('Stage M: Adaptive High-Resolution Map Imagery LOD', () => {
   let origImage: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     origImage = (globalThis as any).Image;
+    // These geometry/convergence tests use a single-tile fixture. Public-source
+    // metatile cropping and its memory budget have their own coverage.
+    await TextureProvider.setSatelliteProvider('esri');
     TileImageCache.clear();
 
     // Mock HTMLImageElement for headless testing
@@ -31,6 +35,7 @@ describe('Stage M: Adaptive High-Resolution Map Imagery LOD', () => {
   });
 
   afterEach(() => {
+    TextureProvider.resetForTesting();
     (globalThis as any).Image = origImage;
     TileImageCache.clear();
     vi.restoreAllMocks();

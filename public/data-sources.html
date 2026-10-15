@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrekViewer — Data sources &amp; licenses</title>
+<style>
+  :root{color-scheme:dark;font:16px/1.6 system-ui;background:#142031;color:#e2e8f0}
+  body{max-width:850px;margin:36px auto;padding:0 22px 40px}a{color:#69d8ff}h1,h2{line-height:1.2}h2{margin-top:32px}
+  li{margin:10px 0}small{color:#b1c1d4}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:12px;text-align:left;border-bottom:1px solid #496078}
+</style>
+<a href="./">← Back to TrekViewer</a>
+<h1>Data sources &amp; licenses</h1>
+<p>The default sources need no paid account or API key for personal, noncommercial use. Detail varies by location and survey date. A finer mesh or a higher tile zoom cannot add features missing from the original survey or photograph.</p>
+<table>
+  <thead><tr><th>Data</th><th>Preferred source</th><th>Coverage &amp; use</th></tr></thead>
+  <tbody>
+    <tr><td>Elevation</td><td><a href="https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer">USGS 3DEP best available</a></td><td>US coverage, including lidar-derived detail where available. Public domain. Local height samples are requested at approximately 1 m; High terrain meshes remain approximately 5 m.</td></tr>
+    <tr><td>Aerial imagery</td><td><a href="https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer">USGS NAIP Plus / high-resolution orthoimagery</a></td><td>Conterminous US. Public-domain NAIP and contributed orthophotography; the service describes source resolutions from 6 inches to 1 m, depending on location.</td></tr>
+    <tr><td>Aerial fallback</td><td><a href="https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer">GeoPlatform NAIP</a> and <a href="https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer">USGS NAIP</a></td><td>Conterminous US. Public-domain USDA imagery, typically 0.3–1 m. USGS's cached imagery provides the initial overview. Fine detail uses aerial exports, rather than enlarged overview tiles.</td></tr>
+    <tr><td>Global imagery</td><td><a href="https://cloudless.eox.at">EOxCloudless</a></td><td>Sentinel-2 mosaic, about 10 m. <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a>, free for personal and other noncommercial uses with attribution and ShareAlike conditions. <a href="https://cloudless.eox.at/documentation/license">EOX terms</a>.</td></tr>
+    <tr><td>Topo &amp; names</td><td>USGS The National Map / GNIS</td><td>US topographic maps and geographic names. No automatic Esri or OpenTopoMap fallback.</td></tr>
+    <tr><td>Elevation fallback</td><td><a href="https://registry.opendata.aws/terrain-tiles/">Mapzen Terrain Tiles on AWS</a></td><td>Global coverage assembled from regional sources. Native resolution and license vary; provider credits follow below. A packaged USGS 3DEP Enchantments survey is also available.</td></tr>
+  </tbody>
+</table>
+<p>Slow or missing data retains the available terrain and imagery. Fallback elevation retries the preferred source while remaining visible. PNG exports add no further JPEG compression; elevation is transferred as floating-point heights without compression error. These export formats do not recover detail already lost in the original data.</p>
+<p>There is no single globally finest free source. Local public surveys can exceed these general services, and high-resolution coverage is not universal. The app does not claim that every location has 1 m elevation or sub-metre imagery.</p>
+<h2>Credits</h2>
+<p>USGS 3DEP, USDA NAIP, USGS The National Map and Geographic Names Information System. Geographic data are resampled and draped onto TrekViewer's terrain. No agency endorsement is implied.</p>
+<p>EOxCloudless <a href="https://cloudless.eox.at">https://cloudless.eox.at</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0.</p>
+<p>Mapzen Terrain Tiles source credits, as specified in <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md">the dataset's attribution and license record</a>:</p>
+<ul>
+  <li>ArcticDEM terrain data DEM(s) were created from DigitalGlobe, Inc., imagery and funded under National Science Foundation awards 1043681, 1559691, and 1542736.</li>
+  <li>Australia terrain data © Commonwealth of Australia (Geoscience Australia) 2017.</li>
+  <li>Austria terrain data © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich.</li>
+  <li>Canada terrain data contains information licensed under the Open Government Licence – Canada.</li>
+  <li>Europe terrain data produced using Copernicus data and information funded by the European Union – EU-DEM layers.</li>
+  <li>Global ETOPO1 terrain data: U.S. National Oceanic and Atmospheric Administration.</li>
+  <li>Mexico terrain data source: INEGI, Continental relief, 2016.</li>
+  <li>New Zealand terrain data Copyright 2011 Crown copyright (c) Land Information New Zealand and the New Zealand Government (All rights reserved).</li>
+  <li>Norway terrain data © Kartverket.</li>
+  <li>United Kingdom terrain data © Environment Agency copyright and/or database right 2015. All rights reserved.</li>
+  <li>United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.</li>
+</ul>
+<h2>Optional providers</h2>
+<p>Esri World Imagery and Bing via Cesium Ion are available only through explicit configuration. Their account, usage, and imagery rights have separate terms. The default configuration does not select them, even when an optional token exists, and never falls back to them.</p>
+<h2>Software notices</h2>
+<p><a href="licenses/NOTICE.txt">Third-party notices</a> · <a href="licenses/lerc-LICENSE.txt">LERC — Apache License 2.0</a> · <a href="licenses/three-LICENSE.txt">Three.js — MIT License</a></p>
+<small>Source and license review: October 14, 2026. Availability, dates and source coverage can change. Keep the original attribution when sharing imagery or rendered views.</small>
+</html>

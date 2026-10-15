@@ -1,0 +1,173 @@
+{
+  "retrieved": "2026-10-15T05:11:15.303Z",
+  "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.76%2C%22y%22%3A46.852%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.46%2C%22y%22%3A1.46%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false",
+  "status": 200,
+  "result": {
+    "objectId": 0,
+    "name": "Pixel",
+    "value": "4377.15",
+    "location": {
+      "x": -13554261.19898899,
+      "y": 5917950.075278333,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      }
+    },
+    "properties": {
+      "Values": [
+        "NoData",
+        "4377.15",
+        "4376.23",
+        "4373.38"
+      ]
+    },
+    "catalogItems": {
+      "objectIdFieldName": "OBJECTID",
+      "features": [
+        {
+          "attributes": {
+            "OBJECTID": 8856,
+            "Name": "ned19_n47x00_w122x00_wa_lewis_2009",
+            "MinPS": 0,
+            "MaxPS": 27,
+            "LowPS": 3.435786885024356,
+            "HighPS": 16,
+            "Category": 1,
+            "Tag": "Dataset",
+            "GroupName": "",
+            "ProductName": "USGS_3DEP",
+            "CenterX": -13567064.571199737,
+            "CenterY": 5921719.398831249,
+            "ZOrder": null,
+            "Shape_Length": 137285.49890000172,
+            "Shape_Area": 1136350818.250414,
+            "Dataset_ID": "usgs",
+            "Best": 160629,
+            "DEM_Type": 1,
+            "Source": "USGS",
+            "VerticalDatum": "North American Vertical Datum of 1988 (NAVD 88)",
+            "AcquisitionDate": 1248652800000,
+            "URL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n47x00_w122x00_wa_lewis_2009.zip",
+            "Metadata": "D:\\USGS_3DEP\\data\\19\\ned19_n47x00_w122x00_wa_lewis_2009\\ned19_n47x00_w122x00_wa_lewis_2009_meta.xml",
+            "pubdate": 2011,
+            "title": "USGS NED ned19_n47x00_w122x00_wa_lewis_2009 1/9 arc-second 2011 15 x 15 minute IMG",
+            "Resolution_X": "0.00001",
+            "Resolution_Y": 0.00001,
+            "Cdate": null,
+            "StartDate": 20090718,
+            "EndDate": "20090727"
+          }
+        },
+        {
+          "attributes": {
+            "OBJECTID": 8857,
+            "Name": "ned19_n47x00_w122x00_wa_mounttrainier_2008",
+            "MinPS": 0,
+            "MaxPS": 27,
+            "LowPS": 3.435786885024356,
+            "HighPS": 16,
+            "Category": 1,
+            "Tag": "Dataset",
+            "GroupName": "",
+            "ProductName": "USGS_3DEP",
+            "CenterX": -13567064.571199737,
+            "CenterY": 5921719.398831249,
+            "ZOrder": null,
+            "Shape_Length": 137285.49890000172,
+            "Shape_Area": 1136350818.250414,
+            "Dataset_ID": "usgs",
+            "Best": 170355,
+            "DEM_Type": 1,
+            "Source": "USGS",
+            "VerticalDatum": "North American Vertical Datum of 1988 (NAVD 88)",
+            "AcquisitionDate": 1199923200000,
+            "URL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n47x00_w122x00_wa_mounttrainier_2008.zip",
+            "Metadata": "D:\\USGS_3DEP\\data\\19\\ned19_n47x00_w122x00_wa_mounttrainier_2008\\ned19_n47x00_w122x00_wa_mounttrainier_2008_meta.xml",
+            "pubdate": 2010,
+            "title": "USGS NED ned19_n47x00_w122x00_wa_mounttrainier_2008 1/9 arc-second 2010 15 x 15 minute IMG",
+            "Resolution_X": "0.00001",
+            "Resolution_Y": 0.00001,
+            "Cdate": null,
+            "StartDate": 200709,
+            "EndDate": "200810"
+          }
+        },
+        {
+          "attributes": {
+            "OBJECTID": 4919,
+            "Name": "n47w122",
+            "MinPS": 0,
+            "MaxPS": 27,
+            "LowPS": 10.307360350155633,
+            "HighPS": 16,
+            "Category": 1,
+            "Tag": "Dataset",
+            "GroupName": "",
+            "ProductName": "USGS_3DEP",
+            "CenterX": -13525319.7459834,
+            "CenterY": 5861213.386041715,
+            "ZOrder": null,
+            "Shape_Length": 546695.5744000064,
+            "Shape_Area": 18043165210.428463,
+            "Dataset_ID": "usgs",
+            "Best": 53042,
+            "DEM_Type": 1,
+            "Source": "USGS",
+            "VerticalDatum": "North American Vertical Datum of 1988 (NAVD 88)",
+            "AcquisitionDate": 1598054400000,
+            "URL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n47w122/USGS_13_n47w122.tif",
+            "Metadata": "D:\\USGS_3DEP\\data\\13\\n47w122\\USGS_13_n47w122.xml",
+            "pubdate": 20220919,
+            "title": "USGS 1/3 Arc Second n47w122 20220919",
+            "Resolution_X": "9.25925926922017E-05",
+            "Resolution_Y": -0.00009259259269220167,
+            "Cdate": null,
+            "StartDate": 20191003,
+            "EndDate": "20200822"
+          }
+        },
+        {
+          "attributes": {
+            "OBJECTID": 240,
+            "Name": "n47w122",
+            "MinPS": 0,
+            "MaxPS": 150,
+            "LowPS": 30.92208098137158,
+            "HighPS": 16,
+            "Category": 1,
+            "Tag": "Dataset",
+            "GroupName": "",
+            "ProductName": "USGS_3DEP",
+            "CenterX": -13525319.745992135,
+            "CenterY": 5861215.042359426,
+            "ZOrder": null,
+            "Shape_Length": 547909.1631000094,
+            "Shape_Area": 18123360175.115818,
+            "Dataset_ID": "usgs",
+            "Best": 60567,
+            "DEM_Type": 1,
+            "Source": "USGS",
+            "VerticalDatum": "North American Vertical Datum of 1988 (NAVD 88)",
+            "AcquisitionDate": 1598054400000,
+            "URL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n47w122/USGS_1_n47w122.tif",
+            "Metadata": "D:\\USGS_3DEP\\data\\1\\n47w122\\USGS_1_n47w122.xml",
+            "pubdate": 20220919,
+            "title": "USGS 1 Arc Second n47w122 20220919",
+            "Resolution_X": "2.77777777786999E-04",
+            "Resolution_Y": -0.000277777777786999,
+            "Cdate": null,
+            "StartDate": 20191003,
+            "EndDate": "20200822"
+          }
+        }
+      ]
+    },
+    "catalogItemVisibilities": [
+      1,
+      0,
+      0,
+      0
+    ]
+  }
+}

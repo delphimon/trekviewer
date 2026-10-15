@@ -214,11 +214,11 @@ describe('Stage T5: Maximum Imagery Quality & Active XR Camera Suite', () => {
       expect(provider.maxZoom).toBe(19);
     });
 
-    it('falls back to Esri World Imagery when Cesium Ion provider is requested without a valid token', async () => {
+    it('falls back to public imagery when Cesium Ion provider is requested without a valid token', async () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const success = await TextureProvider.setSatelliteProvider('cesium-bing', '');
       expect(success).toBe(false);
-      expect(TextureProvider.getActiveSatelliteProvider().id).toBe('esri-satellite');
+      expect(TextureProvider.getActiveSatelliteProvider().id).toBe('public-naip');
       expect(warnSpy).toHaveBeenCalled();
     });
 

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
 import { CesiumBingImageryProvider, EsriWorldImageryProvider } from '../src/terrain/providers/ImageryProvider.ts';
+import { PublicImageryProvider } from '../src/terrain/providers/PublicImageryProvider.ts';
 
 describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful Sources', () => {
   let origFetch: any;
@@ -124,7 +125,7 @@ describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful So
   });
 
   describe('Section 65: Provider Failure Test (Global fallback without mixed Bing/Esri layer)', () => {
-    it('falls back to Esri globally before route loading when Cesium fails, preventing mixed layers', async () => {
+    it('falls back to public sources globally before route loading when Cesium fails, preventing mixed layers', async () => {
       const requestedTileUrls: string[] = [];
 
       // 1. Mock Cesium fetch error (e.g. 500 server error)
@@ -163,27 +164,28 @@ describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful So
       const state = TextureProvider.getProviderInitState();
       expect(state.initialized).toBe(true);
       expect(state.requestedProvider).toBe('cesium-bing');
-      expect(state.activeProvider).toBe('esri-satellite');
+      expect(state.activeProvider).toBe('public-naip');
       expect(state.fallbackReason).toBe('Cesium unavailable');
 
       // 2. Fetch several tiles from the active satellite provider
       const provider = TextureProvider.getActiveSatelliteProvider();
-      expect(provider.id).toBe('esri-satellite');
+      expect(provider.id).toBe('public-naip');
 
       await TileImageCache.loadTile(provider, 14, 50, 60);
       await TileImageCache.loadTile(provider, 14, 51, 60);
       await TileImageCache.loadTile(provider, 14, 52, 60);
 
-      // 3. Verify all tile requests went strictly to Esri, 0 requests went to Bing
+      // 3. Verify all tile requests went strictly to public sources, 0 requests went to Bing
       expect(requestedTileUrls.length).toBe(3);
       for (const url of requestedTileUrls) {
-        expect(url).toContain('server.arcgisonline.com');
+        expect(url).toContain('tiles.maps.eox.at');
+        expect(url).not.toContain('arcgisonline.com');
         expect(url).not.toContain('virtualearth.net');
       }
 
       // Verify UI attribution reflects honest fallback
       const satAttr = TextureProvider.getAttributionForStyle('satellite');
-      expect(satAttr).toBe('Esri World Imagery • up to Z19 (fallback: Cesium unavailable)');
+      expect(satAttr).toBe(new PublicImageryProvider().attribution + ' (Cesium unavailable)');
     });
   });
 
@@ -193,7 +195,7 @@ describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful So
       const success = await TextureProvider.setSatelliteProvider('cesium-bing', 'test-token-forbidden');
       expect(success).toBe(false);
       expect(TextureProvider.getProviderInitState()).toMatchObject({
-        activeProvider: 'esri-satellite',
+        activeProvider: 'public-naip',
         fallbackReason: 'Cesium access denied (403)',
       });
     });
@@ -272,9 +274,9 @@ describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful So
       await TextureProvider.initializeFromEnvironment();
       const state = TextureProvider.getProviderInitState();
       expect(state.requestedProvider).toBe('auto');
-      expect(state.activeProvider).toBe('esri-satellite');
+      expect(state.activeProvider).toBe('public-naip');
       expect(state.fallbackReason).toBeUndefined();
-      expect(TextureProvider.getAttributionForStyle('satellite')).toBe('Esri World Imagery • up to Z19');
+      expect(TextureProvider.getAttributionForStyle('satellite')).toBe(new PublicImageryProvider().attribution);
     });
 
     it('returns honest state and attribution for cesium-bing with missing token', async () => {
@@ -286,10 +288,10 @@ describe('Stage U5: Provider Diagnostics, Explicit Awaited Init, and Truthful So
 
       const state = TextureProvider.getProviderInitState();
       expect(state.requestedProvider).toBe('cesium-bing');
-      expect(state.activeProvider).toBe('esri-satellite');
+      expect(state.activeProvider).toBe('public-naip');
       expect(state.fallbackReason).toBe('Missing or invalid Cesium ion token');
       expect(TextureProvider.getAttributionForStyle('satellite')).toBe(
-        'Esri World Imagery • up to Z19 (fallback: Missing or invalid Cesium ion token)'
+        new PublicImageryProvider().attribution + ' (Missing or invalid Cesium ion token)'
       );
     });
   });

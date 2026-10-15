@@ -143,6 +143,7 @@ export class TrekViewerApp {
     QualityProfileManager.setActiveProfile(initialProfile);
     TileImageCache.applyProfile(initialProfile);
     const demParams = new URLSearchParams(window.location.search);
+    ElevationTileService.setBestAvailableEnabled(demParams.get('bestDem') !== '0');
     ElevationTileService.setRegionalDEMEnabled(demParams.get('regionalDem') !== '0');
     this.session.setQualityProfile(initialProfile.name);
 
@@ -349,7 +350,7 @@ export class TrekViewerApp {
         this.profileRecorder?.mark(performance.now(), 'texture-style', state.textureStyle);
         this.overlay.setTextureStyle(state.textureStyle);
         this.activeTrek?.setTextureStyle(state.textureStyle);
-        const attr = TextureProvider.getAttributionForStyle(state.textureStyle);
+        const attr = TextureProvider.getAttributionForStyle(state.textureStyle, this.activeTrek?.terrainResult.terrainGeoBounds);
         this.session.setAttribution(attr);
         this.syncHUDState();
       }
@@ -367,8 +368,8 @@ export class TrekViewerApp {
         this.spatialHUD?.setVerticalExaggeration(state.verticalExaggeration);
       }
       if (state.attribution !== prev.attribution || state.terrainQuality !== prev.terrainQuality) {
-        this.overlay.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats);
-        this.spatialHUD?.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats);
+        this.overlay.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats, this.activeTrek?.terrainResult.demGrid?.source);
+        this.spatialHUD?.setMetaInfo(state.attribution, state.terrainQuality, this.activeTrek?.track.elevationProvenanceStats, this.activeTrek?.terrainResult.demGrid?.source);
       }
       if (state.loadingPhase !== prev.loadingPhase) {
         this.overlay.setXREnabled(state.loadingPhase === 'ready' || this.activeTrek !== null);
@@ -492,16 +493,16 @@ export class TrekViewerApp {
     this.session.setProgress(0, track.points[0]?.ele || track.minElevation);
     this.session.setPlayback(false);
     this.session.setTerrainQuality(newTrek.terrainResult.terrainQuality);
-    const attr = TextureProvider.getAttributionForStyle(state.textureStyle);
+    const attr = TextureProvider.getAttributionForStyle(state.textureStyle, newTrek.terrainResult.terrainGeoBounds);
     this.session.setAttribution(attr);
 
     this.overlay.setTextureStyle(state.textureStyle);
     this.overlay.setTrailColorMode(state.trailColorMode);
     this.overlay.setPlaybackSpeed(state.playbackSpeed);
     this.overlay.setVerticalExaggeration(state.verticalExaggeration);
-    this.overlay.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats);
+    this.overlay.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats, newTrek.terrainResult.demGrid?.source);
     this.spatialHUD?.setVerticalExaggeration(state.verticalExaggeration);
-    this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats);
+    this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats, newTrek.terrainResult.demGrid?.source);
   }
 
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
@@ -877,6 +878,10 @@ export class TrekViewerApp {
       baseDemZoom: this.activeTrek?.terrainResult.demGrid?.zoom ?? 0,
       regionalBaseDemZoom: this.activeTrek?.terrainResult.regionalGrid?.zoom ?? 0,
       regionalBaseTiles: this.activeTrek?.terrainResult.regionalGrid?.quality?.regionalTiles ?? 0,
+      baseElevationSource: this.activeTrek?.terrainResult.demGrid?.source ?? 'unavailable',
+      localElevationSource: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.source ?? 'unavailable',
+      localElevationSampleSpacingM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.sampleSpacingMeters ?? 0,
+      residentUSGSRasterMB: (this.terrainResult?.localChunks ?? []).reduce((bytes, chunk) => bytes + (chunk.currentGrid.rasterBounds ? chunk.currentGrid.data.byteLength : 0), 0) / (1024 * 1024),
       visibleLocalDemZoom: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.currentGrid.zoom ?? 0,
       visibleLocalCellXM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.getCellSize().x ?? 0,
       visibleLocalCellZM: this.activeTrek?.localTerrainStreamer?.activeVisibleChunk?.getCellSize().z ?? 0,

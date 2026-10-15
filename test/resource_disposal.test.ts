@@ -143,7 +143,7 @@ describe('Resource Disposal Lifecycle (Stage E)', () => {
       assert.ok(hud.group);
       assert.ok(hud.group.children.length > 0, 'HUD must contain meshes');
       assert.strictEqual((hud as any).canvas.width, 1024);
-      assert.strictEqual((hud as any).canvas.height, 740);
+      assert.strictEqual((hud as any).canvas.height, 768);
 
       let hudTexDisposed = false;
       (hud as any).texture.addEventListener('dispose', () => {

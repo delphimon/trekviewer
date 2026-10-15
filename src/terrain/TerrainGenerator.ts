@@ -121,7 +121,7 @@ export class TerrainGenerator {
     }
 
     let regionalGrid: ElevationGrid | null = null;
-    if (regionalBase) {
+    if (regionalBase && !demGrid?.rasterBounds) {
       onProgress?.('Loading regional elevation detail...', 0.43);
       try {
         regionalGrid = await ElevationTileService.fetchRegionalElevationGrid(terrainGeoBounds, signal);

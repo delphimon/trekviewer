@@ -20,7 +20,7 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
       fillRect: vi.fn(),
       clearRect: vi.fn(),
       createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
-      getImageData: (x: number, y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+      getImageData: (x: number, y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(255) }),
       putImageData: vi.fn(),
     };
 
@@ -58,8 +58,8 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
         public src: string = '';
         public onload: (() => void) | null = null;
         public onerror: (() => void) | null = null;
-        public width: number = 256;
-        public height: number = 256;
+        public width: number = 1024;
+        public height: number = 1024;
         constructor() {
           setTimeout(() => {
             if (this.onload) this.onload();
@@ -114,8 +114,8 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
         public src: string = '';
         public onload: (() => void) | null = null;
         public onerror: (() => void) | null = null;
-        public width: number = 256;
-        public height: number = 256;
+        public width: number = 1024;
+        public height: number = 1024;
         constructor() {
           setTimeout(() => {
             if (this.onload) this.onload();
@@ -155,8 +155,8 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
         public src: string = '';
         public onload: (() => void) | null = null;
         public onerror: (() => void) | null = null;
-        public width: number = 256;
-        public height: number = 256;
+        public width: number = 1024;
+        public height: number = 1024;
         constructor() {
           setTimeout(() => {
             if (this.onload) this.onload();
@@ -207,7 +207,7 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
       const labelTile = { id: 'label-tile-14-1-2' };
 
       vi.spyOn(TileImageCache, 'loadTile').mockImplementation(async (provider: any) => {
-        if (provider.id === 'esri-labels') {
+        if (provider.id === 'usgs-names') {
           return labelTile as any;
         }
         return satTile as any;
@@ -242,7 +242,7 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
       const satTile = { id: 'sat-tile-only' };
 
       vi.spyOn(TileImageCache, 'loadTile').mockImplementation(async (provider: any) => {
-        if (provider.id === 'esri-labels') {
+        if (provider.id === 'usgs-names') {
           throw new Error('404 Not Found (wilderness area)');
         }
         return satTile as any;
@@ -257,7 +257,7 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
 
     it('loadPatchImage rejects if the base satellite tile fails to load', async () => {
       vi.spyOn(TileImageCache, 'loadTile').mockImplementation(async (provider: any) => {
-        if (provider.id === 'esri-satellite') {
+        if (provider.id === 'public-naip') {
           throw new Error('Network timeout');
         }
         return {} as any;
@@ -271,8 +271,8 @@ describe('Stage R3: High-Resolution Hybrid Patches & Base Upload Optimization', 
         public src: string = '';
         public onload: (() => void) | null = null;
         public onerror: (() => void) | null = null;
-        public width: number = 256;
-        public height: number = 256;
+        public width: number = 1024;
+        public height: number = 1024;
         constructor() {
           setTimeout(() => {
             if (this.onload) this.onload();

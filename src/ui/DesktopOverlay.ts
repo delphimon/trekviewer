@@ -2,6 +2,7 @@ import { RouteManifestItem, TrackStats, GPXWaypoint, ViewMode, TextureStyle, Tra
 import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
 import type { ComfortPreferences } from '../xr/ComfortPreferences.ts';
+import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -493,6 +494,7 @@ export class DesktopOverlay {
               <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high" aria-pressed="true">⚡ High</button>
               <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced" aria-pressed="false">🌱 Balanced</button>
             </div>
+            <a href="${resolveAssetUrl('data-sources.html')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:#7dd3fc;font-size:12px;">Data sources &amp; licenses ↗</a>
 
             <h3>VR Comfort</h3>
             <label class="comfort-option">Movement
@@ -1060,20 +1062,20 @@ export class DesktopOverlay {
     }
   }
 
-  public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats): void {
+  public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats, elevationSource?: string): void {
     let metaEl = document.getElementById('desktopAttribution');
     if (!metaEl) {
       metaEl = document.createElement('div');
       metaEl.id = 'desktopAttribution';
       metaEl.className = 'desktop-attribution';
-      metaEl.style.cssText = 'position:fixed;bottom:8px;left:8px;font-family:monospace;font-size:11px;color:#94a3b8;background:rgba(15,23,42,0.85);padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);z-index:99999;pointer-events:none;';
+      metaEl.style.cssText = 'position:fixed;bottom:8px;left:8px;max-width:calc(100vw - 16px);box-sizing:border-box;overflow-wrap:anywhere;font-family:monospace;font-size:10px;color:#94a3b8;background:rgba(15,23,42,0.85);padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);z-index:99999;pointer-events:none;';
       document.body.appendChild(metaEl);
     }
     const qualityLabel = terrainQuality === 'dem' ? 'DEM' : terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
     const provStr = provenance && (provenance.demPercent > 0 || provenance.interpolatedPercent > 0)
       ? ` (${provenance.gpxPercent}% GPX, ${provenance.demPercent}% DEM${provenance.interpolatedPercent > 0 ? `, ${provenance.interpolatedPercent}% interp` : ''})`
       : '';
-    metaEl.textContent = `Elevation: ${qualityLabel}${provStr}${attribution ? ` | Imagery: ${attribution}` : ''}`;
+    metaEl.textContent = `Elevation: ${qualityLabel}${elevationSource ? ` • ${elevationSource}` : ''}${provStr}${attribution ? ` | Imagery: ${attribution}` : ''}`;
   }
 
   public dispose(): void {

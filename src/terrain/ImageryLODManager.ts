@@ -1233,8 +1233,8 @@ export class ImageryLODManager {
   }
 
   /** Prepare imagery for a hidden child; its publisher swaps arrays in the same frame as terrain. */
-  public async prepareSurfacePromotion(candidate: LocalTerrainChunk): Promise<() => boolean> {
-    return this.prepareSurfaceChange(candidate.getSurfaceBounds(), candidate);
+  public async prepareSurfacePromotion(candidate: LocalTerrainChunk, replacing?: LocalTerrainChunk): Promise<() => boolean> {
+    return this.prepareSurfaceChange(candidate.getSurfaceBounds(), candidate, replacing ? [replacing] : []);
   }
 
   /** Keep the old children visible until parent imagery is ready to replace them. */
@@ -1726,7 +1726,7 @@ export class ImageryLODManager {
     profileTiming?: (phase: 'imageryRaycast' | 'imagerySelection' | 'imageryReconcile', elapsedMs: number) => void,
   ): void {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
-    this.providerMaxZoom = provider.maxZoom;
+    this.providerMaxZoom = provider.getMaxZoomForLocation?.(this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon) ?? provider.maxZoom;
     const centerLat = this.options.terrainGeoBounds.centerLat;
 
     const metrics = getViewMetrics(camera, renderer);
@@ -1849,7 +1849,7 @@ export class ImageryLODManager {
       broadHigh ? coverageCenter.lat : targetGeo.lat,
       metrics.verticalFov,
       metrics.viewportHeightPx,
-      provider.maxZoom,
+      this.providerMaxZoom,
       this.currentTargetZoom,
       this.promotionZoomBias
     );
@@ -1942,7 +1942,7 @@ export class ImageryLODManager {
     profileTiming?: (phase: 'imageryRaycast' | 'imagerySelection' | 'imageryReconcile', elapsedMs: number) => void
   ): void {
     const provider = TextureProvider.getProviderForStyle(this.currentTextureStyle);
-    this.providerMaxZoom = provider.maxZoom;
+    this.providerMaxZoom = provider.getMaxZoomForLocation?.(this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon) ?? provider.maxZoom;
 
     const innerZoom = Math.min(this.providerMaxZoom, 19);
     const midZoom = Math.max(13, innerZoom - 1);

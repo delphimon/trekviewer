@@ -24,7 +24,7 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       fillRect: vi.fn(),
       clearRect: vi.fn(),
       createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
-      getImageData: (x: number, y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+      getImageData: (x: number, y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(255) }),
       putImageData: vi.fn(),
     };
 
@@ -45,8 +45,8 @@ describe('Stage S1: 1:1 First-Person Imagery Profile & Directional Prefetch Suit
       public src: string = '';
       public onload: (() => void) | null = null;
       public onerror: (() => void) | null = null;
-      public width: number = 256;
-      public height: number = 256;
+      public width: number = 1024;
+      public height: number = 1024;
       constructor() {
         setTimeout(() => {
           if (this.onload) this.onload();
