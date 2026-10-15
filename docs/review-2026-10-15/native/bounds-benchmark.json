@@ -1,0 +1,18 @@
+{
+  "condition": "Actual Quest 3 JavaScript, outside XR, production geometry publisher vs previous rescan path using current live patch arrays. Exact current helper injected from source. No rendered frames or GPU timings measured.",
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36",
+  "patches": 24,
+  "vertices": 512877,
+  "identicalBounds": true,
+  "previous": {
+    "medianMs": 21.599999994039536,
+    "p95Ms": 22.80000001192093,
+    "samples": 45
+  },
+  "current": {
+    "medianMs": 0.19999998807907104,
+    "p95Ms": 0.20000001788139343,
+    "samples": 45
+  },
+  "visibility": "visible"
+}

@@ -95,6 +95,7 @@ export class SceneManager {
     // Handle Window Resize
     this.onWindowResizeBound = this.onWindowResize.bind(this);
     window.addEventListener('resize', this.onWindowResizeBound);
+    this.renderer.xr.addEventListener('sessionend', this.onWindowResizeBound);
   }
 
   public setPassthrough(active: boolean): void {
@@ -211,6 +212,9 @@ export class SceneManager {
   }
 
   private onWindowResize(): void {
+    // The XR runtime owns the framebuffer while presenting. Apply the current
+    // panel dimensions on session end, after Three.js restores its desktop size.
+    if (this.renderer.xr.isPresenting) return;
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -232,6 +236,7 @@ export class SceneManager {
   public dispose(): void {
     this.renderer.setAnimationLoop(null);
     window.removeEventListener('resize', this.onWindowResizeBound);
+    this.renderer.xr.removeEventListener('sessionend', this.onWindowResizeBound);
     disposeObject3D(this.skyMesh);
     disposeObject3D(this.vignette);
     disposeObject3D(this.dioramaRoot);

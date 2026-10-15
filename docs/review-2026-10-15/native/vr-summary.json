@@ -1,0 +1,111 @@
+{
+  "build": {
+    "id": "bbe298e-2026-10-15T18:06:01.413Z",
+    "sha": "bbe298e2cc46240615ac64739a95390a9da32999",
+    "shortSha": "bbe298e",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-15T18:06:01.413Z",
+    "label": "TrekViewer 1.0.0 • bbe298e"
+  },
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36",
+  "condition": "User-driven Quest 3 VR tabletop capture on the published baseline. Route position, scale, head pose and exaggeration changed during the run; not a controlled FPS comparison.",
+  "xrSamples": 74,
+  "highResolutionTrackedPeak": 16,
+  "xrSamplesWithHighResolution": 4,
+  "lostResidentFineTiles": [],
+  "evictedFineTiles": [],
+  "contextLost": false,
+  "exceptions": [],
+  "consoleMessages": [
+    {
+      "type": "warning",
+      "text": "THREE.WebGLRenderer: KHR_parallel_shader_compile extension not supported."
+    },
+    {
+      "type": "warning",
+      "text": "THREE.WebGLRenderer: Can't change size while VR device is presenting."
+    }
+  ],
+  "networkFailures": [
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    },
+    {
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true,
+      "type": "Image"
+    }
+  ],
+  "targetHz": 72,
+  "callbackHz": {
+    "min": 36.89662488123897,
+    "median": 61.65764039242545,
+    "max": 71.48171527926695,
+    "samples": 74
+  },
+  "steadyCallbackHz": {
+    "min": 36.89662488123897,
+    "median": 61.80225507310395,
+    "max": 71.43629821184739,
+    "samples": 60
+  },
+  "steadyCpuSubmitP95Ms": {
+    "min": 15.599999994039536,
+    "median": 17.899999976158142,
+    "max": 1164.5999999940395,
+    "samples": 60
+  },
+  "maxDrawCalls": 606,
+  "maxTriangles": 4999732,
+  "maxResidentImagery": 386,
+  "maxLocalVertices": 602176,
+  "sources": [
+    "USGS 3DEP best available (public domain)"
+  ],
+  "meshCellXM": {
+    "min": 4.979242090119025,
+    "median": 4.97924209011903,
+    "max": 4.979242090119034,
+    "samples": 74
+  },
+  "meshCellZM": {
+    "min": 4.969121167286971,
+    "median": 4.969121167286971,
+    "max": 4.969121167286976,
+    "samples": 74
+  },
+  "limits": "Callbacks and JavaScript submission only; no measured GPU completion, compositor drops or sustained thermal verdict. Only 16 published Z19 tiles were observed; this is not proof of full-view Z19 coverage."
+}

@@ -17,6 +17,22 @@ export interface SurfacePromotionInput {
 }
 export interface SurfacePatchData {
   key: string; positions: Float32Array; normals: Float32Array; uvs: Float32Array; indices: Uint16Array | Uint32Array;
+  boundsMin: [number, number, number]; boundsMax: [number, number, number];
+  sphereCenter: [number, number, number]; sphereRadius: number;
+}
+
+/** Reuse the bounds already computed with the prepared Float32 positions.
+ * Publication must not rescan every refined vertex on the XR render thread.
+ */
+export function createPromotedPatchGeometry(data: SurfacePatchData): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
+  geometry.setIndex(new THREE.BufferAttribute(data.indices, 1));
+  geometry.boundingBox = new THREE.Box3(new THREE.Vector3().fromArray(data.boundsMin), new THREE.Vector3().fromArray(data.boundsMax));
+  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3().fromArray(data.sphereCenter), data.sphereRadius);
+  return geometry;
 }
 
 export function snapshotSurfaceMesh(mesh: THREE.Mesh): SurfaceMeshSnapshot {
@@ -56,7 +72,9 @@ export function buildPromotedSurfacePatches(input: SurfacePromotionInput): Surfa
         positions: geometry.attributes.position.array as Float32Array,
         normals: geometry.attributes.normal.array as Float32Array,
         uvs: geometry.attributes.uv.array as Float32Array,
-        indices: geometry.index!.array as Uint16Array | Uint32Array };
+        indices: geometry.index!.array as Uint16Array | Uint32Array,
+        boundsMin: geometry.boundingBox!.min.toArray(), boundsMax: geometry.boundingBox!.max.toArray(),
+        sphereCenter: geometry.boundingSphere!.center.toArray(), sphereRadius: geometry.boundingSphere!.radius };
       geometry.dispose();
       return result;
     });

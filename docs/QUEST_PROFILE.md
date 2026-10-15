@@ -2,6 +2,8 @@
 
 TrekViewer has an opt-in, local session recorder in the production build. It needs no account or telemetry service. The JSON remains in Quest Browser until you press **Download JSON**; the app does not upload it. The report contains the route name, browser user agent, build ID, and performance counters, so review it before sharing.
 
+The [October 15 Quest 3 checkpoint](review-2026-10-15/NATIVE.md) records a physical-headset VR baseline, its measurement limits, and an isolated native CPU comparison for terrain publication. It also distinguishes the completed VR capture from the pending MR and sustained 1:1 checks.
+
 ## Record a comparable run
 
 1. Build and deploy the exact source you want to measure to an HTTPS origin. Save `dist/build-info.json` with the results. Open the hosted app in Quest Browser with `?profile=1` appended to its URL (use `&profile=1` if the URL already has a query string). Avoid `?debug=1` for baseline measurements because its overlays and logging add work.

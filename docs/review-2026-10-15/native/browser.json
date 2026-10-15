@@ -1,0 +1,102 @@
+{
+  "condition": "Actual Edge production worker promotion with live sources; desktop rendering, no native XR.",
+  "chunks": 4,
+  "checked": [
+    {
+      "key": "satellite:13:1325:2885",
+      "vertices": 20877,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1326:2885",
+      "vertices": 4036,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1325:2886",
+      "vertices": 5360,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1324:2885",
+      "vertices": 1692,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1324:2884",
+      "vertices": 1356,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1325:2884",
+      "vertices": 3228,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1326:2884",
+      "vertices": 3228,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1324:2886",
+      "vertices": 1169,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1328:2885",
+      "vertices": 2528,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1328:2884",
+      "vertices": 2021,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1326:2886",
+      "vertices": 2784,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1327:2885",
+      "vertices": 22749,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1327:2884",
+      "vertices": 3228,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1327:2886",
+      "vertices": 2784,
+      "boxEqual": true,
+      "sphereEqual": true
+    },
+    {
+      "key": "satellite:13:1328:2886",
+      "vertices": 1743,
+      "boxEqual": true,
+      "sphereEqual": true
+    }
+  ],
+  "restoredAspect": 1.5018270401948843,
+  "expectedAspect": 1.5018270401948843,
+  "glError": 0,
+  "errors": [],
+  "warnings": [],
+  "checksPassed": true
+}

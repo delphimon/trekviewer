@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
 import { createTileUVMapper } from './TileUV.ts';
-import { snapshotSurfaceMesh, buildPromotedSurfacePatches, type SurfacePatchData } from './SurfacePromotion.ts';
+import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGeometry, type SurfacePatchData } from './SurfacePromotion.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
@@ -1305,12 +1305,7 @@ export class ImageryLODManager {
       for (const data of result) {
         const patch = this.patches.get(data.key);
         if (!patch || !patches.includes(patch)) continue;
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
-        geometry.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3));
-        geometry.setAttribute('uv', new THREE.BufferAttribute(data.uvs, 2));
-        geometry.setIndex(new THREE.BufferAttribute(data.indices, 1));
-        geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+        const geometry = createPromotedPatchGeometry(data);
         patch.mesh.geometry.dispose(); patch.mesh.geometry = geometry;
         this.preparedSurfaceKeys.add(data.key);
         if (patch.outlineMesh) {

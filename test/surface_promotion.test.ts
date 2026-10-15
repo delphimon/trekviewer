@@ -1,6 +1,6 @@
 import { it, expect, vi, afterEach } from 'vitest';
 import * as THREE from 'three';
-import { buildPromotedSurfacePatches, snapshotSurfaceMesh } from '../src/terrain/SurfacePromotion.ts';
+import { buildPromotedSurfacePatches, createPromotedPatchGeometry, snapshotSurfaceMesh } from '../src/terrain/SurfacePromotion.ts';
 import { buildSurfacePatchGeometry } from '../src/terrain/SurfacePatchGeometry.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
@@ -38,7 +38,37 @@ it('prepares the same clipped triangles, normals and Mercator UVs as the rendere
   expect(actual.normals).toEqual(expected.attributes.normal.array);
   expect(actual.uvs).toEqual(expected.attributes.uv.array);
   expect(actual.indices).toEqual(expected.index!.array);
+  expect(actual.boundsMin).toEqual(expected.boundingBox!.min.toArray());
+  expect(actual.boundsMax).toEqual(expected.boundingBox!.max.toArray());
+  expect(actual.sphereCenter).toEqual(expected.boundingSphere!.center.toArray());
+  expect(actual.sphereRadius).toBe(expected.boundingSphere!.radius);
   expected.dispose(); chunk.dispose(); base.geometry.dispose();
+});
+
+it.each(['flat', 'exaggerated', 'empty'])('preserves exact culling bounds through worker transfer for %s geometry', kind => {
+  const { group, base, chunk, tile } = fixture();
+  if (kind === 'exaggerated') chunk.setVerticalExaggeration(3);
+  base.geometry.userData.surfaceHoles = [chunk.getSurfaceBounds()]; group.add(chunk.mesh);
+  const [data] = buildPromotedSurfacePatches({sources:[snapshotSurfaceMesh(base),snapshotSurfaceMesh(chunk.mesh)],
+    centerLat:46,centerLon:-120,tiles:[{key:'tile',zoom:15,x:kind==='empty'?tile.x+10000:tile.x,y:tile.y}]});
+  const published = createPromotedPatchGeometry(structuredClone(data));
+  const scanned = new THREE.BufferGeometry();
+  scanned.setAttribute('position',new THREE.BufferAttribute(data.positions,3));
+  scanned.computeBoundingBox();scanned.computeBoundingSphere();
+  try {
+    expect(published.boundingBox!.equals(scanned.boundingBox!)).toBe(true);
+    expect(published.boundingSphere!.equals(scanned.boundingSphere!)).toBe(true);
+    expect(published.attributes.position.array).toEqual(data.positions);
+    expect(published.attributes.normal.array).toEqual(data.normals);
+    expect(published.attributes.uv.array).toEqual(data.uvs);
+    expect(published.index!.array).toEqual(data.indices);
+    const camera=new THREE.PerspectiveCamera(75,1,.1,10000),frustum=new THREE.Frustum();
+    for(const x of [-5000,0,5000]) {
+      camera.position.set(x,400,1000);camera.lookAt(x,100,0);camera.updateMatrixWorld();
+      frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
+      expect(frustum.intersectsObject(new THREE.Mesh(published))).toBe(frustum.intersectsObject(new THREE.Mesh(scanned)));
+    }
+  } finally {published.dispose();scanned.dispose();chunk.dispose();base.geometry.dispose();}
 });
 
 it('leaves live imagery untouched until publication and avoids rebuilding it during the surface notification', async () => {
