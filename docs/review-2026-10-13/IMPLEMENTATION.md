@@ -48,7 +48,9 @@ The later zoom/horizon work and its separate measurements are recorded in [INSPE
 
 ## Remaining validation and limits
 
-The latest [terrain picking continuation](PICKING.md), implemented October 14, reuses traversal storage while preserving owned hit points and exact surface selection. Its 498-test local suite, production-browser comparison and isolated CPU measurements are the current validation record.
+The latest [imagery patch construction continuation](PATCHES.md), implemented October 14, reduces interior vertex allocation and lookup work while preserving exact terrain overlays. Its 506-test local suite, maximum-detail production-browser comparison and isolated CPU measurements are the current validation record.
+
+The earlier [terrain picking continuation](PICKING.md), implemented October 14, reuses traversal storage while preserving owned hit points and exact surface selection. Its 498-test local suite, production-browser comparison and isolated CPU measurements record that implementation pass.
 
 The earlier [startup and layout continuation](STARTUP.md), implemented October 14, gates pending immersive entry checks and keeps automatic terrain fits aligned with changing header/timeline bounds. Its 496-test local suite and production-browser readiness/layout checks record that implementation pass.
 

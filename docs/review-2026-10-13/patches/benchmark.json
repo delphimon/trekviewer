@@ -1,0 +1,54 @@
+{
+  "runtime": "v24.21.0",
+  "measurement": "isolated synthetic CPU surface-patch construction, not app frame or GPU time; alternating order, 30 warmup batches",
+  "results": [
+    {
+      "name": "full-128x96-with-refinement",
+      "vertices": 13567,
+      "triangles": 26378,
+      "exactBuffersAndBounds": true,
+      "previous": {
+        "medianMs": 6.07770000000005,
+        "p95Ms": 12.211000000000013,
+        "samples": 120
+      },
+      "current": {
+        "medianMs": 3.874699999999848,
+        "p95Ms": 10.358799999999974,
+        "samples": 120
+      }
+    },
+    {
+      "name": "fractional-patch-with-refinement",
+      "vertices": 7138,
+      "triangles": 12236,
+      "exactBuffersAndBounds": true,
+      "previous": {
+        "medianMs": 3.4865999999997257,
+        "p95Ms": 6.48070000000007,
+        "samples": 120
+      },
+      "current": {
+        "medianMs": 2.41820000000007,
+        "p95Ms": 5.108999999999924,
+        "samples": 120
+      }
+    },
+    {
+      "name": "small-patch-on-200k-base",
+      "vertices": 210,
+      "triangles": 204,
+      "exactBuffersAndBounds": true,
+      "previous": {
+        "medianMs": 0.16049999999995634,
+        "p95Ms": 0.20429999999987558,
+        "samples": 120
+      },
+      "current": {
+        "medianMs": 0.10300000000006548,
+        "p95Ms": 0.1467000000002372,
+        "samples": 120
+      }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "geometry": {
+    "patches": 52,
+    "vertices": 2173,
+    "triangles": 1831,
+    "exactBuffersAndBounds": true,
+    "chunks": 24,
+    "detailedVertices": 57624,
+    "imagery": {
+      "activePatchesCount": 67,
+      "targetZoom": 19,
+      "calculatedDesiredZoom": 19,
+      "effectiveProviderClampedZoom": 19,
+      "providerMaxZoom": 19,
+      "inFlightRequests": 0,
+      "requestQueueLength": 0,
+      "pendingRequestsCount": 0,
+      "patchesCreatedTotal": 67,
+      "patchesDisposedTotal": 0,
+      "generation": 0,
+      "viewMode": "diorama",
+      "currentProgress": 0,
+      "debugPatchBounds": false,
+      "visibleByZoom": {},
+      "desiredZoom": 19,
+      "readyHighResCount": 36,
+      "totalDesiredHighResCount": 36,
+      "requestedCount": 52,
+      "readyCount": 67,
+      "visibleCount": 52,
+      "coveragePercent": 100,
+      "firstPersonViewSamples": 0,
+      "firstPersonHighResSamples": 0,
+      "firstPersonViewMinZoom": 0,
+      "firstPersonViewMeanZoom": 0,
+      "firstPersonLocalSurfaceRays": 0,
+      "firstPersonBaseSurfaceRays": 0,
+      "z19AheadDistanceMeters": 0,
+      "residentWarmCount": 15,
+      "evictionsTotal": 0,
+      "cacheHitRate": 18.7,
+      "lastTimeToSharpMs": 44
+    },
+    "calls": 69,
+    "textures": 73,
+    "glError": 0
+  },
+  "current": {
+    "calls": 69,
+    "textures": 73,
+    "glError": 0,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "renderingDifference": {
+    "changedPixels": 0,
+    "maxChannelDifference": 0,
+    "totalPixels": 1012293
+  },
+  "repeatDifference": {
+    "changedPixels": 0,
+    "maxChannelDifference": 0,
+    "totalPixels": 1012293
+  },
+  "errors": [],
+  "warnings": []
+}
