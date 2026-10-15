@@ -182,6 +182,8 @@ Desktop wheel/pinch zoom follows the pointer and supports much closer inspection
 
 VR and passthrough availability are checked separately. Entry controls start disabled while checking and wait for a ready trek and graphics. Unavailable modes have disabled controls with an explanation. Passthrough never silently switches to VR; choose **Enter VR** explicitly when that mode is available. Connecting or changing an XR device refreshes the availability check. Automatic terrain fits follow header/timeline layout changes; manual camera views are preserved. See the [startup and layout validation](docs/review-2026-10-13/STARTUP.md).
 
+Terrain picking reuses traversal storage while keeping returned hit points independent. The [latest performance validation](docs/review-2026-10-13/PICKING.md) records unchanged surface selection and rendering, isolated CPU measurements, and the remaining headset validation limits.
+
 Trail refinements maintain conservative rendering bounds and upload changed position/normal spans, preserving trail visibility as terrain detail and exaggeration change. See the [rendering and XR availability continuation](docs/review-2026-10-13/CONTINUATION.md) for its validation and upload measurements.
 
 Graphics interruptions pause playback and preserve the current trek and desktop inspection position. Rendering resumes after resources are prepared; use **Retry graphics** if recovery preparation fails, then press Play when ready to continue. Desktop controls expose selected states to assistive technology. See the [graphics recovery validation](docs/review-2026-10-13/RECOVERY.md) for native interruption checks and hardware limits.

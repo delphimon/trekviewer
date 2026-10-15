@@ -22,6 +22,19 @@ interface CellMask {
 export class TerrainRaycast {
   private readonly masks = new WeakMap<THREE.BufferGeometry, CellMask>();
   private readonly boxVersions = new WeakMap<THREE.BufferGeometry, { position: THREE.BufferAttribute; version: number }>();
+  // Grid traversal is synchronous. Reuse its workspace across surfaces and rays,
+  // but always return an owned point so later queries cannot change saved hits.
+  private readonly inverseWorld = new THREE.Matrix4();
+  private readonly localRay = new THREE.Ray();
+  private readonly boxRange = new THREE.Vector2();
+  private readonly start = new THREE.Vector3();
+  private readonly a = new THREE.Vector3();
+  private readonly b = new THREE.Vector3();
+  private readonly c = new THREE.Vector3();
+  private readonly d = new THREE.Vector3();
+  private readonly intersection = new THREE.Vector3();
+  private readonly worldPoint = new THREE.Vector3();
+  private readonly hitPoint = new THREE.Vector3();
 
   public closest(raycaster: THREE.Raycaster, surfaces: readonly THREE.Mesh[]): TerrainHit | null {
     let nearest: TerrainHit | null = null;
@@ -50,14 +63,14 @@ export class TerrainRaycast {
       geometry.computeBoundingBox();
       this.boxVersions.set(geometry, { position: positions, version: positions.version });
     }
-    const localRay = raycaster.ray.clone().applyMatrix4(mesh.matrixWorld.clone().invert());
-    const range = intersectBoxRange(localRay, geometry.boundingBox!);
+    const localRay = this.localRay.copy(raycaster.ray).applyMatrix4(this.inverseWorld.copy(mesh.matrixWorld).invert());
+    const range = intersectBoxRange(localRay, geometry.boundingBox!, this.boxRange);
     if (!range) return null;
 
     const cellW = width / sx, cellD = depth / sz;
-    const firstT = Math.max(0, range[0]);
-    const lastT = range[1];
-    const start = localRay.at(Math.min(lastT, firstT + 1e-7), new THREE.Vector3());
+    const firstT = Math.max(0, range.x);
+    const lastT = range.y;
+    const start = localRay.at(Math.min(lastT, firstT + 1e-7), this.start);
     let x = clampCell(Math.floor((start.x + width / 2) / cellW), sx);
     let z = clampCell(Math.floor((start.z + depth / 2) / cellD), sz);
     const stepX = Math.sign(localRay.direction.x);
@@ -69,10 +82,8 @@ export class TerrainRaycast {
     const deltaX = stepX ? cellW / Math.abs(localRay.direction.x) : Infinity;
     const deltaZ = stepZ ? cellD / Math.abs(localRay.direction.z) : Infinity;
 
-    const a = new THREE.Vector3(), b = new THREE.Vector3();
-    const c = new THREE.Vector3(), d = new THREE.Vector3();
-    const scratch = new THREE.Vector3();
-    let nearest: TerrainHit | null = null;
+    const { a, b, c, d, intersection: scratch, worldPoint, hitPoint } = this;
+    let nearestDistance = Infinity;
     let nearestT = Infinity;
     // A diagonal ray can cross at most sx + sz - 1 cells. The extra iterations
     // accommodate an entry exactly on a grid boundary.
@@ -92,11 +103,12 @@ export class TerrainRaycast {
             ? localRay.intersectTriangle(p2, p1, p0, true, scratch)
             : localRay.intersectTriangle(p0, p1, p2, side === THREE.FrontSide, scratch);
           if (!point) continue;
-          const worldPoint = point.clone().applyMatrix4(mesh.matrixWorld);
+          worldPoint.copy(point).applyMatrix4(mesh.matrixWorld);
           const distance = worldPoint.distanceTo(raycaster.ray.origin);
           if (distance >= raycaster.near && distance <= raycaster.far &&
-              (!nearest || distance < nearest.distance)) {
-            nearest = { point: worldPoint, distance, mesh };
+              distance < nearestDistance) {
+            hitPoint.copy(worldPoint);
+            nearestDistance = distance;
             nearestT = point.distanceTo(localRay.origin);
           }
         }
@@ -104,12 +116,12 @@ export class TerrainRaycast {
       const nextCrossing = Math.min(crossX, crossZ);
       // Cells are visited in ray order. Once a valid hit lies within this cell's
       // interval, later cells cannot contain a closer hit on the same mesh.
-      if (nearest && nearestT <= nextCrossing) return nearest;
+      if (nearestDistance < Infinity && nearestT <= nextCrossing) break;
       if (nextCrossing > lastT + 1e-7 || !Number.isFinite(nextCrossing)) break;
       if (crossX <= nextCrossing + 1e-9) { x += stepX; crossX += deltaX; }
       if (crossZ <= nextCrossing + 1e-9) { z += stepZ; crossZ += deltaZ; }
     }
-    return nearest;
+    return nearestDistance < Infinity ? { point: hitPoint.clone(), distance: nearestDistance, mesh } : null;
   }
 
   private getCellMask(geometry: THREE.PlaneGeometry, sx: number, sz: number): Uint8Array | null | undefined {
@@ -147,9 +159,11 @@ function clampCell(index: number, count: number): number {
   return Math.max(0, Math.min(count - 1, index));
 }
 
-function intersectBoxRange(ray: THREE.Ray, box: THREE.Box3): [number, number] | null {
+const axes = ['x', 'y', 'z'] as const;
+
+function intersectBoxRange(ray: THREE.Ray, box: THREE.Box3, target: THREE.Vector2): THREE.Vector2 | null {
   let enter = 0, exit = Infinity;
-  for (const axis of ['x', 'y', 'z'] as const) {
+  for (const axis of axes) {
     const origin = ray.origin[axis], direction = ray.direction[axis];
     if (Math.abs(direction) < 1e-12) {
       if (origin < box.min[axis] - 1e-7 || origin > box.max[axis] + 1e-7) return null;
@@ -157,10 +171,10 @@ function intersectBoxRange(ray: THREE.Ray, box: THREE.Box3): [number, number] | 
     }
     let a = (box.min[axis] - origin) / direction;
     let b = (box.max[axis] - origin) / direction;
-    if (a > b) [a, b] = [b, a];
+    if (a > b) { const swap = a; a = b; b = swap; }
     enter = Math.max(enter, a);
     exit = Math.min(exit, b);
     if (exit < enter) return null;
   }
-  return [enter, exit];
+  return target.set(enter, exit);
 }

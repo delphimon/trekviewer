@@ -113,3 +113,59 @@ it('stops after the nearest cell hit and preserves native hits with nonuniform t
     }
   } finally { triangles.mockRestore(); geometry.dispose(); mesh.material.dispose(); }
 });
+
+it('keeps returned points independent across surfaces, queries, and raycaster instances', () => {
+  const geometry = new THREE.PlaneGeometry(8, 8, 16, 16); geometry.rotateX(-Math.PI / 2);
+  const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const lower = new THREE.Mesh(geometry, material), upper = new THREE.Mesh(geometry, material);
+  upper.position.y = 2; upper.updateMatrixWorld(true); lower.updateMatrixWorld(true);
+  const picker = new TerrainRaycast(), otherPicker = new TerrainRaycast();
+  const ray = new THREE.Raycaster(new THREE.Vector3(0.2, 10, 0.3), new THREE.Vector3(0, -1, 0));
+  const saved = picker.closest(ray, [upper, lower])!;
+  const point = saved.point.clone();
+  try {
+    expect(saved.mesh).toBe(upper);
+    for (const surfaces of [[lower, upper], [upper, lower]]) {
+      const current = picker.closest(ray, surfaces)!;
+      expect(current.mesh).toBe(upper);
+      expect(current.point).not.toBe(saved.point);
+      expect(current.point.distanceTo(new THREE.Vector3(ray.ray.origin.x, 2, 0.3))).toBeLessThan(1e-12);
+      current.point.set(100, 100, 100);
+      ray.ray.origin.x += 0.25;
+      otherPicker.closest(ray, surfaces);
+      picker.closest(ray, []);
+      expect(saved.point.equals(point)).toBe(true);
+    }
+    upper.visible = false;
+    expect(picker.closest(ray, [upper, lower])!.mesh).toBe(lower);
+    expect(saved.point.equals(point)).toBe(true);
+  } finally { geometry.dispose(); material.dispose(); }
+});
+
+it('preserves grid hits around a native fallback that issues a nested query', () => {
+  const geometry = new THREE.PlaneGeometry(8, 8, 16, 16); geometry.rotateX(-Math.PI / 2);
+  const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const base = new THREE.Mesh(geometry, material), raised = new THREE.Mesh(geometry, material);
+  raised.position.y = 2; raised.updateMatrixWorld(true); base.updateMatrixWorld(true);
+  const fallbackGeometry = geometry.clone().toNonIndexed(); // generic BufferGeometry uses native raycast
+  const fallback = new THREE.Mesh(fallbackGeometry, material); fallback.updateMatrixWorld(true);
+  const picker = new TerrainRaycast();
+  const ray = new THREE.Raycaster(new THREE.Vector3(0.1, 10, -0.2), new THREE.Vector3(0, -1, 0));
+  const nestedRay = new THREE.Raycaster(new THREE.Vector3(2.5, 10, 2.5), new THREE.Vector3(0, -1, 0));
+  const nativeRaycast = fallback.raycast;
+  const nestedPoints: THREE.Vector3[] = [];
+  fallback.raycast = function (caster, hits) {
+    nestedPoints.push(picker.closest(nestedRay, [base])!.point);
+    nativeRaycast.call(this, caster, hits);
+  };
+  try {
+    for (const surfaces of [[raised, fallback, base], [base, fallback, raised]]) {
+      const result = picker.closest(ray, surfaces)!;
+      expect(result.mesh).toBe(raised);
+      expect(result.point.distanceTo(new THREE.Vector3(0.1, 2, -0.2))).toBeLessThan(1e-12);
+    }
+    expect(nestedPoints).toHaveLength(2);
+    for (const point of nestedPoints) expect(point.distanceTo(new THREE.Vector3(2.5, 0, 2.5))).toBeLessThan(1e-12);
+    expect(nestedPoints[0]).not.toBe(nestedPoints[1]);
+  } finally { geometry.dispose(); fallbackGeometry.dispose(); material.dispose(); }
+});

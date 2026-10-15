@@ -1,0 +1,68 @@
+{
+  "runtime": "v24.21.0",
+  "measurement": "isolated synthetic CPU terrain-picking queries; unchanged grids and ray traversal; not frame time or GPU duration",
+  "results": [
+    {
+      "fixture": "base",
+      "surfaces": 1,
+      "vertices": 199809,
+      "hits": 24,
+      "misses": 2,
+      "exactPreviousHits": true,
+      "nativeHitTolerance": 1e-8,
+      "previousClones": {
+        "ray": 26,
+        "matrix": 26,
+        "vector": 24
+      },
+      "currentClones": {
+        "ray": 0,
+        "matrix": 0,
+        "vector": 24
+      },
+      "previous": {
+        "medianMsPerQuery": 0.0006499999999986217,
+        "p95MsPerQuery": 0.0017192307692320914,
+        "samples": 500,
+        "queriesPerSample": 26
+      },
+      "current": {
+        "medianMsPerQuery": 0.000511538461541232,
+        "p95MsPerQuery": 0.0013115384615371812,
+        "samples": 500,
+        "queriesPerSample": 26
+      }
+    },
+    {
+      "fixture": "base-and-25-detail-tiles",
+      "surfaces": 26,
+      "vertices": 262309,
+      "hits": 24,
+      "misses": 2,
+      "exactPreviousHits": true,
+      "nativeHitTolerance": 1e-8,
+      "previousClones": {
+        "ray": 676,
+        "matrix": 676,
+        "vector": 48
+      },
+      "currentClones": {
+        "ray": 0,
+        "matrix": 0,
+        "vector": 48
+      },
+      "previous": {
+        "medianMsPerQuery": 0.006176923076929177,
+        "p95MsPerQuery": 0.009080769230772253,
+        "samples": 500,
+        "queriesPerSample": 26
+      },
+      "current": {
+        "medianMsPerQuery": 0.005150000000001525,
+        "p95MsPerQuery": 0.007080769230767076,
+        "samples": 500,
+        "queriesPerSample": 26
+      }
+    }
+  ]
+}
