@@ -1,0 +1,12 @@
+
+> trekviewer@1.0.0 test
+> vitest run --maxWorkers=2 test/tile_uv.test.ts
+
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  10:36:49
+   Duration  298ms (transform 40%, import 36%, tests 19%, worker 5%)

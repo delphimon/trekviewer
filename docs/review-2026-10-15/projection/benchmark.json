@@ -1,0 +1,58 @@
+{
+  "baseline": "24acdf8310873db1930c5ecfc2eb934b899fc2df",
+  "runtime": "v24.21.0",
+  "condition": "Isolated worker surface-patch CPU build; synthetic 5 m detail and 62.5 m base. Actual production before/after builders, alternating order, 40 warmups, 120 measured batches. No network, worker messaging, GPU or app FPS.",
+  "results": [
+    {
+      "zoom": 16,
+      "patches": 4,
+      "vertices": 24876,
+      "triangles": 43403,
+      "exactPositionsNormalsUVsAndIndices": true,
+      "previous": {
+        "medianMs": 12.254999999999882,
+        "p95Ms": 16.284200000000055,
+        "samples": 120
+      },
+      "current": {
+        "medianMs": 9.738599999999906,
+        "p95Ms": 13.523999999999887,
+        "samples": 120
+      }
+    },
+    {
+      "zoom": 18,
+      "patches": 9,
+      "vertices": 6950,
+      "triangles": 9334,
+      "exactPositionsNormalsUVsAndIndices": true,
+      "previous": {
+        "medianMs": 3.755199999999604,
+        "p95Ms": 5.782200000000557,
+        "samples": 120
+      },
+      "current": {
+        "medianMs": 3.074200000000019,
+        "p95Ms": 5.285400000000664,
+        "samples": 120
+      }
+    },
+    {
+      "zoom": 19,
+      "patches": 16,
+      "vertices": 4516,
+      "triangles": 4904,
+      "exactPositionsNormalsUVsAndIndices": true,
+      "previous": {
+        "medianMs": 2.4457000000002154,
+        "p95Ms": 3.7854000000006636,
+        "samples": 120
+      },
+      "current": {
+        "medianMs": 2.087199999999939,
+        "p95Ms": 3.6332000000002154,
+        "samples": 120
+      }
+    }
+  ]
+}

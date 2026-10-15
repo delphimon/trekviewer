@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
-import { clampLatitude, degToRad, geoToLocalMeters, localMetersToGeo, tileBounds } from '../gpx/Coordinates.ts';
+import { geoToLocalMeters, tileBounds } from '../gpx/Coordinates.ts';
+import { createTileUVMapper } from './TileUV.ts';
 import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
 
 export interface SurfaceMeshSnapshot {
@@ -49,12 +50,8 @@ export function buildPromotedSurfacePatches(input: SurfacePromotionInput): Surfa
       const bounds = tileBounds(tile.x, tile.y, tile.zoom);
       const nw = geoToLocalMeters(bounds.nw.lat, bounds.nw.lon, 0, input.centerLat, input.centerLon, 0);
       const se = geoToLocalMeters(bounds.se.lat, bounds.se.lon, 0, input.centerLat, input.centerLon, 0);
-      const geometry = buildSurfacePatchGeometry(meshes[0], { minX: nw.x, maxX: se.x, minZ: nw.z, maxZ: se.z }, (x, z) => {
-        const geo = localMetersToGeo(x, z, input.centerLat, input.centerLon);
-        const sin = Math.sin(degToRad(clampLatitude(geo.lat)));
-        const mercatorY = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * 2 ** tile.zoom;
-        return { u: (geo.lon - bounds.nw.lon) / (bounds.se.lon - bounds.nw.lon), v: 1 - (mercatorY - tile.y) };
-      })!;
+      const geometry = buildSurfacePatchGeometry(meshes[0], { minX: nw.x, maxX: se.x, minZ: nw.z, maxZ: se.z },
+        createTileUVMapper(tile.zoom, tile.x, tile.y, input.centerLat, input.centerLon))!;
       const result: SurfacePatchData = { key: tile.key,
         positions: geometry.attributes.position.array as Float32Array,
         normals: geometry.attributes.normal.array as Float32Array,

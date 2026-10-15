@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
+import { createTileUVMapper } from './TileUV.ts';
 import { snapshotSurfaceMesh, buildPromotedSurfacePatches, type SurfacePatchData } from './SurfacePromotion.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
@@ -2592,12 +2593,7 @@ export class ImageryLODManager {
       const p1 = geoToLocalMeters(se.lat, se.lon, 0, centerLat, centerLon, 0);
       const geometry = buildSurfacePatchGeometry(this.options.terrainMesh,
         { minX: p0.x, maxX: p1.x, minZ: p0.z, maxZ: p1.z },
-        (localX, localZ) => {
-          const point = localMetersToGeo(localX, localZ, centerLat, centerLon);
-          const sinLat = Math.sin(degToRad(clampLatitude(point.lat)));
-          const tileY = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * 2 ** zoom;
-          return { u: (point.lon - nw.lon) / (se.lon - nw.lon), v: 1 - (tileY - y) };
-        });
+        createTileUVMapper(zoom, x, y, centerLat, centerLon));
       if (geometry) return geometry;
     }
 

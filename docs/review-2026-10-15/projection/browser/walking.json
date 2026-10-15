@@ -1,0 +1,353 @@
+{
+  "samples": [
+    {
+      "x": -0.85,
+      "y": -0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.4,
+      "y": -0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0,
+      "y": -0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.4,
+      "y": -0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.85,
+      "y": -0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.85,
+      "y": -0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.4,
+      "y": -0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0,
+      "y": -0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.4,
+      "y": -0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.85,
+      "y": -0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.85,
+      "y": 0,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.4,
+      "y": 0,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.4,
+      "y": 0,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.85,
+      "y": 0,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.85,
+      "y": 0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.4,
+      "y": 0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0,
+      "y": 0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.4,
+      "y": 0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.85,
+      "y": 0.4,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252403202,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.85,
+      "y": 0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252406564,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": -0.4,
+      "y": 0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252406564,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0,
+      "y": 0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252406564,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.4,
+      "y": 0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252406564,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    },
+    {
+      "x": 0.85,
+      "y": 0.85,
+      "imageryZoom": 19,
+      "imageSource": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage",
+      "source": "USGS 3DEP best available (public domain)",
+      "sourceSpacingM": 1.0011309252406564,
+      "cell": {
+        "x": 4.979242090119025,
+        "z": 4.969121167286971
+      }
+    }
+  ],
+  "source": "USGS 3DEP best available (public domain)",
+  "diagnostics": {
+    "activePatchesCount": 78,
+    "targetZoom": 19,
+    "calculatedDesiredZoom": 19,
+    "effectiveProviderClampedZoom": 19,
+    "providerMaxZoom": 19,
+    "inFlightRequests": 4,
+    "requestQueueLength": 229,
+    "pendingRequestsCount": 4,
+    "patchesCreatedTotal": 78,
+    "patchesDisposedTotal": 0,
+    "generation": 1,
+    "viewMode": "first-person",
+    "currentProgress": 0.4,
+    "debugPatchBounds": false,
+    "visibleByZoom": {},
+    "desiredZoom": 19,
+    "readyHighResCount": 72,
+    "totalDesiredHighResCount": 156,
+    "requestedCount": 305,
+    "readyCount": 78,
+    "visibleCount": 72,
+    "coveragePercent": 46,
+    "firstPersonViewSamples": 1,
+    "firstPersonHighResSamples": 1,
+    "firstPersonViewMinZoom": 19,
+    "firstPersonViewMeanZoom": 19,
+    "firstPersonLocalSurfaceRays": 6,
+    "firstPersonBaseSurfaceRays": 0,
+    "z19AheadDistanceMeters": 75,
+    "residentWarmCount": 6,
+    "evictionsTotal": 0,
+    "cacheHitRate": 0,
+    "lastTimeToSharpMs": 7
+  },
+  "pendingExportGroups": [
+    "19:21211:46175",
+    "19:21209:46173",
+    "19:21210:46173",
+    "19:21212:46173"
+  ],
+  "nativeChunks": 48,
+  "chunks": 48,
+  "busy": false,
+  "wanted": 48,
+  "glError": 0,
+  "vertices": 451632,
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+}
