@@ -38,7 +38,10 @@ export function computeBroadDetailTiles(
     let extra = 0;
     for (const key of additions.keys()) if (!selected.has(key)) extra++;
     if (selected.size + extra > maxTiles) return;
-    for (const [key, tile] of additions) if (!selected.has(key)) selected.set(key, tile);
+    for (const [key, tile] of additions) {
+      const existing = selected.get(key);
+      if (!existing || tile.dist < existing.dist) selected.set(key, tile);
+    }
   };
   const offsets = (radius: number) => {
     const result: { x: number; y: number }[] = [];
@@ -61,7 +64,13 @@ export function computeBroadDetailTiles(
   // already broad all-direction core. Terrain just outside the FOV stays sharp.
   const viewTiles = viewPoints.map(point => latLonToTile(point.lat, point.lon, zoom));
   // Cover every sampled slope before spending spare capacity on guard bands.
-  for (const fine of viewTiles) promote(fine.x, fine.y, zoom, 0);
+  // Current center-out view samples precede retained history. Give their
+  // complete sibling groups priority over the background neighborhood, even
+  // when those tiles were already selected by the concentric core above.
+  for (let i = 0; i < viewTiles.length; i++) {
+    const fine = viewTiles[i];
+    promote(fine.x, fine.y, zoom, -2 + i / viewTiles.length);
+  }
   for (const fine of viewTiles) {
     const px = Math.floor(fine.x / 2), py = Math.floor(fine.y / 2);
     const startX = fine.x % 2 ? px : px - 1, startY = fine.y % 2 ? py : py - 1;

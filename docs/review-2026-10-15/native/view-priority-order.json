@@ -1,0 +1,66 @@
+{
+  "baseline": "f3a3c7f",
+  "condition": "Pure selection and initial source-order comparison. No elapsed-time, browser rendering or native MR claim. Positions are zero-based.",
+  "cases": [
+    {
+      "name": "Already selected view edge with distant retained history",
+      "selectedTiles": 478,
+      "fineTiles": 244,
+      "identicalTileKeys": true,
+      "targetSourcePositionBefore": 13,
+      "targetSourcePositionAfter": 1,
+      "firstFourSourcesBefore": [
+        "19:21208:46181",
+        "19:21222:46181",
+        "19:21220:46174",
+        "19:21215:46169"
+      ],
+      "firstFourSourcesAfter": [
+        "19:21208:46181",
+        "19:21208:46180",
+        "19:21222:46181",
+        "19:21220:46174"
+      ]
+    },
+    {
+      "name": "Broad core without view targets",
+      "selectedTiles": 293,
+      "fineTiles": 144,
+      "identicalTileKeys": true,
+      "targetSourcePositionBefore": 1,
+      "targetSourcePositionAfter": 1,
+      "firstFourSourcesBefore": [
+        "19:21208:46181",
+        "19:21208:46180",
+        "19:21207:46181",
+        "19:21209:46181"
+      ],
+      "firstFourSourcesAfter": [
+        "19:21208:46181",
+        "19:21208:46180",
+        "19:21207:46181",
+        "19:21209:46181"
+      ]
+    },
+    {
+      "name": "Many current and retained view targets",
+      "selectedTiles": 479,
+      "fineTiles": 240,
+      "identicalTileKeys": true,
+      "targetSourcePositionBefore": 13,
+      "targetSourcePositionAfter": 13,
+      "firstFourSourcesBefore": [
+        "19:21208:46181",
+        "19:21222:46181",
+        "19:21220:46174",
+        "19:21215:46169"
+      ],
+      "firstFourSourcesAfter": [
+        "19:21208:46181",
+        "19:21222:46181",
+        "19:21220:46174",
+        "19:21215:46169"
+      ]
+    }
+  ]
+}

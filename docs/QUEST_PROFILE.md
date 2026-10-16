@@ -2,7 +2,7 @@
 
 TrekViewer has an opt-in, local session recorder in the production build. It needs no account or telemetry service. The JSON remains in Quest Browser until you press **Download JSON**; the app does not upload it. The report contains the route name, browser user agent, build ID, and performance counters, so review it before sharing.
 
-The [October 15 Quest 3 checkpoint](review-2026-10-15/NATIVE.md) records a physical-headset VR baseline, its measurement limits, and an isolated native CPU comparison for terrain publication. The subsequent [MR trail capture](review-2026-10-15/MR.md) distinguishes stable retained tiles from incomplete high-resolution view coverage and identifies repeated source timeouts. Sustained thermal and post-fix native quality checks remain open.
+The [October 15 Quest 3 checkpoint](review-2026-10-15/NATIVE.md) records a physical-headset VR baseline, its measurement limits, and an isolated native CPU comparison for terrain publication. The subsequent [MR trail capture](review-2026-10-15/MR.md) distinguishes stable retained tiles from incomplete high-resolution view coverage and identifies repeated source timeouts. [View loading priority](review-2026-10-15/VIEW_PRIORITY.md) documents earlier loading of current terrain samples with identical geographic coverage. Sustained thermal and post-fix native quality checks remain open.
 
 ## Record a comparable run
 
