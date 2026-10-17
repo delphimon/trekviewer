@@ -26,10 +26,13 @@ import { disposeTerrainJobs } from './terrain/TerrainJobs.ts';
 import { configureDesktopInspection, fitInspectionBounds, levelHorizon, readHorizonLock, saveHorizonLock } from './core/InspectionView.ts';
 import { GraphicsRecovery } from './core/GraphicsRecovery.ts';
 import { releaseGraphicsResources } from './core/GraphicsResources.ts';
+import { PersistentResourceCache } from './terrain/PersistentResourceCache.ts';
 
 const _scratchV3 = new THREE.Vector3();
 
 export class TrekViewerApp {
+  /** Device-local resource cache controls and diagnostics; contains no keys. */
+  public readonly resourceCache = PersistentResourceCache;
   private sceneManager: SceneManager;
   private xrManager: XRManager;
   private overlay: DesktopOverlay;
@@ -890,6 +893,7 @@ export class TrekViewerApp {
     const info = this.sceneManager.getMemoryInfo();
     const lod = this.activeTrek?.imageryLOD.getDiagnostics();
     const cache = TileImageCache.getStats();
+    const resourceCache = PersistentResourceCache.getStats();
     const state = this.session.getState();
     const xr = this.sceneManager.renderer.xr;
     return {
@@ -903,6 +907,10 @@ export class TrekViewerApp {
       textures: info.memory.textures,
       tileCacheEntries: cache.entries,
       tileCacheDecodedMB: Number((cache.decodedBytes / 1048576).toFixed(1)),
+      resourceCacheHits: resourceCache.hits,
+      resourceCacheMisses: resourceCache.misses,
+      resourceCacheWrites: resourceCache.writes,
+      resourceCacheWriteFailed: resourceCache.writeFailed,
       imageryPatches: lod?.activePatchesCount ?? 0,
       imageryCoveragePercent: lod?.coveragePercent ?? 0,
       firstPersonViewSamples: lod?.firstPersonViewSamples ?? 0,

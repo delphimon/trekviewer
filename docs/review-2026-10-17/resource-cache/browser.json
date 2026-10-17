@@ -1,0 +1,125 @@
+{
+  "condition": "Actual Edge production WebGL and IndexedDB; HTTP cache disabled; preferred/GeoPlatform imagery requests deliberately aborted. No native XR claim.",
+  "first": {
+    "key": "satellite:19:84860:184682",
+    "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+    "hash": "7a69dcabee8df57fc70e40dc1cf3a1cdfec016c97b5b8aae37644adf551f2101",
+    "rawHash": "1f53f66850240f8a0d6895f754e56c22c1fe2c355a765010f903e34ee5c242b7",
+    "rawBytes": 650682,
+    "elevationSource": "USGS 3DEP best available (public domain)",
+    "elevationHash": "ef0cb255e3c6cbe434debf11813e586eff08441d25da1e56036eba79ddc9bab5",
+    "persistedElevationURLs": [
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13541650.210539302%2C5925258.309751773%2C-13540655.342795456%2C5926253.177497159&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13551450.84989673%2C5920367.356575851%2C-13550456.53892895%2C5921361.667545173&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13552850.86183122%2C5918272.071436258%2C-13551856.789207455%2C5919266.14406156&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13552850.901546087%2C5918970.444011308%2C-13551856.749492588%2C5919964.596066346&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13554251.072376583%2C5919668.872386895%2C-13553256.84087508%2C5920663.103889937&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13558603.792478716%2C5915171.256102265%2C-13536827.989979427%2C5928833.5041996855&bboxSR=3857&imageSR=3857&size=1024%2C643&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D"
+    ],
+    "stats": {
+      "hits": 2,
+      "misses": 38,
+      "writes": 27,
+      "bytes": 18068632,
+      "entries": 27,
+      "enabled": true,
+      "available": true,
+      "storageReady": true,
+      "writeFailed": false,
+      "maxBytes": 268435456
+    },
+    "build": {
+      "id": "cc1b9c8-modified-2026-10-17T16:56:13.010Z",
+      "sha": "cc1b9c8ae82e4c61dd11720e37f38d4318d46963",
+      "shortSha": "cc1b9c8",
+      "branch": "main",
+      "dirty": true,
+      "builtAt": "2026-10-17T16:56:13.010Z",
+      "label": "TrekViewer 1.0.0 • cc1b9c8 (modified)"
+    }
+  },
+  "warm": {
+    "hash": "7a69dcabee8df57fc70e40dc1cf3a1cdfec016c97b5b8aae37644adf551f2101",
+    "width": 256,
+    "height": 256,
+    "stats": {
+      "hits": 18,
+      "misses": 7,
+      "writes": 0,
+      "bytes": 18068632,
+      "entries": 27,
+      "enabled": true,
+      "available": true,
+      "storageReady": true,
+      "writeFailed": false,
+      "maxBytes": 268435456
+    }
+  },
+  "warmElevationHash": "ef0cb255e3c6cbe434debf11813e586eff08441d25da1e56036eba79ddc9bab5",
+  "profileCaches": [
+    {
+      "hits": 19,
+      "misses": 35,
+      "writes": 19,
+      "failed": false
+    },
+    {
+      "hits": 19,
+      "misses": 50,
+      "writes": 22,
+      "failed": false
+    }
+  ],
+  "recovered": {
+    "hash": "7a69dcabee8df57fc70e40dc1cf3a1cdfec016c97b5b8aae37644adf551f2101",
+    "width": 256,
+    "height": 256,
+    "stats": {
+      "hits": 47,
+      "misses": 13,
+      "writes": 1,
+      "bytes": 38062250,
+      "entries": 64,
+      "enabled": true,
+      "available": true,
+      "storageReady": true,
+      "writeFailed": false,
+      "maxBytes": 268435456
+    }
+  },
+  "maintenance": {
+    "oldestRemoved": true,
+    "newerRetained": true,
+    "bytes": 239388867,
+    "expiredIsNull": true,
+    "afterClear": {
+      "hits": 47,
+      "misses": 15,
+      "writes": 2,
+      "bytes": 0,
+      "entries": 0,
+      "enabled": true,
+      "available": true,
+      "storageReady": true,
+      "writeFailed": false,
+      "maxBytes": 268435456
+    }
+  },
+  "final": {
+    "stats": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "bytes": 0,
+      "entries": 0,
+      "enabled": false,
+      "available": true,
+      "storageReady": true,
+      "writeFailed": false,
+      "maxBytes": 268435456
+    },
+    "glError": 0,
+    "savedProfileBuild": "cc1b9c8-modified-2026-10-17T16:56:13.010Z"
+  },
+  "errors": []
+}

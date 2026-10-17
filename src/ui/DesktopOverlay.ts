@@ -3,6 +3,7 @@ import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
 import type { ComfortPreferences } from '../xr/ComfortPreferences.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
+import { PersistentResourceCache } from '../terrain/PersistentResourceCache.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -62,6 +63,8 @@ export class DesktopOverlay {
     this.callbacks = callbacks;
     this.createDOM();
     this.setupEventListeners();
+    const cacheToggle = document.getElementById('resourceCacheEnabled') as HTMLInputElement | null;
+    if (cacheToggle) cacheToggle.checked = PersistentResourceCache.isEnabled();
     this.setTextureStyle(this.textureStyle);
     this.setTrailColorMode(this.trailColorMode);
     this.setVerticalExaggeration(this.verticalExaggeration);
@@ -496,6 +499,12 @@ export class DesktopOverlay {
             </div>
             <a href="${resolveAssetUrl('data-sources.html')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:#7dd3fc;font-size:12px;">Data sources &amp; licenses ↗</a>
 
+            <h3>Saved terrain &amp; imagery</h3>
+            <label class="comfort-option"><span>Cache on this device</span><input id="resourceCacheEnabled" type="checkbox" checked /></label>
+            <p class="trek-meta">Reuse original source data on return visits. Up to 256 MiB, refreshed after 7 days. Browser storage may be reclaimed.</p>
+            <button id="btnClearResourceCache" class="btn btn-sm">Clear saved terrain &amp; imagery</button>
+            <p id="resourceCacheStatus" class="trek-meta" role="status" aria-live="polite">Data saves automatically as you explore.</p>
+
             <h3>VR Comfort</h3>
             <label class="comfort-option">Movement
               <select id="comfortMovement" class="styled-select"><option value="walk">Walking pace</option><option value="step">1 m steps</option></select>
@@ -586,6 +595,17 @@ export class DesktopOverlay {
   }
 
   private setupEventListeners(): void {
+    document.getElementById('resourceCacheEnabled')?.addEventListener('change', event => {
+      PersistentResourceCache.setEnabled((event.target as HTMLInputElement).checked);
+      void this.refreshResourceCacheStatus();
+    });
+    document.getElementById('btnClearResourceCache')?.addEventListener('click', async event => {
+      const button = event.currentTarget as HTMLButtonElement; button.disabled = true;
+      const cleared = await PersistentResourceCache.clear();
+      button.disabled = false;
+      await this.refreshResourceCacheStatus(cleared ? 'Saved data cleared. ' : 'Storage is unavailable. ');
+    });
+    document.getElementById('btnSettings')?.addEventListener('click', () => { void this.refreshResourceCacheStatus(); });
     document.getElementById('btnRetryGraphics')?.addEventListener('click', () => this.callbacks.onRetryGraphics?.());
     document.getElementById('horizonLocked')?.addEventListener('change', (event) => {
       this.callbacks.onSetHorizonLocked?.((event.target as HTMLInputElement).checked);
@@ -1060,6 +1080,13 @@ export class DesktopOverlay {
         : this.graphicsPaused ? 'Waiting for graphics to recover.'
         : !this.xrEnabled ? 'Wait for the trek to finish loading.' : 'Enter mixed reality with passthrough';
     }
+  }
+
+  private async refreshResourceCacheStatus(prefix = ''): Promise<void> {
+    const stats = await PersistentResourceCache.refreshStats();
+    const status = document.getElementById('resourceCacheStatus');
+    if (status) status.textContent = prefix + (!stats.available || stats.storageReady === false ? 'Device cache unavailable; using network.'
+      : `${stats.enabled ? 'Enabled' : 'Paused'} · ${(stats.bytes / 1048576).toFixed(1)} MiB saved · ${stats.entries} resources${stats.writeFailed ? ' · Saving paused; clear storage to retry.' : ''}`);
   }
 
   public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats, elevationSource?: string): void {

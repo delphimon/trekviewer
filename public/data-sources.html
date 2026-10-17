@@ -64,7 +64,16 @@
   <li>United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.</li>
 </ul>
 <h2>Optional providers</h2>
+<p>Free API-key services are eligible for this personal/internal viewer when their terms, usage limits and account plan keep use free. An API key does not imply a paid license. Fine public regional data remains preferable to a coarser keyed service; compare native detail and coverage for the location.</p>
+<ul>
+<li><a href="https://www.linz.govt.nz/guidance/data-service/linz-basemaps-guide/linz-basemaps-documentation">LINZ Basemaps</a>: no-charge standard and developer imagery API access for New Zealand. Standard keys renew after 90 days. Attribution is required. Not integrated yet.</li>
+<li><a href="https://www.maptiler.com/cloud/pricing/">MapTiler Cloud Free</a>: currently no card required, 100,000 API requests per month, personal/noncommercial use and required branding. <a href="https://docs.maptiler.com/guides/account/sessions-vs-requests/">The Free plan suspends at its limit</a>; paid plans can charge overages. <a href="https://www.maptiler.com/terms/cloud/">Terms allow temporary individual-device caching, not bulk downloads or proxying without agreement</a>. Not integrated yet.</li>
+<li><a href="https://opentopography.org/developers">OpenTopography</a>: free non-academic global DEM keys currently permit 50 calls per day, with private, unshared keys. Its USGS 1 m raster API requires academic eligibility. Suitable candidates for private/local terrain preparation; not a public embedded key. Not integrated yet.</li>
+</ul>
 <p>Esri World Imagery and Bing via Cesium Ion are available only through explicit configuration. Their account, usage, and imagery rights have separate terms. The default configuration does not select them, even when an optional token exists, and never falls back to them.</p>
+<h2>Device caching</h2>
+<p>The viewer saves original encoded imagery and validated USGS elevation files on this device when the reviewed source permits reuse. The cache holds up to 256 MiB or 4,096 resources, expires entries after seven days, and removes the least recently used data to stay within its limits. Settings lets you pause reuse/saving or clear saved terrain and imagery. Optional keyed/commercial sources are excluded from this persistent cache until their specific terms and key handling are integrated.</p>
+<p>Cached files are not recompressed or reduced in precision. Disk storage is separate from decoded image and GPU budgets. Storage can be unavailable or reclaimed by the browser; the app continues with network loading. This is revisited-data caching, not an offline app or a complete downloaded route. Preferred-source ordering is preserved, so an uncached preferred service can still need probing before a cached alternative is used.</p>
 <h2>Software notices</h2>
 <p><a href="licenses/NOTICE.txt">Third-party notices</a> · <a href="licenses/lerc-LICENSE.txt">LERC — Apache License 2.0</a> · <a href="licenses/three-LICENSE.txt">Three.js — MIT License</a></p>
 <small>Source coverage review: October 17, 2026; default-source license review: October 14, 2026. Availability, dates and source coverage can change. Keep the original attribution when sharing imagery or rendered views.</small>

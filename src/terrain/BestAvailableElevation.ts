@@ -1,6 +1,7 @@
 import type { ElevationGrid } from './ElevationTiles.ts';
 import type { DecodedElevation } from './LercElevation.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
+import { PersistentResourceCache, readBoundedBlob } from './PersistentResourceCache.ts';
 
 export const USGS_ELEVATION_SERVICE = 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer';
 const HALF_WORLD = Math.PI * 6378137;
@@ -47,15 +48,17 @@ export async function fetchBestAvailableElevation(bounds: RasterFootprint, spaci
   if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
   if (!hasUSGSElevationCoverage(bounds)) return null;
   const request = elevationRasterRequest(bounds, spacingMeters);
-  if ((failures.get(request.url) ?? 0) > Date.now()) return null;
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(abort, 35_000);
+  const cacheGeneration = PersistentResourceCache.getGeneration();
+  let cached = false;
   try {
-    const response = await fetch(request.url, { signal: controller.signal });
-    if (!response.ok || Number(response.headers.get('content-length')) > 32 * 1024 * 1024) throw new Error('Elevation service unavailable');
-    const buffer = await response.arrayBuffer();
+    let blob = await PersistentResourceCache.read(request.url); cached = !!blob;
+    if (!blob && (failures.get(request.url) ?? 0) > Date.now()) return null;
+    if (!blob) blob = await readBoundedBlob(await fetch(request.url, { signal: controller.signal }), 32 * 1024 * 1024);
+    const buffer = await blob.arrayBuffer();
     if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
     const input = { buffer, width: request.width, height: request.height };
     const decoded = await runTerrainJob<DecodedElevation>({ kind: 'lerc', input }, async () => {
@@ -64,6 +67,7 @@ export async function fetchBestAvailableElevation(bounds: RasterFootprint, spaci
     }, signal, [buffer]);
     // A partial coverage raster must not replace complete terrain or create coast-edge cliffs.
     if (decoded.validCount !== request.width * request.height) throw new Error('Incomplete USGS elevation coverage');
+    if (!cached) PersistentResourceCache.write(request.url, blob, cacheGeneration);
     return { width: request.width, height: request.height, data: decoded.data, minElevation: decoded.min,
       maxElevation: decoded.max, isRealDEM: true, zoom: 0, tileXMin: 0, tileXMax: 0, tileYMin: 0, tileYMax: 0,
       numTilesX: 1, numTilesY: 1, tileValidity: new Uint8Array([1]), rasterBounds: request.rasterBounds,
@@ -71,6 +75,11 @@ export async function fetchBestAvailableElevation(bounds: RasterFootprint, spaci
       quality: { validTileRatio: 1, totalTiles: 1, validTiles: 1, zoom: 0, usgsRasters: 1 } };
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
+    if (cached) {
+      await PersistentResourceCache.remove(request.url); failures.delete(request.url);
+      clearTimeout(timer); signal?.removeEventListener('abort', abort);
+      return fetchBestAvailableElevation(bounds, spacingMeters, signal);
+    }
     failures.delete(request.url); failures.set(request.url, Date.now() + 60_000);
     while (failures.size > 128) failures.delete(failures.keys().next().value!);
     return null;

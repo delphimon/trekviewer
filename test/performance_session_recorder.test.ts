@@ -8,6 +8,7 @@ const counters: ProfileCounters = {
   xrEyeViewports: [{ width: 1200, height: 2560 }, { width: 1200, height: 2560 }],
   drawCalls: 84, triangles: 128000, geometries: 27, textures: 24,
   tileCacheEntries: 70, tileCacheDecodedMB: 18.2, imageryPatches: 28,
+  resourceCacheHits: 34, resourceCacheMisses: 11, resourceCacheWrites: 0, resourceCacheWriteFailed: false,
   imageryCoveragePercent: 100, imageryInFlight: 0, localTerrainChunks: 3,
   localTerrainFocusChangesTotal: 1,
   imageryTargetZoom: 19, imageryFocusSource: 'center', imageryDesiredTiles: 36, imageryVisiblePatches: 36,
@@ -44,6 +45,7 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
     xrEyeViewports:[{width:1200,height:2560},{width:1200,height:2560}],
     imageryBudgetEvictionsTotal:12,imageryVisibleBudgetEvictionsTotal:3,imageryDesiredBudgetEvictionsTotal:0,
     imageryVisibleBySource:{'usgs-naip':36},imageryVisibleFineBySource:{'usgs-naip':32},imageryVisibleAlternativeSources:36,
+    resourceCacheHits:34,resourceCacheMisses:11,resourceCacheWrites:0,resourceCacheWriteFailed:false,
     cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);
   expect(Object.keys(report.windows[0].phaseMeanMs)).toEqual([...PROFILE_PHASES]);

@@ -6,10 +6,13 @@ Updated October 17, 2026 (America/Los_Angeles), following the [current-state rev
 
 Deliver a consistently sharp, stable and usable Quest VR/MR terrain viewer, with the best verified source data available under the user's no-paid-license personal-use constraint and sustained performance at the requested runtime target. Keep desktop inspection, horizon controls and direction chevrons working.
 
+**Source policy clarification, October 17:** this is the user's personal/internal application, with no public product release planned. Free API-key imagery, DEM and lidar-derived sources are allowed when the applicable personal/internal plan costs nothing. An API key is not itself a reason to reject a finer or faster source. Verify hard limits, eligibility, attribution and caching rights; avoid plans that can incur usage charges. Keep private keys out of hosted bundles/repositories, using device-local configuration, a private backend or local data preparation as appropriate. Existing test-site publication remains a checkpoint workflow, distinct from a public product release.
+
 - High is the fidelity mode. Keep broad surrounding terrain, full-detail 1:1 inspection, source-native detail, accurate geometry/UVs and readable spatial controls as explicit requirements.
 - Balanced is an explicit user choice. Do not hide quality cuts inside High to make a performance result pass.
 - Source sampling is not native survey resolution, and neither is rendered mesh spacing or eye-buffer resolution. Report each honestly.
 - Preserve bounded memory/work and coarse coverage while fine data arrives. Do not increase limits blindly or promise full-detail coverage of an entire arbitrary route at once.
+- Cache reusable source data whenever terms permit. Preserve original encoded bytes, bound disk/staging/decoded/GPU memory separately, retain freshness and recovery guards, and provide clear/pause controls. Do not trade image or elevation precision for cache savings.
 - Use Meta VR tools and current primary documentation for Quest work. Browser timing and automated tests do not certify GPU/compositor performance or subjective comfort.
 - Commit and publish every completed checkpoint: relevant checks, commit/push, passing CI, clean stamped rebuild, publication and hosted-build verification. Keep raw room/head/controller data and credentials out of artifacts.
 
@@ -64,6 +67,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 ### 4. Finish source coverage and fidelity provenance
 
 **October 17 progress:** all eight bundled summit-point catalogs were audited, with preferred-service timeouts and alternative native imagery resolutions/dates retained. Published patch source reporting now distinguishes actual supplying services from provider configuration, including Hybrid and alternative ordering after service cooldown. See [source audit and limits](review-2026-10-17/SOURCE_AUDIT.md). Whole-route/native-resolution validation, representative imported-route runtime tests and regional provider integration remain open; the partial evidence does not close the checklist below.
+
+The [persistent source-cache checkpoint](review-2026-10-17/RESOURCE_CACHE.md) adds bounded device storage for reviewed public imagery/terrain bytes and updates the free-key candidate review for personal/internal use. New keyed providers are not enabled until an eligible account/key and appropriate browser/private-key path are configured and validated.
 
 - [ ] Audit bundled routes plus representative imported routes inside/outside supported US coverage. Record the selected dataset, verified native resolution where available, export sample spacing, rendered cell spacing, source date, terms/attribution and fallback reason.
 - [ ] Verify whether higher-detail free regional sources exist for locations currently using the coarse global fallback; add applicable providers with coverage, NoData, response-size, cache and failure guards. Verify terms and endpoint behavior before recommending or integrating a source.

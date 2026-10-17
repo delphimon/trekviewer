@@ -8,6 +8,8 @@ The [October 17 XR quality checkpoint](docs/review-2026-10-17/XR_QUALITY.md) fix
 
 The [source provenance checkpoint](docs/review-2026-10-17/SOURCE_AUDIT.md) records all eight bundled summit-point catalog checks and actual published-patch imagery services in new profiles. It distinguishes source-native detail, requested sampling and rendered resolution, with remaining regional coverage limits on the source page.
 
+The [persistent source cache](docs/review-2026-10-17/RESOURCE_CACHE.md) reuses original imagery and validated elevation bytes across visits, with bounded device storage, freshness, corruption recovery and Settings controls. Free API-key sources are eligible for this personal/internal app when their terms and limits keep use free; the current candidate review distinguishes browser-safe access from private/local preparation.
+
 ---
 
 ## 🚀 Headset Installation & Standalone Deployment (Zero-Server Setup)

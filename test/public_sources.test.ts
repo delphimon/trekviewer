@@ -11,6 +11,7 @@ import { decodeLercElevation } from '../src/terrain/LercElevation.ts';
 import { ElevationTileService, type ElevationGrid } from '../src/terrain/ElevationTiles.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
 import fixture from './fixtures/elevation/rainier-3dep.json';
+import { PersistentResourceCache } from '../src/terrain/PersistentResourceCache.ts';
 
 vi.mock('../src/terrain/TerrainJobs.ts', () => ({ runTerrainJob: (_job: unknown, fallback: () => unknown) => fallback() }));
 const fixtureBytes = () => {
@@ -159,6 +160,20 @@ describe('best available public-domain elevation', () => {
     expect(decoded.validCount).toBe(0); expect(decoded.data.every(Number.isNaN)).toBe(true);
     vi.stubGlobal('fetch', vi.fn(async () => new Response(fixtureBytes())));
     expect(await fetchBestAvailableElevation(fixture.bounds, 1)).toBeNull();
+  });
+
+  it('reuses exact persisted LERC bytes and refetches a corrupt cached raster before publishing', async () => {
+    const fetch = vi.fn(async () => new Response(fixtureBytes())); vi.stubGlobal('fetch', fetch);
+    const read = vi.spyOn(PersistentResourceCache, 'read').mockResolvedValueOnce(new Blob([fixtureBytes()]));
+    const grid = await fetchBestAvailableElevation(fixture.bounds, 1);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(grid?.data.length).toBe(fixture.request.width * fixture.request.height);
+    const remove = vi.spyOn(PersistentResourceCache, 'remove').mockResolvedValue();
+    const write = vi.spyOn(PersistentResourceCache, 'write');
+    read.mockResolvedValueOnce(new Blob(['invalid lerc'])).mockResolvedValue(null);
+    const recovered = await fetchBestAvailableElevation(fixture.bounds, 1);
+    expect(remove).toHaveBeenCalledOnce(); expect(fetch).toHaveBeenCalledOnce(); expect(write).toHaveBeenCalledOnce();
+    expect(recovered?.data).toEqual(grid?.data);
   });
 
   it('backs off failed or malformed responses and skips US-only requests for overseas tracks', async () => {

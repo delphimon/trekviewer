@@ -1,5 +1,6 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { recordImagerySource } from './ImagerySource.ts';
+import { PersistentResourceCache, persistentResourceAllowed, readBoundedBlob } from './PersistentResourceCache.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
 export enum TilePriority {
@@ -510,9 +511,13 @@ export class TileImageCache {
       return Promise.reject(new Error('Image is not defined in this environment'));
     }
 
+    if (PersistentResourceCache.isAvailable() && PersistentResourceCache.isEnabled() && persistentResourceAllowed(url)) {
+      return this.loadPersistedImage(url, timeoutMs, signal);
+    }
+
     return new Promise((resolve, reject) => {
       if (signal?.aborted) {
-        reject(new Error('Aborted'));
+        reject(new Error('Aborted')); return;
       }
 
       const img = new Image();
@@ -555,5 +560,32 @@ export class TileImageCache {
 
       img.src = url;
     });
+  }
+
+  private static async loadPersistedImage(url: string, timeoutMs: number, signal?: AbortSignal): Promise<HTMLImageElement> {
+    const generation = PersistentResourceCache.getGeneration();
+    const controller = new AbortController();
+    const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) controller.abort();
+    const started = performance.now();
+    const timer = setTimeout(abort, timeoutMs);
+    const decode = async (blob: Blob) => {
+      const objectURL = URL.createObjectURL(blob);
+      try { return await this.loadImageWithTimeout(objectURL, Math.max(1, timeoutMs - (performance.now() - started)), controller.signal); }
+      finally { URL.revokeObjectURL(objectURL); }
+    };
+    try {
+      const cached = await PersistentResourceCache.read(url);
+      if (controller.signal.aborted) throw new Error('Image load aborted');
+      if (cached) {
+        try { return await decode(cached); }
+        catch (error) { void PersistentResourceCache.remove(url); if (controller.signal.aborted) throw error; }
+      }
+      const response = await fetch(url, { signal: controller.signal, credentials: 'omit' });
+      const blob = await readBoundedBlob(response, 8 * 1024 * 1024);
+      const image = await decode(blob);
+      PersistentResourceCache.write(url, blob, generation);
+      return image;
+    } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   }
 }

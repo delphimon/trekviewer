@@ -14,6 +14,10 @@ export interface ProfileCounters extends Partial<XRRenderQualityCounters> {
   textures: number;
   tileCacheEntries: number;
   tileCacheDecodedMB: number;
+  resourceCacheHits?: number;
+  resourceCacheMisses?: number;
+  resourceCacheWrites?: number;
+  resourceCacheWriteFailed?: boolean;
   imageryPatches: number;
   imageryCoveragePercent: number;
   firstPersonViewSamples: number;
