@@ -1,5 +1,7 @@
 # Quest 3 performance profiling
 
+Follow the [current completion plan](COMPLETION_PLAN.md) for the next prepared native baseline and acceptance session. The [state review](review-2026-10-16/STATE_REVIEW.md) explains why existing browser checks and the older MR recording do not close current-build performance or peripheral-quality validation.
+
 TrekViewer has an opt-in, local session recorder in the production build. It needs no account or telemetry service. The latest completed report saves on the device and can be restored after reopening `?profile=1`; the app does not upload it. **Saved on this device** confirms that browser storage committed the report. If storage is unavailable, use **Download JSON** while the page remains open. The report contains the route name, browser user agent, build ID, and performance counters, so review it before sharing. [Report recovery checks](review-2026-10-16/PROFILE_RECOVERY.md).
 
 The [October 15 Quest 3 checkpoint](review-2026-10-15/NATIVE.md) records a physical-headset VR baseline, its measurement limits, and an isolated native CPU comparison for terrain publication. The subsequent [MR trail capture](review-2026-10-15/MR.md) distinguishes stable retained tiles from incomplete high-resolution view coverage and identifies repeated source timeouts. [View loading priority](review-2026-10-15/VIEW_PRIORITY.md) documents earlier loading of current terrain samples with identical geographic coverage. Sustained thermal and post-fix native quality checks remain open.
