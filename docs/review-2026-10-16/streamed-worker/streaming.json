@@ -1,0 +1,489 @@
+{
+  "build": {
+    "id": "ef1a09b-modified-2026-10-17T06:20:55.742Z",
+    "sha": "ef1a09bbeb318534df7455963211460f228ca161",
+    "shortSha": "ef1a09b",
+    "branch": "main",
+    "dirty": true,
+    "builtAt": "2026-10-17T06:20:55.742Z",
+    "label": "TrekViewer 1.0.0 • ef1a09b (modified)"
+  },
+  "mode": "first-person",
+  "visibleFineTiles": 64,
+  "fineImages": [
+    {
+      "key": "satellite:19:84842:184696",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84843:184696",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84842:184697",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84843:184697",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84860:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84861:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84860:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84861:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184684",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184684",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184685",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184685",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184684",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184684",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184685",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184685",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84822:184696",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84823:184696",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84822:184697",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84823:184697",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84820:184696",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84821:184696",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84820:184697",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84821:184697",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84860:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84861:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84860:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84861:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84862:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84863:184680",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84862:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84863:184681",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84862:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84863:184682",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84862:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84863:184683",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184686",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184686",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84856:184687",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84857:184687",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184686",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184686",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84858:184687",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84859:184687",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84860:184684",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920506.462856611%2C-13550756.374396047%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84861:184684",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920506.462856611%2C-13550756.374396047%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84860:184685",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920506.462856611%2C-13550756.374396047%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    },
+    {
+      "key": "satellite:19:84861:184685",
+      "width": 256,
+      "height": 256,
+      "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920506.462856611%2C-13550756.374396047%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    }
+  ],
+  "diagnostics": {
+    "activePatchesCount": 89,
+    "targetZoom": 19,
+    "calculatedDesiredZoom": 19,
+    "effectiveProviderClampedZoom": 19,
+    "providerMaxZoom": 19,
+    "inFlightRequests": 4,
+    "requestQueueLength": 268,
+    "pendingRequestsCount": 4,
+    "patchesCreatedTotal": 89,
+    "patchesDisposedTotal": 0,
+    "generation": 1,
+    "viewMode": "first-person",
+    "currentProgress": 0.3555875547854273,
+    "debugPatchBounds": false,
+    "visibleByZoom": {},
+    "desiredZoom": 19,
+    "readyHighResCount": 84,
+    "totalDesiredHighResCount": 192,
+    "requestedCount": 356,
+    "readyCount": 89,
+    "visibleCount": 89,
+    "coveragePercent": 44,
+    "firstPersonViewSamples": 2,
+    "firstPersonHighResSamples": 2,
+    "firstPersonViewMinZoom": 19,
+    "firstPersonViewMeanZoom": 19,
+    "firstPersonLocalSurfaceRays": 6,
+    "firstPersonBaseSurfaceRays": 0,
+    "z19AheadDistanceMeters": 275,
+    "residentWarmCount": 0,
+    "evictionsTotal": 0,
+    "cacheHitRate": 0,
+    "lastTimeToSharpMs": 21
+  },
+  "contextLost": false,
+  "glError": 0,
+  "condition": "Actual Edge production build with preferred imagery endpoint deliberately aborted; real configured public NAIP imagery and terrain. Desktop 1:1 rendering, not native MR.",
+  "initialPrimaryRequests": 4,
+  "primaryRequests": [
+    "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+    "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+    "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+    "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+  ],
+  "alternateResponses": [
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    },
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    },
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920506.462856611%2C-13551062.122509187%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    },
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    },
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    },
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920506.462856611%2C-13550756.374396047%2C5920812.210969752&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    },
+    {
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "warnings": [
+    "Failed to load resource: net::ERR_TIMED_OUT",
+    "Failed to load resource: net::ERR_TIMED_OUT",
+    "Failed to load resource: net::ERR_TIMED_OUT",
+    "Failed to load resource: net::ERR_TIMED_OUT",
+    "Access to image at 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13551367.870622328%2C5920812.210969752%2C-13551062.122509187%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2' from origin 'https://127.0.0.1:4194' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Access to image at 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13552590.863074891%2C5919589.21851719%2C-13552285.11496175%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2' from origin 'https://127.0.0.1:4194' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Access to image at 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13551062.122509187%2C5920812.210969752%2C-13550756.374396047%2C5921117.959082894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2' from origin 'https://127.0.0.1:4194' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Access to image at 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13554119.603640594%2C5919589.21851719%2C-13553813.855527453%2C5919894.96663033&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2' from origin 'https://127.0.0.1:4194' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED"
+  ]
+}

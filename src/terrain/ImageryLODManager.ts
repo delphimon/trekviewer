@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
 import { createTileUVMapper } from './TileUV.ts';
-import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGeometry, type SurfacePatchData } from './SurfacePromotion.ts';
+import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGeometry, type SurfacePatchData, type SurfaceMeshSnapshot } from './SurfacePromotion.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
@@ -884,6 +884,8 @@ export class ImageryLODManager {
   private isDisposed: boolean = false;
   private currentGeneration: number = 0;
   private readonly surfaceLifetime = new AbortController();
+  private surfaceRevision = 0;
+  private streamedSurfaceSources?: SurfaceMeshSnapshot[];
   private readonly preparedSurfaceKeys = new Set<string>();
 
   private currentTextureStyle: TextureStyle;
@@ -1237,6 +1239,7 @@ export class ImageryLODManager {
   public setVerticalExaggeration(factor: number): void {
     if (this.isDisposed || Math.abs(this.verticalExaggeration - factor) < 0.01) return;
     this.verticalExaggeration = factor;
+    this.invalidateStreamedSurface();
     // Rendered-source patches are rebuilt by the terrain surface revision with its
     // actual scaled positions and smooth normals; do not independently resample them.
     if (this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) return;
@@ -1320,6 +1323,7 @@ export class ImageryLODManager {
 
   public reprojectPatches(sampler?: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds): void {
     if (this.isDisposed) return;
+    this.invalidateStreamedSurface();
     this.evaluationDirty = true;
     if (sampler) {
       this.options.elevationSampler = sampler;
@@ -2406,21 +2410,31 @@ export class ImageryLODManager {
         abortController.signal,
         next.priority ?? TilePriority.NORMAL
       )
-        .then((imageSource) => {
+        .then(async (imageSource) => {
           if (this.pendingRequests.get(next.key) !== pending) return;
+          const canMount = () => !this.isDisposed && !abortController.signal.aborted
+            && (this.desiredTileKeys.has(next.key) || this.patches.size < this.maxPatches)
+            && this.currentTextureStyle === requestStyle;
+          // Keep the scheduler slot through preparation: at most maxConcurrency
+          // decoded images/jobs can wait on the single terrain worker.
+          let prepared: { data: SurfacePatchData; revision: number } | undefined;
+          if (canMount() && this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
+            do { prepared = await this.prepareStreamedPatch(next, pending); }
+            while (prepared && prepared.revision !== this.surfaceRevision);
+          }
+          const geometry = prepared ? createPromotedPatchGeometry(prepared.data) : undefined;
+          if (this.pendingRequests.get(next.key) !== pending) {
+            geometry?.dispose();
+            return;
+          }
           this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
           this.pendingRequests.delete(next.key);
           this.failedRequests.delete(next.key);
 
-          if (
-            !this.isDisposed &&
-            !abortController.signal.aborted &&
-            (this.desiredTileKeys.has(next.key) || this.patches.size < this.maxPatches) &&
-            this.currentTextureStyle === requestStyle
-          ) {
+          if (canMount()) {
             const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            this.createAndMountPatch(next.key, next.zoom, next.x, next.y, imageSource, next.dist, now);
-          }
+            this.createAndMountPatch(next.key, next.zoom, next.x, next.y, imageSource, next.dist, now, geometry);
+          } else geometry?.dispose();
 
           this.drainQueue(provider);
         })
@@ -2469,6 +2483,32 @@ export class ImageryLODManager {
     this.nextRetryTime = Infinity;
   }
 
+  private invalidateStreamedSurface(): void {
+    this.surfaceRevision++;
+    this.streamedSurfaceSources = undefined;
+  }
+
+  /** Prepare the exact rendered triangles off the animation thread. A terrain
+   * promotion/exaggeration can finish while this job waits; retry against that
+   * revision before publishing instead of mounting stale elevations or holes.
+   */
+  private async prepareStreamedPatch(tile: QueuedTile, pending: PendingTileRequest): Promise<{ data: SurfacePatchData; revision: number } | undefined> {
+    while (!this.isDisposed && !pending.abortController.signal.aborted && this.pendingRequests.get(tile.key) === pending) {
+      const revision = this.surfaceRevision;
+      const base = this.options.terrainMesh!;
+      this.streamedSurfaceSources ??= [snapshotSurfaceMesh(base), ...(base.parent?.children.filter(
+        (child): child is THREE.Mesh => child instanceof THREE.Mesh && child.visible && child.name === 'LocalHighResTerrainMesh'
+      ).map(snapshotSurfaceMesh) ?? [])];
+      const input = { sources: this.streamedSurfaceSources,
+        centerLat: this.options.terrainGeoBounds.centerLat, centerLon: this.options.terrainGeoBounds.centerLon,
+        tiles: [{ key: tile.key, zoom: tile.zoom, x: tile.x, y: tile.y }] };
+      const [data] = await runTerrainJob<SurfacePatchData[]>({ kind: 'surface', input },
+        () => buildPromotedSurfacePatches(input), pending.abortController.signal);
+      if (this.isDisposed || pending.abortController.signal.aborted || this.pendingRequests.get(tile.key) !== pending) return;
+      if (revision === this.surfaceRevision) return { data, revision };
+    }
+  }
+
   private createAndMountPatch(
     key: string,
     zoom: number,
@@ -2476,9 +2516,10 @@ export class ImageryLODManager {
     y: number,
     img: HTMLImageElement | HTMLCanvasElement,
     dist: number,
-    now: number
+    now: number,
+    preparedGeometry?: THREE.BufferGeometry
   ): void {
-    if (this.patches.has(key)) return;
+    if (this.patches.has(key)) { preparedGeometry?.dispose(); return; }
 
     // Create GPU Texture
     const texture = new THREE.CanvasTexture(img);
@@ -2490,7 +2531,7 @@ export class ImageryLODManager {
     texture.needsUpdate = true;
 
     // Build conforming terrain geometry with true local Y datum
-    const geo = this.buildPatchGeometry(zoom, x, y);
+    const geo = preparedGeometry ?? this.buildPatchGeometry(zoom, x, y);
 
     const isXRActive = this.lastIsXR;
     const fadeDurationMs = isXRActive ? 150 : 250;
@@ -2850,6 +2891,7 @@ export class ImageryLODManager {
 
   public dispose(): void {
     this.surfaceLifetime.abort();
+    this.streamedSurfaceSources = undefined;
     if (this.isDisposed) return;
     this.isDisposed = true;
 

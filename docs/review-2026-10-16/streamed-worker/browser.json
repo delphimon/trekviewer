@@ -1,0 +1,15 @@
+{
+  "condition": "Synthetic Edge fixture, 4m refined cells, 48 Z17 tiles; production worker. No network, rendering or headset FPS measurement.",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0",
+  "workerAsset": "TerrainWorker-D0UoAFH_.js",
+  "jobs": 48,
+  "workerWallMs": 85.80000007152557,
+  "sourceBytes": 5444400,
+  "sourceSnapshotsSentIncludingWarmup": 1,
+  "timerCallbacks": 18,
+  "maxTimerGapMs": 11.299999952316284,
+  "triangles": 261161,
+  "sourceArraysIntact": true,
+  "exactGeometryDigestsAndBoundsMatch": true,
+  "errors": []
+}

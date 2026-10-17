@@ -6,6 +6,8 @@ The [October 15 Quest 3 checkpoint](review-2026-10-15/NATIVE.md) records a physi
 
 The [completed October 16 MR follow-up](review-2026-10-16/MR_COMPLETED.md) verifies a device-saved report and Z19 view samples on `483e4d5`. It also documents heavy patch turnover and callback timing well below the 72 Hz target. It separates trail and tabletop portions and does not treat resident-tile stability as proof that resolution stayed resident under pressure.
 
+The [streamed imagery worker checkpoint](review-2026-10-16/STREAMED_WORKER.md) moves incoming tile clipping off the animation thread, preserves exact terrain geometry, and bounds preparation without reducing view coverage or source quality. Desktop production-worker and streaming checks passed; its native frame-time effect remains unmeasured.
+
 ## Record a comparable run
 
 1. Build and deploy the exact source you want to measure to an HTTPS origin. Save `dist/build-info.json` with the results. Open the hosted app in Quest Browser with `?profile=1` appended to its URL (use `&profile=1` if the URL already has a query string). Avoid `?debug=1` for baseline measurements because its overlays and logging add work.
