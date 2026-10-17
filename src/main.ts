@@ -4,6 +4,7 @@ import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode }
 import { FrameTimingMonitor } from './core/FrameTimingMonitor';
 import { PerformanceSessionRecorder, type ProfileCounters, type ProfilePhase, type ProfileReport } from './core/PerformanceSessionRecorder';
 import { loadLastProfileReport, saveLastProfileReport, profileDownloadFilename } from './core/ProfileReportStore.ts';
+import { endXRSessionAfterFrame } from './core/XRSessionExit.ts';
 import { SceneManager } from './core/SceneManager';
 import { XRManager } from './core/XRManager';
 import { TerrainResult } from './terrain/TerrainGenerator';
@@ -98,6 +99,7 @@ export class TrekViewerApp {
   private readonly preparingTreks = new Set<LoadedTrek>();
   private readonly animateFrame = (timestamp: number, frame?: XRFrame) => this.animate(timestamp, frame);
   private xrEntryPending = false;
+  private xrExitPending = false;
   private xrAvailabilityGeneration = 0;
   private readonly onXRDeviceChange = () => { void this.updateXRAvailability(); };
   private xrReferenceSpace: XRReferenceSpace | null = null;
@@ -757,9 +759,12 @@ export class TrekViewerApp {
 
   private exitMR(): void {
     const session = this.sceneManager.renderer.xr.getSession();
-    if (session) {
-      session.end();
-    }
+    if (!session || this.xrExitPending) return;
+    this.xrExitPending = true;
+    void endXRSessionAfterFrame(session).catch(error => {
+      console.warn('Failed to end XR session:', error);
+      if (!this.isDisposed) this.overlay.showStatus('Could not exit VR/MR. Use the headset menu to leave.', true);
+    }).finally(() => { this.xrExitPending = false; });
   }
 
   private readonly onProfileVisibilityChange = (): void => {

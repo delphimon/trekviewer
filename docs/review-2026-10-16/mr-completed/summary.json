@@ -1,0 +1,138 @@
+{
+  "buildId": "483e4d5-2026-10-17T05:49:46.399Z",
+  "clientScripts": [
+    "https://trekviewer.surge.sh/assets/index-CBAcl-Sy.js"
+  ],
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36",
+  "condition": "Physical Quest 3 user-driven MR on the bundled Olympus/Bailey route. User changed view mode and route position. Different route/conditions from the earlier Rainier baseline; not a controlled performance comparison.",
+  "durationSeconds": 164.69730000001192,
+  "deviceSaveConfirmedByApp": true,
+  "nativeWindows": 158,
+  "viewModeChange": {
+    "elapsedSeconds": 91.79889999997616,
+    "name": "view-mode",
+    "value": "diorama"
+  },
+  "modes": [
+    {
+      "mode": "first-person",
+      "windows": 87,
+      "callbackHz": {
+        "samples": 86,
+        "min": 2.9654700665451474,
+        "median": 29.913788461653148,
+        "max": 71.95680969856221
+      },
+      "cpuSubmitP95Ms": {
+        "samples": 86,
+        "min": 7.699999988079071,
+        "median": 18.099999964237213,
+        "max": 32.30000001192093
+      },
+      "windowsWithTerrainSamples": 87,
+      "windowsWithAnyZ19Samples": 87,
+      "windowsWithAllSamplesZ19": 78,
+      "patchesCreatedBetweenFirstAndLastWindow": 3502,
+      "patchesDisposedBetweenFirstAndLastWindow": 3502,
+      "maxDrawCalls": 872,
+      "maxTriangles": 3397140,
+      "localMeshCellXM": {
+        "samples": 87,
+        "min": 4.960538609181089,
+        "median": 4.960538609181089,
+        "max": 4.960538609181102
+      },
+      "localMeshCellZM": {
+        "samples": 87,
+        "min": 4.9566253775129,
+        "median": 4.9566253775129,
+        "max": 4.956625377512912
+      },
+      "localElevationSource": [
+        "USGS 3DEP best available (public domain)"
+      ],
+      "tileSnapshots": 87,
+      "hiddenResidentFineObservations": 0,
+      "fineEvictionObservations": 2130,
+      "uniqueObservedEvictedFineKeys": 1057,
+      "peakResidents": 512,
+      "budget": [
+        512
+      ],
+      "contextLost": false
+    },
+    {
+      "mode": "diorama",
+      "windows": 71,
+      "callbackHz": {
+        "samples": 71,
+        "min": 4.31839994645184,
+        "median": 32.00752176761494,
+        "max": 69.20470752485946
+      },
+      "cpuSubmitP95Ms": {
+        "samples": 71,
+        "min": 8.699999988079071,
+        "median": 25.5,
+        "max": 80.90000003576279
+      },
+      "windowsWithTerrainSamples": 0,
+      "windowsWithAnyZ19Samples": 0,
+      "windowsWithAllSamplesZ19": 0,
+      "patchesCreatedBetweenFirstAndLastWindow": 1956,
+      "patchesDisposedBetweenFirstAndLastWindow": 1956,
+      "maxDrawCalls": 1068,
+      "maxTriangles": 7642752,
+      "localMeshCellXM": {
+        "samples": 71,
+        "min": 4.960538609181089,
+        "median": 4.960538609181089,
+        "max": 4.960538609181089
+      },
+      "localMeshCellZM": {
+        "samples": 71,
+        "min": 4.956625377512912,
+        "median": 4.956625377512912,
+        "max": 4.956625377512912
+      },
+      "localElevationSource": [
+        "USGS 3DEP best available (public domain)"
+      ],
+      "tileSnapshots": 71,
+      "hiddenResidentFineObservations": 0,
+      "fineEvictionObservations": 494,
+      "uniqueObservedEvictedFineKeys": 462,
+      "peakResidents": 448,
+      "budget": [
+        448
+      ],
+      "contextLost": false
+    }
+  ],
+  "runtimeExceptions": [
+    {
+      "text": "Uncaught",
+      "type": "DOMException",
+      "description": "InvalidStateError: Failed to read the 'detectedPlanes' property from 'XRFrame': XRFrame access outside the callback that produced it is invalid."
+    },
+    {
+      "text": "Uncaught (in promise)",
+      "type": "undefined",
+      "description": "No rejection detail"
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "warning",
+      "text": "THREE.WebGLRenderer: KHR_parallel_shader_compile extension not supported."
+    }
+  ],
+  "limits": [
+    "View hits sample terrain tiles; they do not measure every screen pixel or every rendered frame.",
+    "Callback spacing and CPU submission are not GPU completion or compositor FPS.",
+    "One-second tile snapshots can miss faster eviction/recreation cycles. Fine eviction observations count observed events, including repeated eviction of a key.",
+    "The collector lacks exception timestamps and origin tags. The unspecified promise rejection cannot be conclusively attributed to application code rather than diagnostic evaluation.",
+    "A later direct database read timed out after the headset became unavailable. The completed report already reported a committed device save and was copied to the host.",
+    "No raw head poses, room screenshots or controller trajectories are included."
+  ]
+}

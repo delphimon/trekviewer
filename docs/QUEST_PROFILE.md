@@ -4,6 +4,8 @@ TrekViewer has an opt-in, local session recorder in the production build. It nee
 
 The [October 15 Quest 3 checkpoint](review-2026-10-15/NATIVE.md) records a physical-headset VR baseline, its measurement limits, and an isolated native CPU comparison for terrain publication. The subsequent [MR trail capture](review-2026-10-15/MR.md) distinguishes stable retained tiles from incomplete high-resolution view coverage and identifies repeated source timeouts. [View loading priority](review-2026-10-15/VIEW_PRIORITY.md) documents earlier loading of current terrain samples with identical geographic coverage. Sustained thermal and post-fix native quality checks remain open.
 
+The [completed October 16 MR follow-up](review-2026-10-16/MR_COMPLETED.md) verifies a device-saved report and Z19 view samples on `483e4d5`. It also documents heavy patch turnover and callback timing well below the 72 Hz target. It separates trail and tabletop portions and does not treat resident-tile stability as proof that resolution stayed resident under pressure.
+
 ## Record a comparable run
 
 1. Build and deploy the exact source you want to measure to an HTTPS origin. Save `dist/build-info.json` with the results. Open the hosted app in Quest Browser with `?profile=1` appended to its URL (use `&profile=1` if the URL already has a query string). Avoid `?debug=1` for baseline measurements because its overlays and logging add work.
