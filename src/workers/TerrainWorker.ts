@@ -41,3 +41,7 @@ self.onmessage = async (event: MessageEvent<TerrainJob>) => {
     self.postMessage({ error: { name: (error as Error).name, message: (error as Error).message } });
   }
 };
+
+// Signal that the full module and message handler loaded, before callers
+// transfer sole-owned image/elevation buffers for the first job.
+self.postMessage({ ready: true });

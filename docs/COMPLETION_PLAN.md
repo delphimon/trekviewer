@@ -25,6 +25,7 @@ Deliver a consistently sharp, stable and usable Quest VR/MR terrain viewer, with
 - [x] Broad overscanned imagery/DEM selection and approximately 5 m High refinement meshes.
 - [x] Stable publication until actual eviction; atomic terrain/imagery replacement.
 - [x] Serialized worker preparation for streamed imagery with exact geometry parity, stale-result rejection and bounded pending work.
+- [x] Worker module readiness before buffer transfer, bounded startup retry/local recovery and automatic return to worker use; [startup validation](review-2026-10-17/WORKER_STARTUP.md).
 - [x] Eviction preference for visible warm imagery over hidden obsolete work; eligible-only scoring and eviction counters.
 - [x] Comfortable locomotion defaults, exclusive input ownership, workload limits, responsive controls and desktop graphics recovery.
 - [x] Opt-in completed-report persistence and build provenance.

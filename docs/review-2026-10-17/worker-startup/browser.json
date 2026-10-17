@@ -1,0 +1,63 @@
+{
+  "condition": "Actual production Edge WebGL with deliberate terrain worker script failures, real USGS data and public imagery alternatives. Desktop, not native XR.",
+  "results": [
+    {
+      "scenario": "one-failed-start",
+      "attempts": 2,
+      "blocked": 1,
+      "snapshot": {
+        "build": {
+          "id": "fa7e522-modified-2026-10-17T17:06:09.072Z",
+          "sha": "fa7e5229cc1b8cac6b8982a1a9e4fc04df8e219d",
+          "shortSha": "fa7e522",
+          "branch": "main",
+          "dirty": true,
+          "builtAt": "2026-10-17T17:06:09.072Z",
+          "label": "TrekViewer 1.0.0 • fa7e522 (modified)"
+        },
+        "route": "Mount Rainier via Emmons",
+        "source": "USGS 3DEP best available (public domain)",
+        "width": 1024,
+        "height": 643,
+        "hash": "ef0cb255e3c6cbe434debf11813e586eff08441d25da1e56036eba79ddc9bab5",
+        "glError": 0
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "scenario": "unavailable-worker",
+      "attempts": 3,
+      "blocked": 2,
+      "snapshot": {
+        "build": {
+          "id": "fa7e522-modified-2026-10-17T17:06:09.072Z",
+          "sha": "fa7e5229cc1b8cac6b8982a1a9e4fc04df8e219d",
+          "shortSha": "fa7e522",
+          "branch": "main",
+          "dirty": true,
+          "builtAt": "2026-10-17T17:06:09.072Z",
+          "label": "TrekViewer 1.0.0 • fa7e522 (modified)"
+        },
+        "route": "Mount Rainier via Emmons",
+        "source": "USGS 3DEP best available (public domain)",
+        "width": 1024,
+        "height": 643,
+        "hash": "ef0cb255e3c6cbe434debf11813e586eff08441d25da1e56036eba79ddc9bab5",
+        "glError": 0
+      },
+      "errors": [],
+      "warnings": [
+        "[TerrainJobs] Worker startup unavailable; using identical local computation temporarily. Error: Terrain worker module could not start\n    at t.onerror (https://127.0.0.1:4199/assets/index-CFttXx63.js:4426:17469)",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT",
+        "Failed to load resource: net::ERR_TIMED_OUT"
+      ]
+    }
+  ]
+}

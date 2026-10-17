@@ -17,7 +17,7 @@ class ControlledWorker {
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onerror: (() => void) | null = null;
   terminated = false;
-  constructor() { ControlledWorker.instances.push(this); }
+  constructor() { ControlledWorker.instances.push(this); queueMicrotask(() => this.onmessage?.({ data: { ready: true } })); }
   postMessage(job: TerrainJob) {
     const copied = structuredClone(job);
     this.messages.push(copied);

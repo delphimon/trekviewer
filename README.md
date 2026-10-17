@@ -10,6 +10,8 @@ The [source provenance checkpoint](docs/review-2026-10-17/SOURCE_AUDIT.md) recor
 
 The [persistent source cache](docs/review-2026-10-17/RESOURCE_CACHE.md) reuses original imagery and validated elevation bytes across visits, with bounded device storage, freshness, corruption recovery and Settings controls. Free API-key sources are eligible for this personal/internal app when their terms and limits keep use free; the current candidate review distinguishes browser-safe access from private/local preparation.
 
+The [worker startup recovery checkpoint](docs/review-2026-10-17/WORKER_STARTUP.md) waits for module readiness before transferring terrain buffers, retries a failed startup, and preserves full source precision through temporary local recovery when a worker is unavailable.
+
 ---
 
 ## 🚀 Headset Installation & Standalone Deployment (Zero-Server Setup)

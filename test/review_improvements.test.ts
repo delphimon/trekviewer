@@ -210,7 +210,7 @@ it('serializes worker jobs, aborts the active worker, and allows a subsequent jo
     public onerror: any = null;
     public messages: any[] = [];
     public terminate = vi.fn();
-    constructor() { instances.push(this); }
+    constructor() { instances.push(this); queueMicrotask(() => this.onmessage?.({ data: { ready: true } })); }
     public postMessage(message: any): void { this.messages.push(message); }
   }
   vi.stubGlobal('Worker', MockWorker);
@@ -218,7 +218,8 @@ it('serializes worker jobs, aborts the active worker, and allows a subsequent jo
   const first = runTerrainJob({ kind: 'decode', input: {} as any }, () => 1, controller.signal);
   const firstResult = expect(first).rejects.toMatchObject({ name: 'AbortError' });
   const second = runTerrainJob({ kind: 'decode', input: {} as any }, () => 2);
-  await Promise.resolve(); expect(instances).toHaveLength(1); expect(instances[0].messages).toHaveLength(1);
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  expect(instances).toHaveLength(1); expect(instances[0].messages).toHaveLength(1);
   controller.abort(); await firstResult;
   for (let i = 0; i < 6; i++) await Promise.resolve();
   expect(instances[0].terminate).toHaveBeenCalled(); expect(instances).toHaveLength(2);

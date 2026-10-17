@@ -1,0 +1,50 @@
+
+> trekviewer@1.0.0 verify
+> npm run typecheck && npm test && npm run build
+
+
+> trekviewer@1.0.0 typecheck
+> tsc --noEmit && tsc -p tsconfig.test.json --noEmit
+
+
+> trekviewer@1.0.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v5.0.1 E:/Development/delphimon/trekviewer
+
+
+ Test Files  110 passed | 1 skipped (111)
+      Tests  601 passed | 5 skipped (606)
+   Start at  10:05:23
+   Duration  43.71s (tests 83%, import 12%, transform 4%, worker 1%)
+
+    Isolate  111 workers spawned · ~167ms startup each (spawn + environment, per file)
+             at least ~9.11s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> trekviewer@1.0.0 build
+> tsc && vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+[plugin rolldown:vite-resolve] Module "module" has been externalized for browser compatibility, imported by "E:/Development/delphimon/trekviewer/node_modules/lerc/LercDecode.es.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+[plugin rolldown:vite-resolve] Module "module" has been externalized for browser compatibility, imported by "E:/Development/delphimon/trekviewer/node_modules/lerc/LercDecode.es.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/build-info.json                               0.26 kB │ gzip:   0.19 kB
+dist/index.html                                    0.96 kB │ gzip:   0.46 kB
+dist/assets/lerc-wasm-CcWaYBBN.wasm              117.02 kB │ gzip:  32.09 kB
+dist/assets/TerrainWorker-CiD_Yh_B.js            244.55 kB
+dist/assets/index-DX6MRxqD.css                     9.81 kB │ gzip:   2.75 kB
+dist/assets/__vite-browser-external-CoreRdfX.js    0.10 kB │ gzip:   0.11 kB
+dist/assets/LercElevation-DmnDTEJp.js             10.17 kB │ gzip:   4.34 kB
+dist/assets/index-CFttXx63.js                    951.93 kB │ gzip: 250.84 kB
+
+✓ built in 640ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
