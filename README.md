@@ -6,6 +6,8 @@ The [current completion plan](docs/COMPLETION_PLAN.md) tracks the remaining fide
 
 The [October 17 XR quality checkpoint](docs/review-2026-10-17/XR_QUALITY.md) fixes that inherited setting: High requests no peripheral fixed foveation; Balanced explicitly retains maximum foveation for power saving. New profile reports distinguish the request from runtime layer readback and record actual eye/layer dimensions. Native clarity and performance acceptance remain pending.
 
+The [source provenance checkpoint](docs/review-2026-10-17/SOURCE_AUDIT.md) records all eight bundled summit-point catalog checks and actual published-patch imagery services in new profiles. It distinguishes source-native detail, requested sampling and rendered resolution, with remaining regional coverage limits on the source page.
+
 ---
 
 ## 🚀 Headset Installation & Standalone Deployment (Zero-Server Setup)

@@ -16,6 +16,8 @@ The [eviction-retention checkpoint](review-2026-10-16/EVICTION_RETENTION.md) pre
 
 ## Record a comparable run
 
+New profiles also report actual supplying image-service counts for published visible patches and Z17+ detail, plus configured-alternative counts. These are publication flags, not per-eye pixel areas, native survey resolution or source dates. Hybrid preserves the aerial service provenance. See the [source audit](review-2026-10-17/SOURCE_AUDIT.md) for the current point catalog evidence and geographic limits.
+
 1. Build and deploy the exact source you want to measure to an HTTPS origin. Save `dist/build-info.json` with the results. Open the hosted app in Quest Browser with `?profile=1` appended to its URL (use `&profile=1` if the URL already has a query string). Avoid `?debug=1` for baseline measurements because its overlays and logging add work.
 2. Load one route and wait for the initial selected imagery to settle. Note the route, quality profile, imagery style, headset OS and Browser versions, and Wi-Fi conditions. Open the same URL, with the same starting state, for each comparison.
 3. Enter VR or MR. Recording starts automatically on XR entry and stops on exit. For a baseline, remain in one mode for several minutes. For a stress run, inspect high-detail terrain, move along the route, switch modes and imagery styles, and repeat those transitions over roughly 15 minutes. The report marks those changes.

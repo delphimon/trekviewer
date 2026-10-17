@@ -42,6 +42,9 @@ export interface ProfileCounters extends Partial<XRRenderQualityCounters> {
   imageryFocusSource: string;
   imageryDesiredTiles: number;
   imageryVisiblePatches: number;
+  imageryVisibleBySource?: Record<string, number>;
+  imageryVisibleFineBySource?: Record<string, number>;
+  imageryVisibleAlternativeSources?: number;
   imageryCreatedTotal: number;
   imageryDisposedTotal: number;
   imageryBudgetEvictionsTotal?: number;

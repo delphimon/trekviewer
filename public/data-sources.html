@@ -24,6 +24,28 @@
 </table>
 <p>Slow or missing data retains the available terrain and imagery. Fallback elevation retries the preferred source while remaining visible. PNG exports add no further JPEG compression; elevation is transferred as floating-point heights without compression error. These export formats do not recover detail already lost in the original data.</p>
 <p>There is no single globally finest free source. Local public surveys can exceed these general services, and high-resolution coverage is not universal. The app does not claim that every location has 1 m elevation or sub-metre imagery.</p>
+<h2 id="route-audit">Bundled route source checks</h2>
+<p>October 17, 2026 snapshot at each route's highest recorded GPX point. These are <strong>catalog checks at individual points</strong>, not whole-route coverage certificates or the dataset currently displayed in your view. Source dates below are imagery acquisition years.</p>
+<div style="overflow-x:auto" tabindex="0" role="region" aria-label="Bundled route source audit">
+<table>
+<thead><tr><th>Route</th><th>3DEP catalog contributor</th><th>NAIP fallback native pixels / year</th></tr></thead>
+<tbody>
+<tr><td>Rainier / Emmons</td><td>Lewis 2009, 1/9 arc-second</td><td>1 m / 2017</td></tr>
+<tr><td>Baker</td><td>Mt Baker 2015, catalog LowPS 1</td><td>1 m / 2017</td></tr>
+<tr><td>Adams</td><td>Mount Adams 2016 D16, catalog LowPS 1</td><td>1 m / 2017</td></tr>
+<tr><td>Hood</td><td>Deschutes River 2004, 1/9 arc-second</td><td>0.3 m / 2022</td></tr>
+<tr><td>Glacier Peak</td><td>Glacier Peak 2014, catalog LowPS 1</td><td>1 m / 2017</td></tr>
+<tr><td>Olympus / Bailey</td><td>Puget Sound 2000, 1/9 arc-second</td><td>1 m / 2017</td></tr>
+<tr><td>Defiance / Putrid Pete</td><td>King County 2021 B21, catalog LowPS 1</td><td>1 m / 2017</td></tr>
+<tr><td>Enchantments / Dragontail</td><td>Central Wildfire D22, catalog LowPS 1</td><td>1 m / 2017</td></tr>
+</tbody>
+</table>
+</div>
+<p>“LowPS” is a catalog pixel-size field in service coordinates, not a verified ground resolution or accuracy. Requesting 1 m elevation samples does not turn an older 1/9 arc-second survey into native 1 m terrain.</p>
+<p>The preferred NAIP Plus catalog requests timed out at all eight audit points; the alternative USGS NAIP catalog responded. This does not establish that every preferred image export is unavailable. TrekViewer still tries the configured preferred imagery, retains complete existing coverage during failures, and reports the service supplying published detail in opt-in profiles. Z19 tiles can still contain 1 m photographs.</p>
+<h2>Imported routes</h2>
+<p>Outside the supported US elevation regions, terrain uses the global Mapzen fallback. Outside the conterminous US, imagery uses the approximately 10 m EOxCloudless mosaic, capped at Z15. This includes Switzerland, Nepal and New Zealand; importing a detailed GPX does not supply matching high-resolution photography or terrain. A partial or missing source keeps the available parent imagery or fallback terrain visible while requests recover.</p>
+<p>Finer free regional data exists. For example, <a href="https://www.swisstopo.admin.ch/en/orthoimage-swissimage-10">SWISSIMAGE</a> provides 10 cm imagery in plains/main valleys and 25 cm in the Alps, under <a href="https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices">swisstopo's free-use terms with mandatory attribution</a>. It is not yet integrated. Regional sources require validated coverage, browser access, NoData handling and bounded loading before selection; the current global fallback is not the finest free data everywhere.</p>
 <h2>Credits</h2>
 <p>USGS 3DEP, USDA NAIP, USGS The National Map and Geographic Names Information System. Geographic data are resampled and draped onto TrekViewer's terrain. No agency endorsement is implied.</p>
 <p>EOxCloudless <a href="https://cloudless.eox.at">https://cloudless.eox.at</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0.</p>
@@ -45,5 +67,5 @@
 <p>Esri World Imagery and Bing via Cesium Ion are available only through explicit configuration. Their account, usage, and imagery rights have separate terms. The default configuration does not select them, even when an optional token exists, and never falls back to them.</p>
 <h2>Software notices</h2>
 <p><a href="licenses/NOTICE.txt">Third-party notices</a> · <a href="licenses/lerc-LICENSE.txt">LERC — Apache License 2.0</a> · <a href="licenses/three-LICENSE.txt">Three.js — MIT License</a></p>
-<small>Source and license review: October 14, 2026. Availability, dates and source coverage can change. Keep the original attribution when sharing imagery or rendered views.</small>
+<small>Source coverage review: October 17, 2026; default-source license review: October 14, 2026. Availability, dates and source coverage can change. Keep the original attribution when sharing imagery or rendered views.</small>
 </html>

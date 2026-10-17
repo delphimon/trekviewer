@@ -60,6 +60,13 @@ if (!paths.length) {
         console.log(`Focus source: ${[...focusSources].map(([source, seconds]) => `${source} ${seconds.toFixed(1)}s`).join(', ')}`);
         console.log(`Patch creations/disposals during sampled windows: ${counterIncreases(active, 'imageryCreatedTotal')}/${counterIncreases(active, 'imageryDisposedTotal')}  |  tile failures: ${counterIncreases(active, 'tileCacheFailures')}  |  tabletop terrain focus changes: ${counterIncreases(active, 'localTerrainFocusChangesTotal')}`);
       }
+      const sourceWindows = active.filter(w => w.imageryVisibleBySource);
+      if (sourceWindows.length) {
+        const peaks = {};
+        for (const w of sourceWindows) for (const [source, count] of Object.entries(w.imageryVisibleBySource)) peaks[source] = Math.max(peaks[source] ?? 0, count);
+        console.log(`Published visible patch sources (peak counts, not area or native resolution): ${Object.entries(peaks).map(([source, count]) => `${source} ${count}`).join(', ')}`);
+        console.log(`Windows with configured alternative imagery: ${sourceWindows.filter(w => w.imageryVisibleAlternativeSources > 0).length}/${sourceWindows.length}`);
+      }
       if (active.some(w => Number.isFinite(w.baseTerrainCellXM) && w.baseTerrainCellXM > 0)) {
         const latest = active.at(-1);
         console.log(`Terrain: base ${latest.baseTerrainCellXM}m × ${latest.baseTerrainCellZM}m cells, DEM z${latest.baseDemZoom}; visible local DEM z${latest.visibleLocalDemZoom}`);

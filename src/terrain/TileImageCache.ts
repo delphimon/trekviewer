@@ -1,4 +1,5 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
+import { recordImagerySource } from './ImagerySource.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
 export enum TilePriority {
@@ -361,6 +362,7 @@ export class TileImageCache {
         try {
           const region = provider.getTileImageRegion?.(zoom, x, y);
           const urls = [...provider.getTileUrls(zoom, x, y)];
+          const configuredFirstURL = urls[0];
           if (region) {
             // A source outage affects many exports, not just one tile URL. Try
             // healthy configured mirrors first instead of repeating the same
@@ -387,6 +389,7 @@ export class TileImageCache {
                 img = canvas;
               }
               if (provider.isTileUsable && !provider.isTileUsable(img, url)) throw new Error('Imagery has incomplete source coverage');
+              recordImagerySource(img, url, configuredFirstURL);
               if (generation === this.generation) this.set(key, img);
               return img;
             } catch (err) {

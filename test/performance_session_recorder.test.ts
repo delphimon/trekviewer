@@ -15,6 +15,7 @@ const counters: ProfileCounters = {
   firstPersonViewMinZoom: 17, firstPersonViewMeanZoom: 18.3,
   imageryCreatedTotal: 36, imageryDisposedTotal: 0, tileCacheFailures: 0,
   imageryBudgetEvictionsTotal: 12, imageryVisibleBudgetEvictionsTotal: 3, imageryDesiredBudgetEvictionsTotal: 0,
+  imageryVisibleBySource: { 'usgs-naip': 36 }, imageryVisibleFineBySource: { 'usgs-naip': 32 }, imageryVisibleAlternativeSources: 36,
   qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', imageryProvider: 'cesium-bing', routeName: 'Test route',
 };
 afterEach(() => vi.restoreAllMocks());
@@ -42,6 +43,7 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
     xrRequestedFoveation:0,xrLayerFoveation:0,xrLayerFoveationSupported:true,xrLayerWidth:2400,
     xrEyeViewports:[{width:1200,height:2560},{width:1200,height:2560}],
     imageryBudgetEvictionsTotal:12,imageryVisibleBudgetEvictionsTotal:3,imageryDesiredBudgetEvictionsTotal:0,
+    imageryVisibleBySource:{'usgs-naip':36},imageryVisibleFineBySource:{'usgs-naip':32},imageryVisibleAlternativeSources:36,
     cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);
   expect(Object.keys(report.windows[0].phaseMeanMs)).toEqual([...PROFILE_PHASES]);

@@ -41,6 +41,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 ### 2. Capture a usable current-build native baseline
 
+**October 17 status:** the exact `7d61b22` client was loaded and the Olympus/Bailey 1:1 position prepared. The user deferred headset testing. The host capture was stopped; no native run or acceptance is claimed. Reconfirm/reload the current published client and reattach capture when testing resumes, especially after another publication. Continue independent source/provenance work meanwhile.
+
 - [ ] Preconfigure the exact published build, route, progress, High/Aerial state and recorder before requesting headset participation. Preserve the `483e4d5` historical evidence; label it as a different run.
 - [ ] Use one prepared session covering stationary 1:1, slow up/down/side turns and returns to prior views, tabletop inspection, and VR/MR transitions. Keep comparable portions separate in the report.
 - [ ] Retrieve the completed device-saved report promptly and verify its recorded client build, presentation/blend mode and eye count. Keep a host copy before browser closure; test restart recovery during lifecycle acceptance.
@@ -60,6 +62,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 **Done when:** the limiting device cost is measurably lower at matching quality, stationary/revisit tile churn is controlled, and the native frame budget passes the acceptance gate below. Do not substitute isolated operation counts for a native result.
 
 ### 4. Finish source coverage and fidelity provenance
+
+**October 17 progress:** all eight bundled summit-point catalogs were audited, with preferred-service timeouts and alternative native imagery resolutions/dates retained. Published patch source reporting now distinguishes actual supplying services from provider configuration, including Hybrid and alternative ordering after service cooldown. See [source audit and limits](review-2026-10-17/SOURCE_AUDIT.md). Whole-route/native-resolution validation, representative imported-route runtime tests and regional provider integration remain open; the partial evidence does not close the checklist below.
 
 - [ ] Audit bundled routes plus representative imported routes inside/outside supported US coverage. Record the selected dataset, verified native resolution where available, export sample spacing, rendered cell spacing, source date, terms/attribution and fallback reason.
 - [ ] Verify whether higher-detail free regional sources exist for locations currently using the coarse global fallback; add applicable providers with coverage, NoData, response-size, cache and failure guards. Verify terms and endpoint behavior before recommending or integrating a source.

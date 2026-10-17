@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { copyImagerySource, getImagerySource } from './ImagerySource.ts';
 import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
 import { createTileUVMapper } from './TileUV.ts';
 import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGeometry, type SurfacePatchData, type SurfaceMeshSnapshot } from './SurfacePromotion.ts';
@@ -97,6 +98,9 @@ export interface ImageryLODDiagnostics {
   debugPatchBounds?: boolean;
   // Stage U4 additions (Section 47)
   visibleByZoom: Map<number, number>;
+  visibleBySource: Record<string, number>;
+  visibleFineBySource: Record<string, number>;
+  visibleAlternativeSources: number;
   desiredZoom: number;
   readyHighResCount: number;
   totalDesiredHighResCount: number;
@@ -1001,12 +1005,20 @@ export class ImageryLODManager {
 
   public getDiagnostics(): ImageryLODDiagnostics {
     const visibleByZoom = new Map<number, number>();
+    const visibleBySource: Record<string, number> = {};
+    const visibleFineBySource: Record<string, number> = {};
+    let visibleAlternativeSources = 0;
     let visibleCount = 0;
 
     for (const patch of this.patches.values()) {
       if (patch.mesh.visible) {
         visibleCount++;
         visibleByZoom.set(patch.zoom, (visibleByZoom.get(patch.zoom) || 0) + 1);
+        const info = getImagerySource(patch.texture.image);
+        const source = info?.source ?? 'unknown';
+        visibleBySource[source] = (visibleBySource[source] ?? 0) + 1;
+        if (patch.zoom >= 17) visibleFineBySource[source] = (visibleFineBySource[source] ?? 0) + 1;
+        if (info?.configuredAlternative) visibleAlternativeSources++;
       }
     }
 
@@ -1085,6 +1097,9 @@ export class ImageryLODManager {
       currentProgress: this.currentProgress,
       debugPatchBounds: this.debugPatchBounds,
       visibleByZoom,
+      visibleBySource,
+      visibleFineBySource,
+      visibleAlternativeSources,
       desiredZoom: this.currentTargetZoom,
       readyHighResCount: readyHighRes,
       totalDesiredHighResCount: totalDesiredHighRes,
@@ -1725,6 +1740,7 @@ export class ImageryLODManager {
             if (labelImg) {
               ctx.drawImage(labelImg, 0, 0, 256, 256);
             }
+            copyImagerySource(satImg, canvas);
             return canvas;
           }
         } catch {

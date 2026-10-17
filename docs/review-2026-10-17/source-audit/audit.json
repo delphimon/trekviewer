@@ -1,0 +1,1423 @@
+{
+  "condition": "Live metadata-only highest-point samples, not whole-route validation.",
+  "routes": [
+    {
+      "id": "rainier-emmons",
+      "name": "Mount Rainier via Emmons Glacier",
+      "file": "/routes/MountRainierViaEmmons.gpx",
+      "sample": {
+        "lat": 46.851749,
+        "lon": -121.760414,
+        "elevation": 4391.314941
+      },
+      "bounds": {
+        "minLat": 46.85149,
+        "maxLat": 46.902256,
+        "minLon": -121.760422,
+        "maxLon": -121.641983
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.760414%2C%22y%22%3A46.851749%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4622268152715534%2C%22y%22%3A1.4622268152715534%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:12:42.336Z",
+        "value": "4390.43",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "NoData",
+          "4390.43",
+          "4390.91",
+          "4389.44"
+        ],
+        "reportedContributors": [
+          {
+            "id": 8856,
+            "name": "ned19_n47x00_w122x00_wa_lewis_2009",
+            "title": "USGS NED ned19_n47x00_w122x00_wa_lewis_2009 1/9 arc-second 2011 15 x 15 minute IMG",
+            "contribution": 1,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1248652800000,
+            "startDate": 20090718,
+            "endDate": "20090727",
+            "publication": 2011,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n47x00_w122x00_wa_lewis_2009.zip"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 8856,
+            "name": "ned19_n47x00_w122x00_wa_lewis_2009",
+            "title": "USGS NED ned19_n47x00_w122x00_wa_lewis_2009 1/9 arc-second 2011 15 x 15 minute IMG",
+            "contribution": 1,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1248652800000,
+            "startDate": 20090718,
+            "endDate": "20090727",
+            "publication": 2011,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n47x00_w122x00_wa_lewis_2009.zip"
+          },
+          {
+            "id": 8857,
+            "name": "ned19_n47x00_w122x00_wa_mounttrainier_2008",
+            "title": "USGS NED ned19_n47x00_w122x00_wa_mounttrainier_2008 1/9 arc-second 2010 15 x 15 minute IMG",
+            "contribution": 0,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1199923200000,
+            "startDate": 200709,
+            "endDate": "200810",
+            "publication": 2010,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n47x00_w122x00_wa_mounttrainier_2008.zip"
+          },
+          {
+            "id": 4919,
+            "name": "n47w122",
+            "title": "USGS 1/3 Arc Second n47w122 20220919",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.00009259259269220167,
+            "source": "USGS",
+            "acquisitionDate": 1598054400000,
+            "startDate": 20191003,
+            "endDate": "20200822",
+            "publication": 20220919,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n47w122/USGS_13_n47w122.tif"
+          },
+          {
+            "id": 240,
+            "name": "n47w122",
+            "title": "USGS 1 Arc Second n47w122 20220919",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.000277777777786999,
+            "source": "USGS",
+            "acquisitionDate": 1598054400000,
+            "startDate": 20191003,
+            "endDate": "20200822",
+            "publication": 20220919,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n47w122/USGS_1_n47w122.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.760414%2C%22y%22%3A46.851749%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4622268152715534%2C%22y%22%3A1.4622268152715534%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:17:44.254Z",
+        "value": "205, 197, 187",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "205 197 187 134"
+        ],
+        "reportedContributors": [
+          {
+            "id": 205355,
+            "name": "m_4612110_ne_10_1_20170928",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506556800000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2468016"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 205355,
+            "name": "m_4612110_ne_10_1_20170928",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506556800000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2468016"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.760414%2C%22y%22%3A46.851749%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4622268152715534%2C%22y%22%3A1.4622268152715534%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:13:02.352Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "baker-2026",
+      "name": "Mount Baker (July 2026)",
+      "file": "/routes/MountBakerJuly2026.gpx",
+      "sample": {
+        "lat": 48.77668,
+        "lon": -121.814598,
+        "elevation": 3286.92749
+      },
+      "bounds": {
+        "minLat": 48.705116,
+        "maxLat": 48.776711,
+        "minLon": -121.841568,
+        "maxLon": -121.812355
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.814598%2C%22y%22%3A48.77668%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.5174607074611106%2C%22y%22%3A1.5174607074611106%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:12:43.225Z",
+        "value": "3285.03",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "3285.03",
+          "NoData",
+          "3284.19",
+          "3280.22"
+        ],
+        "reportedContributors": [
+          {
+            "id": 107050,
+            "name": "WA_MtBaker_2015",
+            "title": "USGS one meter x58y541 WA MtBaker 2015",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1443312000000,
+            "startDate": 20150826,
+            "endDate": "20150927",
+            "publication": 20200330,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_MtBaker_2015/TIFF/USGS_one_meter_x58y541_WA_MtBaker_2015.tif"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 107050,
+            "name": "WA_MtBaker_2015",
+            "title": "USGS one meter x58y541 WA MtBaker 2015",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1443312000000,
+            "startDate": 20150826,
+            "endDate": "20150927",
+            "publication": 20200330,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_MtBaker_2015/TIFF/USGS_one_meter_x58y541_WA_MtBaker_2015.tif"
+          },
+          {
+            "id": 13035,
+            "name": "ned19_n49x00_w122x00_wa_northpugetsound_2006",
+            "title": "USGS NED ned19_n49x00_w122x00_wa_northpugetsound_2006 1/9 arc-second 2009 15 x 15 minute IMG",
+            "contribution": 0,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1388534400000,
+            "startDate": 2009,
+            "endDate": "2014",
+            "publication": 2009,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n49x00_w122x00_wa_northpugetsound_2006.zip"
+          },
+          {
+            "id": 5646,
+            "name": "n49w122",
+            "title": "USGS 1/3 Arc Second n49w122 20230307",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.00009259259269220167,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 19580101,
+            "endDate": "20210907",
+            "publication": 20230307,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n49w122/USGS_13_n49w122.tif"
+          },
+          {
+            "id": 1611,
+            "name": "n49w122",
+            "title": "USGS 1 Arc Second n49w122 20230307",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.000277777777786999,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 19580101,
+            "endDate": "20210907",
+            "publication": 20230307,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n49w122/USGS_1_n49w122.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.814598%2C%22y%22%3A48.77668%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.5174607074611106%2C%22y%22%3A1.5174607074611106%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:17:54.779Z",
+        "value": "184, 170, 173",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "184 170 173 38",
+          "184 170 173 38"
+        ],
+        "reportedContributors": [
+          {
+            "id": 209025,
+            "name": "m_4812110_se_10_1_20170927",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506470400000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2471737"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 209025,
+            "name": "m_4812110_se_10_1_20170927",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506470400000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2471737"
+          },
+          {
+            "id": 209026,
+            "name": "m_4812110_sw_10_1_20170927",
+            "title": null,
+            "contribution": 0,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506470400000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2471738"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.814598%2C%22y%22%3A48.77668%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.5174607074611106%2C%22y%22%3A1.5174607074611106%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:13:03.227Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "adams-2026",
+      "name": "Mount Adams (July 2026)",
+      "file": "/routes/MountAdamsJuly2026.gpx",
+      "sample": {
+        "lat": 46.202301,
+        "lon": -121.491127,
+        "elevation": 3740.986572
+      },
+      "bounds": {
+        "minLat": 46.135632,
+        "maxLat": 46.202419,
+        "minLon": -121.498627,
+        "maxLon": -121.483513
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.491127%2C%22y%22%3A46.202301%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4448482897782324%2C%22y%22%3A1.4448482897782324%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:13:09.311Z",
+        "value": "3741.12",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "3741.12",
+          "3740.96",
+          "3741.7"
+        ],
+        "reportedContributors": [
+          {
+            "id": 131204,
+            "name": "WA_Mount_Adams_LiDAR_2016_D16",
+            "title": "USGS 1 Meter 10 x61y512 WA_Mount_Adams_LiDAR_2016_D16",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1474848000000,
+            "startDate": 20160815,
+            "endDate": "20160926",
+            "publication": 20240805,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_Mount_Adams_LiDAR_2016_D16/TIFF/USGS_1M_10_x61y512_WA_Mount_Adams_LiDAR_2016_D16.tif"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 131204,
+            "name": "WA_Mount_Adams_LiDAR_2016_D16",
+            "title": "USGS 1 Meter 10 x61y512 WA_Mount_Adams_LiDAR_2016_D16",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1474848000000,
+            "startDate": 20160815,
+            "endDate": "20160926",
+            "publication": 20240805,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_Mount_Adams_LiDAR_2016_D16/TIFF/USGS_1M_10_x61y512_WA_Mount_Adams_LiDAR_2016_D16.tif"
+          },
+          {
+            "id": 4919,
+            "name": "n47w122",
+            "title": "USGS 1/3 Arc Second n47w122 20220919",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.00009259259269220167,
+            "source": "USGS",
+            "acquisitionDate": 1598054400000,
+            "startDate": 20191003,
+            "endDate": "20200822",
+            "publication": 20220919,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n47w122/USGS_13_n47w122.tif"
+          },
+          {
+            "id": 240,
+            "name": "n47w122",
+            "title": "USGS 1 Arc Second n47w122 20220919",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.000277777777786999,
+            "source": "USGS",
+            "acquisitionDate": 1598054400000,
+            "startDate": 20191003,
+            "endDate": "20200822",
+            "publication": 20220919,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n47w122/USGS_1_n47w122.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.491127%2C%22y%22%3A46.202301%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4448482897782324%2C%22y%22%3A1.4448482897782324%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:18:05.083Z",
+        "value": "225, 221, 222",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "225 221 222 207"
+        ],
+        "reportedContributors": [
+          {
+            "id": 205528,
+            "name": "m_4612153_nw_10_1_20170817",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1502928000000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2468039"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 205528,
+            "name": "m_4612153_nw_10_1_20170817",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1502928000000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2468039"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.491127%2C%22y%22%3A46.202301%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4448482897782324%2C%22y%22%3A1.4448482897782324%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:13:29.320Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "hood-2026",
+      "name": "Mount Hood (June 2026)",
+      "file": "/routes/MountHoodJune2026.gpx",
+      "sample": {
+        "lat": 45.373383,
+        "lon": -121.69574,
+        "elevation": 3422.321289
+      },
+      "bounds": {
+        "minLat": 45.331459,
+        "maxLat": 45.373753,
+        "minLon": -121.709282,
+        "maxLon": -121.695503
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.69574%2C%22y%22%3A45.373383%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.423520468902843%2C%22y%22%3A1.423520468902843%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:13:10.403Z",
+        "value": "3425.37",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "NoData",
+          "3425.37",
+          "3425.35",
+          "3423.58"
+        ],
+        "reportedContributors": [
+          {
+            "id": 9888,
+            "name": "ned19_n45x50_w121x75_or_deschutesriver_2004",
+            "title": "USGS NED ned19_n45x50_w121x75_or_deschutesriver_2004 1/9 arc-second 2009 15 x 15 minute IMG",
+            "contribution": 1,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1388534400000,
+            "startDate": 2009,
+            "endDate": "2014",
+            "publication": 2009,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n45x50_w121x75_or_deschutesriver_2004.zip"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 9888,
+            "name": "ned19_n45x50_w121x75_or_deschutesriver_2004",
+            "title": "USGS NED ned19_n45x50_w121x75_or_deschutesriver_2004 1/9 arc-second 2009 15 x 15 minute IMG",
+            "contribution": 1,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1388534400000,
+            "startDate": 2009,
+            "endDate": "2014",
+            "publication": 2009,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n45x50_w121x75_or_deschutesriver_2004.zip"
+          },
+          {
+            "id": 9889,
+            "name": "ned19_n45x50_w121x75_or_portland_2008",
+            "title": "USGS NED ned19_n45x50_w121x75_or_portland_2008 1/9 arc-second 2010 15 x 15 minute IMG",
+            "contribution": 0,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1199923200000,
+            "startDate": 20070315,
+            "endDate": "20081001",
+            "publication": 2010,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n45x50_w121x75_or_portland_2008.zip"
+          },
+          {
+            "id": 5022,
+            "name": "n46w122",
+            "title": "USGS 1/3 Arc Second n46w122 20260202",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.00009259259269220167,
+            "source": "USGS",
+            "acquisitionDate": 1731628800000,
+            "startDate": 19560101,
+            "endDate": "20241115",
+            "publication": 20260202,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n46w122/USGS_13_n46w122.tif"
+          },
+          {
+            "id": 3649,
+            "name": "n46w122",
+            "title": "USGS 1 Arc Second n46w122 20260202",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.000277777777786999,
+            "source": "USGS",
+            "acquisitionDate": 1731628800000,
+            "startDate": 19560101,
+            "endDate": "20241115",
+            "publication": 20260202,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n46w122/USGS_1_n46w122.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.69574%2C%22y%22%3A45.373383%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.423520468902843%2C%22y%22%3A1.423520468902843%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:18:14.769Z",
+        "value": "203, 196, 172",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "190 183 160 188",
+          "190 183 160 188"
+        ],
+        "reportedContributors": [
+          {
+            "id": 160615,
+            "name": "m_4512135_sw_10_030_20220824",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 0.3,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1661299200000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2022,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/3224110"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 160615,
+            "name": "m_4512135_sw_10_030_20220824",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 0.3,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1661299200000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2022,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/3224110"
+          },
+          {
+            "id": 160645,
+            "name": "m_4512143_nw_10_030_20220824",
+            "title": null,
+            "contribution": 0,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 0.3,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1661299200000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2022,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/3224199"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.69574%2C%22y%22%3A45.373383%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.423520468902843%2C%22y%22%3A1.423520468902843%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:13:30.417Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "glacier-peak-2026",
+      "name": "Glacier Peak Traverse (July 2026)",
+      "file": "/routes/GlacierPeakTraverse2026.gpx",
+      "sample": {
+        "lat": 48.111885,
+        "lon": -121.114136,
+        "elevation": 3217.344482
+      },
+      "bounds": {
+        "minLat": 48.02914,
+        "maxLat": 48.111885,
+        "minLon": -121.288147,
+        "maxLon": -121.10498
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.114136%2C%22y%22%3A48.111885%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4977276174324718%2C%22y%22%3A1.4977276174324718%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:13:30.266Z",
+        "value": "3212.57",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "3212.57",
+          "3212.68",
+          "3207.54"
+        ],
+        "reportedContributors": [
+          {
+            "id": 20650,
+            "name": "WA_GlacierPeak_2014",
+            "title": "USGS one meter x64y534 WA GlacierPeak 2014",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1435104000000,
+            "startDate": 20140825,
+            "endDate": "20150624",
+            "publication": 20200330,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_GlacierPeak_2014/TIFF/USGS_one_meter_x64y534_WA_GlacierPeak_2014.tif"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 20650,
+            "name": "WA_GlacierPeak_2014",
+            "title": "USGS one meter x64y534 WA GlacierPeak 2014",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1435104000000,
+            "startDate": 20140825,
+            "endDate": "20150624",
+            "publication": 20200330,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_GlacierPeak_2014/TIFF/USGS_one_meter_x64y534_WA_GlacierPeak_2014.tif"
+          },
+          {
+            "id": 5646,
+            "name": "n49w122",
+            "title": "USGS 1/3 Arc Second n49w122 20230307",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.00009259259269220167,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 19580101,
+            "endDate": "20210907",
+            "publication": 20230307,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n49w122/USGS_13_n49w122.tif"
+          },
+          {
+            "id": 1611,
+            "name": "n49w122",
+            "title": "USGS 1 Arc Second n49w122 20230307",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.000277777777786999,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 19580101,
+            "endDate": "20210907",
+            "publication": 20230307,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n49w122/USGS_1_n49w122.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.114136%2C%22y%22%3A48.111885%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4977276174324718%2C%22y%22%3A1.4977276174324718%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:18:23.859Z",
+        "value": "219, 220, 218",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "219 220 218 191"
+        ],
+        "reportedContributors": [
+          {
+            "id": 209240,
+            "name": "m_4812164_nw_10_1_20171003",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506988800000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2471681"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 209240,
+            "name": "m_4812164_nw_10_1_20171003",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1506988800000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2471681"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.114136%2C%22y%22%3A48.111885%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4977276174324718%2C%22y%22%3A1.4977276174324718%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:13:50.277Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "olympus-bailey-2026",
+      "name": "Olympus & Bailey Range Traverse (2026)",
+      "file": "/routes/OlympusBaileyTraverse2026.gpx",
+      "sample": {
+        "lat": 47.801319,
+        "lon": -123.710831,
+        "elevation": 2426.401855
+      },
+      "bounds": {
+        "minLat": 47.794025,
+        "maxLat": 47.955509,
+        "minLon": -123.934654,
+        "maxLon": -123.569031
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-123.710831%2C%22y%22%3A47.801319%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4887520277218051%2C%22y%22%3A1.4887520277218051%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:13:31.021Z",
+        "value": "2415.53",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "NoData",
+          "2415.53",
+          "2431.82"
+        ],
+        "reportedContributors": [
+          {
+            "id": 15115,
+            "name": "ned19_n48x00_w123x75_wa_puget_sound_2000",
+            "title": "USGS NED ned19_n48x00_w123x75_wa_puget_sound_2000 1/9 arc-second 2012 15 x 15 minute IMG",
+            "contribution": 1,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 980812800000,
+            "startDate": 20001201,
+            "endDate": "20010130",
+            "publication": 2012,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n48x00_w123x75_wa_puget_sound_2000.zip"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 15115,
+            "name": "ned19_n48x00_w123x75_wa_puget_sound_2000",
+            "title": "USGS NED ned19_n48x00_w123x75_wa_puget_sound_2000 1/9 arc-second 2012 15 x 15 minute IMG",
+            "contribution": 1,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 980812800000,
+            "startDate": 20001201,
+            "endDate": "20010130",
+            "publication": 2012,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n48x00_w123x75_wa_puget_sound_2000.zip"
+          },
+          {
+            "id": 4343,
+            "name": "n48w124",
+            "title": "USGS 1/3 Arc Second n48w124 20240327",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925927753796E-05",
+            "resolutionY": -0.0000925925927753796,
+            "source": "USGS",
+            "acquisitionDate": 1614816000000,
+            "startDate": 19430101,
+            "endDate": "20210403",
+            "publication": 20240327,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n48w124/USGS_13_n48w124.tif"
+          },
+          {
+            "id": 273,
+            "name": "n48w124",
+            "title": "USGS 1 Arc Second n48w124 20240327",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.7777777803598E-04",
+            "resolutionY": -0.00027777777803598015,
+            "source": "USGS",
+            "acquisitionDate": 1614816000000,
+            "startDate": 19430101,
+            "endDate": "20210403",
+            "publication": 20240327,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n48w124/USGS_1_n48w124.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-123.710831%2C%22y%22%3A47.801319%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4887520277218051%2C%22y%22%3A1.4887520277218051%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:18:32.162Z",
+        "value": "170, 142, 128",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "170 142 128 80"
+        ],
+        "reportedContributors": [
+          {
+            "id": 207642,
+            "name": "m_4712311_sw_10_1_20170826",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503705600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2470369"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 207642,
+            "name": "m_4712311_sw_10_1_20170826",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503705600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2470369"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-123.710831%2C%22y%22%3A47.801319%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4887520277218051%2C%22y%22%3A1.4887520277218051%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:13:51.025Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "defiance-putrid-pete",
+      "name": "Putrid Pete's Peak, Web Mtn & Mt Defiance",
+      "file": "/routes/PutridPeteWebMountDefiance.gpx",
+      "sample": {
+        "lat": 47.435425,
+        "lon": -121.564377,
+        "elevation": 1697.18457
+      },
+      "bounds": {
+        "minLat": 47.414879,
+        "maxLat": 47.442257,
+        "minLon": -121.596588,
+        "maxLon": -121.550911
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.564377%2C%22y%22%3A47.435425%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4783698434518158%2C%22y%22%3A1.4783698434518158%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:13:51.958Z",
+        "value": "1697.76",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "1697.76",
+          "1695.16",
+          "1684.04"
+        ],
+        "reportedContributors": [
+          {
+            "id": 63040,
+            "name": "WA_KingCounty_2021_B21",
+            "title": "USGS 1 Meter 10 x60y526 WA_KingCounty_2021_B21",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 20210401,
+            "endDate": "20210907",
+            "publication": 20230303,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_KingCounty_2021_B21/TIFF/USGS_1M_10_x60y526_WA_KingCounty_2021_B21.tif"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 63040,
+            "name": "WA_KingCounty_2021_B21",
+            "title": "USGS 1 Meter 10 x60y526 WA_KingCounty_2021_B21",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 20210401,
+            "endDate": "20210907",
+            "publication": 20230303,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_KingCounty_2021_B21/TIFF/USGS_1M_10_x60y526_WA_KingCounty_2021_B21.tif"
+          },
+          {
+            "id": 5407,
+            "name": "n48w122",
+            "title": "USGS 1/3 Arc Second n48w122 20230307",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.0000925925927753796,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 19520101,
+            "endDate": "20210907",
+            "publication": 20230307,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n48w122/USGS_13_n48w122.tif"
+          },
+          {
+            "id": 333,
+            "name": "n48w122",
+            "title": "USGS 1 Arc Second n48w122 20230307",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.00027777777803598015,
+            "source": "USGS",
+            "acquisitionDate": 1625788800000,
+            "startDate": 19520101,
+            "endDate": "20210907",
+            "publication": 20230307,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n48w122/USGS_1_n48w122.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.564377%2C%22y%22%3A47.435425%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4783698434518158%2C%22y%22%3A1.4783698434518158%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:18:42.905Z",
+        "value": "114, 96, 67",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "114 96 67 137",
+          "114 94 66 137",
+          "114 94 66 137",
+          "109 94 68 139"
+        ],
+        "reportedContributors": [
+          {
+            "id": 207227,
+            "name": "m_4712136_ne_10_1_20170821",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503273600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469822"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 207227,
+            "name": "m_4712136_ne_10_1_20170821",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503273600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469822"
+          },
+          {
+            "id": 207228,
+            "name": "m_4712136_nw_10_1_20170821",
+            "title": null,
+            "contribution": 0,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503273600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469823"
+          },
+          {
+            "id": 207229,
+            "name": "m_4712136_se_10_1_20170821",
+            "title": null,
+            "contribution": 0,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503273600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469824"
+          },
+          {
+            "id": 207230,
+            "name": "m_4712136_sw_10_1_20170821",
+            "title": null,
+            "contribution": 0,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1503273600000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469825"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-121.564377%2C%22y%22%3A47.435425%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4783698434518158%2C%22y%22%3A1.4783698434518158%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:14:11.961Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    },
+    {
+      "id": "enchantments-dragontail",
+      "name": "Enchantments & Dragontail Peak",
+      "file": "/routes/EnchantmentsAndDragontail.gpx",
+      "sample": {
+        "lat": 47.479134,
+        "lon": -120.832886,
+        "elevation": 2694.557617
+      },
+      "bounds": {
+        "minLat": 47.477139,
+        "maxLat": 47.544376,
+        "minLon": -120.844055,
+        "maxLon": -120.706894
+      },
+      "elevation": {
+        "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+        "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-120.832886%2C%22y%22%3A47.479134%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4795992892195757%2C%22y%22%3A1.4795992892195757%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+        "retrieved": "2026-10-17T07:13:53.751Z",
+        "value": "2684.7",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "NoData",
+          "2684.7",
+          "NoData",
+          "2694.55",
+          "2697.12"
+        ],
+        "reportedContributors": [
+          {
+            "id": 43102,
+            "name": "WA_CentralWildfire_D22",
+            "title": "USGS 1 Meter 10 x66y527 WA_CentralWildfire_D22",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1687910400000,
+            "startDate": 20220823,
+            "endDate": "20230628",
+            "publication": 20250630,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_CentralWildfire_D22/TIFF/USGS_1M_10_x66y527_WA_CentralWildfire_D22.tif"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 43102,
+            "name": "WA_CentralWildfire_D22",
+            "title": "USGS 1 Meter 10 x66y527 WA_CentralWildfire_D22",
+            "contribution": 1,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1687910400000,
+            "startDate": 20220823,
+            "endDate": "20230628",
+            "publication": 20250630,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_CentralWildfire_D22/TIFF/USGS_1M_10_x66y527_WA_CentralWildfire_D22.tif"
+          },
+          {
+            "id": 136507,
+            "name": "WA_EasternCascades_2019_B19",
+            "title": "USGS 1 Meter 10 x66y527 WA_EasternCascades_2019_B19",
+            "contribution": 0,
+            "catalogLowPS": 1,
+            "catalogHighPS": 16,
+            "resolutionX": null,
+            "resolutionY": null,
+            "source": "USGS",
+            "acquisitionDate": 1598054400000,
+            "startDate": 20191003,
+            "endDate": "20200822",
+            "publication": 20220917,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/WA_EasternCascades_2019_B19/TIFF/USGS_1M_10_x66y527_WA_EasternCascades_2019_B19.tif"
+          },
+          {
+            "id": 10783,
+            "name": "ned19_n47x50_w121x00_wa_kittatas_2011",
+            "title": "USGS NED ned19_n47x50_w121x00_wa_kittatas_2011 1/9 arc-second 2012 15 x 15 minute IMG",
+            "contribution": 0,
+            "catalogLowPS": 3.435786885024356,
+            "catalogHighPS": 16,
+            "resolutionX": "0.00001",
+            "resolutionY": 0.00001,
+            "source": "USGS",
+            "acquisitionDate": 1388534400000,
+            "startDate": 2012,
+            "endDate": "2014",
+            "publication": 2012,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/19/IMG/ned19_n47x50_w121x00_wa_kittatas_2011.zip"
+          },
+          {
+            "id": 5474,
+            "name": "n48w121",
+            "title": "USGS 1/3 Arc Second n48w121 20240617",
+            "contribution": 0,
+            "catalogLowPS": 10.307360350155633,
+            "catalogHighPS": 16,
+            "resolutionX": "9.25925926922017E-05",
+            "resolutionY": -0.0000925925927753796,
+            "source": "USGS",
+            "acquisitionDate": 1653177600000,
+            "startDate": 19520101,
+            "endDate": "20220522",
+            "publication": 20240617,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n48w121/USGS_13_n48w121.tif"
+          },
+          {
+            "id": 345,
+            "name": "n48w121",
+            "title": "USGS 1 Arc Second n48w121 20240617",
+            "contribution": 0,
+            "catalogLowPS": 30.92208098137158,
+            "catalogHighPS": 16,
+            "resolutionX": "2.77777777786999E-04",
+            "resolutionY": -0.00027777777803598015,
+            "source": "USGS",
+            "acquisitionDate": 1653177600000,
+            "startDate": 19520101,
+            "endDate": "20220522",
+            "publication": 20240617,
+            "sourceURL": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n48w121/USGS_1_n48w121.tif"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "imagery": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-120.832886%2C%22y%22%3A47.479134%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4795992892195757%2C%22y%22%3A1.4795992892195757%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:18:52.093Z",
+        "value": "63, 85, 112",
+        "resultSpatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "sampleValues": [
+          "63 85 112 21"
+        ],
+        "reportedContributors": [
+          {
+            "id": 206964,
+            "name": "m_4712034_nw_10_1_20171009",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1507507200000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469547"
+          }
+        ],
+        "catalog": [
+          {
+            "id": 206964,
+            "name": "m_4712034_nw_10_1_20171009",
+            "title": null,
+            "contribution": 1,
+            "resolutionX": null,
+            "resolutionY": null,
+            "nativeResolutionValue": 1,
+            "nativeResolutionUnits": "METER",
+            "source": "USDA",
+            "acquisitionDate": 1507507200000,
+            "startDate": null,
+            "endDate": null,
+            "publication": 2017,
+            "sourceURL": "https://earthexplorer.usgs.gov/download/options/naip/2469547"
+          }
+        ],
+        "note": "Catalog contribution is reported by identify; point metadata does not establish finest coverage or actual app source throughout the route."
+      },
+      "preferredImageryFailure": {
+        "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+        "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/identify?f=json&geometry=%7B%22x%22%3A-120.832886%2C%22y%22%3A47.479134%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&pixelSize=%7B%22x%22%3A1.4795992892195757%2C%22y%22%3A1.4795992892195757%2C%22spatialReference%22%3A%7B%22wkid%22%3A3857%7D%7D&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&returnCatalogItems=true&returnGeometry=false&maxItemCount=30",
+        "retrieved": "2026-10-17T07:14:13.759Z",
+        "error": "TimeoutError: The operation was aborted due to timeout"
+      }
+    }
+  ]
+}
