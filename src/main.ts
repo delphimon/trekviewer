@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode } from './gpx/TrackTypes';
 import { FrameTimingMonitor } from './core/FrameTimingMonitor';
 import { PerformanceSessionRecorder, type ProfileCounters, type ProfilePhase, type ProfileReport } from './core/PerformanceSessionRecorder';
+import { loadLastProfileReport, saveLastProfileReport, profileDownloadFilename } from './core/ProfileReportStore.ts';
 import { SceneManager } from './core/SceneManager';
 import { XRManager } from './core/XRManager';
 import { TerrainResult } from './terrain/TerrainGenerator';
@@ -72,6 +73,9 @@ export class TrekViewerApp {
     this.profileRecorder?.recordPhase(phase, elapsedMs);
   };
   private completedProfile: ProfileReport | null = null;
+  private profileSavedOnDevice = false;
+  private profileGeneration = 0;
+  private readonly onProfilePageHide = () => this.stopProfile();
   private profileControls: HTMLElement | null = null;
   private longTaskObserver: PerformanceObserver | null = null;
   private profileSuspended = false;
@@ -773,7 +777,7 @@ export class TrekViewerApp {
   private installProfileControls(): void {
     const box = document.createElement('div');
     box.id = 'profile-controls';
-    box.style.cssText = 'position:fixed;right:16px;top:100px;z-index:10000;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:rgba(15,23,42,.94);color:#f1f5f9;font:12px system-ui,sans-serif;box-shadow:0 4px 16px #0005;';
+    box.style.cssText = 'position:fixed;right:16px;top:100px;z-index:10000;display:flex;flex-wrap:wrap;max-width:calc(100vw - 32px);box-sizing:border-box;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:rgba(15,23,42,.94);color:#f1f5f9;font:12px system-ui,sans-serif;box-shadow:0 4px 16px #0005;';
     const status = document.createElement('span');
     status.id = 'profile-status';
     status.setAttribute('role', 'status');
@@ -795,6 +799,17 @@ export class TrekViewerApp {
     document.body.appendChild(box);
     this.profileControls = box;
     document.addEventListener('visibilitychange', this.onProfileVisibilityChange);
+    window.addEventListener('pagehide', this.onProfilePageHide);
+    this.updateProfileControls();
+    void this.restoreProfile();
+  }
+
+  private async restoreProfile(): Promise<void> {
+    const generation = this.profileGeneration;
+    const report = await loadLastProfileReport();
+    if (this.isDisposed || generation !== this.profileGeneration || this.profileRecorder?.isRecording || this.completedProfile || !report) return;
+    this.completedProfile = report;
+    this.profileSavedOnDevice = true;
     this.updateProfileControls();
   }
 
@@ -802,7 +817,13 @@ export class TrekViewerApp {
     if (!this.profileControls) return;
     const recording = this.profileRecorder?.isRecording ?? false;
     const status = this.profileControls.querySelector<HTMLElement>('#profile-status');
-    if (status) status.textContent = recording ? 'Recording locally' : this.completedProfile ? `Saved ${this.completedProfile.windows.length} windows` : 'Local profile ready';
+    if (status) {
+      const report = this.completedProfile;
+      status.textContent = recording ? 'Recording locally' : report
+        ? `${this.profileSavedOnDevice ? 'Saved on this device' : 'Ready to download'} · ${report.windows.length} windows · ${report.buildId.split('-')[0]}`
+        : 'Local profile ready';
+      status.title = report?.buildId ?? '';
+    }
     const start = this.profileControls.querySelector<HTMLButtonElement>('#profile-start');
     const stop = this.profileControls.querySelector<HTMLButtonElement>('#profile-stop');
     const download = this.profileControls.querySelector<HTMLButtonElement>('#profile-download');
@@ -813,7 +834,9 @@ export class TrekViewerApp {
 
   private startProfile(): void {
     if (!this.profileRecorder || this.profileRecorder.isRecording) return;
+    this.profileGeneration++;
     this.completedProfile = null;
+    this.profileSavedOnDevice = false;
     this.profileRecorder.start(performance.now(), __APP_BUILD_INFO__.id, navigator.userAgent);
     this.profileSuspended = false;
     if (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
@@ -832,6 +855,14 @@ export class TrekViewerApp {
     this.longTaskObserver?.disconnect();
     this.longTaskObserver = null;
     this.completedProfile = this.profileRecorder.stop(performance.now(), this.getProfileCounters());
+    this.profileSavedOnDevice = false;
+    const generation = ++this.profileGeneration;
+    const report = this.completedProfile;
+    if (report) void saveLastProfileReport(report).then(saved => {
+      if (this.isDisposed || generation !== this.profileGeneration || this.completedProfile !== report) return;
+      this.profileSavedOnDevice = saved;
+      this.updateProfileControls();
+    });
     this.profileSuspended = false;
     this.updateProfileControls();
   }
@@ -842,7 +873,7 @@ export class TrekViewerApp {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `trekviewer-profile-${__APP_BUILD_INFO__.shortSha}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    anchor.download = profileDownloadFilename(this.completedProfile);
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -854,7 +885,11 @@ export class TrekViewerApp {
     const lod = this.activeTrek?.imageryLOD.getDiagnostics();
     const cache = TileImageCache.getStats();
     const state = this.session.getState();
+    const xr = this.sceneManager.renderer.xr;
     return {
+      xrPresenting: xr.isPresenting,
+      xrEnvironmentBlendMode: xr.getSession()?.environmentBlendMode ?? 'none',
+      xrEyeCount: xr.isPresenting ? xr.getCamera().cameras.length : 0,
       drawCalls: info.render.calls,
       triangles: info.render.triangles,
       geometries: info.memory.geometries,
@@ -1411,6 +1446,7 @@ export class TrekViewerApp {
     this.stopProfile();
     this.profileControls?.remove();
     document.removeEventListener('visibilitychange', this.onProfileVisibilityChange);
+    window.removeEventListener('pagehide', this.onProfilePageHide);
     this.disposeCurrentTrek();
     this.xrReferenceSpace?.removeEventListener('reset', this.onReferenceReset);
     this.xrReferenceSpace = null;

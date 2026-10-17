@@ -1,0 +1,11 @@
+{
+  "condition": "Actual Edge production build and real IndexedDB. Desktop diagnostic recordings only; no native MR quality claim.",
+  "originalBuild": "11f4ac3-modified-2026-10-17T05:47:26.564Z",
+  "originalWindows": 2,
+  "restoredAfterBrowserRestart": true,
+  "historicalBuildPreserved": true,
+  "downloadedHistoricalJsonEqual": true,
+  "mobileControlsWithinViewport": true,
+  "deniedStorageDownloadAvailable": true,
+  "errors": []
+}

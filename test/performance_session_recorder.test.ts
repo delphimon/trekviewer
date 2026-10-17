@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { PerformanceSessionRecorder, PROFILE_PHASES, type ProfileCounters } from '../src/core/PerformanceSessionRecorder.ts';
 
 const counters: ProfileCounters = {
+  xrPresenting: true, xrEnvironmentBlendMode: 'alpha-blend', xrEyeCount: 2,
   drawCalls: 84, triangles: 128000, geometries: 27, textures: 24,
   tileCacheEntries: 70, tileCacheDecodedMB: 18.2, imageryPatches: 28,
   imageryCoveragePercent: 100, imageryInFlight: 0, localTerrainChunks: 3,
@@ -33,6 +34,7 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
     summary:{estimatedMissedCallbacks:0,maxDrawCalls:84,maxTextures:24},windowsDropped:0});
   expect(report.windows).toHaveLength(1);
   expect(report.windows[0]).toMatchObject({frames:73,callbackSamples:72,drawCalls:84,targetHz:72,
+    xrPresenting:true,xrEnvironmentBlendMode:'alpha-blend',xrEyeCount:2,
     cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);
   expect(Object.keys(report.windows[0].phaseMeanMs)).toEqual([...PROFILE_PHASES]);

@@ -4,6 +4,9 @@ export const PROFILE_PHASES = ['input', 'simulation', 'hud', 'imagery', 'imagery
 export type ProfilePhase = typeof PROFILE_PHASES[number];
 
 export interface ProfileCounters {
+  xrPresenting?: boolean;
+  xrEnvironmentBlendMode?: string;
+  xrEyeCount?: number;
   drawCalls: number;
   triangles: number;
   geometries: number;
