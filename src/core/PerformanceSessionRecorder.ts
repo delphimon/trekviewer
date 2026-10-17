@@ -43,6 +43,9 @@ export interface ProfileCounters {
   imageryVisiblePatches: number;
   imageryCreatedTotal: number;
   imageryDisposedTotal: number;
+  imageryBudgetEvictionsTotal?: number;
+  imageryVisibleBudgetEvictionsTotal?: number;
+  imageryDesiredBudgetEvictionsTotal?: number;
   tileCacheFailures: number;
   localTerrainChunks: number;
   localTerrainFocusChangesTotal: number;

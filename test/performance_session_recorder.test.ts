@@ -11,6 +11,7 @@ const counters: ProfileCounters = {
   firstPersonViewSamples: 3, firstPersonHighResSamples: 2,
   firstPersonViewMinZoom: 17, firstPersonViewMeanZoom: 18.3,
   imageryCreatedTotal: 36, imageryDisposedTotal: 0, tileCacheFailures: 0,
+  imageryBudgetEvictionsTotal: 12, imageryVisibleBudgetEvictionsTotal: 3, imageryDesiredBudgetEvictionsTotal: 0,
   qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', imageryProvider: 'cesium-bing', routeName: 'Test route',
 };
 afterEach(() => vi.restoreAllMocks());
@@ -35,6 +36,7 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
   expect(report.windows).toHaveLength(1);
   expect(report.windows[0]).toMatchObject({frames:73,callbackSamples:72,drawCalls:84,targetHz:72,
     xrPresenting:true,xrEnvironmentBlendMode:'alpha-blend',xrEyeCount:2,
+    imageryBudgetEvictionsTotal:12,imageryVisibleBudgetEvictionsTotal:3,imageryDesiredBudgetEvictionsTotal:0,
     cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);
   expect(Object.keys(report.windows[0].phaseMeanMs)).toEqual([...PROFILE_PHASES]);

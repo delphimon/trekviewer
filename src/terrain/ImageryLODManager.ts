@@ -113,6 +113,9 @@ export interface ImageryLODDiagnostics {
   z19AheadDistanceMeters: number;
   residentWarmCount: number;
   evictionsTotal: number;
+  budgetEvictionsTotal: number;
+  visibleBudgetEvictionsTotal: number;
+  desiredBudgetEvictionsTotal: number;
   cacheHitRate: number;
   lastTimeToSharpMs: number;
 }
@@ -958,6 +961,9 @@ export class ImageryLODManager {
   // Telemetry & diagnostics
   private patchesCreatedTotal: number = 0;
   private patchesDisposedTotal: number = 0;
+  private budgetEvictionsTotal = 0;
+  private visibleBudgetEvictionsTotal = 0;
+  private desiredBudgetEvictionsTotal = 0;
 
   // Active user interaction ray (e.g. pointer/laser in tabletop mode, Stage W3)
   private activeInteractionRay: THREE.Ray | null = null;
@@ -1095,6 +1101,9 @@ export class ImageryLODManager {
       z19AheadDistanceMeters,
       residentWarmCount,
       evictionsTotal: this.patchesDisposedTotal,
+      budgetEvictionsTotal: this.budgetEvictionsTotal,
+      visibleBudgetEvictionsTotal: this.visibleBudgetEvictionsTotal,
+      desiredBudgetEvictionsTotal: this.desiredBudgetEvictionsTotal,
       cacheHitRate,
       lastTimeToSharpMs: this.lastTimeToSharpMs,
     };
@@ -2772,7 +2781,8 @@ export class ImageryLODManager {
   public calculatePatchImportanceScore(
     patch: ImageryPatch,
     activeKeys: Set<string>,
-    now: number
+    now: number,
+    hikerPoint = this.viewMode === 'first-person' ? this.routeGeometry?.getTelemetryAtProgress(this.currentProgress).currentPoint : undefined
   ): number {
     let score = 0;
 
@@ -2793,12 +2803,11 @@ export class ImageryLODManager {
 
     // 3. Spatial Proximity / Route Corridor
     if (this.viewMode === 'first-person') {
-      if (this.routeGeometry) {
+      if (hikerPoint) {
         const b = tileBounds(patch.x, patch.y, patch.zoom);
         const patchLat = (b.minLat + b.maxLat) / 2;
         const patchLon = (b.minLon + b.maxLon) / 2;
-        const hikerTele = this.routeGeometry.getTelemetryAtProgress(this.currentProgress);
-        const hikerPt = hikerTele.currentPoint;
+        const hikerPt = hikerPoint;
         const latDiff = (patchLat - hikerPt.lat) * 111320;
         const lonDiff = (patchLon - hikerPt.lon) * 111320 * Math.cos((hikerPt.lat * Math.PI) / 180);
         const distToHiker = Math.hypot(latDiff, lonDiff);
@@ -2849,22 +2858,32 @@ export class ImageryLODManager {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     let lowestScore = Infinity;
     let victimKey: string | null = null;
-
+    let lowestTier = Infinity;
+    const candidates: ImageryPatch[] = [];
     for (const [key, patch] of this.patches.entries()) {
-      // Prefer any unselected resident over evicting a selected tile and then
-      // immediately downloading it again. Loading parents remain preferred over
-      // other warm tiles, but cannot make the resident budget impossible to meet.
-      const score = this.calculatePatchImportanceScore(patch, activeKeys, now)
-        + (activeKeys.has(key) ? 1_000_000 : 0);
+      // Preserve selected coverage first, then visible warm imagery and loading
+      // fallbacks. Hidden obsolete work should not displace a sharp prior view.
+      const tier = activeKeys.has(key) ? 2 : patch.mesh.visible || this.hasPendingChildren(key) ? 1 : 0;
+      if (tier < lowestTier) { lowestTier = tier; candidates.length = 0; }
+      if (tier === lowestTier) candidates.push(patch);
+    }
+    // Route telemetry and distance scoring are only needed for eligible victims,
+    // not every protected tile on every completion. All candidates share a pose.
+    const hikerPoint = this.viewMode === 'first-person' ? this.routeGeometry?.getTelemetryAtProgress(this.currentProgress).currentPoint : undefined;
+    for (const patch of candidates) {
+      const score = this.calculatePatchImportanceScore(patch, activeKeys, now, hikerPoint);
       if (score < lowestScore) {
         lowestScore = score;
-        victimKey = key;
+        victimKey = patch.key;
       }
     }
 
     if (victimKey) {
       const patch = this.patches.get(victimKey);
       if (patch) {
+        this.budgetEvictionsTotal++;
+        if (patch.mesh.visible) this.visibleBudgetEvictionsTotal++;
+        if (activeKeys.has(victimKey)) this.desiredBudgetEvictionsTotal++;
         patch.dispose();
         this.patches.delete(victimKey);
         this.patchesDisposedTotal++;

@@ -8,6 +8,8 @@ The [completed October 16 MR follow-up](review-2026-10-16/MR_COMPLETED.md) verif
 
 The [streamed imagery worker checkpoint](review-2026-10-16/STREAMED_WORKER.md) moves incoming tile clipping off the animation thread, preserves exact terrain geometry, and bounds preparation without reducing view coverage or source quality. Desktop production-worker and streaming checks passed; its native frame-time effect remains unmeasured.
 
+The [eviction-retention checkpoint](review-2026-10-16/EVICTION_RETENTION.md) prefers visible warm imagery over hidden obsolete patches, scores only eligible victims and shares one route lookup per eviction. Its controlled comparison preserves more prior fine tiles at the same resident limit; the native effect remains unmeasured.
+
 ## Record a comparable run
 
 1. Build and deploy the exact source you want to measure to an HTTPS origin. Save `dist/build-info.json` with the results. Open the hosted app in Quest Browser with `?profile=1` appended to its URL (use `&profile=1` if the URL already has a query string). Avoid `?debug=1` for baseline measurements because its overlays and logging add work.
@@ -27,3 +29,5 @@ Each `windows` entry summarizes about one second. `callbackHz`, `intervalP95Ms`,
 When the XR session exposes `frameRate`, `targetHz` records it and `estimatedMissedCallbacks` compares callback spacing to that target. A missing target produces `null`; the estimate is not proof of compositor drops. Desktop callback rate is not a Quest result. Browser Long Tasks are included if supported; absence of Long Task entries does not prove absence of stalls. Visibility pauses are marked so app switching is not mistaken for in-app pacing. Reports retain at most 1,800 windows (about 30 minutes); `windowsDropped` counts later windows omitted from the JSON.
 
 Use the device tool for actual headset FPS, GPU timing, thermal throttling, and dropped/composited frames. First optimize whichever side of the device CPU/GPU budget is limiting; then compare the same route, view, profile, and network state after each change. Do not infer a visual-quality win from frame rate alone: inspect texture sharpness, terrain seams, route contact, label readability, and stereo comfort on the Quest.
+
+Newer reports also include `imageryBudgetEvictionsTotal`, `imageryVisibleBudgetEvictionsTotal` and `imageryDesiredBudgetEvictionsTotal`. These cumulative counters count pressure evictions and identify victims that were visible or desired at removal. They exclude style/disposal cleanup. Compare deltas within one route/manager lifetime; replacing the route resets its imagery counters. Older reports omit these optional fields.

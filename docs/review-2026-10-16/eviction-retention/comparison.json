@@ -1,0 +1,26 @@
+{
+  "baseline": "6c1b71e",
+  "condition": "Synthetic bounded-residency scenario using the actual manager and prior eviction implementation. Same 512-slot limit and selected tiles. No network, native MR, rendering or elapsed-time claim.",
+  "before": {
+    "residentBudget": 512,
+    "residents": 512,
+    "arrivingFineTiles": 16,
+    "retainedPriorFineTiles": 112,
+    "priorFineRevisitMisses": 16,
+    "obsoleteHiddenFallbacksRemoved": 0,
+    "allCurrentSelectedTilesResident": true,
+    "scoreCalls": 8208,
+    "routeQueries": 8208
+  },
+  "after": {
+    "residentBudget": 512,
+    "residents": 512,
+    "arrivingFineTiles": 16,
+    "retainedPriorFineTiles": 128,
+    "priorFineRevisitMisses": 0,
+    "obsoleteHiddenFallbacksRemoved": 16,
+    "allCurrentSelectedTilesResident": true,
+    "scoreCalls": 392,
+    "routeQueries": 16
+  }
+}
