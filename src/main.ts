@@ -156,7 +156,7 @@ export class TrekViewerApp {
     this.lastTimestamp = performance.now();
 
     // 1. Scene Manager
-    this.sceneManager = new SceneManager(canvasContainer);
+    this.sceneManager = new SceneManager(canvasContainer, initialProfile.name);
 
     // 2. Desktop OrbitControls
     this.controls = new OrbitControls(this.sceneManager.camera, this.sceneManager.renderer.domElement);
@@ -330,6 +330,7 @@ export class TrekViewerApp {
         const profile = QualityProfileManager.getProfile(state.qualityProfile);
         if (profile) {
           QualityProfileManager.setActiveProfile(profile);
+          this.sceneManager.setQualityProfile(profile.name);
           TileImageCache.applyProfile(profile);
           this.activeTrek?.setQualityProfile(profile);
           this.overlay.setQualityProfile(state.qualityProfile);
@@ -892,6 +893,7 @@ export class TrekViewerApp {
     const state = this.session.getState();
     const xr = this.sceneManager.renderer.xr;
     return {
+      ...this.sceneManager.getXRRenderQuality(),
       xrPresenting: xr.isPresenting,
       xrEnvironmentBlendMode: xr.getSession()?.environmentBlendMode ?? 'none',
       xrEyeCount: xr.isPresenting ? xr.getCamera().cameras.length : 0,

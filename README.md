@@ -4,6 +4,8 @@ Meta Quest 3 Alpine GPX Trek Visualizer in WebXR (Stereo Passthrough Mixed Reali
 
 The [current completion plan](docs/COMPLETION_PLAN.md) tracks the remaining fidelity, native performance and usability acceptance work. The [October 16 state review](docs/review-2026-10-16/STATE_REVIEW.md) distinguishes implemented/browser-tested features from unresolved headset requirements, including High's inherited fixed-foveation setting. Dated implementation reports below remain historical evidence.
 
+The [October 17 XR quality checkpoint](docs/review-2026-10-17/XR_QUALITY.md) fixes that inherited setting: High requests no peripheral fixed foveation; Balanced explicitly retains maximum foveation for power saving. New profile reports distinguish the request from runtime layer readback and record actual eye/layer dimensions. Native clarity and performance acceptance remain pending.
+
 ---
 
 ## 🚀 Headset Installation & Standalone Deployment (Zero-Server Setup)

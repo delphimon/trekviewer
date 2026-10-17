@@ -46,6 +46,12 @@ if (!paths.length) {
       console.log(`Peak draw calls: ${report.summary.maxDrawCalls}  |  peak WebGL textures: ${report.summary.maxTextures}`);
       console.log('Time by view / quality / imagery style / provider:');
       for (const [key, seconds] of contexts) console.log(`  ${key}: ${seconds.toFixed(1)} s`);
+      const xrQuality = active.filter(w => w.xrPresenting && w.xrRequestedFoveation !== undefined);
+      if (xrQuality.length) {
+        const distinct = key => [...new Set(xrQuality.map(w => w[key] ?? 'unknown'))].join(', ');
+        console.log(`XR foveation requested: ${distinct('xrRequestedFoveation')} | layer reported: ${distinct('xrLayerFoveation')} (0 = full peripheral resolution)`);
+        console.log(`XR layers: ${[...new Set(xrQuality.map(w => `${w.xrLayerType ?? 'unknown'} ${w.xrLayerWidth ?? '?'}×${w.xrLayerHeight ?? '?'} array ${w.xrLayerArrayLength ?? '?'}`))].join(', ')}`);
+      }
       if (active.some(w => Number.isFinite(w.imageryTargetZoom))) {
         const zooms = [...new Set(active.map(w => w.imageryTargetZoom).filter(Number.isFinite))].sort((a, b) => a - b);
         const focusSources = new Map();

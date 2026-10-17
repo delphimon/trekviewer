@@ -1,9 +1,10 @@
 import { FrameTimingMonitor } from './FrameTimingMonitor';
+import type { XRRenderQualityCounters } from './XRRenderQuality.ts';
 
 export const PROFILE_PHASES = ['input', 'simulation', 'hud', 'imagery', 'imageryRaycast', 'imagerySelection', 'imageryReconcile', 'terrain', 'waypoints', 'render'] as const;
 export type ProfilePhase = typeof PROFILE_PHASES[number];
 
-export interface ProfileCounters {
+export interface ProfileCounters extends Partial<XRRenderQualityCounters> {
   xrPresenting?: boolean;
   xrEnvironmentBlendMode?: string;
   xrEyeCount?: number;

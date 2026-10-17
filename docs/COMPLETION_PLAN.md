@@ -1,6 +1,6 @@
 # TrekViewer completion plan
 
-Updated October 16, 2026 (America/Los_Angeles), following the [current-state review](review-2026-10-16/STATE_REVIEW.md) of application revision `086ece3`. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
+Updated October 17, 2026 (America/Los_Angeles), following the [current-state review](review-2026-10-16/STATE_REVIEW.md) of application revision `086ece3`. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
 
 ## Outcome and constraints
 
@@ -32,10 +32,10 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 ### 1. Make High's actual XR rendering quality explicit
 
-- [ ] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.
-- [ ] Record requested and runtime-supported/applied foveation, actual eye/layer dimensions and refresh target. Mark unsupported values as unknown; do not infer success from a setter alone.
-- [ ] Add focused lifecycle/quality-policy regressions and verify full-resolution source/mesh settings remain unchanged.
-- [ ] Prepare a reproducible native comparison for the current policy and the corrected High policy. Disabling foveation may increase GPU work; record that cost without compensating through hidden quality reductions.
+- [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.
+- [x] Record requested and runtime-supported/applied foveation, actual eye/layer dimensions and refresh target. Mark unsupported values as unknown; do not infer success from a setter alone.
+- [x] Add focused lifecycle/quality-policy regressions and verify full-resolution source/mesh settings remain unchanged.
+- [x] Prepare a reproducible native comparison for the current policy and the corrected High policy. Disabling foveation may increase GPU work; record that cost without compensating through hidden quality reductions. The capture helper and protocol are prepared; native execution is still checkpoint 2.
 
 **Done when:** the policy is explicit and tested, the published build is traceable, and actual supported runtime state can be captured. Subjective sharpness/performance acceptance belongs to checkpoints 2 and 5.
 

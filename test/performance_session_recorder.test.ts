@@ -3,6 +3,9 @@ import { PerformanceSessionRecorder, PROFILE_PHASES, type ProfileCounters } from
 
 const counters: ProfileCounters = {
   xrPresenting: true, xrEnvironmentBlendMode: 'alpha-blend', xrEyeCount: 2,
+  xrRequestedFoveation: 0, xrLayerFoveation: 0, xrLayerFoveationSupported: true, xrFramebufferScaleRequested: 1,
+  xrLayerType: 'projection', xrLayerWidth: 2400, xrLayerHeight: 2560, xrLayerArrayLength: 2,
+  xrEyeViewports: [{ width: 1200, height: 2560 }, { width: 1200, height: 2560 }],
   drawCalls: 84, triangles: 128000, geometries: 27, textures: 24,
   tileCacheEntries: 70, tileCacheDecodedMB: 18.2, imageryPatches: 28,
   imageryCoveragePercent: 100, imageryInFlight: 0, localTerrainChunks: 3,
@@ -36,6 +39,8 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
   expect(report.windows).toHaveLength(1);
   expect(report.windows[0]).toMatchObject({frames:73,callbackSamples:72,drawCalls:84,targetHz:72,
     xrPresenting:true,xrEnvironmentBlendMode:'alpha-blend',xrEyeCount:2,
+    xrRequestedFoveation:0,xrLayerFoveation:0,xrLayerFoveationSupported:true,xrLayerWidth:2400,
+    xrEyeViewports:[{width:1200,height:2560},{width:1200,height:2560}],
     imageryBudgetEvictionsTotal:12,imageryVisibleBudgetEvictionsTotal:3,imageryDesiredBudgetEvictionsTotal:0,
     cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);

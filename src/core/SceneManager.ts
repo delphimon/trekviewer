@@ -3,6 +3,8 @@ import type { ViewMode } from '../gpx/TrackTypes.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import { TextureProvider } from '../terrain/TextureProvider.ts';
 import { updateInspectionClipping } from './InspectionView.ts';
+import { requestedXRFoveation, readXRRenderQuality } from './XRRenderQuality.ts';
+import type { QualityProfileName } from '../terrain/QualityProfile.ts';
 
 export class SceneManager {
   public scene: THREE.Scene;
@@ -21,8 +23,11 @@ export class SceneManager {
   private onWindowResizeBound: () => void;
   private readonly vignette: THREE.Mesh;
   private terrainExtent = 1000;
+  private qualityProfile: QualityProfileName;
+  private readonly onXRSessionStartBound = () => this.setQualityProfile(this.qualityProfile);
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, qualityProfile: QualityProfileName = 'desktop-high') {
+    this.qualityProfile = qualityProfile;
     // 1. Scene
     this.scene = new THREE.Scene();
 
@@ -54,6 +59,9 @@ export class SceneManager {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.xr.enabled = true;
+    this.renderer.xr.setFramebufferScaleFactor(1);
+    this.setQualityProfile(qualityProfile);
+    this.renderer.xr.addEventListener('sessionstart', this.onXRSessionStartBound);
     container.appendChild(this.renderer.domElement);
     TextureProvider.setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
     this.vignette = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -123,6 +131,16 @@ export class SceneManager {
       this.renderer.shadowMap.enabled = true;
       this.sunLight.castShadow = true;
     }
+  }
+
+  public setQualityProfile(profile: QualityProfileName): void {
+    this.qualityProfile = profile;
+    try { this.renderer.xr.setFoveation(requestedXRFoveation(profile)); }
+    catch (error) { console.warn('XR foveation request was not accepted; layer diagnostics report the runtime state.', error); }
+  }
+
+  public getXRRenderQuality() {
+    return readXRRenderQuality(this.renderer.xr, requestedXRFoveation(this.qualityProfile));
   }
 
   public setViewMode(mode: ViewMode, extentMeters: number): void {
@@ -237,6 +255,7 @@ export class SceneManager {
     this.renderer.setAnimationLoop(null);
     window.removeEventListener('resize', this.onWindowResizeBound);
     this.renderer.xr.removeEventListener('sessionend', this.onWindowResizeBound);
+    this.renderer.xr.removeEventListener('sessionstart', this.onXRSessionStartBound);
     disposeObject3D(this.skyMesh);
     disposeObject3D(this.vignette);
     disposeObject3D(this.dioramaRoot);
