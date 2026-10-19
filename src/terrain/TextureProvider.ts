@@ -260,7 +260,8 @@ export class TextureProvider {
     let zoom = 15;
     if (latSpan < 0.08) zoom = 16;
     else if (latSpan > 0.35) zoom = 14;
-    zoom = Math.min(zoom, this.activeSatelliteProvider.getMaxZoomForLocation?.(bounds.centerLat, bounds.centerLon) ?? this.activeSatelliteProvider.maxZoom);
+    zoom = Math.min(zoom, this.activeSatelliteProvider.getMaxOverviewZoomForLocation?.(bounds.centerLat, bounds.centerLon)
+      ?? this.activeSatelliteProvider.getMaxZoomForLocation?.(bounds.centerLat, bounds.centerLon) ?? this.activeSatelliteProvider.maxZoom);
 
     const minTile = latLonToTile(maxLat, minLon, zoom);
     const maxTile = latLonToTile(minLat, maxLon, zoom);

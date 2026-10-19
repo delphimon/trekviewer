@@ -1,0 +1,10 @@
+{
+  "url": "https://api3.geo.admin.ch/rest/services/ech/MapServer/ch.swisstopo.swissimage-product/cacheUpdate",
+  "status": 200,
+  "accessControlAllowOrigin": "*",
+  "retrieved": "2026-10-19T00:50:01.943Z",
+  "body": {
+    "cache_type": "wmts_native",
+    "cache_update": "2026-09-10T10:22:04"
+  }
+}

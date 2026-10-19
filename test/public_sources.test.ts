@@ -57,8 +57,8 @@ describe('no-paid-license source policy', () => {
 
   it('uses 10 m global Sentinel imagery with row/column ordering and an appropriate zoom cap outside CONUS', () => {
     const provider = new PublicImageryProvider();
-    const tile = latLonToTile(46.85, 9.5, 15);
-    expect(provider.getMaxZoomForLocation(46.85, 9.5)).toBe(15);
+    const tile = latLonToTile(27.98, 86.92, 15);
+    expect(provider.getMaxZoomForLocation(27.98, 86.92)).toBe(15);
     expect(provider.getTileUrls(15, tile.x, tile.y)).toEqual([
       `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/15/${tile.y}/${tile.x}.jpg`,
     ]);

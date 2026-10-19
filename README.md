@@ -12,6 +12,8 @@ The [persistent source cache](docs/review-2026-10-17/RESOURCE_CACHE.md) reuses o
 
 The [worker startup recovery checkpoint](docs/review-2026-10-17/WORKER_STARTUP.md) waits for module readiness before transferring terrain buffers, retries a failed startup, and preserves full source precision through temporary local recovery when a worker is unavailable.
 
+The [Swiss imagery checkpoint](docs/review-2026-10-18/SWISS_IMAGERY.md) adds current SWISSIMAGE aerial detail for imported Swiss routes at Z16–Z19, over the complete global overview. It validates every source alpha pixel, reports Swiss provenance and reuses exact source bytes only for the checked mosaic revision. Swiss elevation still uses the global fallback; native Quest acceptance remains open.
+
 ---
 
 ## 🚀 Headset Installation & Standalone Deployment (Zero-Server Setup)

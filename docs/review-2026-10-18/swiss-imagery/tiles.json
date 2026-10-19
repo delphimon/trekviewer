@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Grindelwald",
+    "url": "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage-product/default/current/3857/19/273854/185205.png",
+    "status": 200,
+    "bytes": 180407,
+    "width": 256,
+    "height": 256,
+    "transparent": 0
+  },
+  {
+    "name": "Zermatt",
+    "url": "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage-product/default/current/3857/19/273430/186479.png",
+    "status": 200,
+    "bytes": 180640,
+    "width": 256,
+    "height": 256,
+    "transparent": 0
+  },
+  {
+    "name": "Germany",
+    "url": "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage-product/default/current/3857/19/277435/182576.png",
+    "status": 200,
+    "bytes": 334,
+    "width": 256,
+    "height": 256,
+    "transparent": 65536
+  },
+  {
+    "name": "France",
+    "url": "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage-product/default/current/3857/19/270590/186311.png",
+    "status": 200,
+    "bytes": 334,
+    "width": 256,
+    "height": 256,
+    "transparent": 65536
+  }
+]

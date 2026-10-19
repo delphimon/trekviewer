@@ -1,3 +1,5 @@
+import { isSwissImageryURL, checkSwissImageryRevision, getSwissImageryRevision } from './providers/SwissImagery.ts';
+
 const DATABASE = 'trekviewer-resources-v1';
 const LIMIT_BYTES = 256 * 1024 * 1024;
 const LIMIT_ENTRIES = 4096;
@@ -14,6 +16,7 @@ export function persistentResourceAllowed(url: string): boolean {
     if (u.protocol !== 'https:' || u.username || u.password || u.hash) return false;
     if ([...u.searchParams.keys()].some(k => /token|key|api|auth|signature|credential/i.test(k))) return false;
     const p = u.pathname;
+    if (isSwissImageryURL(url)) return true;
     if (u.hostname === 'elevation.nationalmap.gov') return p === '/arcgis/rest/services/3DEPElevation/ImageServer/exportImage';
     if (u.hostname === 'imagery.nationalmap.gov') return /^\/arcgis\/rest\/services\/USGSNAIP(?:Plus|Imagery)\/ImageServer\/exportImage$/.test(p);
     if (u.hostname === 'basemap.nationalmap.gov') return /^\/arcgis\/rest\/services\/(?:USGSImageryOnly|USGSTopo)\/MapServer\/(?:export|tile\/\d+\/\d+\/\d+)$/.test(p);
@@ -82,6 +85,11 @@ export class PersistentResourceCache {
   public static async read(url: string): Promise<Blob | null> {
     if (!this.isEnabled() || !persistentResourceAllowed(url)) return null;
     const generation = this.generation;
+    if (isSwissImageryURL(url)) {
+      const revision = await checkSwissImageryRevision();
+      if (!revision) return null;
+      url += `#swiss-${revision}`;
+    }
     const db = await this.open();
     if (!db || generation !== this.generation) return null;
     const blob = await new Promise<Blob | null>(resolve => {
@@ -117,6 +125,10 @@ export class PersistentResourceCache {
   public static write(url: string, blob: Blob, generation = this.generation): void {
     if (generation !== this.generation || !this.isEnabled() || this.writeFailed || !this.isAvailable()
       || !persistentResourceAllowed(url) || !blob.size || blob.size > 32 * 1024 * 1024) return;
+    if (isSwissImageryURL(url)) {
+      const revision = getSwissImageryRevision(); if (!revision) return;
+      url += `#swiss-${revision}`;
+    }
     // Bound queued source bytes as well as committed disk use.
     this.pendingBytes -= this.pending.get(url)?.blob.size ?? 0;
     this.pending.delete(url);
@@ -175,6 +187,10 @@ export class PersistentResourceCache {
   }
 
   public static async remove(url: string): Promise<void> {
+    if (isSwissImageryURL(url)) {
+      const revision = getSwissImageryRevision(); if (!revision) return;
+      url += `#swiss-${revision}`;
+    }
     this.pendingBytes -= this.pending.get(url)?.blob.size ?? 0; this.pending.delete(url);
     await this.writes;
     const db = await this.open(); if (!db) return;

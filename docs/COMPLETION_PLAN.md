@@ -1,6 +1,6 @@
 # TrekViewer completion plan
 
-Updated October 17, 2026 (America/Los_Angeles), following the [current-state review](review-2026-10-16/STATE_REVIEW.md) of application revision `086ece3`. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
+Updated October 18, 2026 (America/Los_Angeles), following the [current-state review](review-2026-10-16/STATE_REVIEW.md) of application revision `086ece3`. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
 
 ## Outcome and constraints
 
@@ -70,6 +70,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 **October 17 progress:** all eight bundled summit-point catalogs were audited, with preferred-service timeouts and alternative native imagery resolutions/dates retained. Published patch source reporting now distinguishes actual supplying services from provider configuration, including Hybrid and alternative ordering after service cooldown. See [source audit and limits](review-2026-10-17/SOURCE_AUDIT.md). Whole-route/native-resolution validation, representative imported-route runtime tests and regional provider integration remain open; the partial evidence does not close the checklist below.
 
 The [persistent source-cache checkpoint](review-2026-10-17/RESOURCE_CACHE.md) adds bounded device storage for reviewed public imagery/terrain bytes and updates the free-key candidate review for personal/internal use. New keyed providers are not enabled until an eligible account/key and appropriate browser/private-key path are configured and validated.
+
+**October 18 progress:** [Swiss aerial detail](review-2026-10-18/SWISS_IMAGERY.md) is integrated for imports within the official service envelope, with exact masked PNG validation, global overview retention, revision-aware device caching and actual source reporting. Imported Swiss-route browser checks exercise real imagery, disk reuse, update/failure guards and missing coverage. Swiss DEM/lidar integration, native inspection, full 10 cm source sampling beyond the current Z19 cap, additional regions and route-wide provenance remain open. Free API-key services remain eligible; no key or paid plan is required for this improvement.
 
 - [ ] Audit bundled routes plus representative imported routes inside/outside supported US coverage. Record the selected dataset, verified native resolution where available, export sample spacing, rendered cell spacing, source date, terms/attribution and fallback reason.
 - [ ] Verify whether higher-detail free regional sources exist for locations currently using the coarse global fallback; add applicable providers with coverage, NoData, response-size, cache and failure guards. Verify terms and endpoint behavior before recommending or integrating a source.

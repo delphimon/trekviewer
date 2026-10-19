@@ -1,4 +1,5 @@
 import type { ImageryProvider } from './ImageryProvider.ts';
+import { inSwissImageryEnvelope, isSwissImageryURL, isCompleteSwissImage, SWISS_IMAGE_TILES, SWISS_IMAGE_CREDITS } from './SwissImagery.ts';
 
 const HALF_WORLD = Math.PI * 6378137;
 export const NAIP_SERVICE = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer';
@@ -25,17 +26,21 @@ export function isCONUS(lat: number, lon: number): boolean { return lat >= 24 &&
 export class PublicImageryProvider implements ImageryProvider {
   readonly id = 'public-naip';
   readonly displayName = 'USGS NAIP / high-resolution orthoimagery';
-  readonly attribution = 'USGS / USDA NAIP + HRO (public domain); USGS overview. Global: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0';
+  readonly attribution = `USGS / USDA NAIP + HRO (public domain); USGS overview. ${SWISS_IMAGE_CREDITS}. Global: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0`;
   readonly maxZoom = 19;
   readonly requestTimeoutMs = 35_000;
 
-  getMaxZoomForLocation(lat: number, lon: number): number { return isCONUS(lat, lon) ? 19 : 15; }
+  getMaxZoomForLocation(lat: number, lon: number): number { return isCONUS(lat, lon) || inSwissImageryEnvelope(lat, lon) ? 19 : 15; }
+  getMaxOverviewZoomForLocation(lat: number, lon: number): number { return isCONUS(lat, lon) ? 19 : 15; }
 
   getTileUrls(zoom: number, x: number, y: number): string[] {
     const [west, south, east, north] = tileMercatorBounds(zoom, x, y);
     const lat = Math.atan(Math.sinh((north + south) / (2 * 6378137))) * 180 / Math.PI;
     const lon = (west + east) / (2 * HALF_WORLD) * 180;
     if (!isCONUS(lat, lon)) {
+      // Keep complete global overview imagery below fine inspection levels.
+      // Missing Swiss coverage never publishes an enlarged global tile as Z16+.
+      if (zoom >= 16 && zoom <= 19 && inSwissImageryEnvelope(lat, lon)) return [`${SWISS_IMAGE_TILES}${zoom}/${x}/${y}.png`];
       return zoom <= 15 ? [`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/${zoom}/${y}/${x}.jpg`] : [];
     }
     const blockZoom = zoom >= 17 ? zoom - 2 : zoom;
@@ -71,6 +76,7 @@ export class PublicImageryProvider implements ImageryProvider {
   }
 
   isTileUsable(image: CanvasImageSource, url: string): boolean {
+    if (isSwissImageryURL(url)) return isCompleteSwissImage(image);
     if ((!url.startsWith(NAIP_SERVICE) && !url.startsWith(NAIP_PLUS_SERVICE) && !url.startsWith(GEOPLATFORM_NAIP_SERVICE)) || typeof document === 'undefined') return true;
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 16;
     try {

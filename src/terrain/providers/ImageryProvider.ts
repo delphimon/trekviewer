@@ -5,6 +5,7 @@ export interface ImageryProvider {
   readonly maxZoom: number;
   readonly requestTimeoutMs?: number;
   getMaxZoomForLocation?(lat: number, lon: number): number;
+  getMaxOverviewZoomForLocation?(lat: number, lon: number): number;
   getTileImageRegion?(zoom: number, x: number, y: number): { x: number; y: number; width: number; height: number } | undefined;
   /** Equal keys share an export. The scheduler admits one consumer per pending
    * group so duplicate consumers cannot occupy every network slot. */

@@ -1,6 +1,7 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { recordImagerySource } from './ImagerySource.ts';
 import { PersistentResourceCache, persistentResourceAllowed, readBoundedBlob } from './PersistentResourceCache.ts';
+import { isSwissImageryURL, isCompleteSwissImage } from './providers/SwissImagery.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 
 export enum TilePriority {
@@ -571,7 +572,11 @@ export class TileImageCache {
     const timer = setTimeout(abort, timeoutMs);
     const decode = async (blob: Blob) => {
       const objectURL = URL.createObjectURL(blob);
-      try { return await this.loadImageWithTimeout(objectURL, Math.max(1, timeoutMs - (performance.now() - started)), controller.signal); }
+      try {
+        const image = await this.loadImageWithTimeout(objectURL, Math.max(1, timeoutMs - (performance.now() - started)), controller.signal);
+        if (isSwissImageryURL(url) && !isCompleteSwissImage(image)) throw new Error('Incomplete Swiss imagery coverage');
+        return image;
+      }
       finally { URL.revokeObjectURL(objectURL); }
     };
     try {
