@@ -14,6 +14,8 @@ The [worker startup recovery checkpoint](docs/review-2026-10-17/WORKER_STARTUP.m
 
 The [Swiss imagery checkpoint](docs/review-2026-10-18/SWISS_IMAGERY.md) adds current SWISSIMAGE aerial detail for imported Swiss routes at Z16–Z19, over the complete global overview. It validates every source alpha pixel, reports Swiss provenance and reuses exact source bytes only for the checked mosaic revision. Swiss elevation still uses the global fallback; native Quest acceptance remains open.
 
+The [entry delivery checkpoint](docs/review-2026-10-18/ENTRY_DELIVERY.md) adds browser integrity checks and bounded startup recovery after an intermittent corrupted hosting response was reproduced. It preserves rendering quality; the underlying hosting problem and native acceptance remain separate open issues.
+
 ---
 
 ## 🚀 Headset Installation & Standalone Deployment (Zero-Server Setup)

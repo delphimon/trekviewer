@@ -1482,7 +1482,7 @@ export class TrekViewerApp {
 
 // Initialize on DOM load with explicit provider environment resolution (Section 48)
 if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', async () => {
-    new TrekViewerApp();
-  });
+  const start = () => { new TrekViewerApp(); };
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', start, { once: true });
+  else start(); // A verified retry can load after DOMContentLoaded already fired.
 }

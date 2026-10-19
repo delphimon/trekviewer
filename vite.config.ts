@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { execSync } from 'child_process';
+import { entryIntegrity } from './scripts/entry-integrity.ts';
 
 let gitSha = 'unknown';
 let gitBranch = 'unknown';
@@ -25,6 +26,7 @@ export default defineConfig({
   },
   plugins: [
     basicSsl(),
+    entryIntegrity(),
     {
       name: 'build-provenance',
       generateBundle() {

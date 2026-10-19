@@ -1,0 +1,38 @@
+{
+  "integrity": "sha384-MbVj8kOBuRLhgK7mZ6SZOr/SwKWt2oAswYW8M8phzVbGb/R9t1yAnDu9sZ0CyZyg",
+  "entry": "./assets/index-CVDaoLay.js",
+  "results": [
+    {
+      "injectedFailures": 0,
+      "attempts": 1,
+      "started": true,
+      "corruptedCodeExecuted": false,
+      "integrityRejections": 0,
+      "pageErrors": []
+    },
+    {
+      "injectedFailures": 1,
+      "attempts": 2,
+      "started": true,
+      "corruptedCodeExecuted": false,
+      "integrityRejections": 1,
+      "pageErrors": []
+    },
+    {
+      "injectedFailures": 2,
+      "attempts": 3,
+      "started": true,
+      "corruptedCodeExecuted": false,
+      "integrityRejections": 2,
+      "pageErrors": []
+    },
+    {
+      "injectedFailures": 3,
+      "attempts": 3,
+      "started": false,
+      "corruptedCodeExecuted": false,
+      "integrityRejections": 3,
+      "pageErrors": []
+    }
+  ]
+}
