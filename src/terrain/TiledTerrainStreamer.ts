@@ -6,7 +6,7 @@ import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import type { LocalTerrainStreamerOptions } from './LocalTerrainStreamer.ts';
 import type { QualityProfile } from './QualityProfile.ts';
 import { QualityProfileManager, terrainDetailPolicy } from './QualityProfile.ts';
-import { planTerrainTiles, type TerrainTileLayout } from './TerrainTileLayout.ts';
+import { planTerrainTiles, selectTerrainFocus, type TerrainTileLayout } from './TerrainTileLayout.ts';
 
 interface ElevationAcquisition {
   controller: AbortController;
@@ -44,6 +44,7 @@ export class TiledTerrainStreamer {
   private detailFocus: { x: number; z: number }[] = [];
   private readonly acquisitions = new Map<string, ElevationAcquisition>();
   private acquiringTile: string | null = null;
+  private focusTileId: string | null = null;
 
   constructor(private readonly options: LocalTerrainStreamerOptions) {
     this.mode = options.initialViewMode ?? 'diorama';
@@ -108,20 +109,9 @@ export class TiledTerrainStreamer {
     if (detailFocus !== this.detailFocusInput) {
       this.detailFocusInput = detailFocus;
       const candidates = this.profile.name === 'quest-balanced' ? [] : (detailFocus ?? []).slice(0, 64).map(p => geoToLocalMeters(p.lat, p.lon, 0, center.centerLat, center.centerLon, 0));
-      this.detailFocus = [];
       // Spread the bounded anchors across the whole view, rather than filling
       // every slot with several adjacent samples near the central ray.
-      while (candidates.length && this.detailFocus.length < 25) {
-        let farthest = 0, distance = -1;
-        for (let i = 0; i < candidates.length; i++) {
-          const p = candidates[i];
-          let nearest = Math.hypot(p.x - local.x, p.z - local.z);
-          for (const anchor of this.detailFocus) nearest = Math.min(nearest, Math.hypot(p.x - anchor.x, p.z - anchor.z));
-          if (nearest > distance) { distance = nearest; farthest = i; }
-        }
-        if (distance < 60) break;
-        this.detailFocus.push(candidates.splice(farthest, 1)[0]);
-      }
+      this.detailFocus = selectTerrainFocus(candidates, local);
       const grid = terrain.baseMeshGrid!;
       const key = [...new Set(this.detailFocus.map(p => `${Math.floor((p.x + grid.width / 2) / (grid.width / grid.segmentsX * 8))}:${Math.floor((p.z + grid.depth / 2) / (grid.depth / grid.segmentsZ * 8))}`))].sort().join('|');
       detailChanged = key !== this.detailFocusKey; this.detailFocusKey = key;
@@ -134,11 +124,16 @@ export class TiledTerrainStreamer {
         additionalFocus: this.detailFocus, ...policy, parentCellsPerTile: 8,
       });
       const key = plan.tiles.map(tile => tile.id).sort().join('|');
+      // Membership can stay identical while the hiker crosses the footprint.
+      // Always refresh acquisition order, without retiring retained terrain.
+      this.wanted = new Map(plan.tiles.map(tile => [tile.id, tile]));
+      this.focus = { lat: geo.lat, lon: geo.lon };
+      this.focusTileId = plan.tiles.find(tile => local.x >= tile.bounds.minX && local.x <= tile.bounds.maxX
+        && local.z >= tile.bounds.minZ && local.z <= tile.bounds.maxZ)?.id ?? null;
+      this.nextWorkAt = 0;
       if (key !== this.planKey) {
         this.planKey = key;
-        this.focus = { lat: geo.lat, lon: geo.lon };
         this.focusChanges++;
-        this.wanted = new Map(plan.tiles.map(tile => [tile.id, tile]));
         for (const [id, entry] of this.acquisitions) if (!this.wanted.has(id)) {
           entry.controller.abort(); this.acquisitions.delete(id);
         }
@@ -201,11 +196,23 @@ export class TiledTerrainStreamer {
     // Keep network acquisition ahead of the single geometry/publication lane.
     // Resolved grids count toward the bound too; a slow promotion cannot grow it.
     const capacity = this.profile.name === 'quest-balanced' ? 1 : 3;
+    const needsAcquisition = (id: string) => this.acquiringTile !== id && this.ready?.id !== id
+      && (!this.chunks.has(id) || this.chunks.get(id)?.currentGrid?.preferredSourceRetry)
+      && (this.failed.get(id)?.retryAt ?? 0) <= now;
+    // Reserve admission for the current ground footprint. Keep completed grids
+    // and the active geometry/publication job; replace at most one less urgent
+    // unfinished download when every network slot was filled by an older view.
+    const urgent = this.focusTileId;
+    if (urgent && !this.acquisitions.has(urgent) && needsAcquisition(urgent) && this.acquisitions.size >= capacity) {
+      const victim = [...this.wanted.keys()].reverse().find(id => {
+        const entry = this.acquisitions.get(id);
+        return entry && !entry.settled && id !== this.acquiringTile;
+      });
+      if (victim) { this.acquisitions.get(victim)!.controller.abort(); this.acquisitions.delete(victim); }
+    }
     for (const tile of this.wanted.values()) {
       if (this.acquisitions.size >= capacity) break;
-      if (this.acquisitions.has(tile.id) || this.acquiringTile === tile.id || this.ready?.id === tile.id
-        || (this.chunks.has(tile.id) && !this.chunks.get(tile.id)?.currentGrid?.preferredSourceRetry)
-        || (this.failed.get(tile.id)?.retryAt ?? 0) > now) continue;
+      if (this.acquisitions.has(tile.id) || !needsAcquisition(tile.id)) continue;
       const controller = new AbortController();
       const geo = localMetersToGeo((tile.bounds.minX + tile.bounds.maxX) / 2,
         (tile.bounds.minZ + tile.bounds.maxZ) / 2, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);

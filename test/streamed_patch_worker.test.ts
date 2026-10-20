@@ -105,7 +105,7 @@ it('retries against a changed DEM surface before mounting the tile', async () =>
   } finally { manager.dispose(); base.geometry.dispose(); }
 });
 
-it.each(['style', 'mode', 'dispose'])('cancels stale worker publication on %s changes and resends sources to a replacement worker', async change => {
+it.each(['style', 'mode', 'dispose'])('cancels stale publication on %s changes without restarting a healthy worker', async change => {
   const { manager, base, candidates } = setup(1);
   try {
     manager.reconcileDesiredTiles(candidates.slice(0, 1), new EsriWorldImageryProvider(), 19);
@@ -114,14 +114,16 @@ it.each(['style', 'mode', 'dispose'])('cancels stale worker publication on %s ch
     if (change === 'mode') manager.setViewMode('first-person');
     if (change === 'dispose') manager.dispose();
     worker.complete(); await flush();
-    expect(worker.terminated).toBe(true);
+    expect(worker.terminated).toBe(false);
     expect(manager.patches.size).toBe(0); expect(manager.activeRequestCount).toBe(0);
     if (change !== 'dispose') {
       manager.reconcileDesiredTiles(candidates.slice(0, 1), new EsriWorldImageryProvider(), 19);
       await flush();
-      const replacement = ControlledWorker.instances[1], job: any = replacement.messages[0];
-      expect(job.reuseSources).not.toBe(true); expect(job.input.sources).toHaveLength(1);
-      replacement.complete(); await flush(); expect(manager.patches.size).toBe(1);
+      expect(ControlledWorker.instances).toHaveLength(1);
+      const job: any = worker.messages[1];
+      expect(job.kind).toBe('surface');
+      expect(job.reuseSources).toBe(true); expect(job.input.sources).toHaveLength(0);
+      worker.complete(); await flush(); expect(manager.patches.size).toBe(1);
     }
   } finally { manager.dispose(); base.geometry.dispose(); }
 });

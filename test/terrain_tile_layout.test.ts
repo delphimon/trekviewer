@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { planTerrainTiles } from '../src/terrain/TerrainTileLayout.ts';
+import { planTerrainTiles, selectTerrainFocus } from '../src/terrain/TerrainTileLayout.ts';
+
+it('spreads detail across the view with stable ties, original point ownership and bounded spacing/count', () => {
+  const points = [-200, 0, 200].flatMap(x => [-200, 0, 200].map(z => ({ x, z })));
+  const before = [...points];
+  const anchors = selectTerrainFocus(points, { x: 0, z: 0 });
+  expect(anchors.map(p => [p.x, p.z])).toEqual([[-200, -200], [-200, 200], [200, -200], [200, 200], [-200, 0], [0, -200], [0, 200], [200, 0]]);
+  expect(points).toEqual(before); expect(anchors[0]).toBe(points[0]);
+  expect(selectTerrainFocus(points, { x: 0, z: 0 }, 3)).toEqual(anchors.slice(0, 3));
+  expect(selectTerrainFocus([{ x: 59, z: 0 }, { x: 60, z: 0 }], { x: 0, z: 0 })).toEqual([{ x: 60, z: 0 }]);
+});
 
 const parent = { width: 2400, depth: 1800, segmentsX: 20, segmentsZ: 15 };
 const options = {
@@ -14,6 +24,14 @@ const options = {
 };
 
 describe('terrain tile layout', () => {
+  it('retains exact circle-boundary contacts between separated focus neighborhoods', () => {
+    const plan = planTerrainTiles({ parent: { width: 4000, depth: 2000, segmentsX: 40, segmentsZ: 20 },
+      focusX: -1500, focusZ: 0, additionalFocus: [{ x: 500, z: 0 }], radiusM: 500,
+      parentCellsPerTile: 1, targetCellM: 50, maxTiles: 1000, maxVertices: 100000 });
+    expect(plan.tiles.some(tile => tile.id === '19:9')).toBe(true);
+    expect(plan.tiles.some(tile => tile.id === '30:9')).toBe(true);
+    expect(plan.tiles.some(tile => tile.id === '18:9')).toBe(false);
+  });
   it('partitions the complete parent surface on shared cell boundaries', () => {
     const plan = planTerrainTiles(options);
     expect(plan.tiles).toHaveLength(12);

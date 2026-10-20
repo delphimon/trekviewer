@@ -1,0 +1,38 @@
+{
+  "condition": "Node desktop isolated anchor-selection benchmark, 64 candidates, up to 25 anchors, identical 60 m spacing/count policy. Exact ordered point identity agrees across 1000 seeded geographic-scale point clouds. This is not full-frame or native timing.",
+  "node": "v24.21.0",
+  "matchedFixtures": 1000,
+  "passes": [
+    {
+      "name": "previous",
+      "iterations": 2000,
+      "elapsedMs": 689.5176
+    },
+    {
+      "name": "cached-nearest-distance",
+      "iterations": 2000,
+      "elapsedMs": 22.17989999999986
+    },
+    {
+      "name": "previous",
+      "iterations": 2000,
+      "elapsedMs": 690.7082
+    },
+    {
+      "name": "cached-nearest-distance",
+      "iterations": 2000,
+      "elapsedMs": 21.52890000000002
+    },
+    {
+      "name": "previous",
+      "iterations": 2000,
+      "elapsedMs": 687.4014999999999
+    },
+    {
+      "name": "cached-nearest-distance",
+      "iterations": 2000,
+      "elapsedMs": 21.77370000000019
+    }
+  ],
+  "checksum": 300000
+}

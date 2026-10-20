@@ -13,44 +13,50 @@ export type TerrainJob =
   | { kind: 'chunk'; options: Omit<LocalTerrainChunkOptions, 'mapTexture' | 'baseElevationSampler'>; base: TerrainSurfaceData }
   | { kind: 'finalize'; raw: RawParsedGPX; dem: ElevationGrid | null; regional?: ElevationGrid | null };
 
-let worker: Worker | null = null;
-let queue: Promise<unknown> = Promise.resolve();
-let cancelActive: (() => void) | null = null;
-let surfaceSources: SurfaceMeshSnapshot[] | null = null;
-let retryWorkerAfter = 0;
+interface TerrainLane {
+  worker: Worker | null;
+  queue: Promise<unknown>;
+  cancelActive: (() => void) | null;
+  surfaceSources: SurfaceMeshSnapshot[] | null;
+  retryWorkerAfter: number;
+  generation: number;
+}
+const createLane = (): TerrainLane => ({ worker: null, queue: Promise.resolve(), cancelActive: null,
+  surfaceSources: null, retryWorkerAfter: 0, generation: 0 });
+const elevationLane = createLane(), geometryLane = createLane();
 const START_TIMEOUT_MS = 5000;
+const CANCEL_DRAIN_TIMEOUT_MS = 5000;
+const cancelled = () => new DOMException('Terrain work cancelled', 'AbortError');
 
 /** Wait for module initialization before transferring caller-owned buffers.
  * A failed script load can otherwise detach the only copy before any work runs. */
-async function startWorker(signal?: AbortSignal): Promise<Worker | null> {
-  if (worker) return worker;
-  if (performance.now() < retryWorkerAfter) return null;
+async function startWorker(lane: TerrainLane): Promise<Worker | null> {
+  if (lane.worker) return lane.worker;
+  if (performance.now() < lane.retryWorkerAfter) return null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (signal?.aborted) throw new DOMException('Terrain work cancelled', 'AbortError');
     let candidate: Worker | null = null;
     try {
       candidate = new Worker(new URL('../workers/TerrainWorker.ts', import.meta.url), { type: 'module' });
-      worker = candidate; surfaceSources = null;
+      lane.worker = candidate; lane.surfaceSources = null;
       const active = candidate;
       await new Promise<void>((resolve, reject) => {
         const cleanup = () => {
-          clearTimeout(timer); cancelActive = null; signal?.removeEventListener('abort', abort);
+          clearTimeout(timer); lane.cancelActive = null;
           active.onmessage = active.onerror = active.onmessageerror = null;
         };
-        const abort = () => { cleanup(); reject(new DOMException('Terrain work cancelled', 'AbortError')); };
+        const abort = () => { cleanup(); reject(cancelled()); };
         const timer = setTimeout(() => { cleanup(); reject(new Error('Terrain worker module startup timed out')); }, START_TIMEOUT_MS);
-        cancelActive = abort; signal?.addEventListener('abort', abort, { once: true });
+        lane.cancelActive = abort;
         active.onmessage = event => { if (event.data?.ready === true) { cleanup(); resolve(); } };
         active.onerror = event => { event.preventDefault(); cleanup(); reject(new Error(event.message || 'Terrain worker module could not start')); };
         active.onmessageerror = () => { cleanup(); reject(new Error('Terrain worker startup response could not be decoded')); };
       });
-      if (signal?.aborted) throw new DOMException('Terrain work cancelled', 'AbortError');
       return active;
     } catch (error) {
-      candidate?.terminate(); if (worker === candidate) worker = null; surfaceSources = null;
+      candidate?.terminate(); if (lane.worker === candidate) lane.worker = null; lane.surfaceSources = null;
       if ((error as Error)?.name === 'AbortError') throw error;
       if (attempt === 1) {
-        retryWorkerAfter = performance.now() + 10_000;
+        lane.retryWorkerAfter = performance.now() + 10_000;
         console.warn('[TerrainJobs] Worker startup unavailable; using identical local computation temporarily.', error);
       }
     }
@@ -59,33 +65,44 @@ async function startWorker(signal?: AbortSignal): Promise<Worker | null> {
 }
 
 export function disposeTerrainJobs(): void {
-  cancelActive?.();
-  worker?.terminate();
-  worker = null;
-  surfaceSources = null;
-  retryWorkerAfter = 0;
+  for (const lane of [elevationLane, geometryLane]) {
+    lane.generation++;
+    lane.cancelActive?.();
+    lane.worker?.terminate();
+    lane.worker = null; lane.surfaceSources = null; lane.retryWorkerAfter = 0;
+    lane.queue = Promise.resolve();
+  }
 }
 
-/** One reusable worker bounds CPU concurrency and transient DEM copies. */
+/** Two bounded lanes keep elevation decoding independent of geometry work.
+ * Caller cancellation rejects immediately, but an executing synchronous job
+ * drains before its lane is reused. This avoids worker/module restart churn
+ * and prevents a late response from being delivered to another caller. */
 export function runTerrainJob<T>(job: TerrainJob, fallback: () => T | Promise<T>, signal?: AbortSignal, transfer: Transferable[] = []): Promise<T> {
+  const lane = job.kind === 'surface' || job.kind === 'chunk' ? geometryLane : elevationLane;
+  const generation = lane.generation;
   const run = async (): Promise<T> => {
-    if (signal?.aborted) throw new DOMException('Terrain work cancelled', 'AbortError');
+    if (signal?.aborted || generation !== lane.generation) throw cancelled();
     if (typeof Worker === 'undefined') return fallback();
-    const activeWorker = await startWorker(signal);
-    if (signal?.aborted || (activeWorker && activeWorker !== worker)) throw new DOMException('Terrain work cancelled', 'AbortError');
+    const activeWorker = await startWorker(lane);
+    if (signal?.aborted || generation !== lane.generation || (activeWorker && activeWorker !== lane.worker)) throw cancelled();
     if (!activeWorker) return fallback();
     return new Promise<T>((resolve, reject) => {
+      let drainTimer: ReturnType<typeof setTimeout> | undefined;
       const clean = () => {
-        cancelActive = null;
-        signal?.removeEventListener('abort', abort);
+        clearTimeout(drainTimer); signal?.removeEventListener('abort', drain);
+        lane.cancelActive = null;
         activeWorker.onmessage = activeWorker.onerror = activeWorker.onmessageerror = null;
       };
-      const abort = () => {
-        clean(); activeWorker.terminate(); worker = null;
-        reject(new DOMException('Terrain work cancelled', 'AbortError'));
+      // Normally the already-running bounded computation finishes promptly.
+      // An abandoned hung job must not occupy its lane indefinitely.
+      const drain = () => {
+        drainTimer = setTimeout(() => {
+          clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null; reject(cancelled());
+        }, CANCEL_DRAIN_TIMEOUT_MS);
       };
-      cancelActive = abort;
-      signal?.addEventListener('abort', abort, { once: true });
+      signal?.addEventListener('abort', drain, { once: true });
+      lane.cancelActive = () => { clean(); reject(cancelled()); };
       activeWorker.onmessage = (event) => {
         clean();
         if (event.data.error) {
@@ -95,26 +112,35 @@ export function runTerrainJob<T>(job: TerrainJob, fallback: () => T | Promise<T>
         } else resolve(event.data.result as T);
       };
       activeWorker.onerror = (event) => {
-        event.preventDefault(); clean(); activeWorker.terminate(); worker = null;
+        event.preventDefault(); clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null;
         reject(new Error(`Terrain worker failed: ${event.message || 'execution error'}`));
       };
       activeWorker.onmessageerror = () => {
-        clean(); activeWorker.terminate(); worker = null; surfaceSources = null;
+        clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null;
         reject(new Error('Terrain worker response could not be decoded'));
       };
       try {
         // A surface revision is shared by many tile jobs. Clone its source grids
         // once, rather than copying the full DEM mesh for every 256px crop.
-        const reuseSources = job.kind === 'surface' && job.input.sources === surfaceSources;
+        const reuseSources = job.kind === 'surface' && job.input.sources === lane.surfaceSources;
         activeWorker.postMessage(reuseSources
           ? { ...job, input: { ...job.input, sources: [] }, reuseSources: true }
           : job, transfer);
-        if (job.kind === 'surface') surfaceSources = job.input.sources;
+        if (job.kind === 'surface') lane.surfaceSources = job.input.sources;
       }
       catch (error) { clean(); reject(error); }
     });
   };
-  const result = queue.then(run, run);
-  queue = result.catch(() => {});
-  return result;
+  const result = lane.queue.then(run, run);
+  lane.queue = result.catch(() => {});
+  if (!signal) return result;
+  // The queue waits for execution, not for the caller's independently aborted
+  // promise. Queued cancellation never transfers the caller's input buffers.
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => { signal.removeEventListener('abort', abort); reject(cancelled()); };
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    result.then(value => { signal.removeEventListener('abort', abort); if (signal.aborted) reject(cancelled()); else resolve(value); },
+      error => { signal.removeEventListener('abort', abort); reject(error); });
+  });
 }

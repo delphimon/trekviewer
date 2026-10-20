@@ -25,6 +25,8 @@ try {
   browser = await chromium.launch({ executablePath: process.env.TREK_EDGE_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1000, height: 800 }, userAgent: 'TrekViewer desktop live-source audit (Quest geometry budget)' });
   const page = await context.newPage(), errors = [], glErrors = [];
+  const workerLifecycle = { created: 0, closed: 0 };
+  page.on('worker', worker => { workerLifecycle.created++; worker.on('close', () => workerLifecycle.closed++); });
   // No credential-bearing response URLs, exception messages, console text or
   // private bootstrap values enter the report.
   page.on('pageerror', () => errors.push('Page exception'));
@@ -45,6 +47,7 @@ try {
   console.log(JSON.stringify({ phase: 'ready', elapsedMs: Date.now() - start, build: build.id }));
   await page.evaluate(() => {
     const app = window.__trekViewerApp;
+    app.startProfile();
     window.__liveDetailStartedAt = performance.now();
     window.__liveDetailSamples = [];
     window.__liveDetailTimer = setInterval(() => {
@@ -54,10 +57,15 @@ try {
         const b = c.getSurfaceBounds();
         return c.mesh.visible && point.x >= b.minX && point.x <= b.maxX && point.z >= b.minZ && point.z <= b.maxZ;
       });
-      const cell = chunk?.getCellSize(), grid = chunk?.currentGrid;
+      const cell = chunk?.getCellSize(), grid = chunk?.currentGrid, streamer = app.activeTrek.localTerrainStreamer;
+      const wanted = [...(streamer?.wanted?.values() ?? [])];
+      const hikerTile = wanted.find(tile => point.x >= tile.bounds.minX && point.x <= tile.bounds.maxX
+        && point.z >= tile.bounds.minZ && point.z <= tile.bounds.maxZ);
       window.__liveDetailSamples.push({ timeMs: performance.now(), progress: state.progress, playing: state.isPlaying, following: state.followRoute,
         fineAtHiker: !!(cell && Math.max(cell.x, cell.z) <= 10 && grid.isRealDEM),
         cellM: cell ? Math.max(cell.x, cell.z) : null, source: grid?.source ?? null,
+        hikerWanted: !!hikerTile, hikerQueueIndex: hikerTile ? wanted.indexOf(hikerTile) : null,
+        hikerAcquiring: hikerTile ? streamer.acquisitions.has(hikerTile.id) || streamer.acquiringTile === hikerTile.id || streamer.ready?.id === hikerTile.id : false,
         overviewDifferenceM: chunk ? chunk.sampleLocalSurfaceY(point.x, point.z) - terrain.sampleBaseSurfaceY(point.x, point.z) : null });
     }, 250);
   });
@@ -162,6 +170,7 @@ try {
     await page.waitForTimeout(15000); await sample(label);
   }
   await page.locator('#btnPlay').click();
+  const playbackProfile = await page.evaluate(() => { const app = window.__trekViewerApp; app.stopProfile(); return app.completedProfile; });
   await page.screenshot({ path: path.join(out, 'scene.png') });
   let renderBenchmark;
   if (process.env.TREK_BENCHMARK_RENDER === '1') {
@@ -213,7 +222,7 @@ try {
     firstFineAfterMonitorMs: detailSamples.some(row => row.fineAtHiker)
       ? detailSamples.find(row => row.fineAtHiker).timeMs - monitorStartedAtMs : null };
   const evidence = { condition: 'Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; it is not full-tour or native acceptance.', build, entry,
-    provider: config ? 'private-cesium-bing' : 'public-default', checkpoints, markerComparison, detailSummary, detailSamples, renderBenchmark, errors, glErrors };
+    provider: config ? 'private-cesium-bing' : 'public-default', checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle, renderBenchmark, errors, glErrors };
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify(evidence, null, 2) + '\n');
   assert.deepEqual(errors, []); assert.deepEqual(glErrors, []);
   assert.ok(markerComparison.every(row => row.errors.every(e => e === 0) && row.mean < 0.02 && row.changed < 100), 'Marker instancing changed marker appearance');

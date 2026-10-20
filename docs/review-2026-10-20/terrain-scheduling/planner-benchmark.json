@@ -1,0 +1,38 @@
+{
+  "condition": "Isolated Node desktop planner benchmark against committed 607d97b. Exact complete plan equality over 1000 seeded parent/focus layouts, including single and broad 25-anchor views, unchanged radius/spacing/coverage/tile/vertex limits. This is not full-frame or native timing.",
+  "node": "v24.21.0",
+  "matchedFixtures": 1000,
+  "passes": [
+    {
+      "name": "previous",
+      "iterations": 1000,
+      "elapsedMs": 433.86
+    },
+    {
+      "name": "per-anchor-radius",
+      "iterations": 1000,
+      "elapsedMs": 314.5553
+    },
+    {
+      "name": "previous",
+      "iterations": 1000,
+      "elapsedMs": 420.8553999999999
+    },
+    {
+      "name": "per-anchor-radius",
+      "iterations": 1000,
+      "elapsedMs": 308.5562
+    },
+    {
+      "name": "previous",
+      "iterations": 1000,
+      "elapsedMs": 421.24900000000025
+    },
+    {
+      "name": "per-anchor-radius",
+      "iterations": 1000,
+      "elapsedMs": 311.84469999999965
+    }
+  ],
+  "checksum": 3530010432
+}

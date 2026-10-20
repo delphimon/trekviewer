@@ -5,6 +5,7 @@ import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
 import { QUALITY_PROFILES, terrainDetailPolicy } from '../src/terrain/QualityProfile.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
 import { planTerrainTiles } from '../src/terrain/TerrainTileLayout.ts';
+import { localMetersToGeo } from '../src/gpx/Coordinates.ts';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -26,6 +27,50 @@ function fixture() {
 }
 
 async function flushBuild(): Promise<void> { for (let i = 0; i < 16; i++) await Promise.resolve(); }
+
+it('refreshes priority within an unchanged footprint and admits the new hiker tile without waiting for three slow requests', async () => {
+  const { streamer, attached } = fixture();
+  const pending: { resolve: (grid: any) => void; signal: AbortSignal }[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation((_lat, _lon, _radius, _zoom, _max, signal) =>
+    new Promise((resolve, reject) => {
+      pending.push({ resolve, signal: signal! });
+      signal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true });
+    }));
+  const focus = (x: number, z: number) => localMetersToGeo(x, z, 46, -120);
+  streamer.update(0, focus(-1300, -1300));
+  const wantedBefore = [...(streamer as any).wanted.keys()].sort();
+  expect(fetch).toHaveBeenCalledTimes(3);
+  streamer.update(0, focus(1300, 1300));
+  expect([...(streamer as any).wanted.keys()].sort()).toEqual(wantedBefore);
+  expect([...(streamer as any).wanted.keys()][0]).toBe('3:3');
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(pending.slice(0, 3).filter(entry => entry.signal.aborted)).toHaveLength(1);
+  expect(pending.filter(entry => !entry.signal.aborted)).toHaveLength(3);
+  expect((streamer as any).acquisitions.has('3:3')).toBe(true);
+  // Moving within that tile must not repeatedly cancel useful downloads.
+  streamer.update(0, focus(1400, 1400)); expect(fetch).toHaveBeenCalledTimes(4);
+  pending[3].resolve({ zoom: 15, isRealDEM: true }); await flushBuild();
+  streamer.update(0, focus(1400, 1400)); await flushBuild(); streamer.update(0, focus(1400, 1400));
+  expect((streamer as any).chunks.has('3:3')).toBe(true); expect(attached.size).toBeGreaterThan(0);
+  streamer.dispose(); await flushBuild();
+});
+
+it('retains completed DEM acquisitions when the hiker moves to another tile in the same footprint', async () => {
+  const { streamer } = fixture();
+  const pending: ((grid: any) => void)[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+  let promote!: (publish: () => boolean) => void;
+  (streamer as any).options.prepareSurfacePromotion = vi.fn().mockReturnValueOnce(new Promise(resolve => { promote = resolve; })).mockResolvedValue(() => true);
+  streamer.update(0, localMetersToGeo(-1300, -1300, 46, -120));
+  pending.forEach(resolve => resolve({ zoom: 15, isRealDEM: true })); await flushBuild();
+  const signals = fetch.mock.calls.map(call => call[5] as AbortSignal);
+  streamer.update(0, localMetersToGeo(1300, 1300, 46, -120));
+  expect(signals.every(signal => !signal.aborted)).toBe(true);
+  promote(() => true); await flushBuild();
+  streamer.update(0, localMetersToGeo(1300, 1300, 46, -120));
+  expect((streamer as any).acquisitions.has('3:3')).toBe(true);
+  streamer.dispose(); await flushBuild();
+});
 
 it('publishes completed DEM sections while the first request remains slow, then publishes that request when it arrives', async () => {
   const { streamer, attached } = fixture();

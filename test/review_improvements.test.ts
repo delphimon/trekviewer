@@ -203,7 +203,7 @@ it('cancels queued terrain work before invoking its fallback', async () => {
   expect(fallback).not.toHaveBeenCalled();
 });
 
-it('serializes worker jobs, aborts the active worker, and allows a subsequent job to complete', async () => {
+it('serializes each worker lane and drains cancelled work before reusing the worker', async () => {
   const instances: any[] = [];
   class MockWorker {
     public onmessage: any = null;
@@ -222,9 +222,12 @@ it('serializes worker jobs, aborts the active worker, and allows a subsequent jo
   expect(instances).toHaveLength(1); expect(instances[0].messages).toHaveLength(1);
   controller.abort(); await firstResult;
   for (let i = 0; i < 6; i++) await Promise.resolve();
-  expect(instances[0].terminate).toHaveBeenCalled(); expect(instances).toHaveLength(2);
-  instances[1].onmessage({ data: { result: 2 } }); expect(await second).toBe(2);
-  disposeTerrainJobs(); expect(instances[1].terminate).toHaveBeenCalled();
+  expect(instances[0].terminate).not.toHaveBeenCalled(); expect(instances).toHaveLength(1);
+  instances[0].onmessage({ data: { result: 'discarded' } });
+  for (let i = 0; i < 6; i++) await Promise.resolve();
+  expect(instances[0].messages).toHaveLength(2);
+  instances[0].onmessage({ data: { result: 2 } }); expect(await second).toBe(2);
+  disposeTerrainJobs(); expect(instances[0].terminate).toHaveBeenCalled();
 });
 
 it('preserves valleys and reproduces coarse diagonal sampling in prepared local geometry', () => {

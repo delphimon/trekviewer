@@ -119,6 +119,13 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `607d97b` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39463946179); exact hosted geographic/recovery, live-source and desktop/mobile flow checks pass. Private Bing compatibility also passes without publishing its token. [Release evidence](review-2026-10-20/DIRECT_TERRAIN.md).
 - [ ] Complete matched native High/Aerial performance and visual acceptance when the user returns to headset testing. The connected headset exposed no debugger tab, and the user deferred opening/wearing it; continue independent engineering without repeated unprepared test requests. Keep the 72 Hz, whole-model detail and loading/coverage gates open.
 
+### 0j. Keep terrain work responsive as the hiker moves
+
+- [x] Reproduce and repair stale acquisition priority when desired membership stays unchanged. Admit the current ground tile under full download occupancy without dropping completed grids or retained terrain; preserve High/Balanced acquisition and residency limits.
+- [x] Separate decoding from geometry in two bounded reusable worker lanes. Cancel callers immediately, drain stale execution responses, retain source caches and bound abandoned jobs; preserve startup handshake, recovery and detached-buffer guards.
+- [x] Reduce anchor selection and tile-planning work while proving ordered-anchor/complete-plan equality against the previous algorithms. Verify 694 Windows tests, typechecking/build, live source compatibility, worker reuse and graphics recovery. See [terrain scheduling evidence and limits](review-2026-10-20/TERRAIN_SCHEDULING.md).
+- [ ] Publish through exact-commit CI, clean build and hosted validation. Native 72 Hz, full-tour loading/coverage and whole-model detail remain open; the user has deferred the next headset test.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.
