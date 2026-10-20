@@ -1,0 +1,173 @@
+{
+  "fixture": "synthetic terrain; external sources deliberately unavailable",
+  "entry": "index-lUExtCdA.js",
+  "ci": {
+    "id": 39377526279,
+    "conclusion": "success",
+    "url": "https://github.com/delphimon/trekviewer/actions/runs/39377526279"
+  },
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "build": {
+        "id": "3b1b999-2026-10-20T05:55:51.354Z",
+        "sha": "3b1b99946d8f1da30cfafd2cb977dd904cf257d3",
+        "shortSha": "3b1b999",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T05:55:51.354Z",
+        "label": "TrekViewer 1.0.0 • 3b1b999"
+      },
+      "pageErrors": [],
+      "overflow": false,
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "hud": {
+        "controlsChangedPixels": 0,
+        "hiddenUploadRequests": 0
+      },
+      "clearance": {
+        "obstructed": {
+          "minimum": -0.20999999158694208,
+          "camera": [
+            -0.010587231319791088,
+            0.0093658775536829,
+            -0.8020575664984728
+          ],
+          "active": false
+        },
+        "cleared": {
+          "minimum": 0.005367187189793358,
+          "camera": [
+            -0.010587231319791083,
+            0.4919371091866069,
+            -0.8020575664984733
+          ],
+          "active": true
+        }
+      },
+      "xmlImport": {
+        "name": "Prefixed & encoded",
+        "segments": 2,
+        "points": 4,
+        "hr": 144,
+        "cad": 82,
+        "waypoint": "Camp <Upper> & East",
+        "preservedOnError": true,
+        "importError": "error"
+      },
+      "landmarks": {
+        "shared": true,
+        "list": [
+          {
+            "name": "Trailhead (Loop)",
+            "progress": 0
+          },
+          {
+            "name": "Camp (Upper)",
+            "progress": 0.14239307647845603
+          },
+          {
+            "name": "Camp (Lower)",
+            "progress": 0.14787174123544253
+          },
+          {
+            "name": "High Point",
+            "progress": 0.5035712470660862
+          },
+          {
+            "name": "Finish",
+            "progress": 1
+          }
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "build": {
+        "id": "3b1b999-2026-10-20T05:55:51.354Z",
+        "sha": "3b1b99946d8f1da30cfafd2cb977dd904cf257d3",
+        "shortSha": "3b1b999",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T05:55:51.354Z",
+        "label": "TrekViewer 1.0.0 • 3b1b999"
+      },
+      "pageErrors": [],
+      "overflow": false,
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "hud": {
+        "controlsChangedPixels": 0,
+        "hiddenUploadRequests": 0
+      },
+      "clearance": {
+        "obstructed": {
+          "minimum": -0.20999999158694208,
+          "camera": [
+            -0.010587231319791088,
+            0.0093658775536829,
+            -0.8020575664984728
+          ],
+          "active": false
+        },
+        "cleared": {
+          "minimum": 0.005367187189794083,
+          "camera": [
+            -0.010587231319791095,
+            0.4919371091866085,
+            -0.8020575664984733
+          ],
+          "active": true
+        }
+      },
+      "xmlImport": {
+        "name": "Prefixed & encoded",
+        "segments": 2,
+        "points": 4,
+        "hr": 144,
+        "cad": 82,
+        "waypoint": "Camp <Upper> & East",
+        "preservedOnError": true,
+        "importError": "error"
+      },
+      "landmarks": {
+        "shared": true,
+        "list": [
+          {
+            "name": "Trailhead (Loop)",
+            "progress": 0
+          },
+          {
+            "name": "Camp (Upper)",
+            "progress": 0.14239307647845603
+          },
+          {
+            "name": "Camp (Lower)",
+            "progress": 0.14787174123544253
+          },
+          {
+            "name": "High Point",
+            "progress": 0.5035712470660862
+          },
+          {
+            "name": "Finish",
+            "progress": 1
+          }
+        ]
+      }
+    }
+  ]
+}
