@@ -134,6 +134,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `e3d5b88` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39501376903). Exact hosted full-tour and desktop/mobile checks pass; 264/367 fine-ground samples leave loading acceptance open. [Release evidence](review-2026-10-20/VISUAL_GROUND.md).
 - [ ] Resolve remaining full-tour fine-terrain gaps, broad overview detail and native performance/visual acceptance. Focus correctness alone does not close these gates.
 
+### 0l. Avoid copying unchanged terrain into the worker
+
+- [x] Measure surface/geometry message copying and loading stages during a complete real-source desktop tour. Reproduce delayed current-tile admission below the 60 m movement threshold.
+- [x] Reuse unchanged versioned surface arrays across metadata revisions and one immutable chunk base. Preserve bounded cache lifetime, fresh coverage holes, restart/cancellation behavior and source/geometry quality. Fix immediate current-tile admission at boundaries.
+- [x] Verify 703 Windows tests, typechecking and the production build. Local full-tour auditing eliminates 78.85% of equivalent surface/base-array bytes without quality changes; geographic/recovery and desktop/mobile checks pass. See [worker transport evidence and limits](review-2026-10-20/WORKER_TRANSPORT.md).
+- [ ] Complete real-source/browser validation and publish through CI, a clean rebuild and exact hosted checks.
+- [ ] Complete native performance and full-tour fine-terrain/overview-detail acceptance; reduced copying alone does not close these gates.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

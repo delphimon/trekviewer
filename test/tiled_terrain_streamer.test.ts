@@ -28,6 +28,28 @@ function fixture() {
 
 async function flushBuild(): Promise<void> { for (let i = 0; i < 16; i++) await Promise.resolve(); }
 
+it('admits the current ground immediately after crossing a tile corner below the movement threshold', async () => {
+  const { streamer } = fixture();
+  const signals: AbortSignal[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation((_lat, _lon, _radius, _zoom, _max, signal) =>
+    new Promise((_resolve, reject) => {
+      signals.push(signal!);
+      signal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true });
+    }));
+  const focus = (x: number, z: number) => localMetersToGeo(x, z, 46, -120);
+  streamer.update(0, focus(-965, -965));
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect((streamer as any).acquisitions.has('1:1')).toBe(false);
+  streamer.update(0, focus(-955, -955));
+  expect((streamer as any).focusTileId).toBe('1:1');
+  expect((streamer as any).acquisitions.has('1:1')).toBe(true);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(signals.filter(signal => !signal.aborted)).toHaveLength(3);
+  streamer.update(0, focus(-954, -954));
+  expect(fetch).toHaveBeenCalledTimes(4);
+  streamer.dispose(); await flushBuild();
+});
+
 it('refreshes priority within an unchanged footprint and admits the new hiker tile without waiting for three slow requests', async () => {
   const { streamer, attached } = fixture();
   const pending: { resolve: (grid: any) => void; signal: AbortSignal }[] = [];

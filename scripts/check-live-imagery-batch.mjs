@@ -25,6 +25,40 @@ try {
   browser = await chromium.launch({ executablePath: process.env.TREK_EDGE_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1000, height: 800 }, userAgent: 'TrekViewer desktop live-source audit (Quest geometry budget)' });
   const page = await context.newPage(), errors = [], glErrors = [];
+  if (process.env.TREK_TERRAIN_PIPELINE_AUDIT === '1') await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    window.__terrainJobAudit = [];
+    window.Worker = class extends NativeWorker {
+      pendingAudit = null;
+      surfaceSizes = [];
+      baseSize = 0;
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message', event => {
+          if (event.data?.ready || !this.pendingAudit) return;
+          this.pendingAudit.elapsedMs = performance.now() - this.pendingAudit.startedAtMs;
+          this.pendingAudit.failed = !!event.data?.error;
+          this.pendingAudit = null;
+        });
+      }
+      postMessage(message, ...args) {
+        if (!['lerc', 'decode', 'chunk', 'surface', 'finalize'].includes(message?.kind)) return super.postMessage(message, ...args);
+        const sources = message.input?.sources ?? [];
+        if (message.kind === 'surface' && !message.reuseSources) this.surfaceSizes = sources.map(source =>
+          'reuseSource' in source ? this.surfaceSizes[source.reuseSource] : source.positions.byteLength + source.normals.byteLength);
+        if (message.kind === 'chunk' && !message.reuseBase) this.baseSize = message.base?.heights?.byteLength ?? 0;
+        const row = { kind: message.kind, startedAtMs: performance.now(),
+          sourceBytes: sources.reduce((bytes, source) => bytes + (source.positions?.byteLength ?? 0) + (source.normals?.byteLength ?? 0), 0),
+          uncachedSourceBytes: message.kind === 'surface' && !message.reuseSources ? this.surfaceSizes.reduce((a, b) => a + b, 0) : 0,
+          baseBytes: message.base?.heights?.byteLength ?? 0, uncachedBaseBytes: message.kind === 'chunk' ? this.baseSize : 0,
+          gridBytes: message.options?.localGrid?.data?.byteLength ?? 0 };
+        this.pendingAudit = row; window.__terrainJobAudit.push(row);
+        const result = super.postMessage(message, ...args);
+        row.postMs = performance.now() - row.startedAtMs;
+        return result;
+      }
+    };
+  });
   const workerLifecycle = { created: 0, closed: 0 };
   page.on('worker', worker => { workerLifecycle.created++; worker.on('close', () => workerLifecycle.closed++); });
   // No credential-bearing response URLs, exception messages, console text or
@@ -70,6 +104,11 @@ try {
         cellM: cell ? Math.max(cell.x, cell.z) : null, source: grid?.source ?? null,
         hikerWanted: !!hikerTile, hikerQueueIndex: hikerTile ? wanted.indexOf(hikerTile) : null,
         hikerAcquiring: hikerTile ? streamer.acquisitions.has(hikerTile.id) || streamer.acquiringTile === hikerTile.id || streamer.ready?.id === hikerTile.id : false,
+        hikerStage: !hikerTile ? 'unplanned' : chunk ? 'visible' : streamer.ready?.id === hikerTile.id ? 'ready'
+          : streamer.acquiringTile === hikerTile.id ? 'building' : streamer.acquisitions.get(hikerTile.id)?.settled ? 'decoded'
+          : streamer.acquisitions.has(hikerTile.id) ? 'fetching' : 'queued',
+        acquisitionCount: streamer?.acquisitions?.size ?? 0,
+        settledAcquisitions: [...(streamer?.acquisitions?.values() ?? [])].filter(entry => entry.settled).length,
         focusToVisualM: streamer?.localFocus ? Math.hypot(streamer.localFocus.x - point.x, streamer.localFocus.z - point.z) : null,
         analyticalToVisualM: Math.hypot(analyticalX - point.x, analyticalZ - point.z),
         sourceSampleSpacingM: grid?.sampleSpacingMeters ?? null,
@@ -233,7 +272,8 @@ try {
     firstFineAfterMonitorMs: detailSamples.some(row => row.fineAtHiker)
       ? detailSamples.find(row => row.fineAtHiker).timeMs - monitorStartedAtMs : null };
   const evidence = { condition: 'Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.', fullTour: process.env.TREK_FULL_TOUR === '1', build, entry,
-    provider: config ? 'private-cesium-bing' : 'public-default', checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle, renderBenchmark, errors, glErrors };
+    provider: config ? 'private-cesium-bing' : 'public-default', checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle,
+    terrainJobAudit: await page.evaluate(() => window.__terrainJobAudit), renderBenchmark, errors, glErrors };
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify(evidence, null, 2) + '\n');
   assert.deepEqual(errors, []); assert.deepEqual(glErrors, []);
   if (process.env.TREK_ASSERT_VISUAL_FOCUS === '1') assert.ok(tour.length > 0 && tour.every(row => row.focusToVisualM < 0.00001), 'Terrain focus must follow the displayed hiker');

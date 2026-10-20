@@ -8,6 +8,7 @@ export interface SurfaceMeshSnapshot {
   width: number; depth: number; segmentsX: number; segmentsZ: number;
   x: number; z: number;
   positions: Float32Array; normals: Float32Array;
+  positionVersion?: number; normalVersion?: number;
   holes: TerrainSurfaceBounds[];
 }
 export interface SurfacePromotionInput {
@@ -42,6 +43,8 @@ export function snapshotSurfaceMesh(mesh: THREE.Mesh): SurfaceMeshSnapshot {
     x: mesh.position.x, z: mesh.position.z,
     positions: geometry.attributes.position.array as Float32Array,
     normals: geometry.attributes.normal.array as Float32Array,
+    positionVersion: (geometry.attributes.position as THREE.BufferAttribute).version,
+    normalVersion: (geometry.attributes.normal as THREE.BufferAttribute).version,
     holes: geometry.userData.surfaceHoles ?? [] };
 }
 

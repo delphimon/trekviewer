@@ -2,7 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
 import { EsriWorldImageryProvider } from '../src/terrain/providers/ImageryProvider.ts';
-import { disposeTerrainJobs, type TerrainJob } from '../src/terrain/TerrainJobs.ts';
+import { disposeTerrainJobs, type TerrainWorkerJob } from '../src/terrain/TerrainJobs.ts';
+import { resolveSurfaceSources } from '../src/terrain/SurfaceSourceTransport.ts';
 import { buildPromotedSurfacePatches, type SurfaceMeshSnapshot } from '../src/terrain/SurfacePromotion.ts';
 import { latLonToTile } from '../src/gpx/Coordinates.ts';
 
@@ -12,16 +13,16 @@ const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve()
 
 class ControlledWorker {
   static instances: ControlledWorker[] = [];
-  messages: TerrainJob[] = [];
+  messages: TerrainWorkerJob[] = [];
   sources?: SurfaceMeshSnapshot[];
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onerror: (() => void) | null = null;
   terminated = false;
   constructor() { ControlledWorker.instances.push(this); queueMicrotask(() => this.onmessage?.({ data: { ready: true } })); }
-  postMessage(job: TerrainJob) {
+  postMessage(job: TerrainWorkerJob) {
     const copied = structuredClone(job);
     this.messages.push(copied);
-    if (copied.kind === 'surface' && !copied.reuseSources) this.sources = copied.input.sources;
+    if (copied.kind === 'surface' && !copied.reuseSources) this.sources = resolveSurfaceSources(copied.input.sources, this.sources);
   }
   complete() {
     const job = this.messages.at(-1)!;

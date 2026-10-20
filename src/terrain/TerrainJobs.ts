@@ -5,6 +5,7 @@ import type { LocalTerrainChunkOptions } from './LocalTerrainChunk.ts';
 import type { TerrainSurfaceData } from './TerrainGrid.ts';
 import type { SurfacePromotionInput, SurfaceMeshSnapshot } from './SurfacePromotion.ts';
 import type { LercElevationInput } from './LercElevation.ts';
+import { encodeSurfaceSources, type SurfaceSourceUpdate } from './SurfaceSourceTransport.ts';
 
 export type TerrainJob =
   | { kind: 'lerc'; input: LercElevationInput }
@@ -13,16 +14,21 @@ export type TerrainJob =
   | { kind: 'chunk'; options: Omit<LocalTerrainChunkOptions, 'mapTexture' | 'baseElevationSampler'>; base: TerrainSurfaceData }
   | { kind: 'finalize'; raw: RawParsedGPX; dem: ElevationGrid | null; regional?: ElevationGrid | null };
 
+export type TerrainWorkerJob = Exclude<TerrainJob, { kind: 'surface' | 'chunk' }>
+  | { kind: 'surface'; input: Omit<SurfacePromotionInput, 'sources'> & { sources: SurfaceSourceUpdate[] }; reuseSources?: boolean }
+  | { kind: 'chunk'; options: Extract<TerrainJob, { kind: 'chunk' }>['options']; base?: TerrainSurfaceData; reuseBase?: boolean };
+
 interface TerrainLane {
   worker: Worker | null;
   queue: Promise<unknown>;
   cancelActive: (() => void) | null;
   surfaceSources: SurfaceMeshSnapshot[] | null;
+  chunkBase: TerrainSurfaceData | null;
   retryWorkerAfter: number;
   generation: number;
 }
 const createLane = (): TerrainLane => ({ worker: null, queue: Promise.resolve(), cancelActive: null,
-  surfaceSources: null, retryWorkerAfter: 0, generation: 0 });
+  surfaceSources: null, chunkBase: null, retryWorkerAfter: 0, generation: 0 });
 const elevationLane = createLane(), geometryLane = createLane();
 const START_TIMEOUT_MS = 5000;
 const CANCEL_DRAIN_TIMEOUT_MS = 5000;
@@ -37,7 +43,7 @@ async function startWorker(lane: TerrainLane): Promise<Worker | null> {
     let candidate: Worker | null = null;
     try {
       candidate = new Worker(new URL('../workers/TerrainWorker.ts', import.meta.url), { type: 'module' });
-      lane.worker = candidate; lane.surfaceSources = null;
+      lane.worker = candidate; lane.surfaceSources = null; lane.chunkBase = null;
       const active = candidate;
       await new Promise<void>((resolve, reject) => {
         const cleanup = () => {
@@ -53,7 +59,7 @@ async function startWorker(lane: TerrainLane): Promise<Worker | null> {
       });
       return active;
     } catch (error) {
-      candidate?.terminate(); if (lane.worker === candidate) lane.worker = null; lane.surfaceSources = null;
+      candidate?.terminate(); if (lane.worker === candidate) lane.worker = null; lane.surfaceSources = null; lane.chunkBase = null;
       if ((error as Error)?.name === 'AbortError') throw error;
       if (attempt === 1) {
         lane.retryWorkerAfter = performance.now() + 10_000;
@@ -69,7 +75,7 @@ export function disposeTerrainJobs(): void {
     lane.generation++;
     lane.cancelActive?.();
     lane.worker?.terminate();
-    lane.worker = null; lane.surfaceSources = null; lane.retryWorkerAfter = 0;
+    lane.worker = null; lane.surfaceSources = null; lane.chunkBase = null; lane.retryWorkerAfter = 0;
     lane.queue = Promise.resolve();
   }
 }
@@ -98,7 +104,7 @@ export function runTerrainJob<T>(job: TerrainJob, fallback: () => T | Promise<T>
       // An abandoned hung job must not occupy its lane indefinitely.
       const drain = () => {
         drainTimer = setTimeout(() => {
-          clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null; reject(cancelled());
+          clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null; lane.chunkBase = null; reject(cancelled());
         }, CANCEL_DRAIN_TIMEOUT_MS);
       };
       signal?.addEventListener('abort', drain, { once: true });
@@ -106,27 +112,38 @@ export function runTerrainJob<T>(job: TerrainJob, fallback: () => T | Promise<T>
       activeWorker.onmessage = (event) => {
         clean();
         if (event.data.error) {
+          // A handler may reject before installing all referenced state. Force
+          // the next message to restore complete inputs on this healthy worker.
+          lane.surfaceSources = null; lane.chunkBase = null;
           const error = new Error(event.data.error.message);
           error.name = event.data.error.name;
           reject(error);
         } else resolve(event.data.result as T);
       };
       activeWorker.onerror = (event) => {
-        event.preventDefault(); clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null;
+        event.preventDefault(); clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null; lane.chunkBase = null;
         reject(new Error(`Terrain worker failed: ${event.message || 'execution error'}`));
       };
       activeWorker.onmessageerror = () => {
-        clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null;
+        clean(); activeWorker.terminate(); lane.worker = null; lane.surfaceSources = null; lane.chunkBase = null;
         reject(new Error('Terrain worker response could not be decoded'));
       };
       try {
-        // A surface revision is shared by many tile jobs. Clone its source grids
-        // once, rather than copying the full DEM mesh for every 256px crop.
-        const reuseSources = job.kind === 'surface' && job.input.sources === lane.surfaceSources;
-        activeWorker.postMessage(reuseSources
-          ? { ...job, input: { ...job.input, sources: [] }, reuseSources: true }
-          : job, transfer);
+        // A revision changes holes/chunk membership more often than vertex data.
+        // Keep unchanged grids in the worker; publish fresh metadata every time.
+        let message: TerrainWorkerJob = job;
+        if (job.kind === 'surface') {
+          const reuseSources = job.input.sources === lane.surfaceSources;
+          message = { ...job, input: { ...job.input,
+            sources: reuseSources ? [] : encodeSurfaceSources(job.input.sources, lane.surfaceSources) }, reuseSources };
+        } else if (job.kind === 'chunk' && job.base === lane.chunkBase) {
+          // Base heights are immutable for this loaded trek; exaggeration lives
+          // in separate mesh attributes. Retain just the current base grid.
+          message = { ...job, base: undefined, reuseBase: true };
+        }
+        activeWorker.postMessage(message, transfer);
         if (job.kind === 'surface') lane.surfaceSources = job.input.sources;
+        if (job.kind === 'chunk') lane.chunkBase = job.base;
       }
       catch (error) { clean(); reject(error); }
     });

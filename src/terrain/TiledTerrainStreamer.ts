@@ -116,7 +116,10 @@ export class TiledTerrainStreamer {
       const key = [...new Set(this.detailFocus.map(p => `${Math.floor((p.x + grid.width / 2) / (grid.width / grid.segmentsX * 8))}:${Math.floor((p.z + grid.depth / 2) / (grid.depth / grid.segmentsZ * 8))}`))].sort().join('|');
       detailChanged = key !== this.detailFocusKey; this.detailFocusKey = key;
     }
-    if (!this.plannedAt || detailChanged || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
+    const focusBounds = this.focusTileId ? this.wanted.get(this.focusTileId)?.bounds : undefined;
+    const crossedTile = focusBounds && (local.x < focusBounds.minX || local.x > focusBounds.maxX
+      || local.z < focusBounds.minZ || local.z > focusBounds.maxZ);
+    if (!this.plannedAt || detailChanged || crossedTile || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
       this.plannedAt = { x: local.x, z: local.z };
       const policy = terrainDetailPolicy(this.profile);
       const plan = planTerrainTiles({
