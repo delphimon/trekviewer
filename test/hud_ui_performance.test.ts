@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
 import assert from 'node:assert';
 import * as THREE from 'three';
 import { SpatialHUD } from '../src/ui/SpatialHUD.ts';
@@ -175,6 +175,35 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
   });
 
   describe('SpatialHUD Dual-Layer & Upload Throttling', () => {
+    it('coalesces hover jitter, scrubbing and state changes without delaying input callbacks or the final display', () => {
+      let now = 1000;
+      vi.spyOn(performance, 'now').mockImplementation(() => now);
+      const onScrub = vi.fn((progress: number) => hud.updateState(progress, 2050, false, 'diorama', 'satellite'));
+      const hud = new SpatialHUD(createMockTrack(50), {
+        onTogglePlay: () => {}, onToggleViewMode: () => {}, onToggleTexture: () => {},
+        onReset: () => {}, onExitMR: () => {}, onScrub, onSetSpeed: () => {},
+        onStepSeconds: () => {}, onFocusHiker: () => {},
+      });
+      const initial = hud.getUploadDiagnostics().requests;
+      hud.onPointerClick(new THREE.Vector2(200 / 1024, 1 - 250 / 768));
+      for (let i = 0; i < 720; i++) {
+        now = 1000 + i * 1000 / 720;
+        hud.onPointerHover(new THREE.Vector2((i % 2 ? 50 : 300) / 1024, 1 - 440 / 768));
+        hud.onPointerDrag(new THREE.Vector2((53 + i / 720 * 918) / 1024, 1 - 250 / 768));
+        hud.update();
+      }
+      expect(onScrub).toHaveBeenCalledTimes(721);
+      expect(hud.getUploadDiagnostics().requests - initial).toBeLessThanOrEqual(12);
+      hud.onPointerRelease();
+      now += 85; hud.update();
+      expect((hud as any).currentProgress).toBeCloseTo(719 / 720);
+      expect((hud as any).dynamicDirty).toBe(false);
+      const settled = hud.getUploadDiagnostics().requests;
+      now += 1000; hud.update();
+      expect(hud.getUploadDiagnostics().requests).toBe(settled);
+      hud.dispose();
+    });
+
     it('caches elevation profile samples once on creation and reuses them without re-sampling', () => {
       const sampleSpy = vi.spyOn(GPXParser, 'sampleElevationProfile');
       const track = createMockTrack(50);
@@ -208,7 +237,7 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
       hud.dispose();
     });
 
-    it('throttles dynamic texture uploads during active playback to <= 12 uploads/sec and flushes immediately on user action', () => {
+    it('throttles playback and pause display changes to <= 12 uploads/sec, then settles without uploads', () => {
       let mockNow = 1000;
       vi.spyOn(performance, 'now').mockImplementation(() => mockNow);
 
@@ -260,7 +289,9 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
       // Now test settled state: when paused and stationary, 0 uploads should occur
       uploadCount = 0;
       hud.updateState(0.5, 2050, false, 'diorama', 'satellite');
-      // The pause itself triggers 1 immediate flush to settle cleanly
+      // The pause state is immediate; its final display shares the upload cap.
+      assert.strictEqual(uploadCount, 0);
+      mockNow += 85; hud.update();
       assert.strictEqual(uploadCount, 1);
       uploadCount = 0;
 

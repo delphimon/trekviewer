@@ -52,7 +52,7 @@ export class SpatialHUD {
   // Dirty state tracking & throttled GPU uploads
   private staticDirty: boolean = true;
   private dynamicDirty: boolean = true;
-  private lastTextureUploadTime: number = 0;
+  private lastTextureUploadTime: number = -Infinity;
   // ~11.7 Hz (target 8-12 uploads/sec during active playback)
   private readonly UPLOAD_INTERVAL_MS: number = 85;
   private uploadCountInCurrentSecond: number = 0;
@@ -146,7 +146,7 @@ export class SpatialHUD {
     // Initial state
     this.currentElevation = track.points[0]?.ele || track.minElevation;
     this.setupInteractiveAreas();
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public isHoveringDragHandle(): boolean {
@@ -172,7 +172,7 @@ export class SpatialHUD {
         this.statusProgress = 0;
       }
     }
-    this.drawHUD(true);
+    this.drawHUD();
 
     // Automatically dismiss completed / active status messages after 2.5s
     if (
@@ -194,7 +194,7 @@ export class SpatialHUD {
     }
     this.statusMessage = null;
     this.statusProgress = 0;
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   private cycleDock(): void {
@@ -206,12 +206,12 @@ export class SpatialHUD {
       this.currentDockSide = 'left';
     }
     this.callbacks.onDockHUD?.(this.currentDockSide);
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public setDockSide(side: 'left' | 'right' | 'center'): void {
     this.currentDockSide = side;
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats, elevationSource?: string): void {
@@ -233,14 +233,14 @@ export class SpatialHUD {
     }
     if (changed) {
       this.staticDirty = true;
-      this.drawHUD(true);
+      this.drawHUD();
     }
   }
 
   public setVerticalExaggeration(factor: number): void {
     if (Math.abs(this.verticalExaggeration - factor) > 0.05) {
       this.verticalExaggeration = factor;
-      this.drawHUD(true);
+      this.drawHUD();
     }
   }
 
@@ -256,7 +256,7 @@ export class SpatialHUD {
     const nextVal = factors[nextIdx];
     this.verticalExaggeration = nextVal;
     this.callbacks.onSetVerticalExaggeration?.(nextVal);
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public getUploadRate(): number {
@@ -443,19 +443,19 @@ export class SpatialHUD {
     if (this.horizonLocked === locked) return;
     this.horizonLocked = locked;
     this.dynamicDirty = true;
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public setPlaybackMode(mode: PlaybackMode): void {
     if (mode === this.playbackMode) return;
     this.playbackMode = mode;
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public setFollowRoute(active: boolean): void {
     if (this.followRoute === active) return;
     this.followRoute = active;
-    this.drawHUD(true);
+    this.drawHUD();
   }
 
   public jumpToPreviousLandmark(): void {
@@ -517,13 +517,6 @@ export class SpatialHUD {
     verticalExaggeration?: number,
     currentPoint?: GPXPoint | null
   ): void {
-    const playStateChanged = this.isPlaying !== isPlaying;
-    const viewModeChanged = this.currentViewMode !== viewMode;
-    const textureChanged = this.currentTextureStyle !== textureStyle;
-    const speedChanged = speed !== undefined && Math.abs(this.currentSpeed - speed) > 0.05;
-    const trailColorChanged = trailColorMode !== undefined && this.currentTrailColorMode !== trailColorMode;
-    const exagChanged = verticalExaggeration !== undefined && Math.abs(this.verticalExaggeration - verticalExaggeration) > 0.05;
-
     this.currentProgress = progress;
     this.currentElevation = currentEle;
     this.currentPoint = currentPoint ?? null;
@@ -534,9 +527,8 @@ export class SpatialHUD {
     if (trailColorMode !== undefined) this.currentTrailColorMode = trailColorMode;
     if (verticalExaggeration !== undefined) this.verticalExaggeration = verticalExaggeration;
 
-    // Force immediate redraw if major state changed or playback stopped
-    const force = playStateChanged || viewModeChanged || textureChanged || speedChanged || trailColorChanged || exagChanged;
-    this.drawHUD(force);
+    // Coalesce display work; callbacks and authoritative state update immediately.
+    this.drawHUD();
   }
 
   public update(): void {
@@ -580,14 +572,14 @@ export class SpatialHUD {
 
     if (foundId !== this.hoveredAreaId) {
       this.hoveredAreaId = foundId;
-      this.drawHUD(true);
+      this.drawHUD();
     }
   }
 
   public onPointerLeave(): void {
     if (this.hoveredAreaId !== null) {
       this.hoveredAreaId = null;
-      this.drawHUD(true);
+      this.drawHUD();
     }
   }
 
@@ -610,7 +602,7 @@ export class SpatialHUD {
       ) {
         if (area.id.startsWith('spd-') && this.currentViewMode === 'first-person') return false;
         area.action();
-        this.drawHUD(true);
+        this.drawHUD();
         return true;
       }
     }
@@ -623,7 +615,7 @@ export class SpatialHUD {
       this.isDraggingScrubber = true;
       this.scrubPointer = pointerId;
       this.callbacks.onScrub(progress);
-      this.drawHUD(true);
+      this.drawHUD();
       return true;
     }
 
@@ -637,7 +629,7 @@ export class SpatialHUD {
       const chartWidth = 918;
       const progress = Math.min(Math.max((pt.x - 53) / chartWidth, 0), 1);
       this.callbacks.onScrub(progress);
-      this.drawHUD(true);
+      this.drawHUD();
     }
   }
 
@@ -647,7 +639,7 @@ export class SpatialHUD {
     this.scrubPointer = null;
   }
 
-  private drawHUD(force: boolean = false): void {
+  private drawHUD(): void {
     if (!this.group.visible) {
       this.dynamicDirty = true;
       return;
@@ -658,7 +650,7 @@ export class SpatialHUD {
     }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (force || now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
+    if (now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
       this.uploadDynamicLayer(now);
     } else {
       this.dynamicDirty = true;

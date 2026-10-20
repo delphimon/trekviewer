@@ -25,7 +25,90 @@ function fixture() {
   return { streamer, terrain, parent, attached };
 }
 
-async function flushBuild(): Promise<void> { for (let i = 0; i < 6; i++) await Promise.resolve(); }
+async function flushBuild(): Promise<void> { for (let i = 0; i < 16; i++) await Promise.resolve(); }
+
+it('publishes completed DEM sections while the first request remains slow, then publishes that request when it arrives', async () => {
+  const { streamer, attached } = fixture();
+  const pending: ((grid: any) => void)[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+  streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  const grid = { zoom: 15, isRealDEM: true } as any;
+  pending[1](grid); pending[2](grid); await flushBuild(); streamer.update(0); await flushBuild();
+  expect(attached.size).toBe(1);
+  streamer.update(0); expect(attached.size).toBe(2);
+  expect((fetch.mock.calls[0][5] as AbortSignal).aborted).toBe(false);
+  pending[0](grid); await flushBuild(); streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(attached.size).toBe(3);
+  streamer.dispose();
+});
+
+it('reuses validated terrain when new imagery invalidates a prepared publication', async () => {
+  const { streamer, attached } = singleTileFixture();
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  const build = vi.spyOn(LocalTerrainChunk, 'createAsync');
+  const publish = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+  const prepare = vi.fn(async (_chunk: LocalTerrainChunk) => publish);
+  (streamer as any).options.prepareSurfacePromotion = prepare;
+  streamer.update(0); await flushBuild(); streamer.update(0); await flushBuild();
+  expect(attached.size).toBe(0);
+  streamer.update(0);
+  expect(attached.size).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(1); expect(build).toHaveBeenCalledTimes(1);
+  expect(prepare).toHaveBeenCalledTimes(2);
+  expect(prepare.mock.calls[0][0]).toBe(prepare.mock.calls[1][0]);
+  streamer.dispose();
+});
+
+it('disposes retained terrain after route replacement while imagery preparation is pending', async () => {
+  const { streamer, attached } = singleTileFixture();
+  vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
+  let finish!: (publish: () => boolean) => void;
+  const prepare = vi.fn().mockResolvedValueOnce(() => false)
+    .mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  (streamer as any).options.prepareSurfacePromotion = prepare;
+  streamer.update(0); await flushBuild();
+  const candidate = (streamer as any).ready.chunk as LocalTerrainChunk;
+  const dispose = vi.spyOn(candidate, 'dispose');
+  streamer.update(0); streamer.dispose();
+  finish(() => true); await flushBuild(); streamer.update(0);
+  expect(dispose).toHaveBeenCalledTimes(1); expect(attached.size).toBe(0);
+});
+
+it.each([true, false])('reserves capacity for the completed large tile only when DEM is available (%s)', async available => {
+  const { streamer, terrain } = fixture();
+  const plan = planTerrainTiles({ parent: { width: 3960, depth: 960, segmentsX: 33, segmentsZ: 8 },
+    focusX: 0, focusZ: 0, radiusM: 5000, targetCellM: 5, maxTiles: 8, maxVertices: 600000, parentCellsPerTile: 8 });
+  const small = plan.tiles.find(tile => tile.column === 4)!;
+  const large = plan.tiles.find(tile => tile.column === 0)!;
+  expect(small.vertexCount).toBeLessThan(8000);
+  expect(large.vertexCount).toBeGreaterThan(8000);
+  (streamer as any).plannedAt = { x: 0, z: 0 };
+  (streamer as any).wanted = new Map([[small.id, small], [large.id, large]]);
+  (streamer as any).acquisitions = new Map([
+    [small.id, { controller: new AbortController(), settled: false, result: new Promise(() => {}) }],
+    [large.id, { controller: new AbortController(), settled: true, result: Promise.resolve({ grid: available ? { zoom: 15, isRealDEM: true } : null }) }],
+  ]);
+  for (let i = 0; i < 4; i++) (streamer as any).chunks.set(`old${i}`, {
+    totalVertices: 198000, mesh: new THREE.Mesh(), dispose: vi.fn(),
+    getSurfaceBounds: () => ({ minX: 20000 + i * 1000, maxX: 21000 + i * 1000, minZ: 0, maxZ: 1000 }),
+  });
+  const retire = vi.fn(async (_chunks: LocalTerrainChunk[]) => () => true);
+  (streamer as any).options.prepareSurfaceRemoval = retire;
+  streamer.update(0); await flushBuild();
+  if (!available) {
+    expect(retire).not.toHaveBeenCalled(); expect(streamer.activeChunks).toHaveLength(4);
+    expect((streamer as any).failed.has(large.id)).toBe(true);
+    streamer.dispose(); return;
+  }
+  expect(retire).toHaveBeenCalledTimes(1); expect(retire.mock.calls[0][0]).toHaveLength(1);
+  expect(streamer.activeChunks).toHaveLength(4); // Old coverage awaits prepared retirement.
+  streamer.update(0); await flushBuild(); streamer.update(0);
+  expect(streamer.activeChunks.reduce((sum, chunk) => sum + chunk.totalVertices, 0)).toBeLessThanOrEqual(800000);
+  expect((streamer as any).chunks.has(large.id)).toBe(true);
+  expect(terrain.notifySurfaceChange).toHaveBeenCalled();
+  streamer.dispose();
+});
 
 it('acquires three detailed DEM sections while a slow promotion holds the single publication lane', async () => {
   const { streamer, attached } = fixture();

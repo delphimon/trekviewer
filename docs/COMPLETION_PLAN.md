@@ -98,6 +98,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `e8f0d28` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39383606341); exact hosted desktop/mobile and private Bing checks pass. The subsequent evidence-only commit retains that measured app build.
 - [ ] Complete a native follow tour and measure time-to-detail. The coarse whole-model DEM/mesh and imagery churn remain unresolved acceptance items under 0f. The new guarded headset preparation stopped because the debugger exposed no browser targets; USB connection alone is not a prepared session.
 
+### 0h. Remove reproduced terrain waits and HUD upload bypasses
+
+- [x] Reproduce both terrain stalls and HUD upload bursts in the exact published `e8f0d28` client. Publish completed DEM sections while another request remains pending; retain validated terrain when imagery preparation must retry. Preserve per-frame publication, resident budgets and stale/disposal guards.
+- [x] Enforce the same 85 ms display cap for all HUD redraw causes, keeping input callbacks immediate and the final display correct. The controlled production replay changes from 1,441 requests to 12; these are not measured GPU transfers.
+- [x] Check the newly supplied [second architecture review](review-2026-10-20/REVIEW_RESPONSE.md) against current code and capture scope. Keep the whole-model DEM regression open. See [scheduling and display evidence](review-2026-10-20/TERRAIN_READINESS.md).
+- [ ] Publish after full verification, CI, a clean rebuild and exact hosted-client checks. Native detail, time-to-detail and frame delivery acceptance remain open.
+- [ ] Prototype compatible imagery batching with preserved UVs, normals/lighting, mip boundaries, fades/overlaps and broad High coverage; compare matched submission/memory and native full-tour results before replacing the renderer. Do not assume an unlit material, default exaggeration change or a fixed near plane repairs the reported native quality regression.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

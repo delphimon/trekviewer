@@ -1,0 +1,33 @@
+{
+  "condition": "Production desktop client and real terrain worker; injected synthetic DEM completions and imagery-publication invalidation. Deterministic 720-event HUD replay and controlled display clock. Not native frame performance, network timing, DEM accuracy or actual GPU transfer measurement.",
+  "baseline": true,
+  "build": {
+    "id": "e8f0d28-2026-10-20T06:59:10.072Z",
+    "sha": "e8f0d28420e3412de45a930a652346c0f05a97d0",
+    "shortSha": "e8f0d28",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-20T06:59:10.072Z",
+    "label": "TrekViewer 1.0.0 • e8f0d28"
+  },
+  "entry": "index-DjPZgIwz.js",
+  "result": {
+    "whileFirstPending": 0,
+    "afterFirstCompletes": 3,
+    "retry": {
+      "acquisitions": 2,
+      "builds": 2,
+      "preparations": 2,
+      "published": 1
+    },
+    "hud": {
+      "uploads": 1441,
+      "logicalSourceBytes": 4532994048,
+      "finalProgress": 0.9986111111111111,
+      "dirty": false
+    }
+  },
+  "workers": 1,
+  "workerFallbackWarnings": [],
+  "errors": []
+}

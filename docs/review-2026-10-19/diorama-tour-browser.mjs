@@ -136,13 +136,15 @@ try {
       return { mode, speed };
     });
     assert.deepEqual(spatial, { mode: 'recorded', speed: 20 });
-    const hudLayout = await page.evaluate(() => {
+    const hudLayout = await page.evaluate(async () => {
       const app = window.__trekViewerApp, hud = app.spatialHUD;
       hud.group.visible = true;
       hud.clearStatus();
+      await new Promise(resolve => setTimeout(resolve, 100)); hud.update();
       const controls = hud.ctx.getImageData(35, 620, 955, 54).data;
       const footer = hud.ctx.getImageData(35, 680, 955, 36).data;
       hud.showStatus('Jumped to: Camp (Upper)', 0.5);
+      await new Promise(resolve => setTimeout(resolve, 100)); hud.update();
       const changed = (before, after) => {
         let pixels = 0;
         for (let i = 0; i < before.length; i += 4) {

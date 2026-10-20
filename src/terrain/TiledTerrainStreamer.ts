@@ -8,6 +8,12 @@ import type { QualityProfile } from './QualityProfile.ts';
 import { QualityProfileManager, terrainDetailPolicy } from './QualityProfile.ts';
 import { planTerrainTiles, type TerrainTileLayout } from './TerrainTileLayout.ts';
 
+interface ElevationAcquisition {
+  controller: AbortController;
+  result: Promise<{ grid: ElevationGrid | null; error?: unknown }>;
+  settled: boolean;
+}
+
 /** Stable terrain partitions, independent of gaze direction, with parent coverage until publication. */
 export class TiledTerrainStreamer {
   private readonly chunks = new Map<string, LocalTerrainChunk>();
@@ -36,10 +42,7 @@ export class TiledTerrainStreamer {
   private detailFocusInput?: readonly { lat: number; lon: number }[];
   private detailFocusKey = '';
   private detailFocus: { x: number; z: number }[] = [];
-  private readonly acquisitions = new Map<string, {
-    controller: AbortController;
-    result: Promise<{ grid: ElevationGrid | null; error?: unknown }>;
-  }>();
+  private readonly acquisitions = new Map<string, ElevationAcquisition>();
   private acquiringTile: string | null = null;
 
   constructor(private readonly options: LocalTerrainStreamerOptions) {
@@ -167,7 +170,13 @@ export class TiledTerrainStreamer {
       const { id, chunk, generation, publish } = this.ready;
       this.ready = null;
       this.nextWorkAt = 0;
-      if (generation !== this.generation || !this.wanted.has(id) || publish?.() === false) chunk.dispose();
+      if (generation !== this.generation || !this.wanted.has(id)) chunk.dispose();
+      else if (publish?.() === false) {
+        // Imagery may arrive while its replacement geometry is being prepared.
+        // Keep the validated DEM geometry and refresh only that preparation.
+        this.busy = true; this.acquiringTile = id;
+        void this.retrySurfacePromotion(id, chunk, generation);
+      }
       else {
         const previous = this.chunks.get(id);
         chunk.setVerticalExaggeration(this.exaggeration);
@@ -203,7 +212,9 @@ export class TiledTerrainStreamer {
       const result = ElevationTileService.fetchLocalElevationGrid(geo.lat, geo.lon,
         Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, controller.signal)
         .then(grid => ({ grid }), error => ({ grid: null, error }));
-      this.acquisitions.set(tile.id, { controller, result });
+      const entry = { controller, result, settled: false };
+      this.acquisitions.set(tile.id, entry);
+      void result.then(() => { entry.settled = true; });
     }
   }
 
@@ -212,57 +223,86 @@ export class TiledTerrainStreamer {
     this.acquisitions.clear();
   }
 
+  private async retrySurfacePromotion(id: string, chunk: LocalTerrainChunk, generation: number): Promise<void> {
+    try {
+      const publish = await this.options.prepareSurfacePromotion?.(chunk, this.chunks.get(id));
+      if (this.disposed || generation !== this.generation || !this.wanted.has(id)) chunk.dispose();
+      else this.ready = { id, chunk, generation, publish };
+    } catch (error) {
+      chunk.dispose();
+      if (!this.disposed && generation === this.generation) {
+        this.recordFailure(id);
+        console.warn('Terrain imagery preparation unavailable; retaining current coverage:', error);
+      }
+    } finally {
+      this.acquiringTile = null;
+      this.busy = false; this.nextWorkAt = 0;
+    }
+  }
+
   private async prepareNext(): Promise<void> {
     this.nextWorkAt = Infinity;
     const policy = terrainDetailPolicy(this.profile);
-    const missing = [...this.wanted.values()].find(tile => !this.chunks.has(tile.id) && (this.failed.get(tile.id)?.retryAt ?? 0) <= performance.now());
-    let residentVertices = [...this.chunks.values()].reduce((n, chunk) => n + chunk.totalVertices, 0);
-    let residentCount = this.chunks.size;
-    const retiring = [...this.chunks.entries()].filter(([id, chunk]) => {
-      if (this.retireAll) return true;
-      if (this.wanted.has(id) || !missing) return false;
-      if (residentCount + 1 <= policy.residentTiles && residentVertices + missing.vertexCount <= policy.residentVertices) return false;
-      residentCount--; residentVertices -= chunk.totalVertices; return true;
-    });
-    if (retiring.length) {
+    if (this.retireAll && this.chunks.size) {
       this.busy = true;
-      const generation = this.generation;
       try {
-        const publish = await this.options.prepareSurfaceRemoval?.(retiring.map(([, chunk]) => chunk));
-        if (!this.disposed && generation === this.generation) this.readyRemoval = { entries: retiring, generation, publish };
-      } catch (error) {
-        if (!this.disposed && generation === this.generation) {
-          console.warn('Async terrain retirement unavailable; restoring parent coverage:', error);
-          this.readyRemoval = { entries: retiring, generation };
-        }
+        await this.prepareRetirement([...this.chunks.entries()], this.generation);
       } finally { this.busy = false; this.nextWorkAt = 0; }
       return;
     }
     const now = performance.now();
-    let tile: TerrainTileLayout | undefined;
+    const eligible: TerrainTileLayout[] = [];
     for (const wanted of this.wanted.values()) {
       const existing = this.chunks.get(wanted.id);
       if (existing && !existing.currentGrid?.preferredSourceRetry) continue;
       const retryAt = this.failed.get(wanted.id)?.retryAt ?? 0;
-      if (retryAt <= now && this.acquisitions.has(wanted.id)) { tile = wanted; break; }
+      if (retryAt <= now && this.acquisitions.has(wanted.id)) eligible.push(wanted);
       if (retryAt <= now) continue;
       this.nextWorkAt = Math.min(this.nextWorkAt, retryAt);
     }
-    if (!tile) return;
+    if (!eligible.length) return;
     this.busy = true;
-    this.acquiringTile = tile.id;
-    const acquisition = this.acquisitions.get(tile.id);
     const generation = this.generation;
-    const terrain = this.options.terrainResult;
-    const x = (tile.bounds.minX + tile.bounds.maxX) / 2;
-    const z = (tile.bounds.minZ + tile.bounds.maxZ) / 2;
-    const geo = localMetersToGeo(x, z, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
+    let tile: TerrainTileLayout | undefined;
+    let acquisition: ElevationAcquisition | undefined;
+    let consumedAcquisition = false;
     try {
+      if (!eligible.some(item => this.acquisitions.get(item.id)?.settled)) {
+        // Wait for any bounded acquisition, not the first requested footprint.
+        // A slow server response must not hold back already available terrain.
+        await Promise.race(eligible.map(item => this.acquisitions.get(item.id)!.result));
+      }
+      if (this.disposed || generation !== this.generation) return;
+      tile = [...this.wanted.values()].find(item => this.acquisitions.get(item.id)?.settled
+        && (this.failed.get(item.id)?.retryAt ?? 0) <= performance.now()
+        && (!this.chunks.has(item.id) || this.chunks.get(item.id)?.currentGrid?.preferredSourceRetry));
+      if (!tile) return;
+      this.acquiringTile = tile.id;
+      acquisition = this.acquisitions.get(tile.id);
       if (!acquisition) return;
+      consumedAcquisition = true;
       const { grid, error } = await acquisition.result;
       if (this.disposed || generation !== this.generation || !this.wanted.has(tile.id) || acquisition.controller.signal.aborted) return;
       if (error) throw error;
       if (!grid) { this.recordFailure(tile.id); return; }
+      // Select the actual completed footprint before reserving resident space:
+      // partial edge tiles can have a different vertex cost from their neighbors.
+      let residentVertices = [...this.chunks.values()].reduce((n, chunk) => n + chunk.totalVertices, 0);
+      let residentCount = this.chunks.size;
+      const retiring = this.chunks.has(tile.id) ? [] : [...this.chunks.entries()].filter(([id, chunk]) => {
+        if (this.wanted.has(id)) return false;
+        if (residentCount + 1 <= policy.residentTiles && residentVertices + tile!.vertexCount <= policy.residentVertices) return false;
+        residentCount--; residentVertices -= chunk.totalVertices; return true;
+      });
+      if (retiring.length) {
+        consumedAcquisition = false;
+        await this.prepareRetirement(retiring, generation);
+        return;
+      }
+      const terrain = this.options.terrainResult;
+      const x = (tile.bounds.minX + tile.bounds.maxX) / 2;
+      const z = (tile.bounds.minZ + tile.bounds.maxZ) / 2;
+      const geo = localMetersToGeo(x, z, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
       // A temporary fallback stays visible while the preferred source retries;
       // another fallback result must not rebuild or replace the same geometry.
       const previous = this.chunks.get(tile.id);
@@ -285,14 +325,26 @@ export class TiledTerrainStreamer {
       if (this.disposed || generation !== this.generation) { chunk.dispose(); return; }
       this.ready = { id: tile.id, chunk, generation, publish };
     } catch (error) {
-      if (!this.disposed && generation === this.generation) {
+      if (!this.disposed && generation === this.generation && tile) {
         this.recordFailure(tile.id);
         console.warn('Terrain refinement unavailable; retaining base coverage:', error);
       }
     } finally {
-      if (this.acquisitions.get(tile.id) === acquisition) this.acquisitions.delete(tile.id);
+      if (consumedAcquisition && tile && this.acquisitions.get(tile.id) === acquisition) this.acquisitions.delete(tile.id);
       this.acquiringTile = null;
       this.busy = false; this.nextWorkAt = 0;
+    }
+  }
+
+  private async prepareRetirement(entries: [string, LocalTerrainChunk][], generation: number): Promise<void> {
+    try {
+      const publish = await this.options.prepareSurfaceRemoval?.(entries.map(([, chunk]) => chunk));
+      if (!this.disposed && generation === this.generation) this.readyRemoval = { entries, generation, publish };
+    } catch (error) {
+      if (!this.disposed && generation === this.generation) {
+        console.warn('Async terrain retirement unavailable; restoring parent coverage:', error);
+        this.readyRemoval = { entries, generation };
+      }
     }
   }
 
