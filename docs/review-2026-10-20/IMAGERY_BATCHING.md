@@ -2,6 +2,8 @@
 
 `?imageryBatch=1` enables a bounded submission prototype. The normal URL retains the existing renderer. This addresses the independent imagery draw submissions identified in the [second review](REVIEW_RESPONSE.md); it does not replace CPU surface clipping, improve the DEM source, or establish native frame delivery.
 
+The [live-source follow-up](LIVE_IMAGERY_BATCHING.md) adds real imagery/3DEP tour comparisons, preparation timing and a soft 2 ms copying allowance. The generated-fixture results below describe the original `a570fcb` checkpoint; use the follow-up for the later application and remaining coverage/publication gaps.
+
 `ImageryBatchRenderer` copies compatible opaque patches into Three.js `BatchedMesh` pages with 32-layer texture arrays. Pages share zoom/depth priority, native image dimensions, filtering, anisotropy and render order. Each layer retains its own full mip chain; adjacent images are not placed in a shared 2D atlas. Source positions, normals, indices and geographic UVs are copied unchanged. The existing lit Standard material remains in use with a texture-array sampling modification. This avoids changing relief cues while evaluating submission cost.
 
 The actual runtime must expose WebGL2 texture arrays, at least 32 array layers and `WEBGL_multi_draw`. Otherwise every patch stays on the existing renderer. Fades, unsupported materials, unreadable images, oversized geometry and capacity overflow also retain their source rendering. High's selection, source resolution, resident tile limits, terrain precision and geographic coverage are unchanged. The experiment can therefore retain substantial legacy draw cost on unsuitable workloads.
