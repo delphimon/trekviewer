@@ -1,0 +1,77 @@
+[
+  {
+    "process": "com.oculus.browser:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:15",
+    "running_ms": 5655.7,
+    "thread": "CrRendererMain"
+  },
+  {
+    "process": "com.oculus.browser:privileged_process0",
+    "running_ms": 1707.73,
+    "thread": "CrGpuMain"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 694.48,
+    "thread": "ThreadPoolForeg"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 412.32,
+    "thread": "VrShellGL.OVRMo"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 395.15,
+    "thread": "NetworkService"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 341.74,
+    "thread": "Chrome_IOThread"
+  },
+  {
+    "process": "com.oculus.browser:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:15",
+    "running_ms": 327.29,
+    "thread": "ThreadPoolForeg"
+  },
+  {
+    "process": "com.oculus.browser:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:15",
+    "running_ms": 308.83,
+    "thread": "Chrome_ChildIOT"
+  },
+  {
+    "process": "com.oculus.browser:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:15",
+    "running_ms": 154.55,
+    "thread": "DedicatedWorker"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 132.3,
+    "thread": ".oculus.browser"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 118.48,
+    "thread": "AsyncSubmitThre"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 114.47,
+    "thread": "Gamepad polling"
+  },
+  {
+    "process": "com.oculus.browser:privileged_process0",
+    "running_ms": 107.86,
+    "thread": "Chrome_ChildIOT"
+  },
+  {
+    "process": "com.oculus.browser",
+    "running_ms": 91.68,
+    "thread": "OVRInput"
+  },
+  {
+    "process": "com.oculus.browser:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:15",
+    "running_ms": 79.19,
+    "thread": "ThreadPoolForeg"
+  }
+]

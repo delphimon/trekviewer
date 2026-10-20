@@ -8,6 +8,8 @@ Deliver a consistently sharp, stable and usable Quest VR/MR terrain viewer, with
 
 **Product priority, October 19:** focus current development and acceptance on the tabletop diorama and route tours/flyover. Pause new 1:1 slope-walking and ground-level fidelity work; retain the existing mode and its regression safeguards. First-person acceptance is deferred and no longer blocks a diorama checkpoint. A tour should work independently of multi-day GPS timestamps. Desktop camera follow is opt-in; tabletop XR playback keeps the model anchored and leaves the tracked camera under runtime control.
 
+**Native feedback, October 19 evening:** the connected Quest 3 run on `9cc6afa` failed subjective acceptance: slow/low-resolution tiles, flat-looking terrain and worse performance than the earlier experience. Restoring imagery/DEM appearance, loading stability and frame delivery now takes priority over additional flyover features. The [native baseline](review-2026-10-19/NATIVE_TABLETOP.md) records the saved MR report, scoped runtime/GPU trace, coarse whole-model versus fine local sampling, historical source selection and remaining limits. No quality/performance acceptance is claimed.
+
 **Source policy clarification, October 17:** this is the user's personal/internal application, with no public product release planned. Free API-key imagery, DEM and lidar-derived sources are allowed when the applicable personal/internal plan costs nothing. An API key is not itself a reason to reject a finer or faster source. Verify hard limits, eligibility, attribution and caching rights; avoid plans that can incur usage charges. Keep private keys out of hosted bundles/repositories, using device-local configuration, a private backend or local data preparation as appropriate. Existing test-site publication remains a checkpoint workflow, distinct from a public product release.
 
 - High is the fidelity mode. Keep broad surrounding terrain, source-native detail, accurate geometry/UVs and readable spatial controls as explicit requirements. Preserve existing 1:1 capabilities while their new development and native acceptance are deferred.
@@ -73,6 +75,15 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Reproduce ridge obstruction in the previous production build using a shaped base mesh and its actual triangle sampler. Raise the desktop follow camera using the current rendered surface and exaggeration, checking both the intended and smoothed positions.
 - [x] Bound work to 32 surface queries per active desktop follow frame; preserve manual takeover, terrain/model transforms and High's detail. Replace terrain references on route commit and release them during teardown. Drain orbit inertia before starting follow.
 - [x] Verify six clearance regressions, 642 passing tests (5 skipped), typechecking/build and desktop/mobile browser ridge, tour, landmark and import flows. See [clearance evidence and limits](review-2026-10-19/FOLLOW_CLEARANCE.md). Publish through the existing clean-commit, CI and hosted-client gate.
+- [x] Publish clean `9cc6afa` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39364797237); hosted desktop/mobile checks confirm the exact client. The subsequent native run establishes a baseline and fails visual/performance acceptance.
+
+### 0f. Restore the diorama's visible quality and loading stability
+
+- [x] Capture and retrieve a current-build native MR baseline with eye/layer state, playback context, actual browser FPS/GPU samples and user observations. See [October 19 evidence](review-2026-10-19/NATIVE_TABLETOP.md).
+- [ ] Reproduce a fixed paused tabletop view and compare the earlier eligible Esri/Bing imagery paths and DEM against current sources, at identical framing. Verify actual detail, source availability and applicable free personal/internal-use access. A Google 3D tileset is a separate integration, not an interchangeable aerial URL.
+- [ ] Correct imagery selection/publication/retention churn and measure time-to-sharp without shrinking High's coverage or removing native source detail.
+- [ ] Verify whole-model ridge/slope fidelity separately from local source resolution. Current Olympus/Bailey base mesh cells are approximately 94 m; the approximately 1 m local export does not describe the whole model.
+- [ ] Use measured CPU submission/GPU evidence to prototype compatible imagery batching and investigate excessive paused-HUD uploads. Require exact UV/coverage parity and a matched native rerun before claiming improvement.
 
 **Next architecture work:** use a tabletop native baseline to choose terrain batching or bounded publication work. Extend the shared UI presentation layer incrementally; extract XR manipulation state only with transition regressions. Investigate explicit cached/offline route packs for curated routes, accounting for source terms, archive size, decode/upload time and memory. Do not promise instant loading, remove live imports/caches, or replace the complete terrain pipeline without matched visual and device evidence. See [review response and checkpoint evidence](review-2026-10-19/DIORAMA_TOUR.md).
 
@@ -88,6 +99,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 ### 2. Capture a usable current-build native baseline
 
 **October 17 status:** the exact `7d61b22` client was loaded and the Olympus/Bailey 1:1 position prepared. The user deferred headset testing. The host capture was stopped; no native run or acceptance is claimed. Reconfirm/reload the current published client and reattach capture when testing resumes, especially after another publication. Continue independent source/provenance work meanwhile.
+
+**October 19 update:** a 154.9-second native MR diorama baseline on exact client `9cc6afa` was device-saved and host-copied, with a separately marked eight-second runtime/GPU trace and CPU sample. Native frame delivery and subjective quality fail acceptance. Full-tour, sustained thermal, transition and restart gates remain open; use checkpoint 0f and the linked baseline to select the next change. The absence-of-headset notes above describe earlier checks, not the current device state.
 
 - [ ] Preconfigure the exact published build, route, progress, High/Aerial state and recorder before requesting headset participation. Preserve the `483e4d5` historical evidence; label it as a different run.
 - [ ] Use one prepared session covering anchored tabletop inspection, route tour playback, manipulation, slow head turns and returns, and VR/MR transitions. Keep comparable portions separate in the report. First-person portions are deferred under the October 19 scope change.

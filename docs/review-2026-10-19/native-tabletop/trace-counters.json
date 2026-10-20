@@ -1,0 +1,92 @@
+[
+  {
+    "id": 64,
+    "max": 100.0,
+    "mean": 64.895,
+    "min": 0.0,
+    "n": 5370,
+    "name": "% Time Shading Fragments",
+    "process": null
+  },
+  {
+    "id": 65,
+    "max": 100.0,
+    "mean": 14.658,
+    "min": 0.0,
+    "n": 5370,
+    "name": "% Time Shading Vertices",
+    "process": null
+  },
+  {
+    "id": 26,
+    "max": 59.163,
+    "mean": 53.938,
+    "min": 46.439,
+    "n": 576,
+    "name": "CpuUtilization",
+    "process": "com.oculus.vrruntimeservice"
+  },
+  {
+    "id": 95,
+    "max": 48.0,
+    "mean": 39.408,
+    "min": 30.0,
+    "n": 319,
+    "name": "FPS",
+    "process": "com.oculus.browser"
+  },
+  {
+    "id": 83,
+    "max": 545000000.0,
+    "mean": 477353258.845,
+    "min": 456000000.0,
+    "n": 5370,
+    "name": "GPU Frequency",
+    "process": null
+  },
+  {
+    "id": 25,
+    "max": 87.134,
+    "mean": 68.607,
+    "min": 48.65,
+    "n": 576,
+    "name": "GpuUtilization",
+    "process": "com.oculus.vrruntimeservice"
+  },
+  {
+    "id": 23,
+    "max": 5.0,
+    "mean": 4.543,
+    "min": 4.0,
+    "n": 575,
+    "name": "Stale",
+    "process": "com.oculus.vrruntimeservice"
+  },
+  {
+    "id": 4,
+    "max": 4.994,
+    "mean": 4.994,
+    "min": 4.994,
+    "n": 8,
+    "name": "app_gpu_ms",
+    "process": "com.oculus.vrguardianservice"
+  },
+  {
+    "id": 9,
+    "max": 6.327,
+    "mean": 6.327,
+    "min": 6.327,
+    "n": 8,
+    "name": "app_gpu_ms",
+    "process": "com.oculus.vrshell"
+  },
+  {
+    "id": 14,
+    "max": 17.056,
+    "mean": 12.693,
+    "min": 7.238,
+    "n": 8,
+    "name": "app_gpu_ms",
+    "process": "com.oculus.browser"
+  }
+]

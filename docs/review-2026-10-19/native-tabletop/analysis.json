@@ -1,0 +1,136 @@
+{
+  "build": "9cc6afa-2026-10-20T03:32:03.732Z",
+  "durationSeconds": 154.9,
+  "nativeWindows": 152,
+  "excludedIntervalsSeconds": [
+    [
+      0,
+      10
+    ],
+    [
+      31.45419999998808,
+      39.89630000001192
+    ],
+    [
+      64.04919999998808,
+      100.65909999996424
+    ]
+  ],
+  "uninstrumented": {
+    "windows": 96,
+    "seconds": 97.58750000005956,
+    "meanWindowCallbackHz": 35.0686204767885,
+    "meanWindowCpuSubmitP95Ms": 21.979166665424902,
+    "phaseMeanMs": {
+      "input": 0.7253889055555784,
+      "simulation": 0.03296154964904405,
+      "hud": 0.00287643095108292,
+      "imagery": 1.7611388317083803,
+      "imageryRaycast": 0.022747285106436123,
+      "imagerySelection": 0.39991194590606893,
+      "imageryReconcile": 0.5722336367949175,
+      "terrain": 0.18869973600593032,
+      "waypoints": 0.062107425405022544,
+      "render": 10.657147050883577
+    }
+  },
+  "playingSeconds": 10.262200000047685,
+  "fullTourCaptured": false,
+  "drawCallsPeak": 1156,
+  "hudUploadRequestsSampledIncrease": 1514,
+  "imageryCreatedSampledIncrease": 3016,
+  "imageryDisposedSampledIncrease": 3016,
+  "incompleteSelectedCoverageWindows": 152,
+  "nativeTrace": [
+    {
+      "id": 64,
+      "max": 100,
+      "mean": 64.895,
+      "min": 0,
+      "n": 5370,
+      "name": "% Time Shading Fragments",
+      "process": null
+    },
+    {
+      "id": 65,
+      "max": 100,
+      "mean": 14.658,
+      "min": 0,
+      "n": 5370,
+      "name": "% Time Shading Vertices",
+      "process": null
+    },
+    {
+      "id": 26,
+      "max": 59.163,
+      "mean": 53.938,
+      "min": 46.439,
+      "n": 576,
+      "name": "CpuUtilization",
+      "process": "com.oculus.vrruntimeservice"
+    },
+    {
+      "id": 95,
+      "max": 48,
+      "mean": 39.408,
+      "min": 30,
+      "n": 319,
+      "name": "FPS",
+      "process": "com.oculus.browser"
+    },
+    {
+      "id": 83,
+      "max": 545000000,
+      "mean": 477353258.845,
+      "min": 456000000,
+      "n": 5370,
+      "name": "GPU Frequency",
+      "process": null
+    },
+    {
+      "id": 25,
+      "max": 87.134,
+      "mean": 68.607,
+      "min": 48.65,
+      "n": 576,
+      "name": "GpuUtilization",
+      "process": "com.oculus.vrruntimeservice"
+    },
+    {
+      "id": 23,
+      "max": 5,
+      "mean": 4.543,
+      "min": 4,
+      "n": 575,
+      "name": "Stale",
+      "process": "com.oculus.vrruntimeservice"
+    },
+    {
+      "id": 4,
+      "max": 4.994,
+      "mean": 4.994,
+      "min": 4.994,
+      "n": 8,
+      "name": "app_gpu_ms",
+      "process": "com.oculus.vrguardianservice"
+    },
+    {
+      "id": 9,
+      "max": 6.327,
+      "mean": 6.327,
+      "min": 6.327,
+      "n": 8,
+      "name": "app_gpu_ms",
+      "process": "com.oculus.vrshell"
+    },
+    {
+      "id": 14,
+      "max": 17.056,
+      "mean": 12.693,
+      "min": 7.238,
+      "n": 8,
+      "name": "app_gpu_ms",
+      "process": "com.oculus.browser"
+    }
+  ]
+}

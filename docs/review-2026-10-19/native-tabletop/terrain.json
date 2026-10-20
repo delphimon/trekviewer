@@ -1,0 +1,59 @@
+{
+  "quality": "dem",
+  "trackBounds": {
+    "minLat": 47.794025,
+    "maxLat": 47.955509,
+    "minLon": -123.934654,
+    "maxLon": -123.569031,
+    "minEle": 144.306366,
+    "maxEle": 2426.401855,
+    "centerLat": 47.874767,
+    "centerLon": -123.7518425,
+    "widthMeters": 27269.7342475382,
+    "depthMeters": 17956.20153427009,
+    "elevationSpan": 2282.0954890000003
+  },
+  "terrainBounds": {
+    "minLat": 47.753654,
+    "maxLat": 47.99588,
+    "minLon": -124.0260594940591,
+    "maxLon": -123.47762550594089,
+    "centerLat": 47.874767,
+    "centerLon": -123.7518425,
+    "minEle": 144.306366,
+    "maxEle": 2426.401855,
+    "widthMeters": 40904.6013713073,
+    "depthMeters": 26934.302301405136,
+    "elevationSpan": 2282.0954890000003
+  },
+  "mesh": {
+    "width": 40904.6013713073,
+    "depth": 26934.302301405136,
+    "segmentsX": 434,
+    "segmentsZ": 286,
+    "minY": 45.142799377441406,
+    "maxY": 2300.063720703125,
+    "exaggeration": 1
+  },
+  "dem": {
+    "width": 1024,
+    "height": 675,
+    "min": 113.65174865722656,
+    "max": 2408.123291015625,
+    "source": "USGS 3DEP best available (public domain)",
+    "sampleSpacingMeters": 44.03271400762315,
+    "rasterBounds": {
+      "west": -13809570.357589465,
+      "east": -13742413.826069318,
+      "south": 6063963.954043844,
+      "north": 6108184.405446953
+    },
+    "quality": {
+      "validTileRatio": 1,
+      "totalTiles": 1,
+      "validTiles": 1,
+      "zoom": 0,
+      "usgsRasters": 1
+    }
+  }
+}
