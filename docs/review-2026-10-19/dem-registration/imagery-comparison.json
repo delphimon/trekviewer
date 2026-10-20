@@ -1,0 +1,64 @@
+{
+  "retrieved": "2026-10-20T06:07:34.659Z",
+  "condition": "One private desktop browser crop per service at identical Olympus highest recorded GPX coordinate and Z19. No claim of whole-route coverage or provider eligibility.",
+  "sample": {
+    "lat": 47.801319,
+    "lon": -123.710831,
+    "elevation": 2426.401855
+  },
+  "tile": {
+    "x": 81977,
+    "y": 182681
+  },
+  "results": [
+    {
+      "label": "USGS NAIP Plus",
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13771506.512083635%2C6073686.267540105%2C-13771200.763970494%2C6073992.015653245&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "region": {
+        "x": 256,
+        "y": 256,
+        "width": 256,
+        "height": 256
+      },
+      "status": "failed",
+      "ms": 12012.799999982119,
+      "error": "TimeoutError: signal timed out"
+    },
+    {
+      "label": "GeoPlatform NAIP Plus",
+      "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13771506.512083635%2C6073686.267540105%2C-13771200.763970494%2C6073992.015653245&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+      "region": {
+        "x": 256,
+        "y": 256,
+        "width": 256,
+        "height": 256
+      },
+      "status": "failed",
+      "ms": 246.19999998807907,
+      "error": "TypeError: Failed to fetch"
+    },
+    {
+      "label": "USGS NAIP",
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13771506.512083635%2C6073686.267540105%2C-13771200.763970494%2C6073992.015653245&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "region": {
+        "x": 256,
+        "y": 256,
+        "width": 256,
+        "height": 256
+      },
+      "status": "failed",
+      "ms": 12011.800000011921,
+      "error": "TimeoutError: signal timed out"
+    },
+    {
+      "label": "Earlier Esri path (account eligibility unverified)",
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/19/182681/81977",
+      "status": "decoded",
+      "width": 256,
+      "height": 256,
+      "bytes": 5005,
+      "ms": 319.30000001192093,
+      "transparentPixels": 0
+    }
+  ]
+}

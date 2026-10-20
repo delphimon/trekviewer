@@ -33,7 +33,11 @@ export function elevationRasterRequest(bounds: RasterFootprint, spacingMeters: n
     bboxSR: '3857', imageSR: '3857', size: `${width},${height}`, format: 'lerc', pixelType: 'F32',
     renderingRule: JSON.stringify({ rasterFunction: 'None' }), interpolation: 'RSP_BilinearInterpolation',
     compressionTolerance: '0',
-    mosaicRule: JSON.stringify({ mosaicMethod: 'esriMosaicAttribute', sortField: 'Best', sortValue: '0', ascending: true, mosaicOperation: 'MT_FIRST' }) });
+    mosaicRule: JSON.stringify({ mosaicMethod: 'esriMosaicAttribute', sortField: 'Best', sortValue: '0', ascending: true, mosaicOperation: 'MT_FIRST' }),
+    // The service otherwise expands a non-square footprint to make pixels
+    // square. Preserve the sample centres advertised by rasterBounds, including
+    // shared refinement edges. This also gives corrected bytes a new cache key.
+    adjustAspectRatio: 'false' });
   return { url: `${USGS_ELEVATION_SERVICE}/exportImage?${params}`, width, height,
     sampleSpacingMeters: Math.max(dx, dy) * groundScale,
     rasterBounds: { west, east, south, north } };

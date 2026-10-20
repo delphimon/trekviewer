@@ -1,0 +1,97 @@
+{
+  "condition": "Live USGS export metadata; coordinate registration, not terrain accuracy or native performance.",
+  "bounds": {
+    "minLat": 47.7415427,
+    "maxLat": 48.0079913,
+    "minLon": -124.053481193465,
+    "maxLon": -123.45020380653499
+  },
+  "groundScale": 0.670753319299775,
+  "request": {
+    "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13809603.180918653%2C6063931.149554674%2C-13742381.00274013%2C6108217.209936124&bboxSR=3857&imageSR=3857&size=1024%2C675&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+    "width": 1024,
+    "height": 675,
+    "sampleSpacingMeters": 44.03271400762315,
+    "rasterBounds": {
+      "west": -13809570.357589465,
+      "east": -13742413.826069318,
+      "south": 6063963.954043845,
+      "north": 6108184.405446953
+    }
+  },
+  "results": [
+    {
+      "mode": "previous-default",
+      "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=pjson&bbox=-13809603.180918653%2C6063931.149554674%2C-13742381.00274013%2C6108217.209936124&bboxSR=3857&imageSR=3857&size=1024%2C675&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D",
+      "retrieved": "2026-10-20T06:08:19.186Z",
+      "elapsedMs": 130.7468,
+      "width": 1024,
+      "height": 675,
+      "extent": {
+        "xmin": -13809603.180918653,
+        "ymin": 6063918.432543004,
+        "xmax": -13742381.00274013,
+        "ymax": 6108229.926947792,
+        "spatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        }
+      },
+      "actualCentres": {
+        "west": -13809570.357589465,
+        "east": -13742413.826069318,
+        "south": 6063951.255872193,
+        "north": 6108197.103618603
+      },
+      "errorMercatorM": {
+        "west": 0,
+        "east": 0,
+        "south": -12.698171651922166,
+        "north": 12.698171650059521
+      },
+      "maxErrorGroundM": 8.5173407845651
+    },
+    {
+      "mode": "preserve-footprint",
+      "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=pjson&bbox=-13809603.180918653%2C6063931.149554674%2C-13742381.00274013%2C6108217.209936124&bboxSR=3857&imageSR=3857&size=1024%2C675&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+      "retrieved": "2026-10-20T06:08:19.233Z",
+      "elapsedMs": 45.76999999999998,
+      "width": 1024,
+      "height": 675,
+      "extent": {
+        "xmin": -13809603.180918653,
+        "ymin": 6063931.149554674,
+        "xmax": -13742381.00274013,
+        "ymax": 6108217.209936124,
+        "spatialReference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        }
+      },
+      "actualCentres": {
+        "west": -13809570.357589465,
+        "east": -13742413.826069318,
+        "south": 6063963.954043845,
+        "north": 6108184.405446953
+      },
+      "errorMercatorM": {
+        "west": 0,
+        "east": 0,
+        "south": 0,
+        "north": 0
+      },
+      "maxErrorGroundM": 0
+    }
+  ],
+  "raster": {
+    "retrieved": "2026-10-20T06:08:20.007Z",
+    "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13809603.180918653%2C6063931.149554674%2C-13742381.00274013%2C6108217.209936124&bboxSR=3857&imageSR=3857&size=1024%2C675&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+    "bytes": 2764870,
+    "elapsedMs": 770.1151,
+    "width": 1024,
+    "height": 675,
+    "maxZerror": 0,
+    "min": 114.18814086914062,
+    "max": 2406.257568359375
+  }
+}

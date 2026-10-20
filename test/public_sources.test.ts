@@ -119,9 +119,12 @@ describe('no-paid-license source policy', () => {
 describe('best available public-domain elevation', () => {
   it('requests raw F32 heights, zero-loss LERC and the service Best mosaic, bounded independently of area', () => {
     const request = elevationRasterRequest(fixture.bounds, 1, 64);
-    expect(request).toEqual(fixture.request);
+    // Keep the original capture's URL intact: its bytes were recorded before
+    // the explicit footprint-preservation parameter was added.
+    expect(request).toEqual({ ...fixture.request, url: fixture.request.url + '&adjustAspectRatio=false' });
     const url = new URL(request.url);
     expect(url.searchParams.get('compressionTolerance')).toBe('0');
+    expect(url.searchParams.get('adjustAspectRatio')).toBe('false');
     expect(JSON.parse(url.searchParams.get('renderingRule')!)).toEqual({ rasterFunction: 'None' });
     expect(JSON.parse(url.searchParams.get('mosaicRule')!).sortField).toBe('Best');
     const huge = elevationRasterRequest({ minLat: 25, maxLat: 49, minLon: -124, maxLon: -67 }, 1);
@@ -182,6 +185,21 @@ describe('best available public-domain elevation', () => {
     expect(await fetchBestAvailableElevation(fixture.bounds, 1)).toBeNull();
     expect(await fetchBestAvailableElevation({ minLat: 46, maxLat: 47, minLon: 9, maxLon: 10 }, 1)).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches corrected footprints under a new cache key while retaining legacy cached bytes', async () => {
+    const originalURL = fixture.request.url;
+    const read = vi.spyOn(PersistentResourceCache, 'read').mockImplementation(async url =>
+      url === originalURL ? new Blob([fixtureBytes()]) : null);
+    const remove = vi.spyOn(PersistentResourceCache, 'remove');
+    const write = vi.spyOn(PersistentResourceCache, 'write');
+    const fetch = vi.fn(async (_url: string, _options?: RequestInit) => new Response(fixtureBytes())); vi.stubGlobal('fetch', fetch);
+    const grid = await fetchBestAvailableElevation(fixture.bounds, 1);
+    expect(grid?.isRealDEM).toBe(true);
+    expect(read).toHaveBeenCalledExactlyOnceWith(originalURL + '&adjustAspectRatio=false');
+    expect(fetch.mock.calls[0]?.[0]).toBe(originalURL + '&adjustAspectRatio=false');
+    expect(write.mock.calls[0]?.[0]).toBe(originalURL + '&adjustAspectRatio=false');
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it('samples floating-point rasters using sample centres and preserves legacy XYZ sampling', () => {
