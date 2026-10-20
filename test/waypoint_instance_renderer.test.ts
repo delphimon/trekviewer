@@ -15,7 +15,11 @@ it('preserves marker transforms, colors, glow and hit targets while compacting h
   const diamond = pins[0].getObjectByName('WaypointPinMesh') as THREE.Mesh;
   (diamond.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.6;
   const target = pins[0].getObjectByName('WaypointHitTarget')!;
+  pins.forEach(pin => { pin.visible = false; });
   const renderer = new WaypointInstanceRenderer(base, waypoints);
+  const initiallyHidden = base.getObjectByName('WaypointDiamondInstances') as THREE.InstancedMesh;
+  expect(initiallyHidden.count).toBe(0); expect(initiallyHidden.instanceColor?.count).toBe(2);
+  pins.forEach(pin => { pin.visible = true; }); renderer.update();
   base.updateMatrixWorld(true);
   const batch = base.getObjectByName('WaypointDiamondInstances') as THREE.InstancedMesh;
   expect(batch.count).toBe(2); expect(diamond.layers.mask).toBe(0); expect(target.layers.mask).toBe(1);

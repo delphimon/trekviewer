@@ -30,6 +30,10 @@ export class WaypointInstanceRenderer {
       if (diamond) {
         const mat = material as THREE.MeshStandardMaterial;
         mat.color.setHex(0xffffff); mat.emissive.setHex(0xffffff); mat.emissiveIntensity = 1;
+        // Define the color shader variant even if every pin starts hidden.
+        // compileAsync can prepare the zero-instance draw before a pin appears.
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(members.length * 3), 3);
+        mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
         const glow = new THREE.InstancedBufferAttribute(new Float32Array(members.length), 1);
         glow.setUsage(THREE.DynamicDrawUsage); geometry.setAttribute('instanceGlow', glow); batch.glow = glow;
         mat.customProgramCacheKey = () => 'waypoint-diamond-instances-v1';
