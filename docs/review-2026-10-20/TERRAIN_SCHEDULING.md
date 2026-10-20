@@ -47,7 +47,7 @@ The user deferred the next headset test. Native High performance at 72 Hz, CPU/G
 
 ## Published checkpoint
 
-Application commit `787ece64c2ca0c4fcfdfb6306ac3d30d558d66ca` passed [CI](https://github.com/delphimon/trekviewer/actions/runs/39492902086), was rebuilt with a clean working tree and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact build: `787ece6-2026-10-20T20:33:01.748Z`, executed entry `index-C09485Ch.js`. Credential scans pass across repository/evidence and the clean distribution. The automatic approval service briefly failed because its usage limit prevented review; after the user's next Continue, the normal review succeeded and validation/publication completed without bypassing it.
+Application commit `787ece64c2ca0c4fcfdfb6306ac3d30d558d66ca` passed [CI](https://github.com/delphimon/trekviewer/actions/runs/39492902086), was rebuilt with a clean working tree and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact build: `787ece6-2026-10-20T20:33:01.748Z`, executed entry `index-C09485Ch.js`. Credential scans pass across repository/evidence and the clean distribution.
 
 [Hosted real-source validation](terrain-scheduling/hosted-live-787ece6.json) confirms the exact client, two workers created with zero closed before teardown, no page/GL errors, and fine hiker terrain in 117/124 playing/following samples. Its imagery-only paired draws are 98→90, 127→75 and 179→105; maximum mean image error is 0.054/255, RMS 1.51/255 and changed pixels 0.624%. The reported terrain-phase mean is 1.060 ms. Other browser checks ran concurrently, so that figure is not a controlled timing comparison with the earlier local run. Coverage gaps remain open.
 
