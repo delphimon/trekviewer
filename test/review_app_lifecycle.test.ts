@@ -3,8 +3,36 @@ import * as THREE from 'three';
 import { TrekViewerApp } from '../src/main.ts';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import { XRManager } from '../src/core/XRManager.ts';
+import { localMetersToGeo, geoToLocalMeters } from '../src/gpx/Coordinates.ts';
 
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
+
+it.each([false, true])('prioritizes the displayed hiker ground during diorama follow, independent of room placement (XR=%s)', isPresenting => {
+  vi.stubGlobal('window', { innerHeight: 800 });
+  const app: any = Object.create(TrekViewerApp.prototype), camera = new THREE.PerspectiveCamera(), root = new THREE.Group();
+  root.position.set(1, 1.2, -2); root.rotation.y = 0.6; root.scale.setScalar(0.00005);
+  const marker = new THREE.Group(); marker.position.set(500, 1500, -250); root.add(marker); root.updateMatrixWorld(true);
+  const bounds = { centerLat: 47, centerLon: -122 }, raw = localMetersToGeo(-500, 500, 47, -122);
+  const inspected = { lat: 47.1, lon: -122.1 };
+  const update = vi.fn(), state = { viewMode: 'diorama', followRoute: true, currentPoint: raw };
+  const trek: any = { track: { bounds }, trailResult: { hikerMarker: marker }, terrainResult: { surfaceRevision: 1 },
+    flyoverController: { getProgress: () => 0.5, update: () => {} },
+    imageryLOD: { setActiveInteractionRay: () => {}, update: () => {}, getInspectedGeo: () => inspected, getDetailFocusPoints: () => [] },
+    updateHikerProgress: update, updateWaypoints: () => {} };
+  app.routeLoader = { getActiveTrek: () => trek }; app.session = { getState: () => state };
+  app.sceneManager = { camera, dioramaRoot: root, renderer: { xr: { isPresenting, getCamera: () => camera } },
+    updateCameraClipping: () => {}, updateMotionVignette: () => {}, render: () => {} };
+  app.xrManager = { update: () => {}, getActivePointerRay: () => null }; app.controls = { enabled: false, target: new THREE.Vector3() }; app.comfort = { vignette: false };
+  app.dioramaFollow = app.dioramaModelFollow = { update: () => {} }; app.followFocus = new THREE.Vector3(); app.lastTimestamp = performance.now();
+  app.animate(performance.now());
+  const geo = update.mock.calls[0][1];
+  const local = geoToLocalMeters(geo.lat, geo.lon, 0, bounds.centerLat, bounds.centerLon);
+  expect(local.x).toBeCloseTo(marker.position.x, 6); expect(local.z).toBeCloseTo(marker.position.z, 6);
+  expect(state.currentPoint).toBe(raw);
+  root.position.set(-2, 0.9, 1); root.rotation.y = -0.8; root.scale.setScalar(0.0001); root.updateMatrixWorld(true);
+  app.animate(performance.now()); expect(update.mock.calls[1][1]).toEqual(geo);
+  state.followRoute = false; app.animate(performance.now()); expect(update.mock.calls[2][1]).toBe(inspected);
+});
 
 it('grounds the viewer on the new surface before rendering its promotion',()=>{
   let ground=100, renderedFeet=NaN;

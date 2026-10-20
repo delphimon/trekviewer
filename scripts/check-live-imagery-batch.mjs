@@ -61,11 +61,18 @@ try {
       const wanted = [...(streamer?.wanted?.values() ?? [])];
       const hikerTile = wanted.find(tile => point.x >= tile.bounds.minX && point.x <= tile.bounds.maxX
         && point.z >= tile.bounds.minZ && point.z <= tile.bounds.maxZ);
+      const analytical = app.activeTrek.trailResult.routeGeometry.getTelemetryAtProgress(state.progress).currentPoint;
+      const center = terrain.terrainGeoBounds;
+      const analyticalX = (analytical.lon - center.centerLon) * Math.PI / 180 * 6371000 * Math.cos(center.centerLat * Math.PI / 180);
+      const analyticalZ = -(analytical.lat - center.centerLat) * Math.PI / 180 * 6371000;
       window.__liveDetailSamples.push({ timeMs: performance.now(), progress: state.progress, playing: state.isPlaying, following: state.followRoute,
         fineAtHiker: !!(cell && Math.max(cell.x, cell.z) <= 10 && grid.isRealDEM),
         cellM: cell ? Math.max(cell.x, cell.z) : null, source: grid?.source ?? null,
         hikerWanted: !!hikerTile, hikerQueueIndex: hikerTile ? wanted.indexOf(hikerTile) : null,
         hikerAcquiring: hikerTile ? streamer.acquisitions.has(hikerTile.id) || streamer.acquiringTile === hikerTile.id || streamer.ready?.id === hikerTile.id : false,
+        focusToVisualM: streamer?.localFocus ? Math.hypot(streamer.localFocus.x - point.x, streamer.localFocus.z - point.z) : null,
+        analyticalToVisualM: Math.hypot(analyticalX - point.x, analyticalZ - point.z),
+        sourceSampleSpacingM: grid?.sampleSpacingMeters ?? null,
         overviewDifferenceM: chunk ? chunk.sampleLocalSurfaceY(point.x, point.z) - terrain.sampleBaseSurfaceY(point.x, point.z) : null });
     }, 250);
   });
@@ -166,10 +173,12 @@ try {
     return results;
   });
   await page.locator('#btnPlay').click();
-  for (const label of ['following-15s', 'following-30s']) {
+  const fullTour = process.env.TREK_FULL_TOUR === '1';
+  for (const label of (fullTour ? [15, 30, 45, 60, 75, 90] : [15, 30]).map(seconds => `following-${seconds}s`)) {
     await page.waitForTimeout(15000); await sample(label);
   }
-  await page.locator('#btnPlay').click();
+  if (fullTour) { await page.waitForFunction(() => window.__trekViewerApp.session.getState().progress >= 1, null, { timeout: 20000 }); await sample('finished'); }
+  if (await page.evaluate(() => window.__trekViewerApp.session.getState().isPlaying)) await page.locator('#btnPlay').click();
   const playbackProfile = await page.evaluate(() => { const app = window.__trekViewerApp; app.stopProfile(); return app.completedProfile; });
   await page.screenshot({ path: path.join(out, 'scene.png') });
   let renderBenchmark;
@@ -219,12 +228,15 @@ try {
   });
   const tour = detailSamples.filter(row => row.playing && row.following);
   const detailSummary = { samples: tour.length, fineAtHikerSamples: tour.filter(row => row.fineAtHiker).length,
+    maxFocusToVisualM: tour.length ? Math.max(...tour.map(row => row.focusToVisualM ?? Infinity)) : null,
+    maxAnalyticalToVisualM: tour.length ? Math.max(...tour.map(row => row.analyticalToVisualM)) : null,
     firstFineAfterMonitorMs: detailSamples.some(row => row.fineAtHiker)
       ? detailSamples.find(row => row.fineAtHiker).timeMs - monitorStartedAtMs : null };
-  const evidence = { condition: 'Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; it is not full-tour or native acceptance.', build, entry,
+  const evidence = { condition: 'Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.', fullTour: process.env.TREK_FULL_TOUR === '1', build, entry,
     provider: config ? 'private-cesium-bing' : 'public-default', checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle, renderBenchmark, errors, glErrors };
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify(evidence, null, 2) + '\n');
   assert.deepEqual(errors, []); assert.deepEqual(glErrors, []);
+  if (process.env.TREK_ASSERT_VISUAL_FOCUS === '1') assert.ok(tour.length > 0 && tour.every(row => row.focusToVisualM < 0.00001), 'Terrain focus must follow the displayed hiker');
   assert.ok(markerComparison.every(row => row.errors.every(e => e === 0) && row.mean < 0.02 && row.changed < 100), 'Marker instancing changed marker appearance');
   const direct = process.env.TREK_DIRECT_TERRAIN === '1';
   // Direct shading removes overlapping clipped geometry; close rasterized

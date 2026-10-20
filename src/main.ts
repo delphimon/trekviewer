@@ -30,6 +30,7 @@ import { GraphicsRecovery } from './core/GraphicsRecovery.ts';
 import { releaseGraphicsResources } from './core/GraphicsResources.ts';
 import { PersistentResourceCache } from './terrain/PersistentResourceCache.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from './gpx/RouteLandmarks.ts';
+import { localMetersToGeo } from './gpx/Coordinates.ts';
 
 const _scratchV3 = new THREE.Vector3();
 
@@ -1414,8 +1415,14 @@ export class TrekViewerApp {
       // Follow prioritizes the hiker's ground; broad visible anchors still refine
       // the surroundings. Looking toward the horizon must not starve the tour.
       const state = this.session.getState();
-      const inspectedGeo = state.followRoute && this.currentViewMode === 'diorama' && state.currentPoint
-        ? state.currentPoint : this.activeTrek.imageryLOD.getInspectedGeo();
+      let inspectedGeo = this.activeTrek.imageryLOD.getInspectedGeo();
+      if (state.followRoute && this.currentViewMode === 'diorama') {
+        // The visible route is smoothed independently of analytical GPS
+        // telemetry. Refine the ground the camera/model actually follows.
+        const point = this.activeTrek.trailResult.hikerMarker.position;
+        const center = this.activeTrek.track.bounds;
+        inspectedGeo = localMetersToGeo(point.x, point.z, center.centerLat, center.centerLon);
+      }
       const previousSurfaceRevision = this.activeTrek.terrainResult.surfaceRevision;
       this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo, this.activeTrek.imageryLOD.getDetailFocusPoints());
       if (this.currentViewMode === 'first-person' && previousSurfaceRevision !== this.activeTrek.terrainResult.surfaceRevision) {

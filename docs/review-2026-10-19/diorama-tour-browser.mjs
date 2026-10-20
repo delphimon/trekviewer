@@ -98,8 +98,9 @@ try {
           modelMoved: root.position.distanceTo(saved.position), cameraMoved: camera.position.distanceTo(initialCamera),
           cameraTurned: camera.quaternion.angleTo(rotation), modelTurned: root.quaternion.angleTo(saved.quaternion),
           modelRescaled: root.scale.distanceTo(saved.scale),
-          terrainFollowsHiker: terrainFocus.lat === app.session.getState().currentPoint.lat
-            && terrainFocus.lon === app.session.getState().currentPoint.lon };
+            terrainFollowsHiker: Math.hypot(
+              (terrainFocus.lon - app.currentTrack.bounds.centerLon) * Math.PI / 180 * 6371000 * Math.cos(app.currentTrack.bounds.centerLat * Math.PI / 180) - app.trailResult.hikerMarker.position.x,
+              -(terrainFocus.lat - app.currentTrack.bounds.centerLat) * Math.PI / 180 * 6371000 - app.trailResult.hikerMarker.position.z) < 0.000001 };
         // Spatial toggle releases ownership without requiring a DOM control.
         app.spatialHUD.onPointerClick({ x: 315 / 1024, y: 1 - 514 / 768 });
         result.spatialStopped = !app.session.getState().followRoute;

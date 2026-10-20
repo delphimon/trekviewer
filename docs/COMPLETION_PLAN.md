@@ -127,6 +127,13 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `787ece6` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39492902086); exact hosted real-source, worker reuse, geographic/recovery and desktop/mobile flow checks pass. [Release evidence](review-2026-10-20/TERRAIN_SCHEDULING.md).
 - [ ] Complete native 72 Hz, full-tour loading/coverage and whole-model detail acceptance; the user has deferred the next headset test.
 
+### 0k. Refine the ground the displayed hiker follows
+
+- [x] Reproduce the analytical GPS/smoothed visual-route mismatch and prioritize the marker's model-local ground during desktop and XR diorama Follow. Preserve telemetry, inspected focus when stopped, room transforms and existing resource/source policy.
+- [x] Verify 696 Windows tests, typechecking/build, full 90-second real-source desktop playback and desktop/mobile controls. See [visible-ground evidence and loading limits](review-2026-10-20/VISUAL_GROUND.md).
+- [ ] Publish through passing CI, a clean stamped rebuild and exact hosted-client validation.
+- [ ] Resolve remaining full-tour fine-terrain gaps, broad overview detail and native performance/visual acceptance. Focus correctness alone does not close these gates.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.
