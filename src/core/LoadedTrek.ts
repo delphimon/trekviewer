@@ -12,6 +12,7 @@ import { type QualityProfile, QualityProfileManager } from '../terrain/QualityPr
 import type { GraphicsResource } from './GraphicsResources.ts';
 
 export interface LoadedTrekParams {
+  experimentalImageryBatching?: boolean;
   track: TrackStats;
   terrainResult: TerrainResult;
   trailResult: TrailResult;
@@ -58,6 +59,7 @@ export class LoadedTrek {
     this.imageryLOD =
       params.imageryLOD ||
       new ImageryLODManager({
+        experimentalImageryBatching: params.experimentalImageryBatching,
         terrainGeoBounds: params.terrainResult.terrainGeoBounds || params.track.bounds,
         terrainBaseElevation: params.terrainResult.terrainBaseElevation,
         elevationSampler: activeSampler,

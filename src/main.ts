@@ -327,6 +327,7 @@ export class TrekViewerApp {
         } finally { this.preparingTreks.delete(trek); }
       },
       tiledTerrain: new URLSearchParams(window.location.search).get('terrainTiles') !== '0',
+      experimentalImageryBatching: demParams.get('imageryBatch') === '1',
       baseTerrainCellSizeM: [60, 75, 120].includes(Number(demParams.get('terrainGrid'))) ? Number(demParams.get('terrainGrid')) : undefined,
       getBaseTerrainCellSizeM: () => QualityProfileManager.getActiveProfile().name === 'quest-balanced' ? undefined : 60,
       regionalBase: new URLSearchParams(window.location.search).get('regionalBase') !== '0',
@@ -449,6 +450,7 @@ export class TrekViewerApp {
         this.sceneManager.renderer.setAnimationLoop(null);
         const treks = new Set(this.preparingTreks);
         if (this.activeTrek) treks.add(this.activeTrek);
+        for (const trek of treks) trek.imageryLOD.releaseBatches?.();
         releaseGraphicsResources([this.sceneManager.scene, ...[...treks].map(trek => trek.group)], this.sceneManager.sunLight.shadow.map,
           [...treks].flatMap(trek => trek.getGraphicsResources()));
         this.flyoverController?.pause();
@@ -982,6 +984,8 @@ export class TrekViewerApp {
       resourceCacheWrites: resourceCache.writes,
       resourceCacheWriteFailed: resourceCache.writeFailed,
       imageryPatches: lod?.activePatchesCount ?? 0,
+      imageryBatchStatus: this.activeTrek?.imageryLOD.getBatchDiagnostics?.().status ?? 'off',
+      imageryBatchedPatches: this.activeTrek?.imageryLOD.getBatchDiagnostics?.().patches ?? 0,
       imageryCoveragePercent: lod?.coveragePercent ?? 0,
       firstPersonViewSamples: lod?.firstPersonViewSamples ?? 0,
       firstPersonHighResSamples: lod?.firstPersonHighResSamples ?? 0,
@@ -1414,6 +1418,7 @@ export class TrekViewerApp {
     }
 
     // 6. Render Scene
+    this.activeTrek?.imageryLOD.syncRenderer?.(this.sceneManager.renderer);
     this.sceneManager.updateCameraClipping(!isPresenting && this.currentViewMode === 'diorama'
       ? this.sceneManager.camera.position.distanceTo(this.controls.target) : 0);
     this.sceneManager.updateMotionVignette(this.comfort.vignette && isPresenting && this.currentViewMode === 'first-person'

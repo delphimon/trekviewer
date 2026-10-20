@@ -19,6 +19,8 @@ export interface ProfileCounters extends Partial<XRRenderQualityCounters> {
   resourceCacheWrites?: number;
   resourceCacheWriteFailed?: boolean;
   imageryPatches: number;
+  imageryBatchStatus?: string;
+  imageryBatchedPatches?: number;
   imageryCoveragePercent: number;
   firstPersonViewSamples: number;
   firstPersonHighResSamples: number;

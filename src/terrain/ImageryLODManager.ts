@@ -6,6 +6,7 @@ import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGe
 import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
+import { ImageryBatchRenderer } from './ImageryBatchRenderer.ts';
 import { computeBroadDetailTiles, type DetailFocus } from './BroadDetailSelection.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
@@ -64,6 +65,7 @@ export interface ImageryPatch {
 }
 
 export interface ImageryLODManagerOptions {
+  experimentalImageryBatching?: boolean;
   terrainGeoBounds: GeoBounds;
   terrainBaseElevation: number;
   elevationSampler: (x: number, z: number) => number;
@@ -881,6 +883,8 @@ export function computeFirstPersonStableLODTiles(
  * camera transform, HUD transform, or session state.
  */
 export class ImageryLODManager {
+  private batchRenderer?: ImageryBatchRenderer;
+  private batchSupport: boolean | null = null;
   public readonly group: THREE.Group;
   private options: ImageryLODManagerOptions;
   private patches: Map<string, ImageryPatch> = new Map();
@@ -1122,6 +1126,27 @@ export class ImageryLODManager {
       cacheHitRate,
       lastTimeToSharpMs: this.lastTimeToSharpMs,
     };
+  }
+
+  public getBatchDiagnostics() {
+    return { requested: !!this.options.experimentalImageryBatching,
+      status: !this.options.experimentalImageryBatching ? 'off' : this.batchSupport === false ? 'unsupported' : this.batchRenderer ? 'active' : 'pending',
+      ...this.batchRenderer?.getDiagnostics() };
+  }
+
+  /** Run after terrain publication, immediately before rendering this frame. */
+  public syncRenderer(renderer: THREE.WebGLRenderer): void {
+    if (!this.options.experimentalImageryBatching || this.isDisposed) return;
+    this.batchSupport ??= ImageryBatchRenderer.supported(renderer);
+    if (!this.batchSupport) return;
+    this.batchRenderer ??= new ImageryBatchRenderer();
+    if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
+    this.batchRenderer.sync(this.patches);
+  }
+
+  public releaseBatches(): void {
+    this.batchRenderer?.clear();
+    this.batchSupport = null;
   }
 
   public getInspectedGeo(): { lat: number; lon: number } | null {
@@ -2917,6 +2942,7 @@ export class ImageryLODManager {
   }
 
   private clearAllPatches(): void {
+    this.batchRenderer?.clear();
     this.publishedTileKeys.clear();
     this.tileRelations.clear();
     this.refinementGroups.clear();
