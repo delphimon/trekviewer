@@ -95,7 +95,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Play starts desktop camera following or XR model following. Keep the XR viewer pose untouched, preserve model rotation/scale, and provide spatial Follow hiker / Stop following. Manual orbit or XR model manipulation, resets, view changes, route replacement and XR exit release ownership.
 - [x] Prioritize the hiker's ground during following while retaining broad visible terrain anchors. Overlap up to three DEM acquisitions in High (one in Balanced), including resolved staging grids; retain one geometry/publication lane, existing source precision, mesh budgets and coarse coverage. Cancel obsolete queued acquisitions and keep failure backoff.
 - [x] Verify production desktop/mobile automatic follow, spatial toggling, controlled XR branch wiring and sampled ridge clearance. Controlled browser input is not native tracking or comfort validation. See [implementation and evidence](review-2026-10-19/HIKER_FOLLOW.md).
-- [ ] Publish a clean checkpoint after CI and exact hosted-client checks; complete a native follow tour and measure time-to-detail. The coarse whole-model DEM/mesh and imagery churn remain unresolved acceptance items under 0f.
+- [x] Publish clean `e8f0d28` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39383606341); exact hosted desktop/mobile and private Bing checks pass. The subsequent evidence-only commit retains that measured app build.
+- [ ] Complete a native follow tour and measure time-to-detail. The coarse whole-model DEM/mesh and imagery churn remain unresolved acceptance items under 0f. The new guarded headset preparation stopped because the debugger exposed no browser targets; USB connection alone is not a prepared session.
 
 ### 1. Make High's actual XR rendering quality explicit
 
