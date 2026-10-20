@@ -124,7 +124,8 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Reproduce and repair stale acquisition priority when desired membership stays unchanged. Admit the current ground tile under full download occupancy without dropping completed grids or retained terrain; preserve High/Balanced acquisition and residency limits.
 - [x] Separate decoding from geometry in two bounded reusable worker lanes. Cancel callers immediately, drain stale execution responses, retain source caches and bound abandoned jobs; preserve startup handshake, recovery and detached-buffer guards.
 - [x] Reduce anchor selection and tile-planning work while proving ordered-anchor/complete-plan equality against the previous algorithms. Verify 694 Windows tests, typechecking/build, live source compatibility, worker reuse and graphics recovery. See [terrain scheduling evidence and limits](review-2026-10-20/TERRAIN_SCHEDULING.md).
-- [ ] Publish through exact-commit CI, clean build and hosted validation. Native 72 Hz, full-tour loading/coverage and whole-model detail remain open; the user has deferred the next headset test.
+- [x] Publish clean `787ece6` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39492902086); exact hosted real-source, worker reuse, geographic/recovery and desktop/mobile flow checks pass. [Release evidence](review-2026-10-20/TERRAIN_SCHEDULING.md).
+- [ ] Complete native 72 Hz, full-tour loading/coverage and whole-model detail acceptance; the user has deferred the next headset test.
 
 ### 1. Make High's actual XR rendering quality explicit
 
