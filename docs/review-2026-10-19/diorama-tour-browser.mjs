@@ -49,6 +49,9 @@ try {
     assert.deepEqual(await page.locator('.speed-btn').allTextContents(), ['0.5x', '1x', '2x', '3x']);
     await page.locator('#btnPlay').click();
     await page.waitForFunction(() => window.__trekViewerApp.session.getState().progress > 0.001);
+    assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), true, 'Play starts camera following');
+    await page.locator('#btnFollowRoute').click();
+    assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), false);
     await page.locator('#btnPlay').click();
     await page.evaluate(() => {
       const slider = document.querySelector('#scrubberInput');
@@ -62,6 +65,66 @@ try {
     await page.locator('#playbackMode').selectOption('tour');
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().playbackSpeed), 1);
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().progress), progress);
+
+    // Exercise the production XR follow branch with controlled frame inputs.
+    // This validates wiring only, not native headset tracking or comfort.
+    const xrFollow = await page.evaluate(() => {
+      const app = window.__trekViewerApp, xr = app.sceneManager.renderer.xr;
+      const camera = app.sceneManager.camera, root = app.sceneManager.dioramaRoot;
+      const saved = { presenting: xr.isPresenting, getCamera: xr.getCamera, input: app.xrManager.update,
+        render: app.sceneManager.render, imagery: app.activeTrek.imageryLOD.update,
+        terrain: app.activeTrek.updateHikerProgress, enabled: app.controls.enabled,
+        position: root.position.clone(), quaternion: root.quaternion.clone(), scale: root.scale.clone() };
+      const initialCamera = camera.position.clone(), rotation = camera.quaternion.clone();
+      let terrainFocus;
+      const anchor = camera.getWorldPosition(camera.position.clone());
+      const direction = camera.getWorldDirection(camera.position.clone()); direction.y = 0;
+      if (direction.lengthSq() < 1e-8) direction.set(0, 0, -1);
+      anchor.addScaledVector(direction.normalize(), 0.8); anchor.y -= 0.45;
+      try {
+        xr.isPresenting = true; xr.getCamera = () => camera;
+        app.xrManager.update = app.sceneManager.render = app.activeTrek.imageryLOD.update = () => {};
+        app.activeTrek.updateHikerProgress = (_progress, focus) => { terrainFocus = focus; };
+        app.controls.enabled = false;
+        app.togglePlay();
+        const startedFollowing = app.session.getState().followRoute;
+        for (let i = 0; i < 300; i++) {
+          app.lastTimestamp = performance.now() - 1000 / 60;
+          app.animate(performance.now());
+        }
+        app.togglePlay();
+        const hiker = app.trailResult.hikerMarker.getWorldPosition(camera.position.clone());
+        const result = { startedFollowing, targetError: hiker.distanceTo(anchor),
+          modelMoved: root.position.distanceTo(saved.position), cameraMoved: camera.position.distanceTo(initialCamera),
+          cameraTurned: camera.quaternion.angleTo(rotation), modelTurned: root.quaternion.angleTo(saved.quaternion),
+          modelRescaled: root.scale.distanceTo(saved.scale),
+          terrainFollowsHiker: terrainFocus.lat === app.session.getState().currentPoint.lat
+            && terrainFocus.lon === app.session.getState().currentPoint.lon };
+        // Spatial toggle releases ownership without requiring a DOM control.
+        app.spatialHUD.onPointerClick({ x: 315 / 1024, y: 1 - 514 / 768 });
+        result.spatialStopped = !app.session.getState().followRoute;
+        app.spatialHUD.onPointerClick({ x: 315 / 1024, y: 1 - 514 / 768 });
+        result.spatialStarted = app.session.getState().followRoute;
+        app.xrManager.callbacks.onDioramaManipulation();
+        result.manualStopped = !app.session.getState().followRoute;
+        return result;
+      } finally {
+        xr.isPresenting = saved.presenting; xr.getCamera = saved.getCamera;
+        app.xrManager.update = saved.input; app.sceneManager.render = saved.render;
+        app.activeTrek.imageryLOD.update = saved.imagery; app.activeTrek.updateHikerProgress = saved.terrain;
+        app.controls.enabled = saved.enabled; app.session.setFollowRoute(false);
+        root.position.copy(saved.position); root.quaternion.copy(saved.quaternion); root.scale.copy(saved.scale);
+        app.flyoverController.setProgress(0.4); app.frameDesktopDiorama();
+      }
+    });
+    assert.equal(xrFollow.startedFollowing, true);
+    assert.ok(xrFollow.targetError < 0.02);
+    assert.ok(xrFollow.modelMoved > 0.01);
+    assert.equal(xrFollow.cameraMoved, 0); assert.ok(xrFollow.cameraTurned < 1e-7);
+    assert.ok(xrFollow.modelTurned < 1e-7); assert.equal(xrFollow.modelRescaled, 0);
+    assert.equal(xrFollow.terrainFollowsHiker, true);
+    assert.equal(xrFollow.spatialStopped, true); assert.equal(xrFollow.spatialStarted, true);
+    assert.equal(xrFollow.manualStopped, true);
 
     const spatial = await page.evaluate(() => {
       const app = window.__trekViewerApp, hud = app.spatialHUD;
@@ -280,7 +343,7 @@ try {
       assert.ok(panel.y + panel.height < player.y, 'Profiling controls must clear the player bar');
     }
     assert.deepEqual(errors, []);
-    results.push({ viewport, progress, spatial, hudLayout, following, clearance, xmlImport, landmarks, overflow, pageErrors: errors, build });
+    results.push({ viewport, progress, spatial, hudLayout, following, xrFollow, clearance, xmlImport, landmarks, overflow, pageErrors: errors, build });
     console.log(JSON.stringify(results.at(-1)));
     await context.close();
   }

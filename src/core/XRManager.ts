@@ -25,6 +25,7 @@ import {
 export { ALL_HAND_JOINTS, BONE_CONNECTIONS };
 
 export interface XRInteractionCallbacks {
+  onDioramaManipulation?: () => void;
   onToggleViewMode?: () => void;
   onTogglePlay?: () => void;
   onTurn?: (radians: number) => void;
@@ -630,6 +631,7 @@ export class XRManager {
             const isTurbo = buttons[0]?.pressed || false;
             const pan = computeThumbstickPan(stickX, stickY, isTurbo, dt);
             if (pan.dx !== 0 || pan.dz !== 0) {
+              this.callbacks.onDioramaManipulation?.();
               this.sceneManager.dioramaRoot.position.x -= pan.dx;
               this.sceneManager.dioramaRoot.position.z -= pan.dz;
             }
@@ -650,11 +652,15 @@ export class XRManager {
               this.callbacks.onLocomotion?.();
               this.callbacks.onTurn?.(-rotY);
             }
-            else this.sceneManager.dioramaRoot.rotation.y -= rotY;
+            else {
+              this.callbacks.onDioramaManipulation?.();
+              this.sceneManager.dioramaRoot.rotation.y -= rotY;
+            }
           }
           if (this.currentViewMode === 'diorama') {
             const zoomFactor = computeThumbstickZoomFactor(stickY, dt);
             if (zoomFactor !== 1.0) {
+              this.callbacks.onDioramaManipulation?.();
               const currentScale = this.sceneManager.dioramaRoot.scale.x;
               const newScale = Math.max(0.000005, Math.min(0.05, currentScale * zoomFactor));
               this.sceneManager.dioramaRoot.scale.set(newScale, newScale, newScale);
@@ -1277,6 +1283,7 @@ export class XRManager {
 
   private applyManipulation(grabs: ActiveGrab[]): void {
     if (this.currentViewMode !== 'diorama') return;
+    if (grabs.length) this.callbacks.onDioramaManipulation?.();
 
     if (grabs.length >= 2) {
       const g0 = grabs[0];
@@ -1382,6 +1389,7 @@ export class XRManager {
         if (newHit) {
           const deltaX = newHit.x - state.terrainDragStartHit.x;
           const deltaZ = newHit.z - state.terrainDragStartHit.z;
+          this.callbacks.onDioramaManipulation?.();
           this.sceneManager.dioramaRoot.position.x = state.terrainDragStartDioramaPos.x + deltaX;
           this.sceneManager.dioramaRoot.position.z = state.terrainDragStartDioramaPos.z + deltaZ;
 

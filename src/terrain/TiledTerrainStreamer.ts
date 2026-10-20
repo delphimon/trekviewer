@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
-import { ElevationTileService } from './ElevationTiles.ts';
+import { ElevationTileService, type ElevationGrid } from './ElevationTiles.ts';
 import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import type { LocalTerrainStreamerOptions } from './LocalTerrainStreamer.ts';
 import type { QualityProfile } from './QualityProfile.ts';
@@ -36,6 +36,11 @@ export class TiledTerrainStreamer {
   private detailFocusInput?: readonly { lat: number; lon: number }[];
   private detailFocusKey = '';
   private detailFocus: { x: number; z: number }[] = [];
+  private readonly acquisitions = new Map<string, {
+    controller: AbortController;
+    result: Promise<{ grid: ElevationGrid | null; error?: unknown }>;
+  }>();
+  private acquiringTile: string | null = null;
 
   constructor(private readonly options: LocalTerrainStreamerOptions) {
     this.mode = options.initialViewMode ?? 'diorama';
@@ -62,6 +67,7 @@ export class TiledTerrainStreamer {
     if (this.profile.name === profile.name) return;
     this.profile = profile;
     this.generation++;
+    this.cancelAcquisitions();
     this.ready?.chunk.dispose();
     this.ready = null;
     this.readyRemoval = null;
@@ -130,6 +136,9 @@ export class TiledTerrainStreamer {
         this.focus = { lat: geo.lat, lon: geo.lon };
         this.focusChanges++;
         this.wanted = new Map(plan.tiles.map(tile => [tile.id, tile]));
+        for (const [id, entry] of this.acquisitions) if (!this.wanted.has(id)) {
+          entry.controller.abort(); this.acquisitions.delete(id);
+        }
         for (const id of this.failed.keys()) if (!this.wanted.has(id)) this.failed.delete(id);
         this.nextWorkAt = 0;
       }
@@ -173,7 +182,34 @@ export class TiledTerrainStreamer {
         terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
       }
     }
+    this.prefetchElevation();
     if (!this.busy && !this.ready && !this.readyRemoval && performance.now() >= this.nextWorkAt) void this.prepareNext();
+  }
+
+  private prefetchElevation(): void {
+    const terrain = this.options.terrainResult;
+    const now = performance.now();
+    // Keep network acquisition ahead of the single geometry/publication lane.
+    // Resolved grids count toward the bound too; a slow promotion cannot grow it.
+    const capacity = this.profile.name === 'quest-balanced' ? 1 : 3;
+    for (const tile of this.wanted.values()) {
+      if (this.acquisitions.size >= capacity) break;
+      if (this.acquisitions.has(tile.id) || this.acquiringTile === tile.id || this.ready?.id === tile.id
+        || (this.chunks.has(tile.id) && !this.chunks.get(tile.id)?.currentGrid?.preferredSourceRetry)
+        || (this.failed.get(tile.id)?.retryAt ?? 0) > now) continue;
+      const controller = new AbortController();
+      const geo = localMetersToGeo((tile.bounds.minX + tile.bounds.maxX) / 2,
+        (tile.bounds.minZ + tile.bounds.maxZ) / 2, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
+      const result = ElevationTileService.fetchLocalElevationGrid(geo.lat, geo.lon,
+        Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, controller.signal)
+        .then(grid => ({ grid }), error => ({ grid: null, error }));
+      this.acquisitions.set(tile.id, { controller, result });
+    }
+  }
+
+  private cancelAcquisitions(): void {
+    for (const entry of this.acquisitions.values()) entry.controller.abort();
+    this.acquisitions.clear();
   }
 
   private async prepareNext(): Promise<void> {
@@ -208,20 +244,24 @@ export class TiledTerrainStreamer {
       const existing = this.chunks.get(wanted.id);
       if (existing && !existing.currentGrid?.preferredSourceRetry) continue;
       const retryAt = this.failed.get(wanted.id)?.retryAt ?? 0;
-      if (retryAt <= now) { tile = wanted; break; }
+      if (retryAt <= now && this.acquisitions.has(wanted.id)) { tile = wanted; break; }
+      if (retryAt <= now) continue;
       this.nextWorkAt = Math.min(this.nextWorkAt, retryAt);
     }
     if (!tile) return;
     this.busy = true;
+    this.acquiringTile = tile.id;
+    const acquisition = this.acquisitions.get(tile.id);
     const generation = this.generation;
     const terrain = this.options.terrainResult;
     const x = (tile.bounds.minX + tile.bounds.maxX) / 2;
     const z = (tile.bounds.minZ + tile.bounds.maxZ) / 2;
     const geo = localMetersToGeo(x, z, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
     try {
-      const grid = await ElevationTileService.fetchLocalElevationGrid(geo.lat, geo.lon,
-        Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, this.lifetime.signal);
-      if (this.disposed || generation !== this.generation || !this.wanted.has(tile.id)) return;
+      if (!acquisition) return;
+      const { grid, error } = await acquisition.result;
+      if (this.disposed || generation !== this.generation || !this.wanted.has(tile.id) || acquisition.controller.signal.aborted) return;
+      if (error) throw error;
       if (!grid) { this.recordFailure(tile.id); return; }
       // A temporary fallback stays visible while the preferred source retries;
       // another fallback result must not rebuild or replace the same geometry.
@@ -249,7 +289,11 @@ export class TiledTerrainStreamer {
         this.recordFailure(tile.id);
         console.warn('Terrain refinement unavailable; retaining base coverage:', error);
       }
-    } finally { this.busy = false; this.nextWorkAt = 0; }
+    } finally {
+      if (this.acquisitions.get(tile.id) === acquisition) this.acquisitions.delete(tile.id);
+      this.acquiringTile = null;
+      this.busy = false; this.nextWorkAt = 0;
+    }
   }
 
   private recordFailure(id: string): void {
@@ -275,6 +319,7 @@ export class TiledTerrainStreamer {
     if (this.disposed) return;
     this.disposed = true;
     this.generation++;
+    this.cancelAcquisitions();
     this.lifetime.abort();
     this.ready?.chunk.dispose();
     this.ready = null;

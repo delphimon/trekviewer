@@ -1,0 +1,13 @@
+# Bing MR run: visual acceptance failed
+
+The October 19 evening Quest 3 test ran the published `2099bf6-2026-10-20T06:29:25.327Z` client with private Cesium/Bing Aerial configuration. The user reports **“About the same”**, then confirms less detailed DEM, slow terrain loading, and that the camera does not follow the hiker. This is a failed acceptance run. Bing imagery does not change the elevation source or mesh density.
+
+The [saved report](native-bing/profile.json) covers 273.857 seconds with 268 stereo MR windows, all reporting `cesium-bing`, High and a 72 Hz target. Playback events cover only 19.115 seconds of tour motion; this is not a full 90-second tour test. There is no new GPU/compositor trace. The report contains counters, not recorded room or head/controller poses. The private ion token was checked absent before copying it here.
+
+Recompute the [analysis](native-bing/analysis.json) with `node docs/review-2026-10-19/native-bing/analyze.mjs`. Excluding the first ten seconds leaves 260 windows: mean window callback rate 49.98 Hz, mean window CPU-submit p95 18.01 ms, and frame-weighted render submission 8.19 ms. These are not compositor FPS, global p95 or GPU timings. Peak Three.js aggregate draw calls are 1,086 and triangles 2,733,736. Selected fine imagery coverage is incomplete in 227/268 windows; this is not a visible blank-pixel percentage. Tile cache failure count remains zero.
+
+Sampled counters increase by 5,770 patch creations, 5,384 disposals, 636 HUD redraw requests and 1,334 terrain plan changes. Plan changes do not mean 1,334 chunk builds. The run differs from the earlier baseline in motion, duration, provider and several code changes, so it cannot isolate their individual effects.
+
+The whole Olympus mesh remains approximately 94 m per cell and its 1024×675 overview DEM approximately 44 m per requested sample. Fine sections use approximately 5 m mesh cells and finer USGS requests; they do not cover the entire 41×27 km model at that density. Native survey resolution, requested raster spacing and rendered cell spacing are different measures. Increasing the model's vertical exaggeration would not restore missing terrain detail.
+
+Two concrete implementation gaps drive the next checkpoint: Play did not enable the existing desktop follow, and XR explicitly excluded it; fine DEM acquisition also waited for each previous section's geometry and imagery promotion. Add explicit MR model following and bounded acquisition overlap, preserving the tracked viewer, source precision, broad selection and mesh budgets. Neither change certifies restored DEM appearance or native performance. Broad terrain coverage, imagery churn, rendering cost and a complete follow tour still require device acceptance.

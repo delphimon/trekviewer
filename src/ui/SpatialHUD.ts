@@ -18,6 +18,7 @@ export interface SpatialHUDCallbacks {
   onSetPlaybackMode?: (mode: PlaybackMode) => void;
   onStepSeconds: (seconds: number) => void;
   onFocusHiker: () => void;
+  onToggleFollowRoute?: () => void;
   onDockHUD?: (side: 'left' | 'right' | 'center') => void;
   onSelectWaypoint?: (name: string, lat?: number, lon?: number, progress?: number) => void;
   onSetHorizonLocked?: (locked: boolean) => void;
@@ -66,6 +67,7 @@ export class SpatialHUD {
   private isPlaying: boolean = false;
   private currentSpeed: number = 1.0;
   private playbackMode: PlaybackMode = 'tour';
+  private followRoute = false;
   private currentViewMode: ViewMode = 'diorama';
   private horizonLocked = true;
   private currentTextureStyle: TextureStyle = 'satellite';
@@ -365,7 +367,8 @@ export class SpatialHUD {
         y: 485,
         w: 180,
         h: 58,
-        action: () => this.callbacks.onFocusHiker(),
+        action: () => this.currentViewMode === 'diorama' && this.callbacks.onToggleFollowRoute
+          ? this.callbacks.onToggleFollowRoute() : this.callbacks.onFocusHiker(),
       },
       // Map Style (Satellite ⇄ Hybrid ⇄ Topo)
       {
@@ -446,6 +449,12 @@ export class SpatialHUD {
   public setPlaybackMode(mode: PlaybackMode): void {
     if (mode === this.playbackMode) return;
     this.playbackMode = mode;
+    this.drawHUD(true);
+  }
+
+  public setFollowRoute(active: boolean): void {
+    if (this.followRoute === active) return;
+    this.followRoute = active;
     this.drawHUD(true);
   }
 
@@ -1160,7 +1169,8 @@ export class SpatialHUD {
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('🎯 Center Hiker', 225 + 90, 521);
+    ctx.fillText(this.currentViewMode === 'diorama'
+      ? this.followRoute ? 'Stop following' : 'Follow hiker' : '🎯 Center Hiker', 225 + 90, 521);
 
     // 3. Map Style (Aerial ⇄ Hybrid ⇄ Topo) (x: 415, w: 180)
     const texHover = this.hoveredAreaId === 'btn-texture';

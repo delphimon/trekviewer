@@ -27,6 +27,46 @@ function fixture() {
 
 async function flushBuild(): Promise<void> { for (let i = 0; i < 6; i++) await Promise.resolve(); }
 
+it('acquires three detailed DEM sections while a slow promotion holds the single publication lane', async () => {
+  const { streamer, attached } = fixture();
+  const pending: ((grid: any) => void)[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+  let promote!: (publish: () => boolean) => void;
+  (streamer as any).options.prepareSurfacePromotion = vi.fn().mockReturnValueOnce(new Promise(resolve => { promote = resolve; }))
+    .mockResolvedValue(() => true);
+  streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  pending.forEach(resolve => resolve({ zoom: 15, isRealDEM: true })); await flushBuild();
+  for (let i = 0; i < 72; i++) streamer.update(0);
+  expect(fetch).toHaveBeenCalledTimes(3); expect(attached.size).toBe(0);
+  promote(() => true); await flushBuild(); streamer.update(0);
+  expect(attached.size).toBe(1);
+  await flushBuild(); // The second grid was acquired before the first promotion.
+  expect((streamer as any).ready).not.toBeNull();
+  expect(attached.size).toBe(1);
+  streamer.update(0); expect(attached.size).toBe(2);
+  const queuedSignals = [...(streamer as any).acquisitions.values()].map(entry => entry.controller.signal as AbortSignal);
+  streamer.dispose();
+  expect(queuedSignals.every(signal => signal.aborted)).toBe(true);
+});
+
+it('cancels unwanted queued DEM work and continues when a new plan changes the priority order', async () => {
+  const { streamer, terrain, attached } = fixture();
+  const pending: ((grid: any) => void)[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+  streamer.update(0);
+  const oldSignals = fetch.mock.calls.map(call => call[5] as AbortSignal);
+  streamer.update(0, { lat: 48, lon: -118 });
+  expect(oldSignals.every(signal => signal.aborted)).toBe(true);
+  pending.forEach(resolve => resolve({ zoom: 15, isRealDEM: true })); await flushBuild();
+  expect(attached.size).toBe(0); expect(terrain.notifySurfaceChange).not.toHaveBeenCalled();
+  streamer.update(0); // Return to the route without waiting for a failure cooldown.
+  expect(fetch).toHaveBeenCalledTimes(6);
+  pending.slice(3).forEach(resolve => resolve({ zoom: 15, isRealDEM: true })); await flushBuild();
+  streamer.update(0); expect(attached.size).toBe(1);
+  streamer.dispose();
+});
+
 function singleTileFixture() {
   const result = fixture();
   result.terrain.baseMeshGrid = { width: 960, depth: 960, segmentsX: 8, segmentsZ: 8 };

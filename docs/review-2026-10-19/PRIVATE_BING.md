@@ -22,4 +22,4 @@ The existing Hybrid implementation combines aerial imagery with an Esri referenc
 
 The connected Quest browser was verified on that exact published entry with `cesium-bing` active, then prepared at the position/settings above. Preparation finished outside XR. The private bootstrap was removed after initialization; refreshing the tab requires another private launch to select Bing again. Bounded host report capture was attached, without CPU sampling, before requesting the user's MR check. Preparation/attachment are not a completed native run.
 
-At this checkpoint the last completed native performance run remains the failed `9cc6afa` baseline. A new matched native run is still required before accepting visual quality, frame delivery or time-to-sharp. Public defaults remain unchanged for other clients.
+The subsequent [completed Bing native run](NATIVE_BING.md) also failed acceptance. The user reports about the same, less detailed DEM, slow loading and missing hiker follow. It contains only 19.115 seconds of playing and does not certify a full tour. Public defaults remain unchanged for other clients; new follow/acquisition changes still require native acceptance.

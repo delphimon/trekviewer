@@ -1,0 +1,46 @@
+{
+  "build": "2099bf6-2026-10-20T06:29:25.327Z",
+  "durationSeconds": 273.85740000003574,
+  "nativeWindows": 268,
+  "nativeProviders": [
+    "cesium-bing"
+  ],
+  "reportedTargetHz": [
+    72
+  ],
+  "afterFirstTenSeconds": {
+    "windows": 260,
+    "seconds": 263.01269999998794,
+    "meanWindowCallbackHz": 49.97992426590927,
+    "meanWindowCpuSubmitP95Ms": 18.014615381451755,
+    "frameWeightedPhaseMs": {
+      "input": 0.5584623597186686,
+      "simulation": 0.042102051562279516,
+      "hud": 0.0018000152198157807,
+      "imagery": 1.2962092900247089,
+      "imageryRaycast": 0.013378079546169815,
+      "imagerySelection": 0.2762413241344807,
+      "imageryReconcile": 0.412325528118796,
+      "terrain": 0.130966364319033,
+      "waypoints": 0.05237586751390436,
+      "render": 8.18962703058207
+    }
+  },
+  "playingSeconds": 19.114999999999995,
+  "fullTourCaptured": false,
+  "nativeGpuTraceCaptured": false,
+  "drawCallsPeak": 1086,
+  "trianglesPeak": 2733736,
+  "incompleteSelectedCoverageWindows": 227,
+  "imageryCreatedSampledIncrease": 5770,
+  "imageryDisposedSampledIncrease": 5384,
+  "hudUploadRequestsSampledIncrease": 636,
+  "terrainPlanChangesSampledIncrease": 1334,
+  "tileFailuresPeak": 0,
+  "subjectiveResult": "Failed: user reports about the same, less detailed DEM, slow loading and no camera follow.",
+  "limitations": [
+    "Callback Hz is not compositor FPS; mean window CPU p95 is not global p95.",
+    "Selected coverage counts are not visible missing-pixel percentages.",
+    "Terrain plan changes are not chunk rebuilds. This run cannot isolate source or individual code-change effects."
+  ]
+}
