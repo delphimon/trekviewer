@@ -1,5 +1,7 @@
 # Live streamed imagery and terrain follow-up
 
+The later [direct terrain checkpoint](DIRECT_TERRAIN.md) removes duplicated opaque imagery geometry and instances waypoint shapes by default. The measurements below describe the earlier clipped-mesh prototype, retained through `?imageryBatch=1`.
+
 The [first batching fixture](IMAGERY_BATCHING.md) verified appearance and submission behavior with generated tiles. This follow-up uses the normal Olympus/Bailey route, actual public imagery and USGS 3DEP requests, real worker publication, the Quest High profile/base-geometry budget selected by a desktop test user agent, and the existing 90-second tour/follow controls. It remains **desktop Edge**, not native XR or a frame-rate acceptance test.
 
 Run `node scripts/check-live-imagery-batch.mjs` after building. `TREK_LIVE_BATCH_URL` selects the hosted client and `TREK_LIVE_BATCH_OUT` selects the output directory. An optional `TREK_LOCAL_PROVIDERS_PATH` uses the existing private Bing bootstrap without writing the token into artifacts; the evidence here uses the public default. No source responses are substituted. Each comparison freezes the same scene synchronously, releases batch copies, renders the legacy path, settles the experimental batch path, and reads both framebuffers. The forced settle operation measures aggregate CPU preparation work, **not** normal per-frame work or GPU duration. Resource acquisition, image selection and terrain publication continue between the paired checkpoints.
