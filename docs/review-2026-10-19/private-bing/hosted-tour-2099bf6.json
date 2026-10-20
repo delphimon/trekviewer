@@ -1,0 +1,83 @@
+{
+  "condition": "synthetic terrain; external sources deliberately unavailable",
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "build": {
+        "id": "2099bf6-2026-10-20T06:29:25.327Z",
+        "sha": "2099bf63c4a1e449546f391f62d76379d9e504c8",
+        "shortSha": "2099bf6",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T06:29:25.327Z",
+        "label": "TrekViewer 1.0.0 • 2099bf6"
+      },
+      "pageErrors": [],
+      "overflow": false,
+      "clearance": {
+        "obstructed": {
+          "minimum": -0.20999999158694208,
+          "camera": [
+            -0.010587231319791088,
+            0.0093658775536829,
+            -0.8020575664984728
+          ],
+          "active": false
+        },
+        "cleared": {
+          "minimum": 0.005367187189792392,
+          "camera": [
+            -0.010587231319791083,
+            0.49193710918660716,
+            -0.8020575664984729
+          ],
+          "active": true
+        }
+      },
+      "hudControlsChangedPixels": 0,
+      "hiddenUploadRequests": 0
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "build": {
+        "id": "2099bf6-2026-10-20T06:29:25.327Z",
+        "sha": "2099bf63c4a1e449546f391f62d76379d9e504c8",
+        "shortSha": "2099bf6",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T06:29:25.327Z",
+        "label": "TrekViewer 1.0.0 • 2099bf6"
+      },
+      "pageErrors": [],
+      "overflow": false,
+      "clearance": {
+        "obstructed": {
+          "minimum": -0.20999999158694208,
+          "camera": [
+            -0.010587231319791088,
+            0.0093658775536829,
+            -0.8020575664984728
+          ],
+          "active": false
+        },
+        "cleared": {
+          "minimum": 0.005367187189791184,
+          "camera": [
+            -0.010587231319791083,
+            0.4919371091866067,
+            -0.8020575664984726
+          ],
+          "active": true
+        }
+      },
+      "hudControlsChangedPixels": 0,
+      "hiddenUploadRequests": 0
+    }
+  ]
+}
