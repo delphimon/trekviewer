@@ -963,6 +963,7 @@ export class TrekViewerApp {
   private getProfileCounters(): ProfileCounters {
     const info = this.sceneManager.getMemoryInfo();
     const lod = this.activeTrek?.imageryLOD.getDiagnostics();
+    const batch = this.activeTrek?.imageryLOD.getBatchDiagnostics?.();
     const cache = TileImageCache.getStats();
     const resourceCache = PersistentResourceCache.getStats();
     const state = this.session.getState();
@@ -984,8 +985,11 @@ export class TrekViewerApp {
       resourceCacheWrites: resourceCache.writes,
       resourceCacheWriteFailed: resourceCache.writeFailed,
       imageryPatches: lod?.activePatchesCount ?? 0,
-      imageryBatchStatus: this.activeTrek?.imageryLOD.getBatchDiagnostics?.().status ?? 'off',
-      imageryBatchedPatches: this.activeTrek?.imageryLOD.getBatchDiagnostics?.().patches ?? 0,
+      imageryBatchStatus: batch?.status ?? 'off',
+      imageryBatchedPatches: batch?.patches ?? 0,
+      imageryBatchPreparationMs: batch?.lastPreparationMs ?? 0,
+      imageryBatchArrayMB: (batch?.arrayBytes ?? 0) / (1024 * 1024),
+      imageryBatchGeometryMB: (batch?.geometryBytes ?? 0) / (1024 * 1024),
       imageryCoveragePercent: lod?.coveragePercent ?? 0,
       firstPersonViewSamples: lod?.firstPersonViewSamples ?? 0,
       firstPersonHighResSamples: lod?.firstPersonHighResSamples ?? 0,

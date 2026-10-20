@@ -6,6 +6,7 @@ import type { ImageryPatch } from '../src/terrain/ImageryLODManager.ts';
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function fixture(maxPages = 2) {
+  vi.spyOn(performance, 'now').mockReturnValue(0);
   let image: any;
   vi.stubGlobal('document', { createElement: () => ({ width: 2, height: 2, getContext: () => ({
     setTransform: () => {}, drawImage: (next: any) => { image = next; },
@@ -114,4 +115,24 @@ it('requires actual multi-draw and array capability before enabling the prototyp
   expect(ImageryBatchRenderer.supported(renderer)).toBe(false);
   renderer.getContext = () => ({});
   expect(ImageryBatchRenderer.supported(renderer)).toBe(false);
+});
+
+it('defers a second expensive transfer but still releases every stale terrain copy in the frame', () => {
+  const renderer = fixture(), a = patch('a'), b = patch('b'), patches = new Map([[a.key, a], [b.key, b]]);
+  let clock = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => clock);
+  const read = vi.fn(() => { clock += 3; return { data: new Uint8ClampedArray(16).fill(255) }; });
+  vi.stubGlobal('document', { createElement: () => ({ width: 2, height: 2, getContext: () => ({
+    setTransform() {}, drawImage() {}, getImageData: read,
+  }) }) });
+  renderer.sync(patches);
+  expect(renderer.getDiagnostics().patches).toBe(1); expect(read).toHaveBeenCalledTimes(1);
+  renderer.sync(patches); expect(renderer.getDiagnostics().patches).toBe(2);
+  for (const p of patches.values()) p.mesh.geometry.attributes.position.needsUpdate = true;
+  renderer.sync(patches);
+  expect(renderer.getDiagnostics().patches).toBe(1);
+  expect([...patches.values()].filter(p => (p.mesh.material as THREE.Material).visible)).toHaveLength(1);
+  expect(renderer.getDiagnostics().lastPreparationMs).toBe(3);
+  expect(renderer.getDiagnostics().maxPreparationMs).toBe(3);
+  renderer.clear(); a.dispose(); b.dispose();
 });

@@ -4,6 +4,7 @@ import type { ImageryPatch } from './ImageryLODManager.ts';
 export const IMAGERY_BATCH_LIMITS = {
   layers: 32, verticesPerPage: 65_536, indicesPerPage: 196_608,
   arrayBytes: 128 * 1024 * 1024, geometryBytes: 32 * 1024 * 1024, uploadsPerFrame: 2,
+  preparationMsPerFrame: 2,
 } as const;
 const PAGE_GEOMETRY_BYTES = IMAGERY_BATCH_LIMITS.verticesPerPage * 32 + IMAGERY_BATCH_LIMITS.indicesPerPage * 4;
 
@@ -27,6 +28,9 @@ export class ImageryBatchRenderer {
   private canvas?: HTMLCanvasElement;
   private uploads = 0;
   private failures = 0;
+  private lastPreparationMs = 0;
+  private totalPreparationMs = 0;
+  private maxPreparationMs = 0;
 
   public static supported(renderer: THREE.WebGLRenderer): boolean {
     const gl = renderer.getContext() as WebGL2RenderingContext;
@@ -41,11 +45,13 @@ export class ImageryBatchRenderer {
 
   public getDiagnostics() {
     return { pages: this.pages.length, patches: this.entries.size, uploads: this.uploads, failures: this.failures,
+      lastPreparationMs: this.lastPreparationMs, totalPreparationMs: this.totalPreparationMs, maxPreparationMs: this.maxPreparationMs,
       arrayBytes: this.pages.reduce((n, page) => n + page.arrayBytes, 0),
       geometryBytes: this.pages.length * PAGE_GEOMETRY_BYTES };
   }
 
   public sync(patches: ReadonlyMap<string, ImageryPatch>): void {
+    const started = performance.now();
     // First release every stale copy, regardless of the upload budget. Changed
     // terrain must render its new source geometry in this very frame.
     for (const [key, entry] of this.entries) {
@@ -68,10 +74,19 @@ export class ImageryBatchRenderer {
       if (remaining <= 0) break;
       if (this.entries.has(key) || !patch.mesh.visible || !this.eligible(patch)) continue;
       if (this.add(key, patch)) remaining--;
+      // A tile-count limit alone still permits two expensive readbacks/copies
+      // in one frame. Keep making progress, but defer the next successful copy
+      // after the CPU preparation allowance is consumed. One operation and
+      // stale-copy cleanup are indivisible and can exceed this soft allowance.
+      if (remaining < IMAGERY_BATCH_LIMITS.uploadsPerFrame
+        && performance.now() - started >= IMAGERY_BATCH_LIMITS.preparationMsPerFrame) break;
     }
     for (let i = this.pages.length - 1; i >= 0; i--) if (this.pages[i].mesh.instanceCount === 0) {
       this.destroyPage(this.pages[i]); this.pages.splice(i, 1);
     }
+    this.lastPreparationMs = performance.now() - started;
+    this.totalPreparationMs += this.lastPreparationMs;
+    this.maxPreparationMs = Math.max(this.maxPreparationMs, this.lastPreparationMs);
   }
 
   public clear(): void {

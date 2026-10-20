@@ -98,7 +98,7 @@ try {
       return { name, maxError, differingPixels, legacyCalls: a.calls, batchedCalls: b.calls,
         legacyTriangles: a.triangles, batchedTriangles: b.triangles, errors: [a.error, b.error], diagnostics: lod.getBatchDiagnostics() };
     };
-    const settle = () => { for (let i = 0; i < Math.ceil(patches.size / 2) + 2; i++) lod.syncRenderer(renderer); };
+    const settle = () => { for (let i = 0; i < patches.size + 2; i++) lod.syncRenderer(renderer); };
     const baseline = capture(camera); settle(); const batched = capture(camera);
     const results = [compare('opaque', baseline, batched)];
     const snapshots = {};

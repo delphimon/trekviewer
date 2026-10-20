@@ -191,6 +191,17 @@ describe('Stage X2: Real High-Resolution Local DEM Acquisition & Caching', () =>
   });
 
   describe('LocalTerrainChunk.updateElevationGrid Dynamic Mesh Refinement', () => {
+    it.each([1, 10, 44, undefined])('classifies raster DEM detail by sample spacing (%s m), not its non-tile zoom', spacing => {
+      const raster = { ...createMockGrid(0, 2200), sampleSpacingMeters: spacing,
+        rasterBounds: { west: -13600000, east: -13599000, south: 5900000, north: 5901000 } };
+      const chunk = new LocalTerrainChunk({ localGrid: raster, centerLat: 46.855, centerLon: -121.755,
+        terrainBaseElevation: 1500, radiusMeters: 1000, segments: 8 });
+      expect(chunk.isRealHighRes).toBe(spacing !== undefined && spacing <= 10);
+      chunk.updateElevationGrid(createMockGrid(12, 1700)); expect(chunk.isRealHighRes).toBe(false);
+      chunk.updateElevationGrid(raster); expect(chunk.isRealHighRes).toBe(spacing !== undefined && spacing <= 10);
+      chunk.dispose();
+    });
+
     it('recalculates vertex heights and flags isRealHighRes = true when high-res grid is applied', () => {
       const coarseGrid = createMockGrid(12, 1700);
       const highResGrid = createMockGrid(15, 2300);

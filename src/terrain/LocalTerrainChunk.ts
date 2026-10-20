@@ -45,6 +45,13 @@ export interface ChunkValidationResult {
   infiniteCount: number;
 }
 
+/** Export rasters use zoom 0; their explicit sample spacing determines detail. */
+function hasLocalElevationDetail(grid: ElevationGrid): boolean {
+  return grid.isRealDEM && (grid.rasterBounds
+    ? Number.isFinite(grid.sampleSpacingMeters) && grid.sampleSpacingMeters! > 0 && grid.sampleSpacingMeters! <= 10
+    : grid.zoom >= 14);
+}
+
 export class LocalTerrainChunk {
   public readonly mesh: THREE.Mesh;
   public readonly centerLat: number;
@@ -111,7 +118,7 @@ export class LocalTerrainChunk {
     this.baseSampler = options.baseElevationSampler;
     this.preserveParentEdges = !!(options.layout || options.baseMeshGrid);
     this.currentGrid = options.localGrid;
-    this.isRealHighRes = options.localGrid.zoom >= 14 && options.localGrid.isRealDEM;
+    this.isRealHighRes = hasLocalElevationDetail(options.localGrid);
     this.centerLat = options.centerLat;
     this.centerLon = options.centerLon;
     this.referenceCenterLat = options.referenceCenterLat ?? this.centerLat;
@@ -337,7 +344,7 @@ export class LocalTerrainChunk {
     if (this.isDisposed) return;
     this.currentGrid = newGrid;
     if (baseElevationSampler) this.baseSampler = baseElevationSampler;
-    this.isRealHighRes = newGrid.zoom >= 14 && newGrid.isRealDEM;
+    this.isRealHighRes = hasLocalElevationDetail(newGrid);
 
     const posAttr = this.geometry.attributes.position;
     const vertexCount = posAttr.count;

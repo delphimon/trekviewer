@@ -1,0 +1,31 @@
+# Live streamed imagery and terrain follow-up
+
+The [first batching fixture](IMAGERY_BATCHING.md) verified appearance and submission behavior with generated tiles. This follow-up uses the normal Olympus/Bailey route, actual public imagery and USGS 3DEP requests, real worker publication, the Quest High profile/base-geometry budget selected by a desktop test user agent, and the existing 90-second tour/follow controls. It remains **desktop Edge**, not native XR or a frame-rate acceptance test.
+
+Run `node scripts/check-live-imagery-batch.mjs` after building. `TREK_LIVE_BATCH_URL` selects the hosted client and `TREK_LIVE_BATCH_OUT` selects the output directory. An optional `TREK_LOCAL_PROVIDERS_PATH` uses the existing private Bing bootstrap without writing the token into artifacts; the evidence here uses the public default. No source responses are substituted. Each comparison freezes the same scene synchronously, releases batch copies, renders the legacy path, settles the experimental batch path, and reads both framebuffers. The forced settle operation measures aggregate CPU preparation work, **not** normal per-frame work or GPU duration. Resource acquisition, image selection and terrain publication continue between the paired checkpoints.
+
+Use `profile=1`, not `debug=1`, for these measurements: debug adds patch/local-terrain boundary meshes. Initial exploratory debug runs were excluded from the evidence below after draw attribution exposed that extra cost. The [baseline](live-imagery-batch/baseline.json) is the clean published `a570fcb` client. The [updated local run](live-imagery-batch/updated.json) uses the new CPU allowance/diagnostics and raster classification. Separate cold network/tour runs do not have identical contents at a fixed wall-clock time; compare legacy versus batch **within each checkpoint**, not the timing or totals across runs.
+
+| Updated live checkpoint | Legacy draws | Batch draws | Published fine chunks |
+| --- | ---: | ---: | ---: |
+| Early overview | 145 | 138 | 3 |
+| About 15 s following | 143 | 108 | 33 |
+| About 30 s following | 224 | 165 | 34 |
+
+The paired frames differ by at most one RGBA channel value; no pixel exceeds the two-value comparison tolerance, and triangle counts match. There are no page exceptions, shader/GL validation errors, or missing-source substitutions. Actual 256-pixel images, geographic UVs, normals and changing refined terrain are exercised. This establishes live-source rendering compatibility over these views, not a native speedup or subjective source-resolution acceptance.
+
+The 30-second checkpoint contains 113 imagery patches marked visible before frustum culling and about a million patch vertices; 104 patches fit the batch pages. Object attribution also identifies 34 separate fine terrain meshes and many individual waypoint components. The synthetic 64→2 draw result therefore does not predict total scene submissions. A future coordinated terrain/imagery renderer must also address duplicated geometry and terrain ownership. Waypoint batching is another potential submission improvement, with hit testing and hover/selection appearance to preserve.
+
+## Changes selected from the live run
+
+- Batch preparation now records last, total and maximum synchronous CPU time. Profile windows include the last preparation cost and logical array/geometry allocation sizes, alongside batch status and member count. These are not GPU timing or total GPU/process memory.
+- The existing two-transfers-per-frame cap now also defers the second transfer once a **soft 2 ms CPU allowance** is consumed. Stale copies are still all removed before new copying, and at least one transfer can progress. Allocation, one readback/geometry copy, cleanup and browser scheduling are indivisible; they can exceed the allowance. The updated live run records a 42 ms maximum sync, and a separate controlled stress run records a larger cold outlier. This is **not** a hard 2 ms frame-time cap or evidence that publication stalls are solved. Moving preparation off the critical frame path remains open.
+- Fine USGS export rasters have `zoom: 0`, unlike XYZ elevation tiles. `LocalTerrainChunk` previously classified all of them as coarse, including 1 m grids. Raster classification now uses explicit finite sample spacing (positive and at most 10 m), while preserving the existing tile-zoom rule. Coarse 44 m exports and unknown spacing remain coarse. This corrects the legacy streamer's refinement-ready flag; the default tiled streamer's geometry/source precision is unchanged, and the fix does not restore missing overview detail.
+
+`npm run verify` passes **681 Windows tests**, with five platform-specific skips, both typechecks and the production build. Regressions cover deferring an expensive second copy while exposing all stale terrain replacements, and raster classification at 1 m, 10 m, 44 m and unknown spacing through construction and updates. The [controlled render fixture](live-imagery-batch/fixture.json) still passes stereo edges, mip views, fades/overlap, memory-cap fallback and actual context loss/recovery.
+
+## What the terrain measurements establish
+
+The overview footprint is approximately **40.9×26.9 km**, with a **1024×675** 3DEP raster sampled at about **44 m**, and a **434×286** base mesh with about **94 m** cells. Published fine chunks use roughly **1 m requested sample spacing** and **4.96 m mesh cells**. Those export spacings do not certify native survey resolution everywhere. Whole-model detail is still much coarser than the fine sections; changing imagery providers cannot repair it.
+
+The updated local run samples terrain under the moving hiker every 250 ms. Fine chunks cover the hiker in **96 of 122** playing/following samples. This is a partial 30-second desktop tour observation, not complete-route coverage. Missing intervals remain actionable: route-ahead acquisition/publication should be evaluated rather than inferring useful coverage from resident chunk count alone. A finer complete overview must also fit measured geometry/streaming limits. These and the native full-tour/72 Hz gate remain open.
