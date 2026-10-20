@@ -1,0 +1,356 @@
+{
+  "condition": "Production desktop WebGL2 renderer; generated native-size 256px color/label tiles and lit, deformed source meshes, growing from 64 to 448 patches. ArrayCamera stereo is a controlled browser test, not native headset delivery. Readback compares every RGBA pixel.",
+  "build": {
+    "id": "a570fcb-2026-10-20T14:46:13.511Z",
+    "sha": "a570fcb1829b0cf8e84d626ac3db5544d0dd1dbd",
+    "shortSha": "a570fcb",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-20T14:46:13.511Z",
+    "label": "TrekViewer 1.0.0 • a570fcb"
+  },
+  "entry": "index-SnQSclZz.js",
+  "result": {
+    "capability": {
+      "multiDraw": true,
+      "arrayLayers": 2048,
+      "status": "active"
+    },
+    "results": [
+      {
+        "name": "opaque",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 64,
+        "batchedCalls": 2,
+        "legacyTriangles": 4608,
+        "batchedTriangles": 4608,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 2,
+          "patches": 64,
+          "uploads": 64,
+          "failures": 0,
+          "arrayBytes": 22369536,
+          "geometryBytes": 5767168
+        }
+      },
+      {
+        "name": "promotion-fallback",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 64,
+        "batchedCalls": 63,
+        "legacyTriangles": 4608,
+        "batchedTriangles": 4608,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 1,
+          "patches": 2,
+          "uploads": 130,
+          "failures": 0,
+          "arrayBytes": 11184768,
+          "geometryBytes": 2883584
+        }
+      },
+      {
+        "name": "promotion-settled",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 64,
+        "batchedCalls": 2,
+        "legacyTriangles": 4608,
+        "batchedTriangles": 4608,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 2,
+          "patches": 64,
+          "uploads": 192,
+          "failures": 0,
+          "arrayBytes": 22369536,
+          "geometryBytes": 5767168
+        }
+      },
+      {
+        "name": "fade-and-visibility",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 51,
+        "batchedCalls": 3,
+        "legacyTriangles": 3672,
+        "batchedTriangles": 3672,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 2,
+          "patches": 50,
+          "uploads": 242,
+          "failures": 0,
+          "arrayBytes": 22369536,
+          "geometryBytes": 5767168
+        }
+      },
+      {
+        "name": "stereo",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 128,
+        "batchedCalls": 4,
+        "legacyTriangles": 9216,
+        "batchedTriangles": 9216,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 2,
+          "patches": 64,
+          "uploads": 306,
+          "failures": 0,
+          "arrayBytes": 22369536,
+          "geometryBytes": 5767168
+        }
+      },
+      {
+        "name": "placed-oblique",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 64,
+        "batchedCalls": 2,
+        "legacyTriangles": 4608,
+        "batchedTriangles": 4608,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 2,
+          "patches": 64,
+          "uploads": 370,
+          "failures": 0,
+          "arrayBytes": 22369536,
+          "geometryBytes": 5767168
+        }
+      },
+      {
+        "name": "placed-distant-mips",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 64,
+        "batchedCalls": 2,
+        "legacyTriangles": 4608,
+        "batchedTriangles": 4608,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 2,
+          "patches": 64,
+          "uploads": 434,
+          "failures": 0,
+          "arrayBytes": 22369536,
+          "geometryBytes": 5767168
+        }
+      },
+      {
+        "name": "zoom-overlap-and-fade",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 72,
+        "batchedCalls": 4,
+        "legacyTriangles": 5184,
+        "batchedTriangles": 5184,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 3,
+          "patches": 71,
+          "uploads": 505,
+          "failures": 0,
+          "arrayBytes": 33554304,
+          "geometryBytes": 8650752
+        }
+      },
+      {
+        "name": "stereo-frustum-edges",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 144,
+        "batchedCalls": 6,
+        "legacyTriangles": 10368,
+        "batchedTriangles": 7776,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 3,
+          "patches": 72,
+          "uploads": 577,
+          "failures": 0,
+          "arrayBytes": 33554304,
+          "geometryBytes": 8650752
+        }
+      },
+      {
+        "name": "context-recovery",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 3,
+        "batchedCalls": 3,
+        "legacyTriangles": 5184,
+        "batchedTriangles": 5184,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 3,
+          "patches": 72,
+          "uploads": 649,
+          "failures": 0,
+          "arrayBytes": 33554304,
+          "geometryBytes": 8650752
+        }
+      },
+      {
+        "name": "448-source-patches-budget-fallback",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 448,
+        "batchedCalls": 131,
+        "legacyTriangles": 32256,
+        "batchedTriangles": 32256,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 11,
+          "patches": 328,
+          "uploads": 977,
+          "failures": 0,
+          "arrayBytes": 123032448,
+          "geometryBytes": 31719424
+        }
+      },
+      {
+        "name": "unsupported-fallback",
+        "maxError": 0,
+        "differingPixels": 0,
+        "legacyCalls": 448,
+        "batchedCalls": 448,
+        "legacyTriangles": 32256,
+        "batchedTriangles": 32256,
+        "errors": [
+          0,
+          0
+        ],
+        "diagnostics": {
+          "requested": true,
+          "status": "active",
+          "pages": 0,
+          "patches": 0,
+          "uploads": 1961,
+          "failures": 0,
+          "arrayBytes": 0,
+          "geometryBytes": 0
+        }
+      }
+    ],
+    "unsupported": "unsupported",
+    "sourceImagesRetained": true,
+    "recovery": {
+      "clearedOnLoss": true,
+      "revisionAdvanced": true,
+      "setupError": 0
+    },
+    "budget": {
+      "requested": true,
+      "status": "active",
+      "pages": 11,
+      "patches": 328,
+      "uploads": 977,
+      "failures": 0,
+      "arrayBytes": 123032448,
+      "geometryBytes": 31719424
+    },
+    "lifecycle": [
+      {
+        "requested": true,
+        "status": "active",
+        "pages": 0,
+        "patches": 0,
+        "uploads": 977,
+        "failures": 0,
+        "arrayBytes": 0,
+        "geometryBytes": 0,
+        "geometries": 484,
+        "textures": 71
+      },
+      {
+        "requested": true,
+        "status": "active",
+        "pages": 0,
+        "patches": 0,
+        "uploads": 1305,
+        "failures": 0,
+        "arrayBytes": 0,
+        "geometryBytes": 0,
+        "geometries": 484,
+        "textures": 71
+      },
+      {
+        "requested": true,
+        "status": "active",
+        "pages": 0,
+        "patches": 0,
+        "uploads": 1633,
+        "failures": 0,
+        "arrayBytes": 0,
+        "geometryBytes": 0,
+        "geometries": 484,
+        "textures": 71
+      }
+    ]
+  },
+  "errors": [],
+  "shaderErrors": [],
+  "glWarnings": []
+}
