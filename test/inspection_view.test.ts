@@ -55,12 +55,13 @@ it('fits terrain and skirts without changing model pose or progress, and leaves 
   app.routeLoader = { getActiveTrek: () => ({ terrainResult: { terrainMesh: terrain, skirtMesh: skirt, localChunks: [] } }) };
   app.controls = controls;
   const state = { progress: 0.65, viewMode: 'diorama' };
-  app.session = { getState: () => state };
+  app.session = { getState: () => state, setFollowRoute: vi.fn() };
   app.sceneManager = { camera, dioramaRoot: root, renderer: { xr: { isPresenting: false } }, updateCameraClipping: vi.fn() };
   vi.stubGlobal('window', { innerWidth: 1233, innerHeight: 821 });
   vi.stubGlobal('document', { querySelector: () => null });
   const pose = root.matrix.clone(); root.updateMatrix(); pose.copy(root.matrix);
   app.frameDesktopDiorama();
+  expect(app.session.setFollowRoute).toHaveBeenCalledWith(false);
   expect(app.desktopViewFitted).toBe(true); expect(app.session.getState().progress).toBe(0.65);
   const fittedBounds = new THREE.Box3().setFromObject(terrain).union(new THREE.Box3().setFromObject(skirt));
   for (const x of [fittedBounds.min.x, fittedBounds.max.x]) for (const y of [fittedBounds.min.y, fittedBounds.max.y]) for (const z of [fittedBounds.min.z, fittedBounds.max.z]) {

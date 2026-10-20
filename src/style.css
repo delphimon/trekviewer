@@ -453,7 +453,13 @@ body, html {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  max-width: 640px;
 }
+
+#playbackMode { max-width: 145px; }
+#playbackMode[hidden] { display: none; }
+#playbackMode option { background: #0f172a; color: #f1f5f9; }
 
 .play-btn {
   font-size: 14px;
@@ -623,7 +629,7 @@ body, html {
 }
 
 @media (max-width: 600px) {
-  #profile-controls { top: auto !important; bottom: 180px; right: 10px !important; flex-wrap: wrap; max-width: calc(100vw - 20px); }
+  #profile-controls { top: auto !important; bottom: calc(var(--trek-player-height, 180px) + 20px); right: 10px !important; flex-wrap: wrap; max-width: calc(100vw - 20px); }
   .top-bar { gap: 10px; padding: 10px 12px; }
   .logo-group { flex-basis: 100%; }
   .logo-subtitle { font-size: 10px; }

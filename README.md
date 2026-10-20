@@ -1,6 +1,8 @@
 # TrekViewer 3D ⛰️🥽
 
-Meta Quest 3 Alpine GPX Trek Visualizer in WebXR (Stereo Passthrough Mixed Reality & Full 1:1 Immersion).
+Meta Quest 3 Alpine GPX Trek Visualizer in WebXR, focused on tabletop dioramas and route tours in passthrough MR and VR.
+
+The [October 19 diorama tour checkpoint](docs/review-2026-10-19/DIORAMA_TOUR.md) adds a 90-second route tour, alternate track timing and optional desktop camera follow. In XR, tour playback animates the hiker on the anchored model. New first-person development and native acceptance are deferred while the diorama experience is improved; the existing 1:1 mode remains available.
 
 The [current completion plan](docs/COMPLETION_PLAN.md) tracks the remaining fidelity, native performance and usability acceptance work. The [October 16 state review](docs/review-2026-10-16/STATE_REVIEW.md) distinguishes implemented/browser-tested features from unresolved headset requirements, including High's inherited fixed-foveation setting. Dated implementation reports below remain historical evidence.
 

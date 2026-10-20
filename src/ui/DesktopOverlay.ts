@@ -4,6 +4,7 @@ import type { QualityProfileName } from '../terrain/QualityProfile';
 import type { ComfortPreferences } from '../xr/ComfortPreferences.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { PersistentResourceCache } from '../terrain/PersistentResourceCache.ts';
+import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -12,6 +13,8 @@ export interface OverlayCallbacks {
   onToggleViewMode: (mode: ViewMode) => void;
   onTogglePlay: () => void;
   onSetSpeed: (speed: number) => void;
+  onSetPlaybackMode?: (mode: PlaybackMode) => void;
+  onToggleFollowRoute?: () => void;
   onScrub: (progress: number) => void;
   onSetTextureStyle: (style: TextureStyle) => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
@@ -31,6 +34,7 @@ export class DesktopOverlay {
   private manifest: RouteManifestItem[] = [];
   private currentTrack: TrackStats | null = null;
   private isPlaying: boolean = false;
+  private playbackMode: PlaybackMode = 'tour';
   private currentProgress: number = 0;
   private viewMode: ViewMode = 'diorama';
   private textureStyle: TextureStyle = 'satellite';
@@ -351,7 +355,7 @@ export class DesktopOverlay {
 
   public setPlaying(playing: boolean): void {
     this.isPlaying = playing;
-    this.playBtn.innerHTML = playing ? '⏸ Pause' : this.viewMode === 'first-person' ? '▶ Walk' : '▶ Play';
+    this.playBtn.textContent = playbackPresentation(this.playbackMode, this.viewMode, playing).playLabel;
     this.playBtn.ariaPressed = String(playing);
   }
 
@@ -363,12 +367,34 @@ export class DesktopOverlay {
     if (button) button.ariaPressed = String(mode === 'first-person');
     const speeds = this.container.querySelector<HTMLElement>('.speed-selector');
     if (speeds) speeds.style.display = mode === 'first-person' ? 'none' : 'flex';
+    const timing = document.getElementById('playbackMode') as HTMLSelectElement | null;
+    if (timing) timing.hidden = mode === 'first-person';
     this.setPlaying(this.isPlaying);
   }
 
   private updateFitAvailability(): void {
     const button = document.getElementById('btnFitTerrain') as HTMLButtonElement | null;
     if (button) button.disabled = !this.currentTrack || this.viewMode !== 'diorama' || this.graphicsPaused;
+    const follow = document.getElementById('btnFollowRoute') as HTMLButtonElement | null;
+    if (follow) follow.disabled = !this.currentTrack || this.viewMode !== 'diorama' || this.graphicsPaused;
+  }
+
+  public setPlaybackMode(mode: PlaybackMode): void {
+    this.playbackMode = mode;
+    const select = document.getElementById('playbackMode') as HTMLSelectElement | null;
+    if (select) select.value = mode;
+    const presentation = playbackPresentation(mode, this.viewMode, this.isPlaying);
+    this.container.querySelectorAll<HTMLElement>('.speed-btn').forEach((button, i) => {
+      button.dataset.speed = String(presentation.speeds[i]);
+      button.textContent = `${presentation.speeds[i]}x`;
+    });
+    this.setPlaying(this.isPlaying);
+  }
+
+  public setFollowRoute(active: boolean): void {
+    const button = document.getElementById('btnFollowRoute');
+    DesktopOverlay.setButtonPressed(button, active);
+    if (button) button.textContent = active ? 'Stop following' : 'Follow route';
   }
 
   private drawElevationChart(): void {
@@ -546,13 +572,15 @@ export class DesktopOverlay {
         <!-- Bottom Timeline & Flyover Player Bar -->
         <footer class="player-bar glass-card">
           <div class="player-left">
-            <button id="btnPlay" class="btn btn-primary play-btn">▶ Play</button>
+            <button id="btnPlay" class="btn btn-primary play-btn">▶ Tour</button>
+            <select id="playbackMode" class="btn btn-secondary" aria-label="Playback timing" title="Tour covers the route in 90 seconds at 1x. Track timing uses recorded or estimated pace.">
+              <option value="tour">90s tour</option>
+              <option value="recorded">Track timing</option>
+            </select>
             <div class="speed-selector">
-              <button class="btn btn-xs speed-btn btn-active" data-speed="1">1x</button>
-              <button class="btn btn-xs speed-btn" data-speed="5">5x</button>
-              <button class="btn btn-xs speed-btn" data-speed="20">20x</button>
-              <button class="btn btn-xs speed-btn" data-speed="60">60x</button>
+              ${playbackPresentation('tour', 'diorama', false).speeds.map(speed => `<button class="btn btn-xs speed-btn" data-speed="${speed}">${speed}x</button>`).join('')}
             </div>
+            <button id="btnFollowRoute" class="btn btn-secondary" aria-pressed="false" title="Follow the hiker from above. Drag or zoom the terrain to return to manual inspection." disabled>Follow route</button>
             <button id="btnViewToggle" class="btn btn-secondary view-toggle-btn" aria-pressed="false">
               🚶 Walk Trail (1:1)
             </button>
@@ -708,6 +736,10 @@ export class DesktopOverlay {
     });
 
     // Play/Pause
+    document.getElementById('playbackMode')?.addEventListener('change', event => {
+      this.callbacks.onSetPlaybackMode?.((event.target as HTMLSelectElement).value as PlaybackMode);
+    });
+    document.getElementById('btnFollowRoute')?.addEventListener('click', () => this.callbacks.onToggleFollowRoute?.());
     this.playBtn.addEventListener('click', () => {
       this.callbacks.onTogglePlay();
     });

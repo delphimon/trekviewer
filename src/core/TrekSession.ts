@@ -13,6 +13,7 @@ export type LoadingPhase =
   | 'error';
 
 import type { QualityProfileName } from '../terrain/QualityProfile.ts';
+import type { PlaybackMode } from '../visualization/PlaybackPresentation.ts';
 
 export interface TrekSessionState {
   activeRouteId: string | null;
@@ -24,6 +25,8 @@ export interface TrekSessionState {
   verticalExaggeration: number;
   isPlaying: boolean;
   playbackSpeed: number;
+  playbackMode: PlaybackMode;
+  followRoute: boolean;
   progress: number;
   currentDistance: number;
   currentElevation: number;
@@ -69,6 +72,8 @@ export class TrekSession {
       verticalExaggeration: 1.0,
       isPlaying: false,
       playbackSpeed: 1.0,
+      playbackMode: 'tour',
+      followRoute: false,
       progress: 0,
       currentDistance: 0,
       currentElevation: 0,
@@ -187,6 +192,14 @@ export class TrekSession {
     if (this.state.playbackSpeed !== playbackSpeed) {
       this.setState({ playbackSpeed });
     }
+  }
+
+  public setPlaybackMode(playbackMode: PlaybackMode): void {
+    if (this.state.playbackMode !== playbackMode) this.setState({ playbackMode, playbackSpeed: 1 });
+  }
+
+  public setFollowRoute(followRoute: boolean): void {
+    this.setState({ followRoute });
   }
 
   public setViewMode(viewMode: ViewMode): void {

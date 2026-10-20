@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GPXPoint, TrackStats, ViewMode } from '../gpx/TrackTypes.ts';
 import type { TrailResult } from './TrailMesh.ts';
 import { headingForForwardVector } from './RouteGeometry.ts';
+import { TOUR_DURATION_SECONDS, type PlaybackMode } from './PlaybackPresentation.ts';
 
 export interface FlyoverUpdate {
   progress: number;
@@ -21,6 +22,7 @@ export class FlyoverController {
   private playbackSpeed: number = 1.0; // 1.0 = base nominal duration
   private baseDurationSeconds: number = 60.0;
   private viewMode: ViewMode = 'diorama';
+  private playbackMode: PlaybackMode = 'recorded';
   private navigationYaw: number | null = null;
   private readonly navigationOffset = new THREE.Vector3();
   private readonly viewerAnchor = new THREE.Vector3();
@@ -78,6 +80,11 @@ export class FlyoverController {
 
   public getViewMode(): ViewMode {
     return this.viewMode;
+  }
+
+  public setPlaybackMode(mode: PlaybackMode): void {
+    // Keep the same geographic position when changing the time basis.
+    this.playbackMode = mode;
   }
 
   public play(): void {
@@ -144,6 +151,10 @@ export class FlyoverController {
       this.stepDistanceMeters(Math.sign(seconds));
       return;
     }
+    if (this.playbackMode === 'tour') {
+      this.setProgress(this.progress + seconds / TOUR_DURATION_SECONDS);
+      return;
+    }
     const timeDelta = seconds * this.playbackSpeed;
     const newTime = Math.max(0, Math.min(this.totalPlaybackSeconds, this.playbackTime + timeDelta));
     this.playbackTime = newTime;
@@ -180,24 +191,30 @@ export class FlyoverController {
   ): void {
     if (this.isPlaying) {
       const previousProgress = this.progress;
-      // True temporal multiplier: 1x = 1 real second per trek second (e.g. 20x advances 20 trek seconds per second)
-      const simRate = this.playbackSpeed;
-      this.playbackTime += deltaSeconds * simRate;
-
-      if (this.playbackTime >= this.totalPlaybackSeconds) {
-        this.playbackTime = this.totalPlaybackSeconds;
-        this.progress = 1.0;
-        this.isPlaying = false;
-      } else {
-        this.progress = this.timeToProgress(this.playbackTime);
-      }
-
-      if (this.viewMode === 'first-person') {
-        // Recorded gaps and accelerated tabletop playback must not become high-speed locomotion.
-        const maxProgress = previousProgress + Math.max(0, deltaSeconds) * 1.4 / Math.max(this.track.totalDistance, 1);
-        this.progress = Math.min(this.progress, maxProgress, 1);
+      const delta = Number.isFinite(deltaSeconds) ? Math.max(0, deltaSeconds) : 0;
+      if (this.playbackMode === 'tour' && this.viewMode === 'diorama') {
+        // Constant route distance avoids GPS pauses and multi-day timestamp gaps.
+        this.progress = Math.min(1, this.progress + delta * this.playbackSpeed / TOUR_DURATION_SECONDS);
         this.playbackTime = this.progressToTime(this.progress);
         this.isPlaying = this.progress < 1;
+      } else {
+        // Track timing retains its existing recorded/estimated temporal multiplier.
+        this.playbackTime += delta * this.playbackSpeed;
+        if (this.playbackTime >= this.totalPlaybackSeconds) {
+          this.playbackTime = this.totalPlaybackSeconds;
+          this.progress = 1.0;
+          this.isPlaying = false;
+        } else {
+          this.progress = this.timeToProgress(this.playbackTime);
+        }
+
+        if (this.viewMode === 'first-person') {
+          // Accelerated tabletop playback must not become high-speed locomotion.
+          const maxProgress = previousProgress + delta * 1.4 / Math.max(this.track.totalDistance, 1);
+          this.progress = Math.min(this.progress, maxProgress, 1);
+          this.playbackTime = this.progressToTime(this.progress);
+          this.isPlaying = this.progress < 1;
+        }
       }
 
       this.updatePosition();

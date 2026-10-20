@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GPXPoint, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
+import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
 
 export interface SpatialHUDCallbacks {
   onTogglePlay: () => void;
@@ -13,6 +14,7 @@ export interface SpatialHUDCallbacks {
   onExitMR: () => void;
   onScrub: (progress: number) => void;
   onSetSpeed: (speed: number) => void;
+  onSetPlaybackMode?: (mode: PlaybackMode) => void;
   onStepSeconds: (seconds: number) => void;
   onFocusHiker: () => void;
   onDockHUD?: (side: 'left' | 'right' | 'center') => void;
@@ -61,6 +63,7 @@ export class SpatialHUD {
   private elevationProvenance?: ElevationProvenanceStats;
   private isPlaying: boolean = false;
   private currentSpeed: number = 1.0;
+  private playbackMode: PlaybackMode = 'tour';
   private currentViewMode: ViewMode = 'diorama';
   private horizonLocked = true;
   private currentTextureStyle: TextureStyle = 'satellite';
@@ -370,58 +373,10 @@ export class SpatialHUD {
         h: 58,
         action: () => this.callbacks.onStepSeconds(10),
       },
-      // Speed 1x
-      {
-        id: 'spd-1',
-        x: 445,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 1.0;
-          this.callbacks.onSetSpeed(1.0);
-          this.drawHUD(true);
-        },
-      },
-      // Speed 5x
-      {
-        id: 'spd-5',
-        x: 535,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 5.0;
-          this.callbacks.onSetSpeed(5.0);
-          this.drawHUD(true);
-        },
-      },
-      // Speed 20x
-      {
-        id: 'spd-20',
-        x: 625,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 20.0;
-          this.callbacks.onSetSpeed(20.0);
-          this.drawHUD(true);
-        },
-      },
-      // Speed 60x
-      {
-        id: 'spd-60',
-        x: 715,
-        y: 410,
-        w: 80,
-        h: 58,
-        action: () => {
-          this.currentSpeed = 60.0;
-          this.callbacks.onSetSpeed(60.0);
-          this.drawHUD(true);
-        },
-      },
+      ...[0, 1, 2, 3].map(index => ({
+        id: `spd-${index}`, x: 445 + 90 * index, y: 410, w: 80, h: 58,
+        action: () => this.callbacks.onSetSpeed(playbackPresentation(this.playbackMode, this.currentViewMode, this.isPlaying).speeds[index]),
+      })),
       // Reset button
       {
         id: 'btn-reset',
@@ -511,6 +466,12 @@ export class SpatialHUD {
         id: 'btn-horizon-level', x: 350, y: 620, w: 260, h: 54,
         action: () => this.callbacks.onResetHorizon?.(),
       },
+      {
+        id: 'btn-playback-mode', x: 625, y: 620, w: 365, h: 54,
+        action: () => {
+          if (this.currentViewMode === 'diorama') this.callbacks.onSetPlaybackMode?.(this.playbackMode === 'tour' ? 'recorded' : 'tour');
+        },
+      },
     ];
   }
 
@@ -518,6 +479,12 @@ export class SpatialHUD {
     if (this.horizonLocked === locked) return;
     this.horizonLocked = locked;
     this.dynamicDirty = true;
+    this.drawHUD(true);
+  }
+
+  public setPlaybackMode(mode: PlaybackMode): void {
+    if (mode === this.playbackMode) return;
+    this.playbackMode = mode;
     this.drawHUD(true);
   }
 
@@ -981,6 +948,7 @@ export class SpatialHUD {
     for (const button of [
       { id: 'btn-horizon-lock', x: 35, width: 300, text: this.horizonLocked ? 'Horizon locked' : 'Horizon unlocked' },
       { id: 'btn-horizon-level', x: 350, width: 260, text: 'Level horizon' },
+      { id: 'btn-playback-mode', x: 625, width: 365, text: this.currentViewMode === 'first-person' ? 'Walking pace' : playbackPresentation(this.playbackMode, this.currentViewMode, this.isPlaying).label },
     ]) {
       const hover = this.hoveredAreaId === button.id;
       ctx.fillStyle = hover ? '#0284c7' : 'rgba(30, 41, 59, 0.85)';
@@ -1177,7 +1145,7 @@ export class SpatialHUD {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 19px sans-serif';
-    ctx.fillText(this.isPlaying ? '⏸ Pause' : this.currentViewMode === 'first-person' ? '▶ Walk Route' : '▶ Play Flyover', 50, 447);
+    ctx.fillText(playbackPresentation(this.playbackMode, this.currentViewMode, this.isPlaying).playLabel, 50, 447);
 
     // Step -10s Button
     const stepBackHover = this.hoveredAreaId === 'btn-step-back';
@@ -1200,7 +1168,7 @@ export class SpatialHUD {
     ctx.fillText(this.currentViewMode === 'first-person' ? '+1 m ⏩' : '+10s ⏩', 345, 446);
 
     // Speeds: 1x, 5x, 20x, 60x
-    const speeds = [1.0, 5.0, 20.0, 60.0];
+    const speeds = playbackPresentation(this.playbackMode, this.currentViewMode, this.isPlaying).speeds;
     const speedXs = [445, 535, 625, 715];
     if (this.currentViewMode === 'first-person') {
       ctx.fillStyle = '#1e293b';
@@ -1210,7 +1178,7 @@ export class SpatialHUD {
     } else speeds.forEach((spd, idx) => {
       const sx = speedXs[idx];
       const isSelected = Math.abs(this.currentSpeed - spd) < 0.05;
-      const hover = this.hoveredAreaId === `spd-${spd}`;
+      const hover = this.hoveredAreaId === `spd-${idx}`;
 
       ctx.fillStyle = isSelected
         ? '#0284c7'

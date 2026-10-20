@@ -10,6 +10,7 @@ import { XRManager } from './core/XRManager';
 import { TerrainResult } from './terrain/TerrainGenerator';
 import { TrailResult } from './visualization/TrailMesh';
 import { FlyoverController } from './visualization/FlyoverController';
+import { DioramaCameraFollow } from './visualization/DioramaCameraFollow.ts';
 import { DioramaBase } from './visualization/DioramaBase';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { DesktopOverlay } from './ui/DesktopOverlay';
@@ -114,11 +115,18 @@ export class TrekViewerApp {
   };
   private readonly onResize = () => {
     if (this.isDisposed) return;
+    const playerHeight = document.querySelector('.player-bar')?.getBoundingClientRect().height;
+    if (playerHeight) document.documentElement.style.setProperty('--trek-player-height', `${playerHeight}px`);
     if (this.desktopViewFitted && !this.sceneManager.renderer.xr.isPresenting && this.currentViewMode === 'diorama') this.frameDesktopDiorama();
   };
   private layoutObserver: ResizeObserver | null = null;
   private desktopViewFitted = false;
-  private readonly onOrbitStart = () => { this.desktopViewFitted = false; };
+  private readonly dioramaFollow = new DioramaCameraFollow();
+  private readonly followFocus = new THREE.Vector3();
+  private readonly onOrbitStart = () => {
+    this.desktopViewFitted = false;
+    this.session.setFollowRoute(false);
+  };
 
   constructor() {
     // Diagnostic instance count (Section 46)
@@ -170,6 +178,7 @@ export class TrekViewerApp {
     this.controls.target.set(0, 0, 0);
 
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
+      this.session.setFollowRoute(false);
       if (this.profileRecorder) {
         if (!this.profileRecorder.isRecording) this.startProfile();
         this.profileRecorder.mark(performance.now(), 'xr-session-start');
@@ -260,6 +269,11 @@ export class TrekViewerApp {
       onToggleViewMode: (mode) => this.setViewMode(mode),
       onTogglePlay: () => this.togglePlay(),
       onSetSpeed: (speed) => this.session.setSpeed(speed),
+      onSetPlaybackMode: (mode) => this.session.setPlaybackMode(mode),
+      onToggleFollowRoute: () => {
+        if (!this.currentTrack || this.currentViewMode !== 'diorama' || this.sceneManager.renderer.xr.isPresenting || this.graphicsRecovery?.isSuspended) return;
+        this.session.setFollowRoute(!this.session.getState().followRoute);
+      },
       onScrub: (progress) => {
         this.flyoverController?.setProgress(progress);
         this.session.setProgress(progress);
@@ -328,6 +342,19 @@ export class TrekViewerApp {
 
     // 6. Reactive State Subscriptions (Stage G)
     this.session.subscribe((state, prev) => {
+      if (state.followRoute !== prev.followRoute) {
+        this.overlay.setFollowRoute(state.followRoute);
+        if (state.followRoute) {
+          this.desktopViewFitted = false;
+          this.dioramaFollow.start(this.sceneManager.camera, this.controls.target);
+        }
+      }
+      if (state.playbackMode !== prev.playbackMode) {
+        this.flyoverController?.setPlaybackMode(state.playbackMode);
+        this.overlay.setPlaybackMode(state.playbackMode);
+        this.overlay.setPlaybackSpeed(state.playbackSpeed);
+        this.syncHUDState();
+      }
       if (state.qualityProfile !== prev.qualityProfile) {
         this.profileRecorder?.mark(performance.now(), 'quality-profile', state.qualityProfile);
         const profile = QualityProfileManager.getProfile(state.qualityProfile);
@@ -496,6 +523,7 @@ export class TrekViewerApp {
       newTrek.setDebugPatchBounds(true);
     }
 
+    newTrek.flyoverController.setPlaybackMode(state.playbackMode);
     newTrek.flyoverController.setSpeed(state.playbackSpeed);
     newTrek.flyoverController.setProgress(0);
     newTrek.flyoverController.pause();
@@ -516,6 +544,7 @@ export class TrekViewerApp {
   }
 
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
+    this.session.setFollowRoute(false);
     const track = newTrek.track;
 
     // 1. Setup Flyover Controller callback -> sync to session
@@ -569,6 +598,7 @@ export class TrekViewerApp {
         this.session.setProgress(progress);
       },
       onSetSpeed: (speed) => this.session.setSpeed(speed),
+      onSetPlaybackMode: (mode) => this.session.setPlaybackMode(mode),
       onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
       onFocusHiker: () => this.focusOnHiker(),
       onDockHUD: (side) => this.dockHUD(side),
@@ -683,6 +713,7 @@ export class TrekViewerApp {
 
   private syncHUDState(): void {
     const s = this.session.getState();
+    this.spatialHUD?.setPlaybackMode(s.playbackMode);
     this.spatialHUD?.updateState(
       s.progress,
       s.currentElevation,
@@ -708,6 +739,7 @@ export class TrekViewerApp {
   }
 
   private applyViewMode(mode: ViewMode, prevMode?: ViewMode): void {
+    this.session.setFollowRoute(false);
     this.overlay.setViewMode(mode);
     this.syncHUDState();
     const priorMode = prevMode ?? (mode === 'first-person' ? 'diorama' : 'first-person');
@@ -971,6 +1003,7 @@ export class TrekViewerApp {
 
   private frameDesktopDiorama(): void {
     if (this.sceneManager.renderer.xr.isPresenting || this.currentViewMode !== 'diorama' || this.graphicsRecovery?.isSuspended) return;
+    this.session.setFollowRoute(false);
     const terrain = this.activeTrek?.terrainResult.terrainMesh;
     if (!terrain) return;
     const root = this.sceneManager.dioramaRoot;
@@ -1254,10 +1287,6 @@ export class TrekViewerApp {
       console.warn('[TrekViewerApp] Error in xrManager.update:', e);
     }
 
-    // 2. Update OrbitControls on desktop when not in XR or first-person
-    if (this.controls.enabled && this.currentViewMode === 'diorama') {
-      this.controls.update();
-    }
     phaseStart = this.endProfilePhase(recorder, 'input', phaseStart);
 
     // 3. Update Flyover / Animation playback
@@ -1269,6 +1298,12 @@ export class TrekViewerApp {
         isPresenting
       );
     }
+    // Desktop flyover is opt-in. XR retains a stationary model and tracked viewer.
+    if (!isPresenting && this.currentViewMode === 'diorama' && this.session.getState().followRoute && this.trailResult) {
+      this.trailResult.hikerMarker.getWorldPosition(this.followFocus);
+      this.dioramaFollow.update(this.sceneManager.camera, this.controls.target, this.followFocus, delta);
+    }
+    if (this.controls.enabled && this.currentViewMode === 'diorama') this.controls.update();
     phaseStart = this.endProfilePhase(recorder, 'simulation', phaseStart);
 
     // Wait for the first valid XR camera pose before docking after session entry.

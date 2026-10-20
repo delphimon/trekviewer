@@ -1,0 +1,57 @@
+{
+  "fixture": "synthetic terrain; external sources deliberately unavailable",
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.001498635346941871
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "edeb169-modified-2026-10-20T00:20:23.122Z",
+        "sha": "edeb169bf3b7de3af433f8913eedebdfb173de29",
+        "shortSha": "edeb169",
+        "branch": "main",
+        "dirty": true,
+        "builtAt": "2026-10-20T00:20:23.122Z",
+        "label": "TrekViewer 1.0.0 • edeb169 (modified)"
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.0002941619003289114
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "edeb169-modified-2026-10-20T00:20:23.122Z",
+        "sha": "edeb169bf3b7de3af433f8913eedebdfb173de29",
+        "shortSha": "edeb169",
+        "branch": "main",
+        "dirty": true,
+        "builtAt": "2026-10-20T00:20:23.122Z",
+        "label": "TrekViewer 1.0.0 • edeb169 (modified)"
+      }
+    }
+  ]
+}

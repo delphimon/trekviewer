@@ -90,6 +90,7 @@ describe('Stage V3: First-Person Exaggeration on Route Switch & XR Active Camera
           terrainQuality: 'full',
         },
         flyoverController: {
+          setPlaybackMode: vi.fn(),
           setSpeed: vi.fn(),
           setProgress: vi.fn(),
           pause: vi.fn(),
@@ -109,6 +110,7 @@ describe('Stage V3: First-Person Exaggeration on Route Switch & XR Active Camera
 
       // Execute applySessionStateToTrek
       (app as any).applySessionStateToTrek(newTrek);
+      expect(newTrek.flyoverController.setPlaybackMode).toHaveBeenCalledWith('tour');
 
       // Invariant: Because viewMode is 'first-person', effective exaggeration applied to 3D components MUST be 1.0!
       expect(mockSetVerticalExaggeration).toHaveBeenCalledWith(1.0);

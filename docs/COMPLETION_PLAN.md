@@ -1,14 +1,16 @@
 # TrekViewer completion plan
 
-Updated October 18, 2026 (America/Los_Angeles), following the [current-state review](review-2026-10-16/STATE_REVIEW.md) of application revision `086ece3`. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
+Updated October 19, 2026 (America/Los_Angeles), incorporating the supplied architecture review, its verification against `edeb169`, and the user's revised diorama/flyover priority. The work from [the prior chat](codex://threads/01a1367f-44dc-7a92-9f73-5542191e510a) remains the baseline, including caching, source provenance, worker recovery and entry integrity. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
 
 ## Outcome and constraints
 
 Deliver a consistently sharp, stable and usable Quest VR/MR terrain viewer, with the best verified source data available under the user's no-paid-license personal-use constraint and sustained performance at the requested runtime target. Keep desktop inspection, horizon controls and direction chevrons working.
 
+**Product priority, October 19:** focus current development and acceptance on the tabletop diorama and route tours/flyover. Pause new 1:1 slope-walking and ground-level fidelity work; retain the existing mode and its regression safeguards. First-person acceptance is deferred and no longer blocks a diorama checkpoint. A tour should work independently of multi-day GPS timestamps. Desktop camera follow is opt-in; tabletop XR playback keeps the model anchored and leaves the tracked camera under runtime control.
+
 **Source policy clarification, October 17:** this is the user's personal/internal application, with no public product release planned. Free API-key imagery, DEM and lidar-derived sources are allowed when the applicable personal/internal plan costs nothing. An API key is not itself a reason to reject a finer or faster source. Verify hard limits, eligibility, attribution and caching rights; avoid plans that can incur usage charges. Keep private keys out of hosted bundles/repositories, using device-local configuration, a private backend or local data preparation as appropriate. Existing test-site publication remains a checkpoint workflow, distinct from a public product release.
 
-- High is the fidelity mode. Keep broad surrounding terrain, full-detail 1:1 inspection, source-native detail, accurate geometry/UVs and readable spatial controls as explicit requirements.
+- High is the fidelity mode. Keep broad surrounding terrain, source-native detail, accurate geometry/UVs and readable spatial controls as explicit requirements. Preserve existing 1:1 capabilities while their new development and native acceptance are deferred.
 - Balanced is an explicit user choice. Do not hide quality cuts inside High to make a performance result pass.
 - Source sampling is not native survey resolution, and neither is rendered mesh spacing or eye-buffer resolution. Report each honestly.
 - Preserve bounded memory/work and coarse coverage while fine data arrives. Do not increase limits blindly or promise full-detail coverage of an entire arbitrary route at once.
@@ -35,6 +37,16 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 ## Remaining checkpoints, in execution order
 
+### 0. Diorama route tour and optional desktop flyover
+
+- [x] Add a 90-second, distance-based tour at 1x, with 0.5x/1x/2x/3x speeds, pause/resume, scrubbing, replay and end-of-route stopping. Preserve recorded/estimated track timing as an explicit alternate.
+- [x] Share playback presentation policy between DOM and spatial controls; switching the time basis preserves route position and resets speed to 1x.
+- [x] Add optional desktop camera follow from above. Manual orbit/zoom, Fit terrain, route replacement, view-mode changes and XR entry release follow ownership.
+- [x] Complete local browser/lifecycle and automated validation: 615 tests pass (5 skipped), production build/typechecking pass, and desktop/mobile tour flows pass. The release gate still requires CI and hosted verification of the exact clean commit.
+- [ ] Accept the anchored tabletop tour, spatial controls and manipulation on-device. This does not depend on resuming 1:1 work.
+
+**Next architecture work:** use a tabletop native baseline to choose terrain batching or bounded publication work. Extend the shared UI presentation layer incrementally; extract XR manipulation state only with transition regressions. Investigate explicit cached/offline route packs for curated routes, accounting for source terms, archive size, decode/upload time and memory. Do not promise instant loading, remove live imports/caches, or replace the complete terrain pipeline without matched visual and device evidence. See [review response and checkpoint evidence](review-2026-10-19/DIORAMA_TOUR.md).
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.
@@ -49,7 +61,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 **October 17 status:** the exact `7d61b22` client was loaded and the Olympus/Bailey 1:1 position prepared. The user deferred headset testing. The host capture was stopped; no native run or acceptance is claimed. Reconfirm/reload the current published client and reattach capture when testing resumes, especially after another publication. Continue independent source/provenance work meanwhile.
 
 - [ ] Preconfigure the exact published build, route, progress, High/Aerial state and recorder before requesting headset participation. Preserve the `483e4d5` historical evidence; label it as a different run.
-- [ ] Use one prepared session covering stationary 1:1, slow up/down/side turns and returns to prior views, tabletop inspection, and VR/MR transitions. Keep comparable portions separate in the report.
+- [ ] Use one prepared session covering anchored tabletop inspection, route tour playback, manipulation, slow head turns and returns, and VR/MR transitions. Keep comparable portions separate in the report. First-person portions are deferred under the October 19 scope change.
 - [ ] Retrieve the completed device-saved report promptly and verify its recorded client build, presentation/blend mode and eye count. Keep a host copy before browser closure; test restart recovery during lifecycle acceptance.
 - [ ] Capture browser CPU stacks/Long Tasks and available Meta GPU, actual application/compositor frame delivery, dropped/reprojected frames, memory pressure and thermal metrics. Record measurement gaps explicitly.
 - [ ] Attribute evictions using budget/visible/desired counters, resident/desired sets and the same terrain sample points over time. Record geometry/texture publication work outside animation timers where needed.
@@ -82,7 +94,7 @@ The [persistent source-cache checkpoint](review-2026-10-17/RESOURCE_CACHE.md) ad
 
 ### 5. Consolidated usability, stability and sustained acceptance
 
-- [ ] Check controller and hand ownership, tracking loss/reacquisition, physical movement/recenter, seated use, walking/stepped movement/snap turning, horizon lock/reset and spatial text/target usability.
+- [ ] Check controller and hand ownership, tracking loss/reacquisition, physical movement/recenter, seated tabletop use, tour playback/scrubbing, horizon lock/reset and spatial text/target usability. Native first-person walking/stepped movement/snap-turn acceptance is deferred; retain automated regressions.
 - [ ] Check VR and MR entry, in-app exit and headset/system exit, repeated mode changes, reference-space reset, graphics interruption/recovery and clean re-entry. Confirm the observed XR frame-lifetime error does not recur in covered scenarios.
 - [ ] Complete a 15-minute mixed inspection/transition run, including cold loading and revisiting established views. Record thermal state and separate loading intervals from settled frame delivery.
 - [ ] Exit, wait for a committed report save, restart Quest Browser and verify that the same report/build remains downloadable.
