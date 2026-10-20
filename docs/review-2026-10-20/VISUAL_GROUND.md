@@ -15,3 +15,11 @@ Requested USGS local raster sampling remains approximately 1 m; rendered fine ce
 `npm run verify` passes both typechecks, **696 Windows tests with five platform skips**, and the production build. Two new application-loop regressions verify desktop/XR focus alignment, transformed model placement, unchanged telemetry and inspected-focus restoration. Desktop/mobile control checks additionally verify the focus against the actual marker rather than the analytical GPS value.
 
 Native 72 Hz performance and subjective DEM clarity remain unverified; the user deferred the next headset run. Complete tour loading and broad overview detail remain open.
+
+## Published checkpoint
+
+Application `e3d5b882c6e37362e3b469f9ffef5a500ecc4611` passed [CI](https://github.com/delphimon/trekviewer/actions/runs/39501376903), was rebuilt with a clean working tree, credential-scanned and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact build: `e3d5b88-2026-10-20T21:34:31.057Z`, entry `index-Ch59zhy4.js`.
+
+The [hosted full tour](visual-ground/hosted-full-tour-e3d5b88.json) confirms that exact client and completes playback to progress 1. All 367 playing/following focus samples agree with the visible hiker within 0.00001 m. Fine ground is ready in **264/367** samples, with first fine observation 1.752 seconds after monitoring begins. The difference from the local run is not a controlled speed improvement: cold service timing varies. Two workers are created and none close before teardown; page/GL errors are absent. Maximum paired image error is 0.0555/255 mean, 1.560/255 RMS, with at most 0.659% changed pixels, within the existing direct-rendering tolerances. Marker appearance checks pass.
+
+[Hosted desktop/mobile controls](visual-ground/hosted-controls-e3d5b88.json) pass Play/Follow, anchored model motion with no tracked-camera movement, spatial stop/start, manual takeover, sampled ridge clearance, imports, landmarks and route replacement. These controls ran near the end of the live audit; its recorded timing is not an isolated performance comparison. The evidence-only follow-up retains the measured clean application build above.

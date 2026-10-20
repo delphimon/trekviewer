@@ -131,7 +131,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 - [x] Reproduce the analytical GPS/smoothed visual-route mismatch and prioritize the marker's model-local ground during desktop and XR diorama Follow. Preserve telemetry, inspected focus when stopped, room transforms and existing resource/source policy.
 - [x] Verify 696 Windows tests, typechecking/build, full 90-second real-source desktop playback and desktop/mobile controls. See [visible-ground evidence and loading limits](review-2026-10-20/VISUAL_GROUND.md).
-- [ ] Publish through passing CI, a clean stamped rebuild and exact hosted-client validation.
+- [x] Publish clean `e3d5b88` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39501376903). Exact hosted full-tour and desktop/mobile checks pass; 264/367 fine-ground samples leave loading acceptance open. [Release evidence](review-2026-10-20/VISUAL_GROUND.md).
 - [ ] Resolve remaining full-tour fine-terrain gaps, broad overview detail and native performance/visual acceptance. Focus correctness alone does not close these gates.
 
 ### 1. Make High's actual XR rendering quality explicit
