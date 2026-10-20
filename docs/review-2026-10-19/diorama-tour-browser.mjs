@@ -96,6 +96,40 @@ try {
     await page.locator('#btnFollowRoute').click();
     await page.evaluate(xml => window.__trekViewerApp.loadTrackFromXML(xml.replace('Diorama tour fixture', 'Second route')), fixture);
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), false);
+    const loop = `<gpx><wpt lat="47" lon="-122"><name>Trailhead (Loop)</name><ele>100</ele></wpt>
+      <wpt lat="47.001" lon="-122.001"><name>Camp (Upper)</name><ele>250</ele></wpt>
+      <wpt lat="47.00105" lon="-122.001"><name>Camp (Lower)</name><ele>240</ele></wpt>
+      <trk><name>Loop landmarks</name><trkseg>
+      <trkpt lat="47" lon="-122"><ele>100</ele></trkpt>
+      <trkpt lat="47.001" lon="-122.001"><ele>250</ele></trkpt>
+      <trkpt lat="47.004" lon="-122.002"><ele>300</ele></trkpt>
+      <trkpt lat="47" lon="-122"><ele>100</ele></trkpt>
+      </trkseg></trk></gpx>`;
+    await page.evaluate(xml => window.__trekViewerApp.loadTrackFromXML(xml), loop);
+    const landmarks = await page.evaluate(() => {
+      const app = window.__trekViewerApp;
+      return { shared: app.overlay.routeLandmarks === app.spatialHUD.allLandmarksSorted,
+        list: app.routeLandmarks.map(item => ({ name: item.name, progress: item.progress })) };
+    });
+    assert.equal(landmarks.shared, true);
+    assert.equal(landmarks.list[0].progress, 0);
+    assert.equal(landmarks.list.at(-1).name, 'Finish');
+    assert.equal(landmarks.list.at(-1).progress, 1);
+    assert.ok(landmarks.list.some(item => item.name === 'Camp (Upper)'));
+    assert.ok(landmarks.list.some(item => item.name === 'Camp (Lower)'));
+    if (viewport.width < 900) await page.locator('#btnSettings').click();
+    await page.locator('#selectLandmark').selectOption(String(landmarks.list.findIndex(item => item.name === 'Camp (Upper)')));
+    assert.ok((await page.locator('#statusText').textContent()).includes('Camp (Upper)'));
+    await page.locator('#selectLandmark').selectOption(String(landmarks.list.length - 1));
+    assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().progress), 1);
+    await page.locator('#landmarksList button').filter({ hasText: 'Trailhead (Loop)' }).click();
+    assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().progress), 0);
+    await page.evaluate(() => {
+      const app = window.__trekViewerApp;
+      app.flyoverController.setProgress(0.9);
+      app.spatialHUD.jumpToNextLandmark();
+    });
+    assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().progress), 1);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     assert.equal(overflow, false);
     if (diagnostics === 'profile') {
@@ -105,7 +139,7 @@ try {
     }
     assert.deepEqual(errors, []);
     const build = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json());
-    results.push({ viewport, progress, spatial, following, overflow, pageErrors: errors, build });
+    results.push({ viewport, progress, spatial, following, landmarks, overflow, pageErrors: errors, build });
     console.log(JSON.stringify(results.at(-1)));
     await context.close();
   }

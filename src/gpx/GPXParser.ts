@@ -701,6 +701,7 @@ export class GPXParser {
         desc: `Beginning of route at ${Math.round(start.ele)} m (${Math.round(start.ele * 3.28084)} ft)`,
         sym: 'Start',
         type: 'start',
+        distanceMeters: start.distanceFromStart,
         isDerivedLandmark: true,
       });
     } else if (!nearStart.type) {
@@ -726,6 +727,7 @@ export class GPXParser {
           desc: `Maximum route elevation: ${Math.round(maxPt.ele)} m (${Math.round(maxPt.ele * 3.28084)} ft)`,
           sym: 'HighPoint',
           type: 'high_point',
+          distanceMeters: maxPt.distanceFromStart,
           isDerivedLandmark: true,
         });
       } else {
@@ -745,6 +747,7 @@ export class GPXParser {
           desc: `Minimum route elevation: ${Math.round(minPt.ele)} m (${Math.round(minPt.ele * 3.28084)} ft)`,
           sym: 'Valley',
           type: 'low_point',
+          distanceMeters: minPt.distanceFromStart,
           isDerivedLandmark: true,
         });
       }
@@ -782,6 +785,7 @@ export class GPXParser {
             desc: `Route continuation on ${cur.time.toLocaleDateString()}`,
             sym: 'DayBoundary',
             type: 'day_boundary',
+            distanceMeters: cur.distanceFromStart,
             isDerivedLandmark: true,
           });
         }
@@ -800,6 +804,7 @@ export class GPXParser {
             desc: `Extended rest stop (${Math.round(dtSec / 60)} min) at ${Math.round(cur.ele)} m`,
             sym: 'RestStop',
             type: 'stop',
+            distanceMeters: cur.distanceFromStart,
             isDerivedLandmark: true,
           });
         }
@@ -809,7 +814,7 @@ export class GPXParser {
     // 5. Finish
     const finish = points[points.length - 1];
     const nearFinish = isNearExplicit(finish.lat, finish.lon);
-    if (!nearFinish) {
+    if (!nearFinish || nearFinish.type === 'start') {
       landmarks.push({
         lat: finish.lat,
         lon: finish.lon,
@@ -818,6 +823,7 @@ export class GPXParser {
         desc: `End of route (${(finish.distanceFromStart / 1000).toFixed(1)} km)`,
         sym: 'Flag',
         type: 'finish',
+        distanceMeters: finish.distanceFromStart,
         isDerivedLandmark: true,
       });
     } else if (!nearFinish.type) {

@@ -1,10 +1,11 @@
-import { RouteManifestItem, TrackStats, GPXWaypoint, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
 import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
 import type { ComfortPreferences } from '../xr/ComfortPreferences.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { PersistentResourceCache } from '../terrain/PersistentResourceCache.ts';
 import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
+import { resolveRouteLandmarks, type RouteLandmark } from '../gpx/RouteLandmarks.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -19,7 +20,7 @@ export interface OverlayCallbacks {
   onSetTextureStyle: (style: TextureStyle) => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
   onSetVerticalExaggeration?: (val: number) => void;
-  onSelectWaypoint?: (name: string, lat: number, lon: number) => void;
+  onSelectWaypoint?: (name: string, lat: number, lon: number, progress?: number) => void;
   onSetQualityMode?: (mode: 'high' | 'balanced') => void;
   onSetComfort?: (preferences: Partial<ComfortPreferences>) => void;
   onSetHorizonLocked?: (locked: boolean) => void;
@@ -47,8 +48,9 @@ export class DesktopOverlay {
 
   // Cached elevation profile for high-performance scrubbing
   private cachedElevationSamples: { elevation: number; distance: number }[] = [];
+  private routeLandmarks: readonly RouteLandmark[] = [];
   private staticChartCanvas: HTMLCanvasElement | null = null;
-  private chartLandmarks: { x: number; y: number; radius: number; landmark: { name: string; lat: number; lon: number } }[] = [];
+  private chartLandmarks: { x: number; y: number; radius: number; landmark: RouteLandmark }[] = [];
 
   // DOM elements
   private statsTitle!: HTMLElement;
@@ -155,8 +157,9 @@ export class DesktopOverlay {
     this.statusBanner.style.display = 'none';
   }
 
-  public updateTrack(track: TrackStats): void {
+  public updateTrack(track: TrackStats, landmarks: readonly RouteLandmark[] = resolveRouteLandmarks(track)): void {
     this.currentTrack = track;
+    this.routeLandmarks = landmarks;
     this.updateFitAvailability();
     this.statsTitle.textContent = track.name;
 
@@ -211,7 +214,7 @@ export class DesktopOverlay {
     this.renderStaticChartBackground();
     this.updateScrubber(0, track.points[0]?.ele || track.minElevation);
     this.updateTrailLegend();
-    this.updateLandmarks(track);
+    this.updateLandmarks(track, landmarks);
   }
 
   private renderStaticChartBackground(): void {
@@ -262,50 +265,9 @@ export class DesktopOverlay {
 
     // Draw landmark markers along the elevation profile (Section 30)
     this.chartLandmarks = [];
-    const allLandmarks: GPXWaypoint[] = [];
-    const seen = new Set<string>();
-    const addLm = (item: GPXWaypoint) => {
-      const k = `${item.lat.toFixed(3)},${item.lon.toFixed(3)}`;
-      const nameKey = item.name.toLowerCase().trim();
-      if (seen.has(k) || seen.has(nameKey)) return;
-      seen.add(k);
-      seen.add(nameKey);
-      allLandmarks.push(item);
-    };
-
-    for (const lm of this.currentTrack.landmarks || []) {
-      if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
-        addLm(lm);
-      }
-    }
-    for (const wp of this.currentTrack.waypoints || []) {
-      addLm(wp);
-    }
-
-    for (const lm of allLandmarks) {
-      let prog = 0;
-      let bestEle = lm.ele ?? minE;
-
-      if (lm.projection) {
-        prog = lm.projection.progress;
-      } else if (lm.distanceMeters !== undefined && this.currentTrack.totalDistance > 0) {
-        prog = Math.min(1, Math.max(0, lm.distanceMeters / this.currentTrack.totalDistance));
-      } else {
-        let bestDistSq = Infinity;
-        let bestDistFromStart = 0;
-        const cosLat = Math.cos((lm.lat * Math.PI) / 180);
-        for (const p of this.currentTrack.points) {
-          const dLat = (p.lat - lm.lat) * 111320;
-          const dLon = (p.lon - lm.lon) * 111320 * cosLat;
-          const d = dLat * dLat + dLon * dLon;
-          if (d < bestDistSq) {
-            bestDistSq = d;
-            bestDistFromStart = p.distanceFromStart;
-            bestEle = p.ele;
-          }
-        }
-        prog = this.currentTrack.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / this.currentTrack.totalDistance)) : 0;
-      }
+    for (const lm of this.routeLandmarks) {
+      const prog = lm.progress;
+      const bestEle = lm.ele;
       const lx = prog * w;
       const ly = h - 6 - ((bestEle - minE) / spanE) * (h - 16);
 
@@ -331,7 +293,7 @@ export class DesktopOverlay {
         x: lx,
         y: ly,
         radius: 12,
-        landmark: { name: lm.name, lat: lm.lat, lon: lm.lon },
+        landmark: lm,
       });
     }
   }
@@ -833,16 +795,8 @@ export class DesktopOverlay {
     selectLandmark?.addEventListener('change', () => {
       const val = selectLandmark.value;
       if (!val) return;
-      const [latStr, lonStr] = val.split(',');
-      const lat = parseFloat(latStr);
-      const lon = parseFloat(lonStr);
-      const selectedOpt = selectLandmark.options[selectLandmark.selectedIndex];
-      let name = selectedOpt ? selectedOpt.textContent || '' : '';
-      const parenIdx = name.lastIndexOf(' (');
-      if (parenIdx > 0) {
-        name = name.substring(0, parenIdx).trim();
-      }
-      this.callbacks.onSelectWaypoint?.(name, lat, lon);
+      const landmark = this.routeLandmarks[Number(val)];
+      if (landmark) this.callbacks.onSelectWaypoint?.(landmark.name, landmark.lat, landmark.lon, landmark.progress);
       selectLandmark.selectedIndex = 0;
     });
 
@@ -855,7 +809,7 @@ export class DesktopOverlay {
       const clickY = (e.clientY - rect.top) * scaleY;
 
       // Check if clicked near a landmark pin on the elevation chart
-      let hitLandmark: { name: string; lat: number; lon: number } | null = null;
+      let hitLandmark: RouteLandmark | null = null;
       let bestDistSq = Infinity;
       for (const cl of this.chartLandmarks) {
         const dx = cl.x - clickX;
@@ -868,7 +822,7 @@ export class DesktopOverlay {
       }
 
       if (hitLandmark) {
-        this.callbacks.onSelectWaypoint?.(hitLandmark.name, hitLandmark.lat, hitLandmark.lon);
+        this.callbacks.onSelectWaypoint?.(hitLandmark.name, hitLandmark.lat, hitLandmark.lon, hitLandmark.progress);
       } else {
         const progress = Math.min(Math.max(clickX / this.canvasChart.width, 0), 1);
         this.callbacks.onScrub(progress);
@@ -966,34 +920,10 @@ export class DesktopOverlay {
     }
   }
 
-  private updateLandmarks(track: TrackStats): void {
+  private updateLandmarks(track: TrackStats, landmarks: readonly RouteLandmark[] = resolveRouteLandmarks(track)): void {
     const section = document.getElementById('landmarksSection');
     const list = document.getElementById('landmarksList');
     if (!section || !list) return;
-
-    const landmarks: { name: string; lat: number; lon: number; ele?: number; type?: string }[] = [];
-    const seen = new Set<string>();
-
-    const addLandmark = (item: { name: string; lat: number; lon: number; ele?: number; type?: string }) => {
-      const coordKey = `${item.lat.toFixed(3)},${item.lon.toFixed(3)}`;
-      const nameKey = item.name.toLowerCase().trim();
-      if (seen.has(coordKey) || seen.has(nameKey)) return;
-      seen.add(coordKey);
-      seen.add(nameKey);
-      landmarks.push(item);
-    };
-
-    // 1. Derived landmarks (Summit / High Point, Start, Finish, Day Boundaries)
-    for (const lm of track.landmarks || []) {
-      if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
-        addLandmark(lm);
-      }
-    }
-
-    // 2. Explicit GPX Waypoints
-    for (const wp of track.waypoints || []) {
-      addLandmark(wp);
-    }
 
     const selectEl = document.getElementById('selectLandmark') as HTMLSelectElement | null;
     if (landmarks.length === 0) {
@@ -1009,7 +939,7 @@ export class DesktopOverlay {
       selectEl.innerHTML = '<option value="" disabled selected>Jump to Landmark ▾</option>';
     }
 
-    for (const lm of landmarks) {
+    for (const [index, lm] of landmarks.entries()) {
       const chip = document.createElement('button');
       chip.className = 'landmark-chip';
       chip.type = 'button';
@@ -1033,14 +963,14 @@ export class DesktopOverlay {
       chip.title = `Jump route progress to ${lm.name}`;
 
       chip.addEventListener('click', () => {
-        this.callbacks.onSelectWaypoint?.(lm.name, lm.lat, lm.lon);
+        this.callbacks.onSelectWaypoint?.(lm.name, lm.lat, lm.lon, lm.progress);
       });
 
       list.appendChild(chip);
 
       if (selectEl) {
         const opt = document.createElement('option');
-        opt.value = `${lm.lat},${lm.lon}`;
+        opt.value = String(index);
         opt.textContent = `${lm.name}${eleText}`;
         selectEl.appendChild(opt);
       }

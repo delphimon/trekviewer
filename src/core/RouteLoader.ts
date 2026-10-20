@@ -246,13 +246,14 @@ export class RouteLoader {
       for (const wp of allWaypoints) {
         const proj = trail.routeGeometry.projectGeoPointToVisualRoute(wp.lat, wp.lon);
         wp.projection = proj;
-        (wp as any).distanceMeters = proj.routeDistanceMeters;
+        // Derived stations retain their known route distance on retraced/loop routes.
+        wp.distanceMeters ??= proj.routeDistanceMeters;
       }
       for (const lm of track.landmarks) {
         if (!lm.projection) {
           const proj = trail.routeGeometry.projectGeoPointToVisualRoute(lm.lat, lm.lon);
           lm.projection = proj;
-          (lm as any).distanceMeters = proj.routeDistanceMeters;
+          lm.distanceMeters ??= proj.routeDistanceMeters;
         }
       }
 

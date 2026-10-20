@@ -43,7 +43,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Share playback presentation policy between DOM and spatial controls; switching the time basis preserves route position and resets speed to 1x.
 - [x] Add optional desktop camera follow from above. Manual orbit/zoom, Fit terrain, route replacement, view-mode changes and XR entry release follow ownership.
 - [x] Complete local browser/lifecycle and automated validation: 615 tests pass (5 skipped), production build/typechecking pass, and desktop/mobile tour flows pass. The release gate still requires CI and hosted verification of the exact clean commit.
+- [x] Publish the clean `c2aab97` tour checkpoint after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39350321491); hosted desktop/mobile checks confirm the exact build and route-tour controls. [Hosted evidence](review-2026-10-19/diorama-tour/hosted-c2aab97.json).
 - [ ] Accept the anchored tabletop tour, spatial controls and manipulation on-device. This does not depend on resuming 1:1 work.
+
+### 0b. Share diorama landmark navigation
+
+- [x] Resolve and sort landmark route positions once per committed route for desktop chips/dropdown/profile and spatial navigation/profile. Preserve derived route-distance stations across repeated coordinates.
+- [x] Preserve loop Start/Finish as separate route positions, keep nearby named camps, and forward the exact selected progress instead of projecting the same coordinates back to Start. Preserve parenthesized waypoint names in dropdown selection.
+- [x] Verify focused landmark regressions, the full 619-test suite (5 skipped), typechecking/build and desktop/mobile loop-route controls. Publish using the same clean-commit/CI/hosted gate.
 
 **Next architecture work:** use a tabletop native baseline to choose terrain batching or bounded publication work. Extend the shared UI presentation layer incrementally; extract XR manipulation state only with transition regressions. Investigate explicit cached/offline route packs for curated routes, accounting for source terms, archive size, decode/upload time and memory. Do not promise instant loading, remove live imports/caches, or replace the complete terrain pipeline without matched visual and device evidence. See [review response and checkpoint evidence](review-2026-10-19/DIORAMA_TOUR.md).
 

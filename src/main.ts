@@ -28,6 +28,7 @@ import { configureDesktopInspection, fitInspectionBounds, levelHorizon, readHori
 import { GraphicsRecovery } from './core/GraphicsRecovery.ts';
 import { releaseGraphicsResources } from './core/GraphicsResources.ts';
 import { PersistentResourceCache } from './terrain/PersistentResourceCache.ts';
+import { resolveRouteLandmarks, type RouteLandmark } from './gpx/RouteLandmarks.ts';
 
 const _scratchV3 = new THREE.Vector3();
 
@@ -69,6 +70,7 @@ export class TrekViewerApp {
 
   private spatialHUD: SpatialHUD | null = null;
   private manifest: RouteManifestItem[] = [];
+  private routeLandmarks: readonly RouteLandmark[] = [];
 
   private lastTimestamp: number = performance.now();
   private isDebugMode: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
@@ -281,7 +283,7 @@ export class TrekViewerApp {
       onSetTextureStyle: (style) => this.setTextureStyle(style),
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
       onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
-      onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
+      onSelectWaypoint: (name, lat, lon, progress) => this.jumpToWaypoint(name, lat, lon, progress),
       onSetQualityMode: (mode) => {
         const isQuest = typeof navigator !== 'undefined' && /Quest|OculusBrowser/i.test(navigator.userAgent);
         const profileName = QualityProfileManager.resolveProfileName(mode, isQuest);
@@ -546,6 +548,7 @@ export class TrekViewerApp {
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
     this.session.setFollowRoute(false);
     const track = newTrek.track;
+    this.routeLandmarks = resolveRouteLandmarks(track);
 
     // 1. Setup Flyover Controller callback -> sync to session
     newTrek.flyoverController.setUpdateCallback((state) => {
@@ -602,8 +605,8 @@ export class TrekViewerApp {
       onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
       onFocusHiker: () => this.focusOnHiker(),
       onDockHUD: (side) => this.dockHUD(side),
-      onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
-    }, this.sceneManager.renderer.xr.isPresenting);
+      onSelectWaypoint: (name, lat, lon, progress) => this.jumpToWaypoint(name, lat, lon, progress),
+    }, this.sceneManager.renderer.xr.isPresenting, this.routeLandmarks);
     this.spatialHUD.setHorizonLocked(this.horizonLocked);
 
     // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
@@ -626,7 +629,7 @@ export class TrekViewerApp {
 
     // 6. Update 2D Overlay
     this.overlay.clearStatus();
-    this.overlay.updateTrack(track);
+    this.overlay.updateTrack(track, this.routeLandmarks);
     this.overlay.setXREnabled(true);
     const distMi = (track.totalDistance * 0.000621371).toFixed(1);
     const gainFt = Math.round(track.elevationGain * 3.28084);
@@ -1086,11 +1089,15 @@ export class TrekViewerApp {
     }
   }
 
-  public jumpToWaypoint(name: string, lat?: number, lon?: number): void {
+  public jumpToWaypoint(name: string, lat?: number, lon?: number, routeProgress?: number): void {
     if (!this.currentTrack || this.currentTrack.points.length === 0) return;
 
     let targetLat = lat;
     let targetLon = lon;
+    const presented = this.routeLandmarks?.find(item => item.name === name &&
+      (lat === undefined || Math.abs(item.lat - lat) < 1e-7) &&
+      (lon === undefined || Math.abs(item.lon - lon) < 1e-7));
+    const progressHint = routeProgress ?? presented?.progress;
 
     // If coordinates were not passed, resolve by name from waypoints or landmarks
     if (targetLat === undefined || targetLon === undefined) {
@@ -1116,9 +1123,14 @@ export class TrekViewerApp {
     let curPoint: any = null;
 
     if (this.activeTrek?.trailResult.routeGeometry) {
-      const proj = this.activeTrek.trailResult.routeGeometry.projectGeoPointToVisualRoute(targetLat, targetLon);
-      progress = proj.progress;
-      curDist = proj.routeDistanceMeters;
+      if (progressHint !== undefined && Number.isFinite(progressHint)) {
+        progress = Math.max(0, Math.min(1, progressHint));
+        curDist = progress * this.currentTrack.totalDistance;
+      } else {
+        const proj = this.activeTrek.trailResult.routeGeometry.projectGeoPointToVisualRoute(targetLat, targetLon);
+        progress = proj.progress;
+        curDist = proj.routeDistanceMeters;
+      }
       const telemetry = this.activeTrek.trailResult.routeGeometry.getTelemetryAtDistance(curDist);
       curEle = telemetry?.currentPoint.ele ?? telemetry?.position.y ?? this.currentTrack.minElevation;
       curPoint = telemetry?.currentPoint ?? null;

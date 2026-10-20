@@ -3,6 +3,7 @@ import type { GPXPoint, TrackStats, ViewMode, TextureStyle, TrailColorMode, Elev
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
+import { resolveRouteLandmarks, type RouteLandmark } from '../gpx/RouteLandmarks.ts';
 
 export interface SpatialHUDCallbacks {
   onTogglePlay: () => void;
@@ -18,7 +19,7 @@ export interface SpatialHUDCallbacks {
   onStepSeconds: (seconds: number) => void;
   onFocusHiker: () => void;
   onDockHUD?: (side: 'left' | 'right' | 'center') => void;
-  onSelectWaypoint?: (name: string, lat?: number, lon?: number) => void;
+  onSelectWaypoint?: (name: string, lat?: number, lon?: number, progress?: number) => void;
   onSetHorizonLocked?: (locked: boolean) => void;
   onResetHorizon?: () => void;
 }
@@ -81,16 +82,9 @@ export class SpatialHUD {
   private interactiveAreas: InteractiveArea[] = [];
   private isDraggingScrubber: boolean = false;
   private scrubPointer: string | null = null;
-  private allLandmarksSorted: {
-    name: string;
-    lat: number;
-    lon: number;
-    ele: number;
-    type?: string;
-    progress: number;
-  }[] = [];
+  private allLandmarksSorted: readonly RouteLandmark[] = [];
 
-  constructor(track: TrackStats, callbacks: SpatialHUDCallbacks, initiallyVisible: boolean = true) {
+  constructor(track: TrackStats, callbacks: SpatialHUDCallbacks, initiallyVisible: boolean = true, landmarks: readonly RouteLandmark[] = resolveRouteLandmarks(track)) {
     this.track = track;
     this.callbacks = callbacks;
     this.group = new THREE.Group();
@@ -112,50 +106,7 @@ export class SpatialHUD {
     // Cache elevation profile samples once upon construction
     this.cachedElevationSamples = GPXParser.sampleElevationProfile(track.points, 140);
 
-    // Extract, resolve route distance, and sort landmarks along route (Sections 28, 29)
-    const landmarksList: { name: string; lat: number; lon: number; ele: number; type?: string; progress: number }[] = [];
-    const rawLandmarks = [...(track.waypoints || [])];
-    for (const lm of track.landmarks || []) {
-      if (!rawLandmarks.some((w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005)) {
-        rawLandmarks.push(lm);
-      }
-    }
-    for (const lm of rawLandmarks) {
-      let prog = 0;
-      let bestEle = lm.ele ?? track.minElevation;
-
-      if (lm.projection) {
-        prog = lm.projection.progress;
-      } else if (lm.distanceMeters !== undefined && track.totalDistance > 0) {
-        prog = Math.min(1, Math.max(0, lm.distanceMeters / track.totalDistance));
-      } else {
-        let bestDistSq = Infinity;
-        let bestDistFromStart = 0;
-        const cosLat = Math.cos((lm.lat * Math.PI) / 180);
-        for (const p of track.points) {
-          const dLat = (p.lat - lm.lat) * 111320;
-          const dLon = (p.lon - lm.lon) * 111320 * cosLat;
-          const d = dLat * dLat + dLon * dLon;
-          if (d < bestDistSq) {
-            bestDistSq = d;
-            bestDistFromStart = p.distanceFromStart;
-            bestEle = p.ele;
-          }
-        }
-        prog = track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / track.totalDistance)) : 0;
-      }
-
-      landmarksList.push({
-        name: lm.name,
-        lat: lm.lat,
-        lon: lm.lon,
-        ele: bestEle,
-        type: lm.type,
-        progress: prog,
-      });
-    }
-    landmarksList.sort((a, b) => a.progress - b.progress);
-    this.allLandmarksSorted = landmarksList;
+    this.allLandmarksSorted = landmarks;
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -498,7 +449,7 @@ export class SpatialHUD {
         break;
       }
     }
-    this.callbacks.onSelectWaypoint?.(target.name, target.lat, target.lon);
+    this.callbacks.onSelectWaypoint?.(target.name, target.lat, target.lon, target.progress);
   }
 
   public jumpToNextLandmark(): void {
@@ -511,14 +462,14 @@ export class SpatialHUD {
         break;
       }
     }
-    this.callbacks.onSelectWaypoint?.(target.name, target.lat, target.lon);
+    this.callbacks.onSelectWaypoint?.(target.name, target.lat, target.lon, target.progress);
   }
 
   public jumpToCurrentLandmark(): void {
     if (this.allLandmarksSorted.length === 0) return;
     const nearest = this.getNearestLandmark();
     if (nearest) {
-      this.callbacks.onSelectWaypoint?.(nearest.name, nearest.lat, nearest.lon);
+      this.callbacks.onSelectWaypoint?.(nearest.name, nearest.lat, nearest.lon, nearest.progress);
     }
   }
 
@@ -845,38 +796,9 @@ export class SpatialHUD {
       ctx.fill();
 
       // Draw landmark markers directly on elevation curve (Requirement #117, #118)
-      const allLandmarks = [...(this.track.waypoints || [])];
-      for (const lm of this.track.landmarks || []) {
-        if (lm.type === 'summit' || lm.type === 'high_point' || lm.type === 'start' || lm.type === 'finish' || lm.type === 'day_boundary') {
-          if (!allLandmarks.some((w) => Math.hypot(w.lat - lm.lat, w.lon - lm.lon) < 0.0005)) {
-            allLandmarks.push(lm);
-          }
-        }
-      }
-
-      for (const lm of allLandmarks) {
-        let prog = 0;
-        let bestEle = lm.ele ?? minE;
-
-        if (lm.projection) {
-          prog = lm.projection.progress;
-        } else if (lm.distanceMeters !== undefined && this.track.totalDistance > 0) {
-          prog = Math.min(1, Math.max(0, lm.distanceMeters / this.track.totalDistance));
-        } else {
-          let bestDistSq = Infinity;
-          let bestDistFromStart = 0;
-          for (const p of this.track.points) {
-            const dLat = p.lat - lm.lat;
-            const dLon = (p.lon - lm.lon) * Math.cos((lm.lat * Math.PI) / 180);
-            const d = dLat * dLat + dLon * dLon;
-            if (d < bestDistSq) {
-              bestDistSq = d;
-              bestDistFromStart = p.distanceFromStart;
-              bestEle = p.ele;
-            }
-          }
-          prog = this.track.totalDistance > 0 ? Math.min(1, Math.max(0, bestDistFromStart / this.track.totalDistance)) : 0;
-        }
+      for (const lm of this.allLandmarksSorted) {
+        const prog = lm.progress;
+        const bestEle = lm.ele;
         const lx = chartX + 18 + prog * (chartW - 36);
         const normH = (bestEle - minE) / spanE;
         const ly = chartY + chartH - 24 - normH * (chartH - 48);
@@ -1099,18 +1021,10 @@ export class SpatialHUD {
         const spdMph = pt?.speed ? (pt.speed * 2.23694).toFixed(1) : (this.track.avgSpeed * 0.621371).toFixed(1);
         tipDetail = ` • ${spdMph} mph`;
       }
-      // Check if near landmark
-      let nearLandmark = '';
-      if (pt) {
-        const allLm = (this.track.landmarks || []).concat(this.track.waypoints || []);
-        for (const lm of allLm) {
-          const d = Math.hypot(pt.lat - lm.lat, (pt.lon - lm.lon) * Math.cos((pt.lat * Math.PI) / 180)) * 111320;
-          if (d < 150) {
-            nearLandmark = `${lm.name} • `;
-            break;
-          }
-        }
-      }
+      // Route distance keeps loop endpoints and repeat visits distinct.
+      const nearest = this.getNearestLandmark();
+      const nearLandmark = nearest && Math.abs(nearest.progress - this.currentProgress) * this.track.totalDistance < 150
+        ? `${nearest.name} • ` : '';
 
       const tipText = `${nearLandmark}${curEleFt.toLocaleString()} ft • ${curDistMi} mi${tipDetail}`;
       const boxW = Math.max(140, tipText.length * 7.5 + 20);

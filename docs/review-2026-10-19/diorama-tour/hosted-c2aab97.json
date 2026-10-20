@@ -1,0 +1,57 @@
+{
+  "fixture": "synthetic terrain; external sources deliberately unavailable",
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.001500434788834214
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "c2aab97-2026-10-20T00:22:39.215Z",
+        "sha": "c2aab97c42e44c793d06648465417a5d6ca784e5",
+        "shortSha": "c2aab97",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T00:22:39.215Z",
+        "label": "TrekViewer 1.0.0 • c2aab97"
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.0002941619003552545
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "c2aab97-2026-10-20T00:22:39.215Z",
+        "sha": "c2aab97c42e44c793d06648465417a5d6ca784e5",
+        "shortSha": "c2aab97",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T00:22:39.215Z",
+        "label": "TrekViewer 1.0.0 • c2aab97"
+      }
+    }
+  ]
+}
