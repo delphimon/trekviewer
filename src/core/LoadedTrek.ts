@@ -13,6 +13,8 @@ import type { GraphicsResource } from './GraphicsResources.ts';
 
 export interface LoadedTrekParams {
   experimentalImageryBatching?: boolean;
+  experimentalTerrainImagery?: boolean;
+  markerBatching?: boolean;
   track: TrackStats;
   terrainResult: TerrainResult;
   trailResult: TrailResult;
@@ -60,6 +62,8 @@ export class LoadedTrek {
       params.imageryLOD ||
       new ImageryLODManager({
         experimentalImageryBatching: params.experimentalImageryBatching,
+        experimentalTerrainImagery: params.experimentalTerrainImagery,
+        terrainTileGrid: params.terrainResult.tileGrid,
         terrainGeoBounds: params.terrainResult.terrainGeoBounds || params.track.bounds,
         terrainBaseElevation: params.terrainResult.terrainBaseElevation,
         elevationSampler: activeSampler,
@@ -96,7 +100,10 @@ export class LoadedTrek {
     this.group.add(this.imageryLOD.group);
     this.group.add(this.trailResult.group);
     this.group.add(this.dioramaBase);
+    this.setMarkerBatching(params.markerBatching !== false);
   }
+
+  public setMarkerBatching(enabled: boolean): void { DioramaBase.setMarkerBatching(this.dioramaBase, enabled); }
 
   public get isDisposed(): boolean {
     return this._isDisposed;
@@ -210,6 +217,7 @@ export class LoadedTrek {
     this.imageryLOD.dispose();
 
     // 6. Release diorama plinth and waypoint markers
+    this.setMarkerBatching(false);
     if (this.dioramaBase.parent) {
       this.dioramaBase.parent.remove(this.dioramaBase);
     }

@@ -20,6 +20,9 @@ export interface ProfileCounters extends Partial<XRRenderQualityCounters> {
   resourceCacheWriteFailed?: boolean;
   imageryPatches: number;
   imageryBatchStatus?: string;
+  imageryBatchMode?: string;
+  imageryLookupMB?: number;
+  imageryReclippingAvoidedTotal?: number;
   imageryBatchedPatches?: number;
   /** CPU preparation only; array/geometry sizes are owned-buffer accounting, not total GPU memory. */
   imageryBatchPreparationMs?: number;

@@ -1,5 +1,7 @@
 # Opt-in lit imagery batching
 
+**Superseded normal renderer:** [direct terrain sampling](DIRECT_TERRAIN.md) now avoids the duplicated imagery geometry and batches opaque waypoint shapes by default on supported devices. This document describes the earlier opt-in clipped-mesh experiment; its historical default-policy statements do not describe the newer implementation. Native acceptance remains open.
+
 `?imageryBatch=1` enables a bounded submission prototype. The normal URL retains the existing renderer. This addresses the independent imagery draw submissions identified in the [second review](REVIEW_RESPONSE.md); it does not replace CPU surface clipping, improve the DEM source, or establish native frame delivery.
 
 The [live-source follow-up](LIVE_IMAGERY_BATCHING.md) adds real imagery/3DEP tour comparisons, preparation timing and a soft 2 ms copying allowance. The generated-fixture results below describe the original `a570fcb` checkpoint; use the follow-up for the later application and remaining coverage/publication gaps.

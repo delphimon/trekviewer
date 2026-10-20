@@ -152,3 +152,27 @@ it('bounds diagnostic outlines independently of terrain triangle density', () =>
   for (let i = 0; i < positions.count; i++) expect(positions.getY(i)).toBeCloseTo((positions.getX(i) + positions.getZ(i) + 100) * 2 + 0.1, 3);
   outline.geometry.dispose(); (outline.material as THREE.Material).dispose(); geometry.dispose();
 });
+
+it('publishes direct-shaded terrain without reclipping owned imagery, then refreshes the legacy fallback before release completes', async () => {
+  const { group, base, chunk, tile } = fixture();
+  const lod: any = Object.create(ImageryLODManager.prototype);
+  lod.options = { terrainMesh: base, terrainGeoBounds: { centerLat: 46, centerLon: -120 } };
+  lod.surfaceLifetime = new AbortController(); lod.currentGeneration = 0; lod.verticalExaggeration = 1; lod.surfaceRevision = 0;
+  lod.preparedSurfaceKeys = new Set(); lod.staleDirectPatches = new Set(); lod.directRefreshDepth = 0; lod.directReprojectionsAvoided = 0;
+  const geometry = new THREE.PlaneGeometry(600, 600, 1, 1); geometry.rotateX(-Math.PI / 2); geometry.computeBoundingBox();
+  const key = `satellite:15:${tile.x}:${tile.y}`, patch: any = { key, ...tile, zoom: 15, mesh: new THREE.Mesh(geometry) };
+  lod.patches = new Map([[key, patch]]);
+  lod.terrainImagery = { dispose: vi.fn() }; lod.batchRenderer = { owns: () => true, clear: vi.fn() };
+  const publish = await lod.prepareSurfacePromotion(chunk);
+  expect(publish()).toBe(true); expect(patch.mesh.geometry).toBe(geometry);
+  base.geometry.userData.surfaceHoles = [chunk.getSurfaceBounds()]; group.add(chunk.mesh);
+  lod.buildPatchGeometry = vi.fn(); lod.reprojectPatches(undefined, chunk.getSurfaceBounds());
+  expect(lod.buildPatchGeometry).not.toHaveBeenCalled(); expect(lod.staleDirectPatches.has(key)).toBe(true);
+  expect(lod.directReprojectionsAvoided).toBe(1);
+  await lod.releaseBatches();
+  expect(patch.mesh.geometry).not.toBe(geometry); expect(lod.staleDirectPatches.size).toBe(0);
+  expect(lod.directRefreshDepth).toBe(0);
+  const heights = patch.mesh.geometry.attributes.position.array;
+  expect(heights.some((value: number, i: number) => i % 3 === 1 && value > 150)).toBe(true);
+  patch.mesh.geometry.dispose(); chunk.dispose(); base.geometry.dispose();
+});

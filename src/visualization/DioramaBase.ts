@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GeoBounds, GPXWaypoint } from '../gpx/TrackTypes';
 import { geoToLocalMeters } from '../gpx/Coordinates';
 import type { TerrainSurfaceBounds } from '../terrain/TerrainGenerator';
+import { WaypointInstanceRenderer } from './WaypointInstanceRenderer.ts';
 
 export const BASE_MARKER_DIAMETER_LOCAL = 12.0; // OctahedronGeometry(6, 0) bounding diameter = 12 units
 export const DESIRED_MARKER_DIAMETER_WORLD = 0.025; // 2.5 cm world diameter (Section 29)
@@ -13,8 +14,15 @@ const _scratchLabelPos = new THREE.Vector3();
 const _scratchWorldScale = new THREE.Vector3();
 const _scratchPinWorldScale = new THREE.Vector3();
 const _scratchPinPosition = new THREE.Vector3();
+const markerBatches = new WeakMap<THREE.Group, WaypointInstanceRenderer>();
 
 export class DioramaBase {
+  public static setMarkerBatching(base: THREE.Group, enabled: boolean): void {
+    if (!enabled) { markerBatches.get(base)?.dispose(); markerBatches.delete(base); return; }
+    if (markerBatches.has(base)) return;
+    const waypoints = base.getObjectByName('Waypoints');
+    if (waypoints) markerBatches.set(base, new WaypointInstanceRenderer(base, waypoints));
+  }
   /**
    * Creates a museum-grade architectural pedestal base with compass rose, scale bar, and waypoint markers.
    */
@@ -252,6 +260,7 @@ export class DioramaBase {
     const stalkGeo = new THREE.CylinderGeometry(0.8, 0.8, 12, 8);
     const stalkMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
     const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+    stalk.name = 'WaypointStalkMesh';
     stalk.userData = { waypoint: wp };
     stalk.position.y = 6;
     pin.add(stalk);
@@ -504,6 +513,7 @@ export class DioramaBase {
         }
       }
     }
+    markerBatches.get(baseGroup)?.update();
   }
 
   /**

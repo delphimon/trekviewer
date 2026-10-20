@@ -1,0 +1,4099 @@
+{
+  "condition": "Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; it is not full-tour or native acceptance.",
+  "build": {
+    "id": "fd97a0f-modified-2026-10-20T17:06:16.014Z",
+    "sha": "fd97a0fd1e790298bf65f25160bd77e8bdccb5aa",
+    "shortSha": "fd97a0f",
+    "branch": "main",
+    "dirty": true,
+    "builtAt": "2026-10-20T17:06:16.014Z",
+    "label": "TrekViewer 1.0.0 • fd97a0f (modified)"
+  },
+  "entry": "index-TQFSCxLQ.js",
+  "provider": "public-default",
+  "checkpoints": [
+    {
+      "elapsedMs": 5156,
+      "label": "overview",
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 6,
+        "status": "active",
+        "pages": 1,
+        "patches": 11,
+        "uploads": 22,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 26.200000047683716,
+        "maxPreparationMs": 2.599999964237213,
+        "arrayBytes": 11184768,
+        "geometryBytes": 0
+      },
+      "counters": {
+        "xrRequestedFoveation": 0,
+        "xrLayerFoveation": null,
+        "xrLayerFoveationSupported": null,
+        "xrFramebufferScaleRequested": 1,
+        "xrLayerType": "none",
+        "xrLayerWidth": null,
+        "xrLayerHeight": null,
+        "xrLayerArrayLength": null,
+        "xrEyeViewports": [],
+        "xrPresenting": false,
+        "xrEnvironmentBlendMode": "none",
+        "xrEyeCount": 0,
+        "drawCalls": 98,
+        "triangles": 1026269,
+        "geometries": 92,
+        "textures": 17,
+        "tileCacheEntries": 32,
+        "tileCacheDecodedMB": 8,
+        "resourceCacheHits": 0,
+        "resourceCacheMisses": 54,
+        "resourceCacheWrites": 43,
+        "resourceCacheWriteFailed": false,
+        "imageryPatches": 19,
+        "imageryBatchStatus": "active",
+        "imageryBatchMode": "terrain",
+        "imageryLookupMB": 3.2613067626953125,
+        "imageryReclippingAvoidedTotal": 6,
+        "imageryBatchedPatches": 11,
+        "imageryBatchPreparationMs": 0,
+        "imageryBatchArrayMB": 10.6666259765625,
+        "imageryBatchGeometryMB": 0,
+        "imageryCoveragePercent": 44,
+        "firstPersonViewSamples": 0,
+        "firstPersonHighResSamples": 0,
+        "firstPersonViewMinZoom": 0,
+        "firstPersonViewMeanZoom": 0,
+        "firstPersonLocalSurfaceRays": 0,
+        "firstPersonBaseSurfaceRays": 0,
+        "baseTerrainCellXM": 94.3,
+        "baseTerrainCellZM": 94.2,
+        "baseDemZoom": 0,
+        "regionalBaseDemZoom": 0,
+        "regionalBaseTiles": 0,
+        "baseElevationSource": "USGS 3DEP best available (public domain)",
+        "localElevationSource": "USGS 3DEP best available (public domain)",
+        "localElevationSampleSpacingM": 1.000073900910897,
+        "residentUSGSRasterMB": 34.8638916015625,
+        "visibleLocalDemZoom": 0,
+        "visibleLocalCellXM": 4.960538609181089,
+        "visibleLocalCellZM": 4.956625377512912,
+        "regionalDemEnabled": true,
+        "visibleLocalRegionalTiles": 0,
+        "visibleLocalAwsTiles": 0,
+        "imageryInFlight": 6,
+        "imageryTargetZoom": 13,
+        "imageryFocusSource": "center",
+        "imageryDesiredTiles": 43,
+        "imageryVisiblePatches": 19,
+        "imageryVisibleBySource": {
+          "usgs-overview": 19
+        },
+        "imageryVisibleFineBySource": {},
+        "imageryVisibleAlternativeSources": 0,
+        "imageryCreatedTotal": 19,
+        "imageryDisposedTotal": 0,
+        "imageryBudgetEvictionsTotal": 0,
+        "imageryVisibleBudgetEvictionsTotal": 0,
+        "imageryDesiredBudgetEvictionsTotal": 0,
+        "tileCacheFailures": 0,
+        "localTerrainChunks": 10,
+        "localTerrainFocusChangesTotal": 2,
+        "qualityProfile": "quest-high",
+        "viewMode": "diorama",
+        "playbackMode": "tour",
+        "playbackSpeed": 1,
+        "isPlaying": false,
+        "followRoute": false,
+        "routeProgress": 0,
+        "hudVisible": false,
+        "hudUploadRequestsTotal": 0,
+        "hudUploadBytesRequestedTotal": 0,
+        "textureStyle": "satellite",
+        "imageryProvider": "public-naip",
+        "routeName": "Olympus and Bailey Range June 2026"
+      },
+      "preparationMs": 5.099999964237213,
+      "legacyCalls": 109,
+      "batchedCalls": 98,
+      "legacyTriangles": 1462021,
+      "batchedTriangles": 1026269,
+      "legacyObjects": [
+        [
+          "Mesh (unnamed)",
+          24
+        ],
+        [
+          "WaypointRingMesh",
+          24
+        ],
+        [
+          "LocalHighResTerrainMesh",
+          10
+        ],
+        [
+          "BaseTerrainMesh",
+          1
+        ],
+        [
+          "WaypointDiamondInstances",
+          1
+        ],
+        [
+          "WaypointStalkInstances",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1285:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1286:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1286:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2855",
+          1
+        ]
+      ],
+      "batchedObjects": [
+        [
+          "Mesh (unnamed)",
+          24
+        ],
+        [
+          "WaypointRingMesh",
+          24
+        ],
+        [
+          "LocalHighResTerrainMesh",
+          10
+        ],
+        [
+          "BaseTerrainMesh",
+          1
+        ],
+        [
+          "WaypointDiamondInstances",
+          1
+        ],
+        [
+          "WaypointStalkInstances",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1286:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1286:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2855",
+          1
+        ]
+      ],
+      "maxError": 79,
+      "differentPixels": 935,
+      "meanChannelError": 0.013445625,
+      "pixelCount": 800000,
+      "rmsChannelError": 0.5505270202269822,
+      "glErrors": [
+        0,
+        0
+      ],
+      "patches": {
+        "total": 19,
+        "visible": 19,
+        "fading": 8,
+        "vertices": 253708,
+        "imageSizes": [
+          "256x256"
+        ],
+        "zooms": [
+          13
+        ]
+      },
+      "overview": {
+        "tileGrid": {
+          "zoom": 12,
+          "tileXMin": 636,
+          "tileXMax": 643,
+          "tileYMin": 1423,
+          "tileYMax": 1428,
+          "numTilesX": 8,
+          "numTilesY": 6
+        },
+        "grid": {
+          "width": 1024,
+          "height": 675,
+          "source": "USGS 3DEP best available (public domain)",
+          "spacing": 44.03271400762315
+        },
+        "mesh": {
+          "width": 40904.6013713073,
+          "depth": 26934.302301405136,
+          "segmentsX": 434,
+          "segmentsZ": 286
+        },
+        "chunks": [
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900910897,
+            "bounds": {
+              "minX": -15928.289474080491,
+              "maxX": -15174.287605484966,
+              "minZ": 6874.839398610402,
+              "maxZ": 7628.246455992365
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009082753,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": 8381.653513374327,
+              "maxZ": 9135.060570756286
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 18755.79648131371,
+              "maxX": 19509.79834990924,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009082753,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": 8381.653513374327,
+              "maxZ": 9135.060570756286
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900910897,
+            "bounds": {
+              "minX": 18755.79648131371,
+              "maxX": 19509.79834990924,
+              "minZ": 6874.839398610402,
+              "maxZ": 7628.246455992365
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009111403,
+            "bounds": {
+              "minX": -15928.289474080491,
+              "maxX": -15174.287605484966,
+              "minZ": 6121.432341228439,
+              "maxZ": 6874.839398610402
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181065,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 19509.79834990924,
+              "maxX": 20263.800218504763,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900910897,
+            "bounds": {
+              "minX": -15174.287605484966,
+              "maxX": -14420.28573688944,
+              "minZ": 6874.839398610402,
+              "maxZ": 7628.246455992365
+            }
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 21078,
+      "label": "following-15s",
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 240,
+        "status": "active",
+        "pages": 3,
+        "patches": 87,
+        "uploads": 185,
+        "failures": 0,
+        "lastPreparationMs": 0.09999996423721313,
+        "totalPreparationMs": 217.20000004768372,
+        "maxPreparationMs": 8.399999976158142,
+        "arrayBytes": 33554304,
+        "geometryBytes": 0
+      },
+      "counters": {
+        "xrRequestedFoveation": 0,
+        "xrLayerFoveation": null,
+        "xrLayerFoveationSupported": null,
+        "xrFramebufferScaleRequested": 1,
+        "xrLayerType": "none",
+        "xrLayerWidth": null,
+        "xrLayerHeight": null,
+        "xrLayerArrayLength": null,
+        "xrEyeViewports": [],
+        "xrPresenting": false,
+        "xrEnvironmentBlendMode": "none",
+        "xrEyeCount": 0,
+        "drawCalls": 75,
+        "triangles": 2081696,
+        "geometries": 182,
+        "textures": 35,
+        "tileCacheEntries": 135,
+        "tileCacheDecodedMB": 33.8,
+        "resourceCacheHits": 5,
+        "resourceCacheMisses": 319,
+        "resourceCacheWrites": 251,
+        "resourceCacheWriteFailed": false,
+        "imageryPatches": 87,
+        "imageryBatchStatus": "active",
+        "imageryBatchMode": "terrain",
+        "imageryLookupMB": 3.2613067626953125,
+        "imageryReclippingAvoidedTotal": 240,
+        "imageryBatchedPatches": 87,
+        "imageryBatchPreparationMs": 0.09999996423721313,
+        "imageryBatchArrayMB": 31.9998779296875,
+        "imageryBatchGeometryMB": 0,
+        "imageryCoveragePercent": 100,
+        "firstPersonViewSamples": 0,
+        "firstPersonHighResSamples": 0,
+        "firstPersonViewMinZoom": 0,
+        "firstPersonViewMeanZoom": 0,
+        "firstPersonLocalSurfaceRays": 0,
+        "firstPersonBaseSurfaceRays": 0,
+        "baseTerrainCellXM": 94.3,
+        "baseTerrainCellZM": 94.2,
+        "baseDemZoom": 0,
+        "regionalBaseDemZoom": 0,
+        "regionalBaseTiles": 0,
+        "baseElevationSource": "USGS 3DEP best available (public domain)",
+        "localElevationSource": "USGS 3DEP best available (public domain)",
+        "localElevationSampleSpacingM": 1.0000739009283894,
+        "residentUSGSRasterMB": 118.5372314453125,
+        "visibleLocalDemZoom": 0,
+        "visibleLocalCellXM": 4.960538609181089,
+        "visibleLocalCellZM": 4.9566253775129,
+        "regionalDemEnabled": true,
+        "visibleLocalRegionalTiles": 0,
+        "visibleLocalAwsTiles": 0,
+        "imageryInFlight": 0,
+        "imageryTargetZoom": 13,
+        "imageryFocusSource": "center",
+        "imageryDesiredTiles": 69,
+        "imageryVisiblePatches": 87,
+        "imageryVisibleBySource": {
+          "usgs-overview": 87
+        },
+        "imageryVisibleFineBySource": {},
+        "imageryVisibleAlternativeSources": 0,
+        "imageryCreatedTotal": 87,
+        "imageryDisposedTotal": 0,
+        "imageryBudgetEvictionsTotal": 0,
+        "imageryVisibleBudgetEvictionsTotal": 0,
+        "imageryDesiredBudgetEvictionsTotal": 0,
+        "tileCacheFailures": 0,
+        "localTerrainChunks": 34,
+        "localTerrainFocusChangesTotal": 119,
+        "qualityProfile": "quest-high",
+        "viewMode": "diorama",
+        "playbackMode": "tour",
+        "playbackSpeed": 1,
+        "isPlaying": true,
+        "followRoute": true,
+        "routeProgress": 0.16672999999986754,
+        "hudVisible": false,
+        "hudUploadRequestsTotal": 0,
+        "hudUploadBytesRequestedTotal": 0,
+        "textureStyle": "satellite",
+        "imageryProvider": "public-naip",
+        "routeName": "Olympus and Bailey Range June 2026"
+      },
+      "preparationMs": 41.299999952316284,
+      "legacyCalls": 125,
+      "batchedCalls": 75,
+      "legacyTriangles": 3791388,
+      "batchedTriangles": 2081696,
+      "legacyObjects": [
+        [
+          "LocalHighResTerrainMesh",
+          34
+        ],
+        [
+          "Mesh (unnamed)",
+          14
+        ],
+        [
+          "WaypointRingMesh",
+          10
+        ],
+        [
+          "BaseTerrainMesh",
+          1
+        ],
+        [
+          "WaypointDiamondInstances",
+          1
+        ],
+        [
+          "WaypointStalkInstances",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1274:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2850",
+          1
+        ]
+      ],
+      "batchedObjects": [
+        [
+          "LocalHighResTerrainMesh",
+          34
+        ],
+        [
+          "Mesh (unnamed)",
+          14
+        ],
+        [
+          "WaypointRingMesh",
+          10
+        ],
+        [
+          "BaseTerrainMesh",
+          1
+        ],
+        [
+          "WaypointDiamondInstances",
+          1
+        ],
+        [
+          "WaypointStalkInstances",
+          1
+        ]
+      ],
+      "maxError": 147,
+      "differentPixels": 3014,
+      "meanChannelError": 0.0442084375,
+      "pixelCount": 800000,
+      "rmsChannelError": 1.5030343267869832,
+      "glErrors": [
+        0,
+        0
+      ],
+      "patches": {
+        "total": 87,
+        "visible": 87,
+        "fading": 0,
+        "vertices": 945354,
+        "imageSizes": [
+          "256x256"
+        ],
+        "zooms": [
+          13
+        ]
+      },
+      "overview": {
+        "tileGrid": {
+          "zoom": 12,
+          "tileXMin": 636,
+          "tileXMax": 643,
+          "tileYMin": 1423,
+          "tileYMax": 1428,
+          "numTilesX": 8,
+          "numTilesY": 6
+        },
+        "grid": {
+          "width": 1024,
+          "height": 675,
+          "source": "USGS 3DEP best available (public domain)",
+          "spacing": 44.03271400762315
+        },
+        "mesh": {
+          "width": 40904.6013713073,
+          "depth": 26934.302301405136,
+          "segmentsX": 434,
+          "segmentsZ": 286
+        },
+        "chunks": [
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009283894,
+            "bounds": {
+              "minX": -6126.265182338651,
+              "maxX": -5372.263313743126,
+              "minZ": -4426.266462119025,
+              "maxZ": -3672.8594047370643
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009186124,
+            "bounds": {
+              "minX": -2356.2558393610198,
+              "maxX": -1602.2539707654942,
+              "minZ": 847.582939554708,
+              "maxZ": 1600.9899969366688
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181102,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -9896.274525316283,
+              "maxX": -9142.272656720756,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009283894,
+            "bounds": {
+              "minX": -848.2521021699686,
+              "maxX": -94.25023357444297,
+              "minZ": -4426.266462119025,
+              "maxZ": -3672.8594047370643
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009186124,
+            "bounds": {
+              "minX": -1602.2539707654942,
+              "maxX": -848.2521021699686,
+              "minZ": 847.582939554708,
+              "maxZ": 1600.9899969366688
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009203845,
+            "bounds": {
+              "minX": 2167.7553722121374,
+              "maxX": 2921.757240807663,
+              "minZ": 1600.9899969366688,
+              "maxZ": 2354.3970543186315
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181078,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -4618.261445147598,
+              "maxX": -3864.2595765520746,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181102,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.00007390091511,
+            "bounds": {
+              "minX": -5372.263313743126,
+              "maxX": -4618.261445147598,
+              "minZ": 4614.618226464518,
+              "maxZ": 5368.02528384648
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.00007390091511,
+            "bounds": {
+              "minX": -8388.27078812523,
+              "maxX": -7634.268919529704,
+              "minZ": 4614.618226464518,
+              "maxZ": 5368.02528384648
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181102,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009278599,
+            "bounds": {
+              "minX": -5372.263313743126,
+              "maxX": -4618.261445147598,
+              "minZ": -5179.673519500988,
+              "maxZ": -4426.266462119025
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -9142.272656720756,
+              "maxX": -8388.27078812523,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009152309,
+            "bounds": {
+              "minX": -2356.2558393610198,
+              "maxX": -1602.2539707654942,
+              "minZ": 5368.02528384648,
+              "maxZ": 6121.432341228439
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009283894,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": -4426.266462119025,
+              "maxZ": -3672.8594047370643
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": -3864.2595765520746,
+              "maxX": -3110.2577079565453,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -848.2521021699686,
+              "maxX": -94.25023357444297,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181078,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009278599,
+            "bounds": {
+              "minX": -4618.261445147598,
+              "maxX": -3864.2595765520746,
+              "minZ": -5179.673519500988,
+              "maxZ": -4426.266462119025
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -8388.27078812523,
+              "maxX": -7634.268919529704,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181078,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.00007390091511,
+            "bounds": {
+              "minX": -4618.261445147598,
+              "maxX": -3864.2595765520746,
+              "minZ": 4614.618226464518,
+              "maxZ": 5368.02528384648
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.00007390091511,
+            "bounds": {
+              "minX": -1602.2539707654942,
+              "maxX": -848.2521021699686,
+              "minZ": 4614.618226464518,
+              "maxZ": 5368.02528384648
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181102,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": -7634.268919529704,
+              "maxX": -6880.267050934177,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": -3110.2577079565453,
+              "maxX": -2356.2558393610198,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009278599,
+            "bounds": {
+              "minX": -3864.2595765520746,
+              "maxX": -3110.2577079565453,
+              "minZ": -5179.673519500988,
+              "maxZ": -4426.266462119025
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.00007390091511,
+            "bounds": {
+              "minX": -848.2521021699686,
+              "maxX": -94.25023357444297,
+              "minZ": 4614.618226464518,
+              "maxZ": 5368.02528384648
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181102,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900922247,
+            "bounds": {
+              "minX": -7634.268919529704,
+              "maxX": -6880.267050934177,
+              "minZ": 94.17588217274533,
+              "maxZ": 847.582939554708
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": -6880.267050934177,
+              "maxX": -6126.265182338651,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009278599,
+            "bounds": {
+              "minX": 1413.7535036166119,
+              "maxX": 2167.7553722121374,
+              "minZ": -5179.673519500988,
+              "maxZ": -4426.266462119025
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": -2356.2558393610198,
+              "maxX": -1602.2539707654942,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512906
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009299013,
+            "bounds": {
+              "minX": -3110.2577079565453,
+              "maxX": -2356.2558393610198,
+              "minZ": -5933.08057688295,
+              "maxZ": -5179.673519500988
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": 1413.7535036166119,
+              "maxX": 2167.7553722121374,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": -1602.2539707654942,
+              "maxX": -848.2521021699686,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": -3110.2577079565453,
+              "maxX": -2356.2558393610198,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009237887,
+            "bounds": {
+              "minX": -6880.267050934177,
+              "maxX": -6126.265182338651,
+              "minZ": -659.2311752092155,
+              "maxZ": 94.17588217274533
+            }
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 36624,
+      "label": "following-30s",
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 595,
+        "status": "active",
+        "pages": 4,
+        "patches": 108,
+        "uploads": 314,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 340.900000333786,
+        "maxPreparationMs": 8.399999976158142,
+        "arrayBytes": 44739072,
+        "geometryBytes": 0
+      },
+      "counters": {
+        "xrRequestedFoveation": 0,
+        "xrLayerFoveation": null,
+        "xrLayerFoveationSupported": null,
+        "xrFramebufferScaleRequested": 1,
+        "xrLayerType": "none",
+        "xrLayerWidth": null,
+        "xrLayerHeight": null,
+        "xrLayerArrayLength": null,
+        "xrEyeViewports": [],
+        "xrPresenting": false,
+        "xrEnvironmentBlendMode": "none",
+        "xrEyeCount": 0,
+        "drawCalls": 105,
+        "triangles": 2039452,
+        "geometries": 182,
+        "textures": 37,
+        "tileCacheEntries": 157,
+        "tileCacheDecodedMB": 39.3,
+        "resourceCacheHits": 26,
+        "resourceCacheMisses": 505,
+        "resourceCacheWrites": 392,
+        "resourceCacheWriteFailed": false,
+        "imageryPatches": 109,
+        "imageryBatchStatus": "active",
+        "imageryBatchMode": "terrain",
+        "imageryLookupMB": 3.2613067626953125,
+        "imageryReclippingAvoidedTotal": 595,
+        "imageryBatchedPatches": 108,
+        "imageryBatchPreparationMs": 0,
+        "imageryBatchArrayMB": 42.66650390625,
+        "imageryBatchGeometryMB": 0,
+        "imageryCoveragePercent": 100,
+        "firstPersonViewSamples": 0,
+        "firstPersonHighResSamples": 0,
+        "firstPersonViewMinZoom": 0,
+        "firstPersonViewMeanZoom": 0,
+        "firstPersonLocalSurfaceRays": 0,
+        "firstPersonBaseSurfaceRays": 0,
+        "baseTerrainCellXM": 94.3,
+        "baseTerrainCellZM": 94.2,
+        "baseDemZoom": 0,
+        "regionalBaseDemZoom": 0,
+        "regionalBaseTiles": 0,
+        "baseElevationSource": "USGS 3DEP best available (public domain)",
+        "localElevationSource": "USGS 3DEP best available (public domain)",
+        "localElevationSampleSpacingM": 1.0000739009111403,
+        "residentUSGSRasterMB": 115.05084228515625,
+        "visibleLocalDemZoom": 0,
+        "visibleLocalCellXM": 4.960538609181089,
+        "visibleLocalCellZM": 4.956625377512912,
+        "regionalDemEnabled": true,
+        "visibleLocalRegionalTiles": 0,
+        "visibleLocalAwsTiles": 0,
+        "imageryInFlight": 0,
+        "imageryTargetZoom": 13,
+        "imageryFocusSource": "center",
+        "imageryDesiredTiles": 75,
+        "imageryVisiblePatches": 109,
+        "imageryVisibleBySource": {
+          "usgs-overview": 109
+        },
+        "imageryVisibleFineBySource": {},
+        "imageryVisibleAlternativeSources": 0,
+        "imageryCreatedTotal": 109,
+        "imageryDisposedTotal": 0,
+        "imageryBudgetEvictionsTotal": 0,
+        "imageryVisibleBudgetEvictionsTotal": 0,
+        "imageryDesiredBudgetEvictionsTotal": 0,
+        "tileCacheFailures": 0,
+        "localTerrainChunks": 33,
+        "localTerrainFocusChangesTotal": 247,
+        "qualityProfile": "quest-high",
+        "viewMode": "diorama",
+        "playbackMode": "tour",
+        "playbackSpeed": 1,
+        "isPlaying": true,
+        "followRoute": true,
+        "routeProgress": 0.33471444444457654,
+        "hudVisible": false,
+        "hudUploadRequestsTotal": 0,
+        "hudUploadBytesRequestedTotal": 0,
+        "textureStyle": "satellite",
+        "imageryProvider": "public-naip",
+        "routeName": "Olympus and Bailey Range June 2026"
+      },
+      "preparationMs": 48.90000003576279,
+      "legacyCalls": 177,
+      "batchedCalls": 105,
+      "legacyTriangles": 3751804,
+      "batchedTriangles": 2039452,
+      "legacyObjects": [
+        [
+          "LocalHighResTerrainMesh",
+          33
+        ],
+        [
+          "WaypointRingMesh",
+          23
+        ],
+        [
+          "Mesh (unnamed)",
+          18
+        ],
+        [
+          "BaseTerrainMesh",
+          1
+        ],
+        [
+          "WaypointDiamondInstances",
+          1
+        ],
+        [
+          "WaypointStalkInstances",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1275:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2856",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1278:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1276:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1280:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2852",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1286:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1285:2849",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1286:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1281:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1279:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1277:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2848",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2854",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2851",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1285:2850",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2856",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1282:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1283:2855",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1284:2853",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1285:2851",
+          1
+        ]
+      ],
+      "batchedObjects": [
+        [
+          "LocalHighResTerrainMesh",
+          33
+        ],
+        [
+          "WaypointRingMesh",
+          23
+        ],
+        [
+          "Mesh (unnamed)",
+          18
+        ],
+        [
+          "BaseTerrainMesh",
+          1
+        ],
+        [
+          "WaypointDiamondInstances",
+          1
+        ],
+        [
+          "WaypointStalkInstances",
+          1
+        ],
+        [
+          "ImageryPatch_satellite:13:1285:2851",
+          1
+        ]
+      ],
+      "maxError": 137,
+      "differentPixels": 4954,
+      "meanChannelError": 0.0528809375,
+      "pixelCount": 800000,
+      "rmsChannelError": 1.1856916494181782,
+      "glErrors": [
+        0,
+        0
+      ],
+      "patches": {
+        "total": 109,
+        "visible": 109,
+        "fading": 1,
+        "vertices": 952767,
+        "imageSizes": [
+          "256x256"
+        ],
+        "zooms": [
+          13
+        ]
+      },
+      "overview": {
+        "tileGrid": {
+          "zoom": 12,
+          "tileXMin": 636,
+          "tileXMax": 643,
+          "tileYMin": 1423,
+          "tileYMax": 1428,
+          "numTilesX": 8,
+          "numTilesY": 6
+        },
+        "grid": {
+          "width": 1024,
+          "height": 675,
+          "source": "USGS 3DEP best available (public domain)",
+          "spacing": 44.03271400762315
+        },
+        "mesh": {
+          "width": 40904.6013713073,
+          "depth": 26934.302301405136,
+          "segmentsX": 434,
+          "segmentsZ": 286
+        },
+        "chunks": [
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009111403,
+            "bounds": {
+              "minX": 4429.760977998714,
+              "maxX": 5183.76284659424,
+              "minZ": 6121.432341228439,
+              "maxZ": 6874.839398610402
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009111403,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": 6121.432341228439,
+              "maxZ": 6874.839398610402
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009111403,
+            "bounds": {
+              "minX": 7445.76845238082,
+              "maxX": 8199.770320976346,
+              "minZ": 6121.432341228439,
+              "maxZ": 6874.839398610402
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009180368,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 2354.3970543186315,
+              "maxZ": 3107.8041117005923
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009180368,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": 2354.3970543186315,
+              "maxZ": 3107.8041117005923
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009095,
+            "bounds": {
+              "minX": 4429.760977998714,
+              "maxX": 5183.76284659424,
+              "minZ": 9135.060570756286,
+              "maxZ": 9888.467628138249
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009283894,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": -4426.266462119025,
+              "maxZ": -3672.8594047370643
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009080235,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 9888.467628138249,
+              "maxZ": 10641.874685520212
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009111403,
+            "bounds": {
+              "minX": -3110.2577079565453,
+              "maxX": -2356.2558393610198,
+              "minZ": 6121.432341228439,
+              "maxZ": 6874.839398610402
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009177322,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 3107.8041117005923,
+              "maxZ": 3861.211169082555
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009180368,
+            "bounds": {
+              "minX": 8199.770320976346,
+              "maxX": 8953.772189571871,
+              "minZ": 2354.3970543186315,
+              "maxZ": 3107.8041117005923
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009177322,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": 3107.8041117005923,
+              "maxZ": 3861.211169082555
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900910897,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": 6874.839398610402,
+              "maxZ": 7628.246455992365
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009177322,
+            "bounds": {
+              "minX": 8199.770320976346,
+              "maxX": 8953.772189571871,
+              "minZ": 3107.8041117005923,
+              "maxZ": 3861.211169082555
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900910897,
+            "bounds": {
+              "minX": 6691.766583785295,
+              "maxX": 7445.76845238082,
+              "minZ": 6874.839398610402,
+              "maxZ": 7628.246455992365
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.000073900910897,
+            "bounds": {
+              "minX": -3110.2577079565453,
+              "maxX": -2356.2558393610198,
+              "minZ": 6874.839398610402,
+              "maxZ": 7628.246455992365
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009059385,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 10641.874685520212,
+              "maxZ": 11395.281742902174
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 10461.775926762923,
+              "maxX": 11215.777795358452,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009094486,
+            "bounds": {
+              "minX": 7445.76845238082,
+              "maxX": 8199.770320976346,
+              "minZ": 7628.246455992365,
+              "maxZ": 8381.653513374327
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": -94.25023357444297,
+              "maxX": 659.7516350210826,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": 8199.770320976346,
+              "maxX": 8953.772189571871,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009158026,
+            "bounds": {
+              "minX": 4429.760977998714,
+              "maxX": 5183.76284659424,
+              "minZ": 3861.211169082555,
+              "maxZ": 4614.618226464518
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009082753,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": 8381.653513374327,
+              "maxZ": 9135.060570756286
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009082753,
+            "bounds": {
+              "minX": 659.7516350210826,
+              "maxX": 1413.7535036166119,
+              "minZ": 8381.653513374327,
+              "maxZ": 9135.060570756286
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512912
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.00007390091511,
+            "bounds": {
+              "minX": 4429.760977998714,
+              "maxX": 5183.76284659424,
+              "minZ": 4614.618226464518,
+              "maxZ": 5368.02528384648
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009250406,
+            "bounds": {
+              "minX": 3675.7591094031886,
+              "maxX": 4429.760977998714,
+              "minZ": -2919.4523473551017,
+              "maxZ": -2166.045289973141
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009082753,
+            "bounds": {
+              "minX": 7445.76845238082,
+              "maxX": 8199.770320976346,
+              "minZ": 8381.653513374327,
+              "maxZ": 9135.060570756286
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181113,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009082753,
+            "bounds": {
+              "minX": 10461.775926762923,
+              "maxX": 11215.777795358452,
+              "minZ": 8381.653513374327,
+              "maxZ": 9135.060570756286
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.956625377512888
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009030015,
+            "bounds": {
+              "minX": 2167.7553722121374,
+              "maxX": 2921.757240807663,
+              "minZ": 12148.688800284137,
+              "maxZ": 12902.095857666096
+            }
+          },
+          {
+            "cell": {
+              "x": 4.960538609181089,
+              "z": 4.9566253775129
+            },
+            "source": "USGS 3DEP best available (public domain)",
+            "spacing": 1.0000739009250406,
+            "bounds": {
+              "minX": 4429.760977998714,
+              "maxX": 5183.76284659424,
+              "minZ": -2919.4523473551017,
+              "maxZ": -2166.045289973141
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "markerComparison": [
+    {
+      "active": false,
+      "changed": 4,
+      "max": 31,
+      "mean": 0.000080625,
+      "calls": [
+        142,
+        96
+      ],
+      "errors": [
+        0,
+        0
+      ]
+    },
+    {
+      "active": true,
+      "changed": 0,
+      "max": 1,
+      "mean": 6.25e-7,
+      "calls": [
+        215,
+        169
+      ],
+      "errors": [
+        0,
+        0
+      ]
+    }
+  ],
+  "detailSummary": {
+    "samples": 125,
+    "fineAtHikerSamples": 98,
+    "firstFineAfterMonitorMs": 2755.5
+  },
+  "detailSamples": [
+    {
+      "timeMs": 3400.599999964237,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 3647.699999988079,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 3906,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 4150.899999976158,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 4405.5,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 4655.199999988079,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 5167.300000011921,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 5415.699999988079,
+      "progress": 0,
+      "playing": false,
+      "following": false,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 5650.899999976158,
+      "progress": 0.0017933333337306978,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 5900.599999964237,
+      "progress": 0.004511111111111112,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.10931693896471018
+    },
+    {
+      "timeMs": 6145.399999976158,
+      "progress": 0.007291111110978658,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.5264743372025009
+    },
+    {
+      "timeMs": 6395.300000011921,
+      "progress": 0.010072222222222225,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.710766585452717
+    },
+    {
+      "timeMs": 6646,
+      "progress": 0.012861111111111113,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 6901.599999964237,
+      "progress": 0.01562777777777778,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.08530249097819365
+    },
+    {
+      "timeMs": 7151.099999964237,
+      "progress": 0.018404444444841815,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.8494884688794144
+    },
+    {
+      "timeMs": 7400.300000011921,
+      "progress": 0.021179999999867548,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.7332138132893249
+    },
+    {
+      "timeMs": 7658.800000011921,
+      "progress": 0.023956666666931577,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.24301936322771667
+    },
+    {
+      "timeMs": 7898.5,
+      "progress": 0.026737777778175143,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.42264807617664246
+    },
+    {
+      "timeMs": 8148.899999976158,
+      "progress": 0.029533333333333335,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.11591149917219923
+    },
+    {
+      "timeMs": 8396.5,
+      "progress": 0.03229444444444445,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 1.3477883356755171
+    },
+    {
+      "timeMs": 8650.300000011921,
+      "progress": 0.035071111111508485,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 8896.300000011921,
+      "progress": 0.037877777777777795,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 9154.199999988079,
+      "progress": 0.04062333333359826,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 9397.899999976158,
+      "progress": 0.04340444444484183,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 9654.699999988079,
+      "progress": 0.04617999999986757,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 9896.599999964237,
+      "progress": 0.04895777777764535,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 10145.199999988079,
+      "progress": 0.05173777777817517,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 10395.800000011921,
+      "progress": 0.05451777777804271,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 10665,
+      "progress": 0.05747444444431202,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.888691880302332
+    },
+    {
+      "timeMs": 10899.5,
+      "progress": 0.06006888888875647,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.11863879273546729
+    },
+    {
+      "timeMs": 11148.199999988079,
+      "progress": 0.06285888888902137,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.03780375699838601
+    },
+    {
+      "timeMs": 11396.099999964237,
+      "progress": 0.06562666666706406,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.0923187869236415
+    },
+    {
+      "timeMs": 11646.399999976158,
+      "progress": 0.06840444444484184,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.806612339432121
+    },
+    {
+      "timeMs": 11896.199999988079,
+      "progress": 0.07118777777817518,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 12146.099999964237,
+      "progress": 0.07396888888875647,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 12395.599999964237,
+      "progress": 0.07675888888902138,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.10164088302110486
+    },
+    {
+      "timeMs": 12652.399999976158,
+      "progress": 0.07955444444484186,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.05312127423493962
+    },
+    {
+      "timeMs": 12896.199999988079,
+      "progress": 0.08230111111137606,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.10106030557699341
+    },
+    {
+      "timeMs": 13146.5,
+      "progress": 0.08508888888888891,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.02069732361979959
+    },
+    {
+      "timeMs": 13398.599999964237,
+      "progress": 0.087874444444312,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.08386034622159855
+    },
+    {
+      "timeMs": 13646.199999988079,
+      "progress": 0.09063333333333334,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.03310568565819949
+    },
+    {
+      "timeMs": 13900.5,
+      "progress": 0.09342000000013247,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.04691140821250883
+    },
+    {
+      "timeMs": 14148.399999976158,
+      "progress": 0.09618444444470936,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.03500670909284054
+    },
+    {
+      "timeMs": 14396.399999976158,
+      "progress": 0.09897777777777776,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.0017138564839456194
+    },
+    {
+      "timeMs": 14645.5,
+      "progress": 0.10175111111137601,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.11230292227102723
+    },
+    {
+      "timeMs": 14895.5,
+      "progress": 0.10451555555595289,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.06075419620839284
+    },
+    {
+      "timeMs": 15150.300000011921,
+      "progress": 0.10736888888875641,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.05835916790658757
+    },
+    {
+      "timeMs": 15399.099999964237,
+      "progress": 0.11009444444444443,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.08286489204965619
+    },
+    {
+      "timeMs": 15645.300000011921,
+      "progress": 0.11285222222208975,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.1758812141794408
+    },
+    {
+      "timeMs": 15895.800000011921,
+      "progress": 0.11562555555568799,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.01008796265873
+    },
+    {
+      "timeMs": 16147.899999976158,
+      "progress": 0.1184188888887564,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 16409.30000001192,
+      "progress": 0.12128111111124355,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.12353038219788459
+    },
+    {
+      "timeMs": 16650,
+      "progress": 0.12396333333320089,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.4121833350484394
+    },
+    {
+      "timeMs": 16898.30000001192,
+      "progress": 0.1267322222226196,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.6800455103532386
+    },
+    {
+      "timeMs": 17148.80000001192,
+      "progress": 0.12952111111150846,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181102,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.38327703587668793
+    },
+    {
+      "timeMs": 17396.19999998808,
+      "progress": 0.13229111111097866,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181078,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.0507241641232099
+    },
+    {
+      "timeMs": 17655.30000001192,
+      "progress": 0.13507222222222223,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181078,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.25524626913750126
+    },
+    {
+      "timeMs": 17898.30000001192,
+      "progress": 0.1378533333334658,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181078,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.10993278650835236
+    },
+    {
+      "timeMs": 18153.19999998808,
+      "progress": 0.1406288888891538,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 18402.19999998808,
+      "progress": 0.14340333333346578,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181113,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 1.2942357567585532
+    },
+    {
+      "timeMs": 18665.30000001192,
+      "progress": 0.1461855555554231,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181113,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.5078732283933789
+    },
+    {
+      "timeMs": 18897,
+      "progress": 0.14895777777764532,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181113,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.9186639019934546
+    },
+    {
+      "timeMs": 19149.30000001192,
+      "progress": 0.1517355555554231,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181113,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.6814526820545836
+    },
+    {
+      "timeMs": 19396.599999964237,
+      "progress": 0.154525555555688,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.7821587202871854
+    },
+    {
+      "timeMs": 19657.80000001192,
+      "progress": 0.15730222222208975,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -6.934036318876565
+    },
+    {
+      "timeMs": 19896.80000001192,
+      "progress": 0.1600666666666666,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.9134040989634684
+    },
+    {
+      "timeMs": 20145.5,
+      "progress": 0.16284888888928623,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.008615736422569853
+    },
+    {
+      "timeMs": 20399.80000001192,
+      "progress": 0.16562666666706402,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.624119544917221
+    },
+    {
+      "timeMs": 20646.399999976158,
+      "progress": 0.16672999999986754,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.37168982787247273
+    },
+    {
+      "timeMs": 21071.899999976158,
+      "progress": 0.16784111111097866,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -3.1408289629279977
+    },
+    {
+      "timeMs": 21149.19999998808,
+      "progress": 0.16872333333359824,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -3.5755886814241933
+    },
+    {
+      "timeMs": 21404.5,
+      "progress": 0.171548888888624,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.16271411761672994
+    },
+    {
+      "timeMs": 21649.899999976158,
+      "progress": 0.17425444444417956,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.8922572548791265
+    },
+    {
+      "timeMs": 21906.399999976158,
+      "progress": 0.1770422222223547,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.6134118162946436
+    },
+    {
+      "timeMs": 22160.19999998808,
+      "progress": 0.17986888888875643,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.12080264617085845
+    },
+    {
+      "timeMs": 22399.099999964237,
+      "progress": 0.18257666666640177,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.007059324690288804
+    },
+    {
+      "timeMs": 22648.69999998808,
+      "progress": 0.18540777777764533,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.3867963934726788
+    },
+    {
+      "timeMs": 22901.30000001192,
+      "progress": 0.18813111111124353,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.1361089726433704
+    },
+    {
+      "timeMs": 23161.599999964237,
+      "progress": 0.19091333333320085,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.027918289503077176
+    },
+    {
+      "timeMs": 23408.5,
+      "progress": 0.19371333333320084,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.8821770609229134
+    },
+    {
+      "timeMs": 23646.599999964237,
+      "progress": 0.19646333333320082,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.2641430006040366
+    },
+    {
+      "timeMs": 23908.5,
+      "progress": 0.1993522222220897,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.4715226971890729
+    },
+    {
+      "timeMs": 24148.099999964237,
+      "progress": 0.20207000000013237,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.029337483312730228
+    },
+    {
+      "timeMs": 24410,
+      "progress": 0.20495444444417946,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 24661.69999998808,
+      "progress": 0.2075877777775128,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 24896.19999998808,
+      "progress": 0.2103533333334657,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 25149.30000001192,
+      "progress": 0.2131533333334657,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181113,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.6843317717007835
+    },
+    {
+      "timeMs": 25396.099999964237,
+      "progress": 0.21590888888902127,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181113,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.32764446395313485
+    },
+    {
+      "timeMs": 25668.30000001192,
+      "progress": 0.21869666666653412,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.08745981764849375
+    },
+    {
+      "timeMs": 25895.5,
+      "progress": 0.2214711111108461,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.7189165554950137
+    },
+    {
+      "timeMs": 26154.5,
+      "progress": 0.22425444444417947,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.4342079317027583
+    },
+    {
+      "timeMs": 26404.599999964237,
+      "progress": 0.22703111111124352,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.5844256439773687
+    },
+    {
+      "timeMs": 26651.099999964237,
+      "progress": 0.22980333333346573,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.3388653930250314
+    },
+    {
+      "timeMs": 26898.19999998808,
+      "progress": 0.23257555555568793,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.10514685153069081
+    },
+    {
+      "timeMs": 27148.80000001192,
+      "progress": 0.23536444444457683,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.18038493879177508
+    },
+    {
+      "timeMs": 27399.899999976158,
+      "progress": 0.23812999999986748,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.851838074255056
+    },
+    {
+      "timeMs": 27656.69999998808,
+      "progress": 0.2409277777777777,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -4.208504362452345
+    },
+    {
+      "timeMs": 27898.30000001192,
+      "progress": 0.24370555555555545,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 28145.80000001192,
+      "progress": 0.24647333333359814,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 28397.69999998808,
+      "progress": 0.2492455555558204,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 28647.5,
+      "progress": 0.25202999999986747,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 28901,
+      "progress": 0.25487444444431184,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 5.7518951666845055
+    },
+    {
+      "timeMs": 29148.399999976158,
+      "progress": 0.2575799999998674,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 29401,
+      "progress": 0.26039111111097857,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 29646.099999964237,
+      "progress": 0.2631411111109786,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 29912.099999964237,
+      "progress": 0.26608888888888876,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 30154.099999964237,
+      "progress": 0.2687888888888888,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 7.46624879515349
+    },
+    {
+      "timeMs": 30404.5,
+      "progress": 0.27149555555582033,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.13812446805098944
+    },
+    {
+      "timeMs": 30646.899999976158,
+      "progress": 0.274259999999735,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 1.4042024016320056
+    },
+    {
+      "timeMs": 30898.5,
+      "progress": 0.27702111111084615,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.2216398961933237
+    },
+    {
+      "timeMs": 31158,
+      "progress": 0.2798144444445768,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.1751308355420633
+    },
+    {
+      "timeMs": 31395.30000001192,
+      "progress": 0.28257555555568786,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 5.795844070082239
+    },
+    {
+      "timeMs": 31649.69999998808,
+      "progress": 0.2853666666666665,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 5.678384310630918
+    },
+    {
+      "timeMs": 31895.5,
+      "progress": 0.28813444444470915,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 0.2335827258483505
+    },
+    {
+      "timeMs": 32148.80000001192,
+      "progress": 0.2909122222224869,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 32400.69999998808,
+      "progress": 0.2936922222223544,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.4042049660563407
+    },
+    {
+      "timeMs": 32646.399999976158,
+      "progress": 0.29648444444470906,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": false,
+      "cellM": null,
+      "source": null,
+      "overviewDifferenceM": null
+    },
+    {
+      "timeMs": 32902.09999996424,
+      "progress": 0.2993433333330682,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.2207216933037444
+    },
+    {
+      "timeMs": 33145.30000001192,
+      "progress": 0.3020200000001322,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 1.169068815490391
+    },
+    {
+      "timeMs": 33397.39999997616,
+      "progress": 0.3048022222220896,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.8984349756119627
+    },
+    {
+      "timeMs": 33647.30000001192,
+      "progress": 0.30758666666679885,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -7.648160343113545
+    },
+    {
+      "timeMs": 33898.39999997616,
+      "progress": 0.3103533333334655,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -1.8886088737014006
+    },
+    {
+      "timeMs": 34148.5,
+      "progress": 0.3131366666667988,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -4.347472900899447
+    },
+    {
+      "timeMs": 34397.89999997616,
+      "progress": 0.31592111111084586,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.206828514345034
+    },
+    {
+      "timeMs": 34653.80000001192,
+      "progress": 0.31868777777751256,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -4.29934437948441
+    },
+    {
+      "timeMs": 34898.69999998808,
+      "progress": 0.3214677777780423,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 10.606237164981849
+    },
+    {
+      "timeMs": 35165.30000001192,
+      "progress": 0.3242711111108458,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": 10.310213341540702
+    },
+    {
+      "timeMs": 35403,
+      "progress": 0.3270244444443116,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -0.18558663769590567
+    },
+    {
+      "timeMs": 35659.89999997616,
+      "progress": 0.3298522222220894,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -9.989845441484704
+    },
+    {
+      "timeMs": 35911.09999996424,
+      "progress": 0.33274111111097826,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -3.130344789215087
+    },
+    {
+      "timeMs": 36152.09999996424,
+      "progress": 0.33471444444457654,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -2.856999648857709
+    },
+    {
+      "timeMs": 36622.89999997616,
+      "progress": 0.33582555555568766,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -6.982803081994234
+    },
+    {
+      "timeMs": 36645.5,
+      "progress": 0.33613555555608504,
+      "playing": true,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -6.582059127062394
+    },
+    {
+      "timeMs": 36895.30000001192,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 37269.89999997616,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 37415.09999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 37664.80000001192,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 37914.09999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 38148.19999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 38412.59999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 38665.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 38899.59999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 39213,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 39411.59999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 39646.09999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 39897,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 40147.30000001192,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 40405.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 40664.39999997616,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 40897.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 41205.5,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 41418.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 41668.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 41921.09999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 42155,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 42418.89999997616,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 42667.89999997616,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 42918.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 43193.19999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 43405.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 43656.69999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 43912.09999996424,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 44159.19999998808,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 44413.89999997616,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 44663,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    },
+    {
+      "timeMs": 44896.5,
+      "progress": 0.33682444444497395,
+      "playing": false,
+      "following": true,
+      "fineAtHiker": true,
+      "cellM": 4.960538609181089,
+      "source": "USGS 3DEP best available (public domain)",
+      "overviewDifferenceM": -8.487264111301783
+    }
+  ],
+  "renderBenchmark": {
+    "condition": "Warmed fixed scene, 60 requestAnimationFrame-paced renders per pass; no simulation/LOD updates or native XR. Submission is main-thread elapsed render time. GPU samples use EXT_disjoint_timer_query_webgl2 when available.",
+    "adapter": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 (0x00002882) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "gpuTimerSupported": true,
+    "passes": [
+      {
+        "mode": "legacy",
+        "submission": {
+          "samples": 60,
+          "medianMs": 3.699999988079071,
+          "p95Ms": 4.300000011920929
+        },
+        "gpu": {
+          "samples": 60,
+          "medianMs": 6.284288,
+          "p95Ms": 7.323648
+        },
+        "disjoint": false,
+        "calls": 222,
+        "triangles": 3842644,
+        "error": 0
+      },
+      {
+        "mode": "terrain",
+        "submission": {
+          "samples": 60,
+          "medianMs": 2.5,
+          "p95Ms": 2.899999976158142
+        },
+        "gpu": {
+          "samples": 60,
+          "medianMs": 4.663296,
+          "p95Ms": 5.60128
+        },
+        "disjoint": false,
+        "calls": 105,
+        "triangles": 2082672,
+        "error": 0
+      },
+      {
+        "mode": "legacy",
+        "submission": {
+          "samples": 60,
+          "medianMs": 3.300000011920929,
+          "p95Ms": 3.800000011920929
+        },
+        "gpu": {
+          "samples": 60,
+          "medianMs": 9.56928,
+          "p95Ms": 10.461184
+        },
+        "disjoint": false,
+        "calls": 222,
+        "triangles": 3842644,
+        "error": 0
+      },
+      {
+        "mode": "terrain",
+        "submission": {
+          "samples": 60,
+          "medianMs": 2.300000011920929,
+          "p95Ms": 2.699999988079071
+        },
+        "gpu": {
+          "samples": 60,
+          "medianMs": 3.831808,
+          "p95Ms": 5.150368
+        },
+        "disjoint": false,
+        "calls": 105,
+        "triangles": 2082672,
+        "error": 0
+      }
+    ]
+  },
+  "errors": [],
+  "glErrors": []
+}

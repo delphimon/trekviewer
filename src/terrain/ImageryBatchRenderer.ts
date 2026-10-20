@@ -12,14 +12,17 @@ interface Page {
   zoom: number; width: number; height: number;
   mesh: THREE.BatchedMesh; texture: THREE.DataArrayTexture;
   arrayBytes: number; vertices: number; indices: number;
+  slots: Set<number>;
 }
 interface Entry {
   patch: ImageryPatch; page: Page; geometryId: number; instanceId: number;
   geometry: THREE.BufferGeometry; material: THREE.MeshStandardMaterial;
   textureVersion: number; versions: string; matrix: THREE.Matrix4;
+  layersMask: number;
 }
 
-/** Opt-in renderer experiment. Keep source meshes as the CPU surface and fallback. */
+/** Bounded texture-array cache, with optional clipped-mesh batching.
+ * Retain CPU source meshes and images for fallback. */
 export class ImageryBatchRenderer {
   public readonly group = new THREE.Group();
   private readonly pages: Page[] = [];
@@ -38,17 +41,26 @@ export class ImageryBatchRenderer {
       && gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS) >= IMAGERY_BATCH_LIMITS.layers;
   }
 
-  constructor(private readonly maxPages = Math.floor(IMAGERY_BATCH_LIMITS.geometryBytes / PAGE_GEOMETRY_BYTES)) {
+  constructor(private readonly maxPages = Math.floor(IMAGERY_BATCH_LIMITS.geometryBytes / PAGE_GEOMETRY_BYTES), private readonly directSurface = false,
+    private readonly beforeRelease?: (patch: ImageryPatch) => void) {
     if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > Math.floor(IMAGERY_BATCH_LIMITS.geometryBytes / PAGE_GEOMETRY_BYTES)) throw new RangeError('Invalid imagery page limit');
-    this.group.name = 'ImageryBatchPrototype';
+    this.group.name = this.directSurface ? 'TerrainImageryCache' : 'ImageryBatchPrototype';
   }
 
   public getDiagnostics() {
     return { pages: this.pages.length, patches: this.entries.size, uploads: this.uploads, failures: this.failures,
       lastPreparationMs: this.lastPreparationMs, totalPreparationMs: this.totalPreparationMs, maxPreparationMs: this.maxPreparationMs,
       arrayBytes: this.pages.reduce((n, page) => n + page.arrayBytes, 0),
-      geometryBytes: this.pages.length * PAGE_GEOMETRY_BYTES };
+      geometryBytes: this.directSurface ? 0 : this.pages.length * PAGE_GEOMETRY_BYTES };
   }
+
+  public getTextureBindings() {
+    return { pages: this.pages.map(page => page.texture), entries: [...this.entries.values()].map(entry => ({
+      patch: entry.patch, page: this.pages.indexOf(entry.page), layer: entry.instanceId,
+    })) };
+  }
+
+  public owns(key: string): boolean { return this.entries.has(key); }
 
   public sync(patches: ReadonlyMap<string, ImageryPatch>): void {
     const started = performance.now();
@@ -57,10 +69,11 @@ export class ImageryBatchRenderer {
     for (const [key, entry] of this.entries) {
       const patch = patches.get(key);
       if (patch !== entry.patch || !this.eligible(entry.patch)
-        || patch.mesh.geometry !== entry.geometry || patch.mesh.material !== entry.material
-        || patch.texture.version !== entry.textureVersion || this.versions(entry.geometry) !== entry.versions) {
+        || (!this.directSurface && (patch.mesh.geometry !== entry.geometry || this.versions(entry.geometry) !== entry.versions))
+        || patch.mesh.material !== entry.material || patch.texture.version !== entry.textureVersion) {
         this.remove(key, entry);
       } else {
+        if (this.directSurface) continue;
         entry.page.mesh.setVisibleAt(entry.instanceId, patch.mesh.visible);
         patch.mesh.updateMatrix();
         if (!entry.matrix.equals(patch.mesh.matrix)) {
@@ -81,7 +94,7 @@ export class ImageryBatchRenderer {
       if (remaining < IMAGERY_BATCH_LIMITS.uploadsPerFrame
         && performance.now() - started >= IMAGERY_BATCH_LIMITS.preparationMsPerFrame) break;
     }
-    for (let i = this.pages.length - 1; i >= 0; i--) if (this.pages[i].mesh.instanceCount === 0) {
+    for (let i = this.pages.length - 1; i >= 0; i--) if (this.pages[i].slots.size === 0) {
       this.destroyPage(this.pages[i]); this.pages.splice(i, 1);
     }
     this.lastPreparationMs = performance.now() - started;
@@ -118,12 +131,12 @@ export class ImageryBatchRenderer {
       && patch.texture.minFilter === THREE.LinearMipmapLinearFilter && patch.texture.magFilter === THREE.LinearFilter
       && patch.texture.offset.lengthSq() === 0 && patch.texture.repeat.x === 1 && patch.texture.repeat.y === 1
       && patch.texture.rotation === 0 && !patch.texture.premultiplyAlpha
-      && !!geometry.index && geometry.index.count > 0 && geometry.drawRange.start === 0
+      && (this.directSurface || (!!geometry.index && geometry.index.count > 0 && geometry.drawRange.start === 0
       && geometry.drawRange.count >= geometry.index.count
       && Object.keys(geometry.attributes).sort().join() === 'normal,position,uv'
       && Object.values(geometry.attributes).every(attribute => attribute instanceof THREE.BufferAttribute && !attribute.normalized && attribute.array instanceof Float32Array)
       && geometry.attributes.position.count <= IMAGERY_BATCH_LIMITS.verticesPerPage
-      && geometry.index.count <= IMAGERY_BATCH_LIMITS.indicesPerPage;
+      && geometry.index.count <= IMAGERY_BATCH_LIMITS.indicesPerPage));
   }
 
   private add(key: string, patch: ImageryPatch): boolean {
@@ -131,16 +144,16 @@ export class ImageryBatchRenderer {
     if (!image || this.unreadable.has(image)) return false;
     const width = image.width, height = image.height;
     if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) return false;
-    const geometry = patch.mesh.geometry, vertices = geometry.attributes.position.count, indices = geometry.index!.count;
+    const geometry = patch.mesh.geometry, vertices = this.directSurface ? 0 : geometry.attributes.position.count, indices = this.directSurface ? 0 : geometry.index!.count;
     let page = this.pages.find(p => p.zoom === patch.zoom && p.width === width && p.height === height
       && p.mesh.renderOrder === patch.mesh.renderOrder
-      && p.texture.anisotropy === patch.texture.anisotropy && p.mesh.instanceCount < IMAGERY_BATCH_LIMITS.layers
+      && p.texture.anisotropy === patch.texture.anisotropy && p.slots.size < IMAGERY_BATCH_LIMITS.layers
       && p.vertices + vertices <= IMAGERY_BATCH_LIMITS.verticesPerPage && p.indices + indices <= IMAGERY_BATCH_LIMITS.indicesPerPage);
     if (!page) {
       const diagnostics = this.getDiagnostics();
       const arrayBytes = this.mipBytes(width, height) * IMAGERY_BATCH_LIMITS.layers;
       if (this.pages.length >= this.maxPages || diagnostics.arrayBytes + arrayBytes > IMAGERY_BATCH_LIMITS.arrayBytes
-        || diagnostics.geometryBytes + PAGE_GEOMETRY_BYTES > IMAGERY_BATCH_LIMITS.geometryBytes) return false;
+        || (!this.directSurface && diagnostics.geometryBytes + PAGE_GEOMETRY_BYTES > IMAGERY_BATCH_LIMITS.geometryBytes)) return false;
       // Allocation failure must leave the source visible, like any other
       // unsupported case; never turn a rendering experiment into a blank tile.
       try { page = this.createPage(patch, width, height, arrayBytes); }
@@ -155,34 +168,50 @@ export class ImageryBatchRenderer {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(image, 0, 0);
       const pixels = ctx.getImageData(0, 0, width, height).data;
-      if (page.mesh.unusedVertexCount < vertices || page.mesh.unusedIndexCount < indices) page.mesh.optimize();
-      geometryId = page.mesh.addGeometry(geometry);
-      const instanceId = page.mesh.addInstance(geometryId);
+      let instanceId: number;
+      if (this.directSurface) {
+        instanceId = 0; while (page.slots.has(instanceId)) instanceId++;
+        geometryId = -1;
+      } else {
+        if (page.mesh.unusedVertexCount < vertices || page.mesh.unusedIndexCount < indices) page.mesh.optimize();
+        geometryId = page.mesh.addGeometry(geometry);
+        instanceId = page.mesh.addInstance(geometryId);
+      }
       (page.texture.image.data as Uint8Array).set(pixels, instanceId * width * height * 4);
       page.texture.addLayerUpdate(instanceId); page.texture.needsUpdate = true;
-      patch.mesh.updateMatrix(); page.mesh.setMatrixAt(instanceId, patch.mesh.matrix);
-      page.mesh.setVisibleAt(instanceId, patch.mesh.visible);
+      patch.mesh.updateMatrix();
+      if (!this.directSurface) { page.mesh.setMatrixAt(instanceId, patch.mesh.matrix); page.mesh.setVisibleAt(instanceId, patch.mesh.visible); }
+      page.slots.add(instanceId);
       page.vertices += vertices; page.indices += indices;
       const material = patch.mesh.material as THREE.MeshStandardMaterial;
       this.entries.set(key, { patch, page, geometryId, instanceId, geometry, material,
-        textureVersion: patch.texture.version, versions: this.versions(geometry), matrix: patch.mesh.matrix.clone() });
+        textureVersion: patch.texture.version, versions: this.versions(geometry), matrix: patch.mesh.matrix.clone(), layersMask: patch.mesh.layers.mask });
       material.visible = false;
+      // Material visibility is checked after Three's object/buffer update.
+      // Exclude this draw object from every camera while retaining logical
+      // visibility for coverage, selection and debug-bound children.
+      patch.mesh.layers.mask = 0;
       // Preserve CPU data, release redundant GPU handles from the fade/fallback.
       geometry.dispose(); material.dispose(); patch.texture.dispose();
       this.uploads++;
       return true;
     } catch {
-      if (geometryId !== undefined) page.mesh.deleteGeometry(geometryId);
+      if (geometryId !== undefined && geometryId >= 0) page.mesh.deleteGeometry(geometryId);
       this.unreadable.add(image); this.failures++;
       return false;
     }
   }
 
   private remove(key: string, entry: Entry): void {
-    entry.page.mesh.deleteGeometry(entry.geometryId);
-    entry.page.vertices -= entry.geometry.attributes.position.count;
-    entry.page.indices -= entry.geometry.index!.count;
+    this.beforeRelease?.(entry.patch);
+    if (!this.directSurface) {
+      entry.page.mesh.deleteGeometry(entry.geometryId);
+      entry.page.vertices -= entry.geometry.attributes.position.count;
+      entry.page.indices -= entry.geometry.index!.count;
+    }
+    entry.page.slots.delete(entry.instanceId);
     entry.material.visible = true; entry.material.needsUpdate = true;
+    entry.patch.mesh.layers.mask = entry.layersMask;
     entry.patch.texture.needsUpdate = true;
     this.entries.delete(key);
   }
@@ -213,8 +242,9 @@ export class ImageryBatchRenderer {
     const mesh = new THREE.BatchedMesh(IMAGERY_BATCH_LIMITS.layers, IMAGERY_BATCH_LIMITS.verticesPerPage, IMAGERY_BATCH_LIMITS.indicesPerPage, material);
     // Culling happens per member in BatchedMesh, including an ArrayCamera's eyes.
     mesh.frustumCulled = false; mesh.renderOrder = patch.mesh.renderOrder;
+    mesh.visible = !this.directSurface;
     this.group.add(mesh);
-    const page: Page = { zoom: patch.zoom, width, height, mesh, texture, arrayBytes, vertices: 0, indices: 0 };
+    const page: Page = { zoom: patch.zoom, width, height, mesh, texture, arrayBytes, vertices: 0, indices: 0, slots: new Set() };
     this.pages.push(page);
     return page;
   }

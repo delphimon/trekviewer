@@ -320,6 +320,7 @@ export class TrekViewerApp {
             await this.graphicsRecovery?.waitUntilReady(signal);
             if (signal.aborted) throw new DOMException('Route preparation cancelled', 'AbortError');
             revision = this.graphicsRecovery?.revision;
+            trek.imageryLOD.syncRenderer?.(this.sceneManager.renderer);
             const camera = this.sceneManager.renderer.xr.isPresenting ? this.sceneManager.renderer.xr.getCamera() : this.sceneManager.camera;
             await this.sceneManager.renderer.compileAsync(trek.group, camera, this.sceneManager.scene);
             await this.graphicsRecovery?.waitUntilReady(signal);
@@ -328,6 +329,8 @@ export class TrekViewerApp {
       },
       tiledTerrain: new URLSearchParams(window.location.search).get('terrainTiles') !== '0',
       experimentalImageryBatching: demParams.get('imageryBatch') === '1',
+      experimentalTerrainImagery: demParams.get('terrainImagery') !== '0' && demParams.get('imageryBatch') !== '1',
+      markerBatching: demParams.get('markerBatch') !== '0',
       baseTerrainCellSizeM: [60, 75, 120].includes(Number(demParams.get('terrainGrid'))) ? Number(demParams.get('terrainGrid')) : undefined,
       getBaseTerrainCellSizeM: () => QualityProfileManager.getActiveProfile().name === 'quest-balanced' ? undefined : 60,
       regionalBase: new URLSearchParams(window.location.search).get('regionalBase') !== '0',
@@ -450,13 +453,14 @@ export class TrekViewerApp {
         this.sceneManager.renderer.setAnimationLoop(null);
         const treks = new Set(this.preparingTreks);
         if (this.activeTrek) treks.add(this.activeTrek);
-        for (const trek of treks) trek.imageryLOD.releaseBatches?.();
+        const batchReleases = [...treks].map(trek => trek.imageryLOD.releaseBatches?.());
         releaseGraphicsResources([this.sceneManager.scene, ...[...treks].map(trek => trek.group)], this.sceneManager.sunLight.shadow.map,
           [...treks].flatMap(trek => trek.getGraphicsResources()));
         this.flyoverController?.pause();
         this.session.setPlayback(false);
         this.xrManager.resetInteractionState();
         this.profileRecorder?.mark(performance.now(), 'graphics-lost');
+        await Promise.all(batchReleases);
         if (this.sceneManager.renderer.xr.isPresenting) await this.sceneManager.renderer.xr.getSession()?.end().catch(() => {});
       },
       prepare: async () => {
@@ -465,6 +469,7 @@ export class TrekViewerApp {
         await renderer.compileAsync(this.sceneManager.skyMesh, camera, this.sceneManager.scene);
         const trek = this.activeTrek;
         if (trek && !trek.isDisposed) {
+          trek.imageryLOD.syncRenderer?.(renderer);
           await renderer.compileAsync(trek.group, camera, this.sceneManager.scene);
           if (!renderer.xr.isPresenting && !renderer.getContext().isContextLost()) this.sceneManager.render();
         }
@@ -986,6 +991,9 @@ export class TrekViewerApp {
       resourceCacheWriteFailed: resourceCache.writeFailed,
       imageryPatches: lod?.activePatchesCount ?? 0,
       imageryBatchStatus: batch?.status ?? 'off',
+      imageryBatchMode: batch?.mode ?? 'patches',
+      imageryLookupMB: (batch?.lookupBytes ?? 0) / (1024 * 1024),
+      imageryReclippingAvoidedTotal: batch?.reprojectionsAvoided ?? 0,
       imageryBatchedPatches: batch?.patches ?? 0,
       imageryBatchPreparationMs: batch?.lastPreparationMs ?? 0,
       imageryBatchArrayMB: (batch?.arrayBytes ?? 0) / (1024 * 1024),

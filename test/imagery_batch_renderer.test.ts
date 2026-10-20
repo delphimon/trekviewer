@@ -5,14 +5,14 @@ import type { ImageryPatch } from '../src/terrain/ImageryLODManager.ts';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-function fixture(maxPages = 2) {
+function fixture(maxPages = 2, directSurface = false) {
   vi.spyOn(performance, 'now').mockReturnValue(0);
   let image: any;
   vi.stubGlobal('document', { createElement: () => ({ width: 2, height: 2, getContext: () => ({
     setTransform: () => {}, drawImage: (next: any) => { image = next; },
     getImageData: () => ({ data: image.pixels }),
   }) }) });
-  return new ImageryBatchRenderer(maxPages);
+  return new ImageryBatchRenderer(maxPages, directSurface);
 }
 
 function patch(key: string, zoom = 19, size = 2): ImageryPatch {
@@ -30,6 +30,7 @@ function patch(key: string, zoom = 19, size = 2): ImageryPatch {
 
 it('copies exact positions, normals, UVs and topology while keeping source geometry and visibility for terrain logic', () => {
   const renderer = fixture(), p = patch('a');
+  p.mesh.layers.mask = 5;
   const geometry = p.mesh.geometry;
   const input = Object.fromEntries(Object.entries(geometry.attributes).map(([key, attribute]) => [key, Array.from(attribute.array)]));
   const indices = Array.from(geometry.index!.array);
@@ -44,8 +45,10 @@ it('copies exact positions, normals, UVs and topology while keeping source geome
   const copied = Array.from(entry.page.mesh.geometry.index.array.slice(range.indexStart, range.indexStart + range.indexCount)) as number[];
   expect(copied.map(i => i - range.vertexStart)).toEqual(indices);
   expect(p.mesh.geometry).toBe(geometry); expect(p.mesh.visible).toBe(true);
+  expect(p.mesh.layers.mask).toBe(0);
   expect((p.mesh.material as THREE.Material).visible).toBe(false);
   renderer.clear(); expect((p.mesh.material as THREE.Material).visible).toBe(true);
+  expect(p.mesh.layers.mask).toBe(5);
   expect(Array.from(geometry.attributes.position.array)).toEqual(input.position);
   p.dispose();
 });
@@ -135,4 +138,19 @@ it('defers a second expensive transfer but still releases every stale terrain co
   expect(renderer.getDiagnostics().lastPreparationMs).toBe(3);
   expect(renderer.getDiagnostics().maxPreparationMs).toBe(3);
   renderer.clear(); a.dispose(); b.dispose();
+});
+
+it('retains direct-surface imagery through terrain replacement without allocating or recopying patch geometry', () => {
+  const renderer = fixture(2, true), p = patch('direct'), patches = new Map([[p.key, p]]);
+  renderer.sync(patches);
+  const replacement = p.mesh.geometry.clone();
+  p.mesh.geometry.dispose(); p.mesh.geometry = replacement;
+  renderer.sync(patches);
+  expect(renderer.getDiagnostics().uploads).toBe(1);
+  expect(renderer.getDiagnostics().geometryBytes).toBe(0);
+  expect(renderer.getTextureBindings().entries).toHaveLength(1);
+  expect(renderer.group.children.every(child => !child.visible)).toBe(true);
+  p.mesh.visible = false; renderer.sync(patches);
+  expect(renderer.getTextureBindings().entries[0].patch.mesh.visible).toBe(false);
+  renderer.clear(); expect((p.mesh.material as THREE.Material).visible).toBe(true); p.dispose();
 });

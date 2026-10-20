@@ -111,6 +111,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [ ] Evaluate acquisition/publication ahead of tour progress against measured fine-mesh coverage under the hiker, preserving broad High anchors and resident budgets. Resident chunk count alone does not establish useful moving-hiker detail.
 - [ ] Compare matched real-source/native full-tour submission, publication, memory and visual results before replacing the renderer. The prototype's synthetic draw reduction is not native acceptance. Do not assume an unlit material, default exaggeration change or a fixed near plane repairs the reported native quality regression.
 
+### 0i. Remove duplicate terrain rendering and opaque marker submissions
+
+- [x] Render compatible opaque streamed imagery directly on authoritative terrain, retaining lit materials, native imagery dimensions/mips, broad selection, source/mesh precision and bounded fallback. Avoid repeated clipping for transferred imagery during terrain promotion; rebuild stale CPU fallback geometry on rare release.
+- [x] Instance opaque waypoint diamonds/stalks while preserving logical pins, hit targets, colors, glow, labels and transparent feedback. Verify geographic views, fades, stereo, graphics recovery, marker appearance and desktop/mobile flows. See [direct terrain evidence and limits](review-2026-10-20/DIRECT_TERRAIN.md).
+- [x] Enable the guarded direct path and marker instancing by default after measured desktop submission/draw/triangle improvements. The earlier clipped-mesh experiment stays opt-in; original rendering remains selectable for comparisons. This supersedes the earlier prototype's default policy, without marking native performance accepted.
+- [ ] Publish the completed checkpoint through exact-commit CI, clean build, deployment and hosted validation.
+- [ ] Complete matched native High/Aerial performance and visual acceptance when the user returns to headset testing. The connected headset exposed no debugger tab, and the user deferred opening/wearing it; continue independent engineering without repeated unprepared test requests. Keep the 72 Hz, whole-model detail and loading/coverage gates open.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

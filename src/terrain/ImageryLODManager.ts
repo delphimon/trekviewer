@@ -7,6 +7,8 @@ import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
 import { ImageryBatchRenderer } from './ImageryBatchRenderer.ts';
+import { TerrainImageryMaterial } from './TerrainImageryMaterial.ts';
+import type { TileGridBounds } from './TextureProvider.ts';
 import { computeBroadDetailTiles, type DetailFocus } from './BroadDetailSelection.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
@@ -66,6 +68,8 @@ export interface ImageryPatch {
 
 export interface ImageryLODManagerOptions {
   experimentalImageryBatching?: boolean;
+  experimentalTerrainImagery?: boolean;
+  terrainTileGrid?: TileGridBounds;
   terrainGeoBounds: GeoBounds;
   terrainBaseElevation: number;
   elevationSampler: (x: number, z: number) => number;
@@ -884,6 +888,10 @@ export function computeFirstPersonStableLODTiles(
  */
 export class ImageryLODManager {
   private batchRenderer?: ImageryBatchRenderer;
+  private terrainImagery?: TerrainImageryMaterial;
+  private readonly staleDirectPatches = new Set<string>();
+  private directRefreshDepth = 0;
+  private directReprojectionsAvoided = 0;
   private batchSupport: boolean | null = null;
   public readonly group: THREE.Group;
   private options: ImageryLODManagerOptions;
@@ -1129,24 +1137,68 @@ export class ImageryLODManager {
   }
 
   public getBatchDiagnostics() {
-    return { requested: !!this.options.experimentalImageryBatching,
-      status: !this.options.experimentalImageryBatching ? 'off' : this.batchSupport === false ? 'unsupported' : this.batchRenderer ? 'active' : 'pending',
+    return { requested: !!(this.options.experimentalImageryBatching || this.options.experimentalTerrainImagery),
+      mode: this.terrainImagery ? 'terrain' : 'patches', lookupBytes: this.terrainImagery?.lookupBytes ?? 0,
+      reprojectionsAvoided: this.directReprojectionsAvoided,
+      status: !(this.options.experimentalImageryBatching || this.options.experimentalTerrainImagery) ? 'off' : this.batchSupport === false ? 'unsupported' : this.batchRenderer ? 'active' : 'pending',
       ...this.batchRenderer?.getDiagnostics() };
   }
 
   /** Run after terrain publication, immediately before rendering this frame. */
   public syncRenderer(renderer: THREE.WebGLRenderer): void {
-    if (!this.options.experimentalImageryBatching || this.isDisposed) return;
-    this.batchSupport ??= ImageryBatchRenderer.supported(renderer);
+    if (!(this.options.experimentalImageryBatching || this.options.experimentalTerrainImagery) || this.isDisposed) return;
+    const direct = !!(this.options.experimentalTerrainImagery && this.options.terrainTileGrid);
+    this.batchSupport ??= direct ? TerrainImageryMaterial.supported(renderer) : ImageryBatchRenderer.supported(renderer);
     if (!this.batchSupport) return;
-    this.batchRenderer ??= new ImageryBatchRenderer();
+    if (direct && !this.terrainImagery) {
+      try { this.terrainImagery = new TerrainImageryMaterial(this.options.terrainGeoBounds, this.options.terrainTileGrid!, renderer.capabilities.maxTextureSize); }
+      catch { this.batchSupport = false; return; }
+    }
+    this.batchRenderer ??= new ImageryBatchRenderer(undefined, direct, direct ? patch => {
+      if (this.directRefreshDepth || !this.staleDirectPatches.delete(patch.key) || this.patches.get(patch.key) !== patch) return;
+      const previous = patch.mesh.geometry;
+      patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y); previous.dispose();
+    } : undefined);
     if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
     this.batchRenderer.sync(this.patches);
+    if (this.terrainImagery) {
+      const base = this.options.terrainMesh;
+      const surfaces = base?.parent?.children.filter((object): object is THREE.Mesh =>
+        object instanceof THREE.Mesh && (object === base || object.name === 'LocalHighResTerrainMesh')) ?? (base ? [base] : []);
+      this.terrainImagery.sync(this.batchRenderer.getTextureBindings(), surfaces);
+    }
   }
 
-  public releaseBatches(): void {
+  public async releaseBatches(): Promise<void> {
+    this.directRefreshDepth++;
+    this.terrainImagery?.dispose(); this.terrainImagery = undefined;
     this.batchRenderer?.clear();
     this.batchSupport = null;
+    try { await this.refreshDirectSources(); }
+    finally { this.directRefreshDepth--; }
+  }
+
+  /** Rare fallback/context restoration rebuilds sources in the worker, never
+   * on every terrain publication. The authoritative meshes retain all detail. */
+  private async refreshDirectSources(): Promise<void> {
+    const base = this.options.terrainMesh;
+    if (this.isDisposed || !(base?.geometry instanceof THREE.PlaneGeometry)) return;
+    const patches = [...this.staleDirectPatches].map(key => this.patches.get(key)).filter((p): p is ImageryPatch => !!p);
+    if (!patches.length) { this.staleDirectPatches.clear(); return; }
+    const generation = this.currentGeneration, revision = this.surfaceRevision;
+    const sources = [snapshotSurfaceMesh(base), ...(base.parent?.children.filter((object): object is THREE.Mesh =>
+      object instanceof THREE.Mesh && object.visible && object.name === 'LocalHighResTerrainMesh').map(snapshotSurfaceMesh) ?? [])];
+    const input = { sources, centerLat: this.options.terrainGeoBounds.centerLat, centerLon: this.options.terrainGeoBounds.centerLon,
+      tiles: patches.map(p => ({ key: p.key, zoom: p.zoom, x: p.x, y: p.y })) };
+    const result = await runTerrainJob<SurfacePatchData[]>({ kind: 'surface', input }, () => buildPromotedSurfacePatches(input), this.surfaceLifetime.signal);
+    if (this.isDisposed) return;
+    if (generation !== this.currentGeneration || revision !== this.surfaceRevision) return this.refreshDirectSources();
+    for (const data of result) {
+      const patch = this.patches.get(data.key);
+      if (!patch || !patches.includes(patch)) continue;
+      const previous = patch.mesh.geometry; patch.mesh.geometry = createPromotedPatchGeometry(data); previous.dispose();
+      this.staleDirectPatches.delete(data.key);
+    }
   }
 
   public getInspectedGeo(): { lat: number; lon: number } | null {
@@ -1322,6 +1374,7 @@ export class ImageryLODManager {
     const factor = this.verticalExaggeration;
     const generation = this.currentGeneration;
     const intersectingPatches = () => [...this.patches.values()].filter(patch => {
+      if (this.terrainImagery && this.batchRenderer?.owns(patch.key)) return false;
       const geometry = patch.mesh.geometry;
       if (!geometry.boundingBox) geometry.computeBoundingBox();
       const b = geometry.boundingBox;
@@ -1397,6 +1450,15 @@ export class ImageryLODManager {
             continue;
           }
         }
+      }
+      if (this.terrainImagery && this.batchRenderer?.owns(patch.key)) {
+        this.staleDirectPatches.add(patch.key); this.directReprojectionsAvoided++;
+        if (patch.outlineMesh) {
+          patch.mesh.remove(patch.outlineMesh); patch.outlineMesh.geometry.dispose();
+          (patch.outlineMesh.material as THREE.Material).dispose();
+          patch.outlineMesh = this.buildPatchOutline(geo, patch.zoom); patch.mesh.add(patch.outlineMesh);
+        }
+        continue;
       }
       if (this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
         patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y);
@@ -2942,6 +3004,8 @@ export class ImageryLODManager {
   }
 
   private clearAllPatches(): void {
+    this.staleDirectPatches.clear();
+    this.terrainImagery?.dispose(); this.terrainImagery = undefined;
     this.batchRenderer?.clear();
     this.publishedTileKeys.clear();
     this.tileRelations.clear();
