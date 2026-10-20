@@ -159,6 +159,25 @@ try {
     await page.locator('#btnFollowRoute').click();
     await page.evaluate(xml => window.__trekViewerApp.loadTrackFromXML(xml.replace('Diorama tour fixture', 'Second route')), fixture);
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), false);
+    const xmlImport = await page.evaluate(async () => {
+      const app = window.__trekViewerApp;
+      const xml = `<g:gpx xmlns:g="http://www.topografix.com/GPX/1/1" xmlns:f="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
+        <g:wpt lon="-122.001" lat="47.001"><g:name><![CDATA[Camp <Upper> & East]]></g:name><g:ele>200</g:ele></g:wpt>
+        <g:trk><g:name>Prefixed &amp; encoded</g:name><g:trkseg>
+        <g:trkpt lon="-122" lat="47"><g:ele>100</g:ele><g:extensions><f:TrackPointExtension><f:hr>144</f:hr><f:cad>82</f:cad></f:TrackPointExtension></g:extensions></g:trkpt>
+        <g:trkpt lon="-122.001" lat="47.001"><g:ele>200</g:ele></g:trkpt></g:trkseg>
+        <g:trkseg><g:trkpt lon="-122.002" lat="47.002"/><g:trkpt lon="-122.003" lat="47.003"/></g:trkseg></g:trk></g:gpx>`;
+      await app.loadTrackFromXML(xml);
+      const committed = app.currentTrack;
+      const result = { name: committed.name, segments: committed.segments.length, points: committed.points.length,
+        hr: committed.points[0].hr, cad: committed.points[0].cad,
+        waypoint: committed.waypoints.find(point => !point.isDerivedLandmark)?.name };
+      await app.loadTrackFromXML('<gpx><trk></gpx>');
+      return { ...result, preservedOnError: app.currentTrack === committed,
+        importError: app.session.getState().loadingPhase };
+    });
+    assert.deepEqual(xmlImport, { name: 'Prefixed & encoded', segments: 2, points: 4, hr: 144, cad: 82,
+      waypoint: 'Camp <Upper> & East', preservedOnError: true, importError: 'error' });
     const loop = `<gpx><wpt lat="47" lon="-122"><name>Trailhead (Loop)</name><ele>100</ele></wpt>
       <wpt lat="47.001" lon="-122.001"><name>Camp (Upper)</name><ele>250</ele></wpt>
       <wpt lat="47.00105" lon="-122.001"><name>Camp (Lower)</name><ele>240</ele></wpt>
@@ -201,7 +220,7 @@ try {
       assert.ok(panel.y + panel.height < player.y, 'Profiling controls must clear the player bar');
     }
     assert.deepEqual(errors, []);
-    results.push({ viewport, progress, spatial, hudLayout, following, landmarks, overflow, pageErrors: errors, build });
+    results.push({ viewport, progress, spatial, hudLayout, following, xmlImport, landmarks, overflow, pageErrors: errors, build });
     console.log(JSON.stringify(results.at(-1)));
     await context.close();
   }

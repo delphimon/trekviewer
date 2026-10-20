@@ -21,10 +21,12 @@
   },
   "dependencies": {
     "lerc": "^4.2.0",
+    "sax": "^1.6.1",
     "three": "^0.186.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
+    "@types/sax": "^1.2.7",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "typescript": "^7.0.2",

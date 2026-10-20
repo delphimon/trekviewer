@@ -157,9 +157,9 @@ it('rejects date-line crossings and oversized geographic workloads before DEM de
   expect(spy).not.toHaveBeenCalled();
 });
 
-it('rejects excessive GPX point and waypoint counts before parsing', () => {
-  expect(() => GPXParser.parseRaw('<trkpt '.repeat(100_001))).toThrow(/100,000/);
-  expect(() => GPXParser.parseRaw('<wpt '.repeat(1_001))).toThrow(/1,000/);
+it('rejects excessive GPX point and waypoint counts before route construction', () => {
+  expect(() => GPXParser.parseRaw(`<gpx><trk><trkseg>${'<trkpt lat="47" lon="-122"/>'.repeat(100_001)}</trkseg></trk></gpx>`)).toThrow(/100,000/);
+  expect(() => GPXParser.parseRaw(`<gpx>${'<wpt lat="47" lon="-122"/>'.repeat(1_001)}</gpx>`)).toThrow(/1,000/);
 });
 
 it('anchors first-person entry at current feet and preserves subsequent physical movement', () => {

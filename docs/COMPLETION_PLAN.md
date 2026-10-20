@@ -58,7 +58,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Reproduce status-message obstruction with a canvas comparison, then move status/progress into the footer below the controls. Keep credits and controls visible, with no panel-size or target-size reduction.
 - [x] Record tour/track timing, speed, play/pause, follow state, route progress and HUD redraw requests in profile snapshots; mark playback-context changes. Label window-end samples and logical RGBA source bytes accurately, without treating them as GPU transfers.
 - [x] Verify that hidden HUDs request no uploads, preserve older report compatibility, and check actual client entry plus build metadata during browser validation. Keep Finish distinct when a day boundary occupies the same endpoint.
+- [x] Publish clean `412c9b3` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39355373089); desktop/mobile hosted checks confirmed the executed client and exact build ID.
 - [ ] Native tabletop baseline and sustained acceptance remain open. The October 19 device query returned no connected headsets; complete the prepared baseline only when hardware is available. See [HUD evidence and baseline protocol](review-2026-10-19/HUD_STATUS.md).
+
+### 0d. Make imported diorama routes use one XML reader
+
+- [x] Replace browser DOM parsing and the Node regex fallback with one bounded, namespace-aware XML reader. Support reversed coordinate attributes, prefixed GPX 1.0/1.1, self-closing points, entities/CDATA and fitness extensions while preserving segment boundaries and track-before-route selection.
+- [x] Keep validation/DEM finalization downstream; reject malformed XML, missing/invalid coordinates and excessive inputs. Confirm exact finalized-data parity for all eight bundled routes (27,772 points) against `412c9b3`.
+- [x] Verify desktop/mobile imports, failed-import preservation of the current diorama, tour/follow and landmark controls. See [shared GPX reader evidence](review-2026-10-19/GPX_XML.md). Publish through the clean-commit, CI and hosted-client checks.
 
 **Next architecture work:** use a tabletop native baseline to choose terrain batching or bounded publication work. Extend the shared UI presentation layer incrementally; extract XR manipulation state only with transition regressions. Investigate explicit cached/offline route packs for curated routes, accounting for source terms, archive size, decode/upload time and memory. Do not promise instant loading, remove live imports/caches, or replace the complete terrain pipeline without matched visual and device evidence. See [review response and checkpoint evidence](review-2026-10-19/DIORAMA_TOUR.md).
 

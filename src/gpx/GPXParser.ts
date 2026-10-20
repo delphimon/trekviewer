@@ -2,6 +2,7 @@ import type { GPXPoint, GPXWaypoint, GeoBounds, TrackStats, TrackSegment, Elevat
 import { haversineDistance } from './Coordinates.ts';
 import { calculateElevationStats } from './ElevationStats.ts';
 import { GPXValidator, type RawTrackPoint } from './GPXValidator.ts';
+import { readGPXXML } from './GPXXMLReader.ts';
 
 export interface RawParsedGPX {
   trackName: string;
@@ -29,120 +30,7 @@ export class GPXParser {
    * timestamps, and waypoints without requiring DEM.
    */
   public static parseRaw(xmlContent: string, fallbackName?: string): RawParsedGPX {
-    if (xmlContent.length > 25 * 1024 * 1024) {
-      throw new Error('GPX file exceeds 25 MB limit.');
-    }
-    // Bound derived geometry and landmark work before constructing the XML DOM.
-    if ((xmlContent.match(/<(?:trkpt|rtept)\b/gi)?.length ?? 0) > 100_000) {
-      throw new Error('GPX exceeds 100,000 track points. Simplify the track before importing.');
-    }
-    if ((xmlContent.match(/<wpt\b/gi)?.length ?? 0) > 1_000) {
-      throw new Error('GPX exceeds 1,000 waypoints. Reduce the waypoint count before importing.');
-    }
-
-    let trackName = fallbackName || 'Unnamed Trek';
-    const rawSegments: RawTrackPoint[][] = [];
-    const waypoints: GPXWaypoint[] = [];
-
-    if (typeof DOMParser !== 'undefined') {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xmlContent, 'application/xml');
-
-      const parseError = doc.querySelector('parsererror');
-      if (parseError) {
-        throw new Error(`XML parse error: ${parseError.textContent}`);
-      }
-
-      // Track Name
-      const nameEl = doc.querySelector('trk > name') || doc.querySelector('name');
-      trackName =
-        nameEl?.textContent?.trim() ||
-        fallbackName ||
-        'Unnamed Trek';
-
-      // Parse Waypoints
-      const wptElements = Array.from(doc.querySelectorAll('wpt'));
-      for (const wpt of wptElements) {
-        const lat = parseFloat(wpt.getAttribute('lat') || '0');
-        const lon = parseFloat(wpt.getAttribute('lon') || '0');
-        const eleStr = wpt.querySelector('ele')?.textContent;
-        const ele = eleStr ? parseFloat(eleStr) : undefined;
-        const name = wpt.querySelector('name')?.textContent?.trim() || 'Waypoint';
-        const desc = wpt.querySelector('desc')?.textContent?.trim();
-        const sym = wpt.querySelector('sym')?.textContent?.trim();
-
-        if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 85 && Math.abs(lon) <= 180) {
-          waypoints.push({ lat, lon, ele, name, desc, sym });
-        }
-      }
-
-      // Track Segments (<trk> -> <trkseg> -> <trkpt>)
-      const trkElements = Array.from(doc.querySelectorAll('trk'));
-      for (const trk of trkElements) {
-        const segElements = Array.from(trk.querySelectorAll('trkseg'));
-        if (segElements.length > 0) {
-          for (const seg of segElements) {
-            const segPts = this.parsePointElements(Array.from(seg.querySelectorAll('trkpt')));
-            if (segPts.length > 0) rawSegments.push(segPts);
-          }
-        } else {
-          const trkPts = this.parsePointElements(Array.from(trk.querySelectorAll('trkpt')));
-          if (trkPts.length > 0) rawSegments.push(trkPts);
-        }
-      }
-
-      // Route points (<rte> -> <rtept>) fallback
-      if (rawSegments.length === 0) {
-        const rteElements = Array.from(doc.querySelectorAll('rte'));
-        for (const rte of rteElements) {
-          const rtePts = this.parsePointElements(Array.from(rte.querySelectorAll('rtept')));
-          if (rtePts.length > 0) rawSegments.push(rtePts);
-        }
-      }
-    } else {
-      // Node.js fallback parser
-      const nameMatch = xmlContent.match(/<trk>\s*<name>([^<]+)<\/name>/i) ||
-                        xmlContent.match(/<name>([^<]+)<\/name>/i);
-      if (nameMatch) trackName = nameMatch[1].trim();
-
-      // Find waypoints
-      const wptRegex = /<wpt\s+[^>]*lat=["']([^"']+)["'][^>]*lon=["']([^"']+)["'][^>]*>([\s\S]*?)<\/wpt>/gi;
-      let wMatch: RegExpExecArray | null;
-      while ((wMatch = wptRegex.exec(xmlContent)) !== null) {
-        const lat = parseFloat(wMatch[1]);
-        const lon = parseFloat(wMatch[2]);
-        const inner = wMatch[3];
-        const eleMatch = inner.match(/<ele>([^<]+)<\/ele>/i);
-        const nameMatch2 = inner.match(/<name>([^<]+)<\/name>/i);
-        const descMatch = inner.match(/<desc>([^<]+)<\/desc>/i);
-        const symMatch = inner.match(/<sym>([^<]+)<\/sym>/i);
-
-        if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 85 && Math.abs(lon) <= 180) {
-          waypoints.push({
-            lat,
-            lon,
-            ele: eleMatch ? parseFloat(eleMatch[1]) : undefined,
-            name: nameMatch2 ? nameMatch2[1].trim() : 'Waypoint',
-            desc: descMatch ? descMatch[1].trim() : undefined,
-            sym: symMatch ? symMatch[1].trim() : undefined,
-          });
-        }
-      }
-
-      // Find <trkseg> blocks
-      const segRegex = /<trkseg>([\s\S]*?)<\/trkseg>/gi;
-      let sMatch: RegExpExecArray | null;
-      while ((sMatch = segRegex.exec(xmlContent)) !== null) {
-        const pts = this.parsePointRegex(sMatch[1]);
-        if (pts.length > 0) rawSegments.push(pts);
-      }
-
-      // If no <trkseg>, try raw <trkpt> or <rtept>
-      if (rawSegments.length === 0) {
-        const pts = this.parsePointRegex(xmlContent);
-        if (pts.length > 0) rawSegments.push(pts);
-      }
-    }
+    const { trackName, rawSegments, waypoints } = readGPXXML(xmlContent, fallbackName);
 
     if (rawSegments.length === 0) {
       throw new Error('No GPS track points found in GPX file.');
@@ -489,58 +377,6 @@ export class GPXParser {
         return ratio >= 0.9 ? 'recorded' : ratio > 0 ? 'mixed' : 'estimated';
       })(),
     };
-  }
-
-  private static parsePointElements(elements: Element[]): RawTrackPoint[] {
-    const raw: RawTrackPoint[] = [];
-    for (const pt of elements) {
-      const lat = parseFloat(pt.getAttribute('lat') || '0');
-      const lon = parseFloat(pt.getAttribute('lon') || '0');
-      const eleStr = pt.querySelector('ele')?.textContent;
-      const ele = eleStr ? parseFloat(eleStr) : undefined;
-      const timeStr = pt.querySelector('time')?.textContent;
-      const time = timeStr ? new Date(timeStr) : undefined;
-
-      const hrStr = pt.querySelector('hr, gpxtpx\\:hr')?.textContent;
-      const hr = hrStr ? parseInt(hrStr, 10) : undefined;
-
-      const cadStr = pt.querySelector('cad, gpxtpx\\:cad')?.textContent;
-      const cad = cadStr ? parseInt(cadStr, 10) : undefined;
-
-      if (!isNaN(lat) && !isNaN(lon)) {
-        raw.push({ lat, lon, ele, rawEle: ele, time, hr, cad });
-      }
-    }
-    return raw;
-  }
-
-  private static parsePointRegex(xmlChunk: string): RawTrackPoint[] {
-    const raw: RawTrackPoint[] = [];
-    const trkptRegex = /<(?:trkpt|rtept)\s+[^>]*lat=["']([^"']+)["'][^>]*lon=["']([^"']+)["'][^>]*>([\s\S]*?)<\/(?:trkpt|rtept)>/gi;
-    let match: RegExpExecArray | null;
-
-    while ((match = trkptRegex.exec(xmlChunk)) !== null) {
-      const lat = parseFloat(match[1]);
-      const lon = parseFloat(match[2]);
-      const inner = match[3];
-
-      const eleMatch = inner.match(/<ele>([^<]+)<\/ele>/i);
-      const ele = eleMatch ? parseFloat(eleMatch[1]) : undefined;
-
-      const timeMatch = inner.match(/<time>([^<]+)<\/time>/i);
-      const time = timeMatch ? new Date(timeMatch[1]) : undefined;
-
-      const hrMatch = inner.match(/<[^:]*:?hr>(\d+)<\/[^:]*:?hr>/i);
-      const hr = hrMatch ? parseInt(hrMatch[1], 10) : undefined;
-
-      const cadMatch = inner.match(/<[^:]*:?cad>(\d+)<\/[^:]*:?cad>/i);
-      const cad = cadMatch ? parseInt(cadMatch[1], 10) : undefined;
-
-      if (!isNaN(lat) && !isNaN(lon)) {
-        raw.push({ lat, lon, ele, rawEle: ele, time, hr, cad });
-      }
-    }
-    return raw;
   }
 
   /**

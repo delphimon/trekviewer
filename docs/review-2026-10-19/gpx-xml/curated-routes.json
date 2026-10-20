@@ -1,0 +1,69 @@
+{
+  "baseline": "412c9b3296c9462892ed547265e9f56331af5fa5",
+  "results": [
+    {
+      "file": "EnchantmentsAndDragontail.gpx",
+      "points": 2729,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 32632.923244052126,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "GlacierPeakTraverse2026.gpx",
+      "points": 4892,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 54548.89597701262,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "MountAdamsJuly2026.gpx",
+      "points": 3114,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 20010.627075723085,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "MountBakerJuly2026.gpx",
+      "points": 3585,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 23955.553211089456,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "MountHoodJune2026.gpx",
+      "points": 2760,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 11269.630859427913,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "MountRainierViaEmmons.gpx",
+      "points": 4592,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 27528.53220499963,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "OlympusBaileyTraverse2026.gpx",
+      "points": 4767,
+      "segments": 1,
+      "waypoints": 22,
+      "distanceMeters": 85954.46135165179,
+      "exactFinalizedMatch": true
+    },
+    {
+      "file": "PutridPeteWebMountDefiance.gpx",
+      "points": 1333,
+      "segments": 1,
+      "waypoints": 0,
+      "distanceMeters": 15535.63547753966,
+      "exactFinalizedMatch": true
+    }
+  ]
+}
