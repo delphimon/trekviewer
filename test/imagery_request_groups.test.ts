@@ -10,8 +10,8 @@ const bounds = { minLat: 46.8, maxLat: 46.9, minLon: -121.8, maxLon: -121.7, cen
 const image = {} as HTMLImageElement;
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 function setup() {
-  const loads: { x: number; y: number; resolve: (image: HTMLImageElement) => void; reject: (error: Error) => void }[] = [];
-  vi.spyOn(ImageryLODManager, 'loadPatchImage').mockImplementation((_zoom, x, y) => new Promise((resolve, reject) => loads.push({ x, y, resolve, reject })));
+  const loads: { x: number; y: number; signal?: AbortSignal; resolve: (image: HTMLImageElement) => void; reject: (error: Error) => void }[] = [];
+  vi.spyOn(ImageryLODManager, 'loadPatchImage').mockImplementation((_zoom, x, y, _style, signal) => new Promise((resolve, reject) => loads.push({ x, y, signal, resolve, reject })));
   const manager: any = new ImageryLODManager({ terrainGeoBounds: bounds, terrainBaseElevation: 0, elevationSampler: () => 0, maxConcurrency: 6 });
   const mount = vi.spyOn(manager, 'createAndMountPatch').mockImplementation(() => {});
   return { manager, loads, mount };
@@ -20,6 +20,12 @@ function candidates(offset = 0) {
   return Array.from({ length: 6 }, (_, group) => Array.from({ length: 16 }, (_, i) => ({
     x: 84000 + offset + group * 4 + i % 4, y: 184000 + Math.floor(i / 4), zoom: 19, dist: 10 + group * 16 + i,
   }))).flat();
+}
+
+function resident(manager: any, x: number, y: number) {
+  const key = `satellite:19:${x}:${y}`;
+  manager.patches.set(key, { key, x, y, zoom: 19, centerDist: 0, lastUsed: performance.now(),
+    mesh: { visible: false }, dispose: vi.fn() });
 }
 afterEach(() => vi.restoreAllMocks());
 
@@ -97,5 +103,39 @@ it('releases a failed source group, keeps its bounded retry and continues other 
     loads[0].reject(new Error('source unavailable')); await flush();
     expect(loads[4].x).toBe(84001); expect(manager.activeRequestCount).toBe(4); expect(manager.failedRequests.size).toBe(1);
     expect(manager.nextRetryTime).toBeGreaterThan(performance.now());
+  } finally { manager.dispose(); }
+});
+
+it('prioritizes the current footprint when a full cache cannot admit obsolete sibling work', async () => {
+  const { manager, loads, mount } = setup();
+  try {
+    manager.reconcileDesiredTiles(candidates(), provider, 19);
+    for (const load of loads) resident(manager, load.x + 1, load.y);
+    manager.maxPatches = manager.patches.size;
+    manager.reconcileDesiredTiles(candidates(400), provider, 19);
+    expect(loads).toHaveLength(8);
+    expect(loads.slice(0, 4).every(load => load.signal?.aborted)).toBe(true);
+    expect(loads.slice(4).every(load => !load.signal?.aborted)).toBe(true);
+    expect(manager.activeRequestCount).toBe(4);
+    loads[0].resolve(image); await flush();
+    expect(mount).not.toHaveBeenCalled();
+    expect(manager.activeRequestCount).toBe(4);
+    loads[4].resolve(image); await flush();
+    expect(mount).toHaveBeenCalledTimes(1);
+  } finally { manager.dispose(); }
+});
+
+it('reserves room for selected tiles before retaining nearby speculative downloads', () => {
+  const { manager, loads } = setup();
+  try {
+    const old = candidates().filter((_, i) => i % 16 === 0).slice(0, 3).map(c => ({ ...c, dist: 1 }));
+    manager.reconcileDesiredTiles(old, provider, 19);
+    resident(manager, 83000, 184000);
+    manager.maxPatches = 4; // one resident + two new selected tiles + one warm request
+    manager.reconcileDesiredTiles([candidates(400)[0], candidates(400)[16]], provider, 19);
+    expect(loads.slice(0, 3).filter(load => !load.signal?.aborted)).toHaveLength(1);
+    expect(loads.slice(0, 3).filter(load => load.signal?.aborted)).toHaveLength(2);
+    expect(loads.slice(3).map(load => load.x)).toEqual([84400, 84404]);
+    expect(manager.activeRequestCount).toBe(3);
   } finally { manager.dispose(); }
 });

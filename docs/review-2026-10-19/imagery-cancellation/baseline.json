@@ -1,0 +1,102 @@
+{
+  "baseline": true,
+  "results": [
+    {
+      "kind": "image",
+      "outcomes": [
+        "Error",
+        "Error"
+      ],
+      "currentMs": 31.899999976158142,
+      "width": 512,
+      "height": 256,
+      "stats": {
+        "entries": 1,
+        "maxEntries": 1024,
+        "decodedBytes": 524288,
+        "maxDecodedBytes": 268435456,
+        "inFlight": 1,
+        "failureCount": 0,
+        "negativeCacheSize": 0,
+        "cacheHits": 0,
+        "cacheMisses": 3,
+        "hitRate": 0,
+        "highPriorityQueueLength": 0,
+        "overviewQueueLength": 0,
+        "activeRequestsByClass": {
+          "critical": 0,
+          "high": 0,
+          "normal": 1,
+          "overview": 0
+        }
+      },
+      "abandonedResponseCompleted": true,
+      "physicalCancelMs": null
+    },
+    {
+      "kind": "persisted-shared-raster",
+      "outcomes": [
+        "Error",
+        "Error"
+      ],
+      "currentMs": 34.099999994039536,
+      "width": 256,
+      "height": 256,
+      "stats": {
+        "entries": 1,
+        "maxEntries": 1024,
+        "decodedBytes": 786432,
+        "maxDecodedBytes": 268435456,
+        "inFlight": 2,
+        "failureCount": 0,
+        "negativeCacheSize": 0,
+        "cacheHits": 0,
+        "cacheMisses": 3,
+        "hitRate": 0,
+        "highPriorityQueueLength": 0,
+        "overviewQueueLength": 0,
+        "activeRequestsByClass": {
+          "critical": 0,
+          "high": 0,
+          "normal": 2,
+          "overview": 0
+        }
+      },
+      "pixel": [
+        18,
+        52,
+        86,
+        255
+      ],
+      "abandonedResponseCompleted": true,
+      "physicalCancelMs": null
+    }
+  ],
+  "connections": [
+    {
+      "id": "image-old",
+      "started": 1792475599495,
+      "closed": 1792475605497,
+      "finished": true
+    },
+    {
+      "id": "image-current",
+      "started": 1792475599735,
+      "closed": 1792475599763,
+      "finished": true
+    },
+    {
+      "id": "persisted-shared-raster-old",
+      "started": 1792475605538,
+      "closed": 1792475611544,
+      "finished": true
+    },
+    {
+      "id": "persisted-shared-raster-current",
+      "started": 1792475605783,
+      "closed": 1792475605809,
+      "finished": true
+    }
+  ],
+  "errors": []
+}

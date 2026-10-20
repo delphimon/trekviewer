@@ -76,9 +76,10 @@ it('ignores a stale service failure after cache clear', async () => {
   const network = vi.spyOn(TileImageCache as any, 'loadImageWithTimeout')
     .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; })).mockResolvedValue(image);
   const stale = load(0);
+  const cancelled = expect(stale).rejects.toMatchObject({ name: 'AbortError' });
   TileImageCache.clear();
   fail(new Error('old timeout'));
-  await stale;
+  await cancelled;
   await load(1);
   expect(network.mock.calls.at(-1)?.[0]).toBe(provider.getTileUrls(19, 1, 0)[0]);
 });

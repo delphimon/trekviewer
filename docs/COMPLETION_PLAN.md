@@ -82,6 +82,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Capture and retrieve a current-build native MR baseline with eye/layer state, playback context, actual browser FPS/GPU samples and user observations. See [October 19 evidence](review-2026-10-19/NATIVE_TABLETOP.md).
 - [ ] Reproduce a fixed paused tabletop view and compare the earlier eligible Esri/Bing imagery paths and DEM against current sources, at identical framing. Verify actual detail, source availability and applicable free personal/internal-use access. A Google 3D tileset is a separate integration, not an interchangeable aerial URL.
 - [ ] Correct imagery selection/publication/retention churn and measure time-to-sharp without shrinking High's coverage or removing native source detail.
+  - [x] Reserve current-view request admission and cancel abandoned physical downloads while preserving live shared consumers and valid cached bytes; [cancellation checkpoint](review-2026-10-19/IMAGERY_CANCELLATION.md). Controlled transport/scheduler checks pass; native time-to-sharp and broader churn acceptance remain open.
 - [ ] Verify whole-model ridge/slope fidelity separately from local source resolution. Current Olympus/Bailey base mesh cells are approximately 94 m; the approximately 1 m local export does not describe the whole model.
 - [ ] Use measured CPU submission/GPU evidence to prototype compatible imagery batching and investigate excessive paused-HUD uploads. Require exact UV/coverage parity and a matched native rerun before claiming improvement.
 

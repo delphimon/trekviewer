@@ -3,6 +3,7 @@ import { recordImagerySource } from './ImagerySource.ts';
 import { PersistentResourceCache, persistentResourceAllowed, readBoundedBlob } from './PersistentResourceCache.ts';
 import { isSwissImageryURL, isCompleteSwissImage } from './providers/SwissImagery.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
+import { consumeSharedRequest, cancelSharedRequests, type SharedRequest } from './SharedRequest.ts';
 
 export enum TilePriority {
   CRITICAL = 0, // Missing 4th tile of 3/4 group, visible 1:1 user center, tabletop gaze focus
@@ -47,9 +48,9 @@ export class TileImageCache {
   private static generation = 0;
   private static cache: Map<string, TileImageSource> = new Map();
   private static entryBytes: Map<string, number> = new Map();
-  private static inFlight: Map<string, Promise<TileImageSource>> = new Map();
+  private static inFlight = new Map<string, SharedRequest<TileImageSource>>();
   private static rasterSources = new Map<string, HTMLImageElement>();
-  private static rasterLoads = new Map<string, Promise<HTMLImageElement>>();
+  private static rasterLoads = new Map<string, SharedRequest<HTMLImageElement>>();
   private static rasterFailures = new Map<string, number>();
   private static rasterServiceFailures = new Map<string, number>();
   private static rasterSourceBytes = 0;
@@ -242,8 +243,9 @@ export class TileImageCache {
     this.generation++;
     this.cache.clear();
     this.entryBytes.clear();
-    this.inFlight.clear();
-    this.rasterSources.clear(); this.rasterLoads.clear(); this.rasterFailures.clear(); this.rasterServiceFailures.clear(); this.rasterSourceBytes = 0;
+    cancelSharedRequests(this.inFlight);
+    cancelSharedRequests(this.rasterLoads);
+    this.rasterSources.clear(); this.rasterFailures.clear(); this.rasterServiceFailures.clear(); this.rasterSourceBytes = 0;
     this.negativeCache.clear();
     this.totalDecodedBytes = 0;
     this.failureCount = 0;
@@ -357,104 +359,65 @@ export class TileImageCache {
     if (generation !== this.generation) throw new Error('Tile cache cleared');
 
     // In-flight request deduplication (Requirement #77 & Section 15)
-    let loadPromise = this.inFlight.get(key);
-    if (!loadPromise) {
-      loadPromise = (async () => {
-        this.activeByPriority[priority]++;
-        try {
-          const region = provider.getTileImageRegion?.(zoom, x, y);
-          const urls = [...provider.getTileUrls(zoom, x, y)];
-          const configuredFirstURL = urls[0];
-          if (region) {
-            // A source outage affects many exports, not just one tile URL. Try
-            // healthy configured mirrors first instead of repeating the same
-            // timeout for every new group. Cached preferred rasters still win.
-            const now = Date.now();
-            const coolingDown = (url: string) => !this.rasterSources.has(`${provider.id}:${url}`)
-              && (this.rasterServiceFailures.get(this.rasterServiceKey(provider.id, url)) ?? 0) > now;
-            urls.sort((a, b) => Number(coolingDown(a)) - Number(coolingDown(b)));
-          }
-          let lastError: any = null;
+    return consumeSharedRequest(this.inFlight, key, async requestSignal => {
+      this.activeByPriority[priority]++;
+      try {
+        const region = provider.getTileImageRegion?.(zoom, x, y);
+        const urls = [...provider.getTileUrls(zoom, x, y)];
+        const configuredFirstURL = urls[0];
+        if (region) {
+          // A source outage affects many exports, not just one tile URL. Try
+          // healthy configured mirrors first instead of repeating the same
+          // timeout for every new group. Cached preferred rasters still win.
+          const now = Date.now();
+          const coolingDown = (url: string) => !this.rasterSources.has(`${provider.id}:${url}`)
+            && (this.rasterServiceFailures.get(this.rasterServiceKey(provider.id, url)) ?? 0) > now;
+          urls.sort((a, b) => Number(coolingDown(a)) - Number(coolingDown(b)));
+        }
+        let lastError: any = null;
 
-          for (const url of urls) {
-            try {
-              // Shared network request executes with internal timeout to populate cache
-              let img: TileImageSource = region
-                ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation, provider.id)
-                : await this.loadImageWithTimeout(url, provider.requestTimeoutMs ?? timeoutMs);
-              if (region) {
-                if (region.x + region.width > img.width || region.y + region.height > img.height) throw new Error('Incomplete source raster dimensions');
-                const canvas = document.createElement('canvas'); canvas.width = region.width; canvas.height = region.height;
-                const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Cannot crop imagery raster');
-                ctx.drawImage(img, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
-                if (canvas.dataset) canvas.dataset.sourceUrl = url;
-                img = canvas;
-              }
-              if (provider.isTileUsable && !provider.isTileUsable(img, url)) throw new Error('Imagery has incomplete source coverage');
-              recordImagerySource(img, url, configuredFirstURL);
-              if (generation === this.generation) this.set(key, img);
-              return img;
-            } catch (err) {
-              lastError = err;
+        for (const url of urls) {
+          try {
+            // The tile and shared raster each retain their live consumers.
+            let img: TileImageSource = region
+              ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation, provider.id, requestSignal)
+              : await this.loadImageWithTimeout(url, provider.requestTimeoutMs ?? timeoutMs, requestSignal);
+            if (requestSignal.aborted || generation !== this.generation) throw new DOMException('Tile load aborted', 'AbortError');
+            if (region) {
+              if (region.x + region.width > img.width || region.y + region.height > img.height) throw new Error('Incomplete source raster dimensions');
+              const canvas = document.createElement('canvas'); canvas.width = region.width; canvas.height = region.height;
+              const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Cannot crop imagery raster');
+              ctx.drawImage(img, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
+              if (canvas.dataset) canvas.dataset.sourceUrl = url;
+              img = canvas;
             }
-          }
-
-          if (generation !== this.generation) throw lastError;
-          this.failureCount++;
-          const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
-          const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
-          this.negativeCache.set(key, {
-            timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now(),
-            retryAfterMs,
-            reason: errMsg,
-          });
-          throw lastError || new Error(errMsg);
-        } finally {
-          if (generation === this.generation) {
-            this.activeByPriority[priority] = Math.max(0, this.activeByPriority[priority] - 1);
-            if (priority === TilePriority.CRITICAL || priority === TilePriority.HIGH) this.notifyHighPriorityDrained();
+            if (provider.isTileUsable && !provider.isTileUsable(img, url)) throw new Error('Imagery has incomplete source coverage');
+            recordImagerySource(img, url, configuredFirstURL);
+            if (generation === this.generation) this.set(key, img);
+            return img;
+          } catch (err) {
+            if (requestSignal.aborted || generation !== this.generation) throw err;
+            lastError = err;
           }
         }
-      })();
 
-      this.inFlight.set(key, loadPromise);
-      loadPromise
-        .finally(() => {
-          if (this.inFlight.get(key) === loadPromise) this.inFlight.delete(key);
-        })
-        .catch(() => {});
-    }
-
-    // Individual consumer await with signal listener
-    if (!signal) {
-      return loadPromise;
-    }
-
-    return new Promise<TileImageSource>((resolve, reject) => {
-      if (signal.aborted) {
-        return reject(new Error('Tile load aborted'));
-      }
-
-      const onAbort = () => {
-        signal.removeEventListener('abort', onAbort);
-        reject(new Error('Tile load aborted'));
-      };
-      signal.addEventListener('abort', onAbort);
-
-      loadPromise!
-        .then((img) => {
-          signal.removeEventListener('abort', onAbort);
-          if (signal.aborted) {
-            reject(new Error('Tile load aborted'));
-          } else {
-            resolve(img);
-          }
-        })
-        .catch((err) => {
-          signal.removeEventListener('abort', onAbort);
-          reject(err);
+        if (generation !== this.generation) throw lastError;
+        this.failureCount++;
+        const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
+        const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
+        this.negativeCache.set(key, {
+          timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+          retryAfterMs,
+          reason: errMsg,
         });
-    });
+        throw lastError || new Error(errMsg);
+      } finally {
+        if (generation === this.generation) {
+          this.activeByPriority[priority] = Math.max(0, this.activeByPriority[priority] - 1);
+          if (priority === TilePriority.CRITICAL || priority === TilePriority.HIGH) this.notifyHighPriorityDrained();
+        }
+      }
+    }, signal);
   }
 
   private static evictRasterSource(): void {
@@ -472,13 +435,13 @@ export class TileImageCache {
 
   /** Sixteen fine tiles share one 1024px export; source rasters count toward the
    * same decoded-byte limit and retain at most four entries (16 MiB). */
-  private static loadRasterSource(key: string, url: string, timeout: number, generation: number, providerId: string): Promise<HTMLImageElement> {
+  private static loadRasterSource(key: string, url: string, timeout: number, generation: number, providerId: string, signal: AbortSignal): Promise<HTMLImageElement> {
     const cached = this.rasterSources.get(key);
     if (cached) { this.rasterSources.delete(key); this.rasterSources.set(key, cached); return Promise.resolve(cached); }
-    const pending = this.rasterLoads.get(key); if (pending) return pending;
     if ((this.rasterFailures.get(key) ?? 0) > Date.now()) return Promise.reject(new Error('Source raster temporarily unavailable'));
     const serviceKey = this.rasterServiceKey(providerId, url);
-    const request = this.loadImageWithTimeout(url, timeout).then(image => {
+    return consumeSharedRequest(this.rasterLoads, key, requestSignal => this.loadImageWithTimeout(url, timeout, requestSignal).then(image => {
+      if (requestSignal.aborted || generation !== this.generation) throw new DOMException('Raster load aborted', 'AbortError');
       const bytes = this.calculateImageBytes(image);
       if (generation === this.generation) this.rasterServiceFailures.delete(serviceKey);
       if (generation === this.generation && bytes <= this.maxDecodedBytes) {
@@ -489,7 +452,7 @@ export class TileImageCache {
       }
       return image;
     }).catch(error => {
-      if (generation === this.generation) {
+      if (generation === this.generation && !requestSignal.aborted) {
         this.rasterServiceFailures.delete(serviceKey);
         this.rasterServiceFailures.set(serviceKey, Date.now() + 5 * 60_000);
         while (this.rasterServiceFailures.size > 128) this.rasterServiceFailures.delete(this.rasterServiceFailures.keys().next().value!);
@@ -497,10 +460,7 @@ export class TileImageCache {
         while (this.rasterFailures.size > 128) this.rasterFailures.delete(this.rasterFailures.keys().next().value!);
       }
       throw error;
-    });
-    this.rasterLoads.set(key, request);
-    void request.finally(() => { if (this.rasterLoads.get(key) === request) this.rasterLoads.delete(key); }).catch(() => {});
-    return request;
+    }), signal);
   }
 
   private static loadImageWithTimeout(
@@ -584,7 +544,7 @@ export class TileImageCache {
       if (controller.signal.aborted) throw new Error('Image load aborted');
       if (cached) {
         try { return await decode(cached); }
-        catch (error) { void PersistentResourceCache.remove(url); if (controller.signal.aborted) throw error; }
+        catch (error) { if (controller.signal.aborted) throw error; void PersistentResourceCache.remove(url); }
       }
       const response = await fetch(url, { signal: controller.signal, credentials: 'omit' });
       const blob = await readBoundedBlob(response, 8 * 1024 * 1024);

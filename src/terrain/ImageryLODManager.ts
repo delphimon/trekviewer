@@ -2148,6 +2148,11 @@ export class ImageryLODManager {
 
     // 2. Selective request cancellation (Stage W):
     // Distinguish truly obsolete requests from near-future / warm working region requests.
+    let missingSelected = 0;
+    for (const key of newDesiredKeys) if (!this.patches.has(key)) missingSelected++;
+    // Reserve admission for the current selection before allowing old work to
+    // occupy scheduler slots. At capacity its result cannot be mounted anyway.
+    let warmAdmissionSlots = Math.max(0, this.maxPatches - this.patches.size - missingSelected);
     for (const [key, pending] of this.pendingRequests.entries()) {
       if (!newDesiredKeys.has(key)) {
         const parsed = parseTileKey(key);
@@ -2160,8 +2165,9 @@ export class ImageryLODManager {
         }
 
         const isNearWarmRegion = parsed.zoom >= defaultZoom - 1 && pending.dist < 3.5;
-        if (hasLoadedSibling || isNearWarmRegion) {
-          // Allow in-flight request to finish and enter warm resident cache
+        if (warmAdmissionSlots > 0 && (hasLoadedSibling || isNearWarmRegion)) {
+          // Retain useful speculative work only when it can actually stay resident.
+          warmAdmissionSlots--;
           continue;
         }
 

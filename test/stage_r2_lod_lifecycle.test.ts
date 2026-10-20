@@ -221,7 +221,7 @@ describe('Stage R2: Adaptive Imagery LOD Lifecycle Suite', () => {
 
       // Consumer 1 cancels their subscription
       consumer1Controller.abort();
-      await expect(p1).rejects.toThrow('Tile load aborted');
+      await expect(p1).rejects.toMatchObject({ name: 'AbortError' });
 
       // Shared network fetch should STILL be in flight for consumer 2
       expect(TileImageCache.getInFlightCount()).toBe(1);
