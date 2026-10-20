@@ -55,6 +55,7 @@ export class SpatialHUD {
   // ~11.7 Hz (target 8-12 uploads/sec during active playback)
   private readonly UPLOAD_INTERVAL_MS: number = 85;
   private uploadCountInCurrentSecond: number = 0;
+  private uploadRequestsTotal = 0;
   private recentUploadsPerSecond: number = 0;
   private lastUploadRateCalcTime: number = 0;
 
@@ -264,6 +265,15 @@ export class SpatialHUD {
       this.lastUploadRateCalcTime = now;
     }
     return this.recentUploadsPerSecond;
+  }
+
+  /** Redraw requests and logical RGBA source bytes, not measured GPU transfers. */
+  public getUploadDiagnostics(): { requests: number; requestedBytes: number; visible: boolean } {
+    return {
+      requests: this.uploadRequestsTotal,
+      requestedBytes: this.uploadRequestsTotal * this.canvas.width * this.canvas.height * 4,
+      visible: this.group.visible,
+    };
   }
 
   private setupInteractiveAreas(): void {
@@ -526,11 +536,7 @@ export class SpatialHUD {
     if (this.dynamicDirty) {
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
-        this.renderDynamicLayer();
-        this.texture.needsUpdate = true;
-        this.uploadCountInCurrentSecond++;
-        this.lastTextureUploadTime = now;
-        this.dynamicDirty = false;
+        this.uploadDynamicLayer(now);
       }
     }
   }
@@ -644,14 +650,19 @@ export class SpatialHUD {
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (force || now - this.lastTextureUploadTime >= this.UPLOAD_INTERVAL_MS) {
-      this.renderDynamicLayer();
-      this.texture.needsUpdate = true;
-      this.uploadCountInCurrentSecond++;
-      this.lastTextureUploadTime = now;
-      this.dynamicDirty = false;
+      this.uploadDynamicLayer(now);
     } else {
       this.dynamicDirty = true;
     }
+  }
+
+  private uploadDynamicLayer(now: number): void {
+    this.renderDynamicLayer();
+    this.texture.needsUpdate = true;
+    this.uploadCountInCurrentSecond++;
+    this.uploadRequestsTotal++;
+    this.lastTextureUploadTime = now;
+    this.dynamicDirty = false;
   }
 
   private renderStaticLayer(): void {
@@ -1264,11 +1275,11 @@ export class SpatialHUD {
     ctx.fillText('Next Landmark ▶', 765 + 112, 583);
     ctx.textAlign = 'left';
 
-    // 9. Bottom Non-Intrusive Status & Progress Pill (never blocks header or controls)
+    // Temporary status replaces the footer hints, below the last control row.
     if (this.statusMessage) {
-      const pillY = 612;
-      const pillH = 48;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      const pillY = 680;
+      const pillH = 36;
+      ctx.fillStyle = '#0f172a';
       ctx.beginPath();
       ctx.roundRect(35, pillY, w - 70, pillH, 10);
       ctx.fill();
@@ -1278,13 +1289,13 @@ export class SpatialHUD {
 
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 15px sans-serif';
-      ctx.fillText(this.statusMessage, 55, pillY + 28);
+      ctx.fillText(this.statusMessage, 55, pillY + 22, w - 110);
 
       if (this.statusProgress > 0) {
         ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
-        ctx.fillRect(45, pillY + 36, w - 90, 4);
+        ctx.fillRect(45, pillY + 28, w - 90, 4);
         ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(45, pillY + 36, Math.max(8, (w - 90) * this.statusProgress), 4);
+        ctx.fillRect(45, pillY + 28, Math.max(8, (w - 90) * this.statusProgress), 4);
       }
     }
   }

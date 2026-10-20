@@ -39,11 +39,15 @@ export function resolveRouteLandmarks(track: TrackStats): RouteLandmark[] {
     }
     progress = clamp(progress);
     // Dedupe only the same route station. Nearby named stops and return visits survive.
-    const duplicate = result.some(existing =>
-      Math.abs(existing.progress - progress!) * Math.max(distance, 1) < 1 &&
-      ((existing.name.trim().toLowerCase() === item.name.trim().toLowerCase()) ||
-        (Math.hypot(existing.lat - item.lat, existing.lon - item.lon) < 0.000001 &&
-          (existing.isDerivedLandmark || item.isDerivedLandmark))));
+    const duplicate = result.some(existing => {
+      if (Math.abs(existing.progress - progress!) * Math.max(distance, 1) >= 1) return false;
+      // A day boundary, camp or summit at an endpoint is a distinct landmark.
+      const endpoint = (type?: string) => type === 'start' || type === 'finish';
+      if ((endpoint(existing.type) || endpoint(item.type)) && existing.type !== item.type) return false;
+      return existing.name.trim().toLowerCase() === item.name.trim().toLowerCase() ||
+        (existing.type === item.type && Math.hypot(existing.lat - item.lat, existing.lon - item.lon) < 0.000001 &&
+          (existing.isDerivedLandmark || item.isDerivedLandmark));
+    });
     if (!duplicate) result.push({ ...item, ele: elevation, progress, distanceMeters: progress * distance });
   }
   return result.sort((a, b) => a.progress - b.progress);

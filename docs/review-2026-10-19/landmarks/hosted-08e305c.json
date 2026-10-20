@@ -1,0 +1,107 @@
+{
+  "fixture": "synthetic terrain; external sources deliberately unavailable",
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.0014999847258030706
+      },
+      "landmarks": {
+        "shared": true,
+        "list": [
+          {
+            "name": "Trailhead (Loop)",
+            "progress": 0
+          },
+          {
+            "name": "Camp (Upper)",
+            "progress": 0.14239307647845603
+          },
+          {
+            "name": "Camp (Lower)",
+            "progress": 0.14787174123544253
+          },
+          {
+            "name": "High Point",
+            "progress": 0.5035712470660862
+          },
+          {
+            "name": "Finish",
+            "progress": 1
+          }
+        ]
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "08e305c-2026-10-20T01:02:33.064Z",
+        "sha": "08e305c833520f9437376e6993f1cd6cc25d7b35",
+        "shortSha": "08e305c",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T01:02:33.064Z",
+        "label": "TrekViewer 1.0.0 • 08e305c"
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.000293985456137821
+      },
+      "landmarks": {
+        "shared": true,
+        "list": [
+          {
+            "name": "Trailhead (Loop)",
+            "progress": 0
+          },
+          {
+            "name": "Camp (Upper)",
+            "progress": 0.14239307647845603
+          },
+          {
+            "name": "Camp (Lower)",
+            "progress": 0.14787174123544253
+          },
+          {
+            "name": "High Point",
+            "progress": 0.5035712470660862
+          },
+          {
+            "name": "Finish",
+            "progress": 1
+          }
+        ]
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "08e305c-2026-10-20T01:02:33.064Z",
+        "sha": "08e305c833520f9437376e6993f1cd6cc25d7b35",
+        "shortSha": "08e305c",
+        "branch": "main",
+        "dirty": false,
+        "builtAt": "2026-10-20T01:02:33.064Z",
+        "label": "TrekViewer 1.0.0 • 08e305c"
+      }
+    }
+  ]
+}

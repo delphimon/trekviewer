@@ -12,6 +12,14 @@ export const loopXML = `<gpx><wpt lat="47" lon="-122"><ele>100</ele><name>Trailh
   </trkseg></trk></gpx>`;
 
 describe('shared route landmark presentation', () => {
+  it('keeps Finish when a day boundary occupies the same final route station', () => {
+    const track = GPXParser.parse(loopXML);
+    const finish = track.landmarks.find(item => item.type === 'finish')!;
+    track.landmarks.unshift({ ...finish, name: 'Day 2 Start', type: 'day_boundary' });
+    const endpoints = resolveRouteLandmarks(track).filter(item => item.progress === 1);
+    expect(endpoints.map(item => item.type)).toEqual(['day_boundary', 'finish']);
+  });
+
   it('retains the loop finish even when an explicit trailhead occupies both endpoints', () => {
     const track = GPXParser.parse(loopXML);
     const finish = track.landmarks.find(item => item.type === 'finish')!;

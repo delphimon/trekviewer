@@ -18,6 +18,8 @@ const counters: ProfileCounters = {
   imageryBudgetEvictionsTotal: 12, imageryVisibleBudgetEvictionsTotal: 3, imageryDesiredBudgetEvictionsTotal: 0,
   imageryVisibleBySource: { 'usgs-naip': 36 }, imageryVisibleFineBySource: { 'usgs-naip': 32 }, imageryVisibleAlternativeSources: 36,
   qualityProfile: 'quest-high', viewMode: 'diorama', textureStyle: 'satellite', imageryProvider: 'cesium-bing', routeName: 'Test route',
+  playbackMode: 'tour', playbackSpeed: 2, isPlaying: true, followRoute: false, routeProgress: 0.25,
+  hudVisible: true, hudUploadRequestsTotal: 12, hudUploadBytesRequestedTotal: 12 * 1024 * 768 * 4,
 };
 afterEach(() => vi.restoreAllMocks());
 
@@ -46,6 +48,8 @@ it('exports bounded one-second XR windows with CPU phase costs and explicit meas
     imageryBudgetEvictionsTotal:12,imageryVisibleBudgetEvictionsTotal:3,imageryDesiredBudgetEvictionsTotal:0,
     imageryVisibleBySource:{'usgs-naip':36},imageryVisibleFineBySource:{'usgs-naip':32},imageryVisibleAlternativeSources:36,
     resourceCacheHits:34,resourceCacheMisses:11,resourceCacheWrites:0,resourceCacheWriteFailed:false,
+    playbackMode:'tour',playbackSpeed:2,isPlaying:true,followRoute:false,routeProgress:0.25,
+    hudVisible:true,hudUploadRequestsTotal:12,hudUploadBytesRequestedTotal:12*1024*768*4,
     cpuSubmitP95Ms:5,imageryProvider:'cesium-bing',phaseMeanMs:{input:1,render:3}});
   expect(report.windows[0].callbackHz).toBeCloseTo(72);
   expect(Object.keys(report.windows[0].phaseMeanMs)).toEqual([...PROFILE_PHASES]);

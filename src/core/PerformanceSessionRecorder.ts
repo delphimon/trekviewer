@@ -59,6 +59,14 @@ export interface ProfileCounters extends Partial<XRRenderQualityCounters> {
   localTerrainFocusChangesTotal: number;
   qualityProfile: string;
   viewMode: string;
+  playbackMode?: string;
+  playbackSpeed?: number;
+  isPlaying?: boolean;
+  followRoute?: boolean;
+  routeProgress?: number;
+  hudVisible?: boolean;
+  hudUploadRequestsTotal?: number;
+  hudUploadBytesRequestedTotal?: number;
   textureStyle: string;
   imageryProvider: string;
   routeName: string | null;
@@ -237,6 +245,8 @@ export class PerformanceSessionRecorder {
         'Callback spacing and JavaScript/render submission are not GPU time or compositor-delivered FPS.',
         'Missed callbacks are estimated from the reported XR refresh rate; use OVR Metrics Tool for device FPS, GPU time and thermal state.',
         'WebGL counts reflect the last rendered frame in each window; texture count is not total GPU memory.',
+        'Playback and HUD counters are snapshots at the end of each window; transition events identify changes within a window.',
+        'HUD upload requests and logical RGBA source bytes are not measured GPU transfers. Counters restart when the route HUD is replaced.',
       ],
       startedAt: this.startedAt,
       endedAt: wallTime.toISOString(),

@@ -51,6 +51,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Resolve and sort landmark route positions once per committed route for desktop chips/dropdown/profile and spatial navigation/profile. Preserve derived route-distance stations across repeated coordinates.
 - [x] Preserve loop Start/Finish as separate route positions, keep nearby named camps, and forward the exact selected progress instead of projecting the same coordinates back to Start. Preserve parenthesized waypoint names in dropdown selection.
 - [x] Verify focused landmark regressions, the full 619-test suite (5 skipped), typechecking/build and desktop/mobile loop-route controls. Publish using the same clean-commit/CI/hosted gate.
+- [x] Publish clean `08e305c` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39354309521); [hosted desktop/mobile checks](review-2026-10-19/landmarks/hosted-08e305c.json) confirm that exact client and loop-route navigation.
+
+### 0c. Keep spatial controls clear and make tabletop profiles comparable
+
+- [x] Reproduce status-message obstruction with a canvas comparison, then move status/progress into the footer below the controls. Keep credits and controls visible, with no panel-size or target-size reduction.
+- [x] Record tour/track timing, speed, play/pause, follow state, route progress and HUD redraw requests in profile snapshots; mark playback-context changes. Label window-end samples and logical RGBA source bytes accurately, without treating them as GPU transfers.
+- [x] Verify that hidden HUDs request no uploads, preserve older report compatibility, and check actual client entry plus build metadata during browser validation. Keep Finish distinct when a day boundary occupies the same endpoint.
+- [ ] Native tabletop baseline and sustained acceptance remain open. The October 19 device query returned no connected headsets; complete the prepared baseline only when hardware is available. See [HUD evidence and baseline protocol](review-2026-10-19/HUD_STATUS.md).
 
 **Next architecture work:** use a tabletop native baseline to choose terrain batching or bounded publication work. Extend the shared UI presentation layer incrementally; extract XR manipulation state only with transition regressions. Investigate explicit cached/offline route packs for curated routes, accounting for source terms, archive size, decode/upload time and memory. Do not promise instant loading, remove live imports/caches, or replace the complete terrain pipeline without matched visual and device evidence. See [review response and checkpoint evidence](review-2026-10-19/DIORAMA_TOUR.md).
 

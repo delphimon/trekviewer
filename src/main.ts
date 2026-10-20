@@ -344,6 +344,8 @@ export class TrekViewerApp {
 
     // 6. Reactive State Subscriptions (Stage G)
     this.session.subscribe((state, prev) => {
+      if (state.playbackMode !== prev.playbackMode || state.playbackSpeed !== prev.playbackSpeed ||
+          state.isPlaying !== prev.isPlaying || state.followRoute !== prev.followRoute) this.markPlaybackContext();
       if (state.followRoute !== prev.followRoute) {
         this.overlay.setFollowRoute(state.followRoute);
         if (state.followRoute) {
@@ -882,6 +884,7 @@ export class TrekViewerApp {
     this.completedProfile = null;
     this.profileSavedOnDevice = false;
     this.profileRecorder.start(performance.now(), __APP_BUILD_INFO__.id, navigator.userAgent);
+    this.markPlaybackContext();
     this.profileSuspended = false;
     if (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
       try {
@@ -892,6 +895,14 @@ export class TrekViewerApp {
       } catch { this.longTaskObserver = null; }
     }
     this.updateProfileControls();
+  }
+
+  private markPlaybackContext(): void {
+    if (!this.profileRecorder?.isRecording) return;
+    const state = this.session.getState();
+    this.profileRecorder.mark(performance.now(), 'playback-context', JSON.stringify({
+      mode: state.playbackMode, speed: state.playbackSpeed, playing: state.isPlaying, follow: state.followRoute,
+    }));
   }
 
   private stopProfile(): void {
@@ -931,6 +942,7 @@ export class TrekViewerApp {
     const resourceCache = PersistentResourceCache.getStats();
     const state = this.session.getState();
     const xr = this.sceneManager.renderer.xr;
+    const hud = this.spatialHUD?.getUploadDiagnostics();
     return {
       ...this.sceneManager.getXRRenderQuality(),
       xrPresenting: xr.isPresenting,
@@ -991,6 +1003,14 @@ export class TrekViewerApp {
       localTerrainFocusChangesTotal: this.activeTrek?.localTerrainStreamer?.getTabletopFocusChangesTotal() ?? 0,
       qualityProfile: state.qualityProfile,
       viewMode: state.viewMode,
+      playbackMode: state.playbackMode,
+      playbackSpeed: state.playbackSpeed,
+      isPlaying: state.isPlaying,
+      followRoute: state.followRoute,
+      routeProgress: state.progress,
+      hudVisible: hud?.visible ?? false,
+      hudUploadRequestsTotal: hud?.requests,
+      hudUploadBytesRequestedTotal: hud?.requestedBytes,
       textureStyle: state.textureStyle,
       imageryProvider: TextureProvider.getProviderInitState().activeProvider,
       routeName: this.currentTrack?.name ?? null,

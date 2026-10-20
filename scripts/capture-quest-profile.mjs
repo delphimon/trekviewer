@@ -70,7 +70,10 @@ try {
       if(!a||!r||!lod) return {ready:false};
       return {ready:true, at:new Date().toISOString(), recording:a.profileRecorder.isRecording,
         recordingBuild:a.profileRecorder.buildId, xr:r.xr.isPresenting, blend:r.xr.getSession()?.environmentBlendMode??'none',
-        quality:a.sceneManager.getXRRenderQuality(), state:{mode:a.session.getState().viewMode, quality:a.session.getState().qualityProfile, progress:a.session.getState().progress},
+        quality:a.sceneManager.getXRRenderQuality(), state:{mode:a.session.getState().viewMode, quality:a.session.getState().qualityProfile, progress:a.session.getState().progress,
+          playbackMode:a.session.getState().playbackMode, playbackSpeed:a.session.getState().playbackSpeed,
+          isPlaying:a.session.getState().isPlaying, followRoute:a.session.getState().followRoute},
+        hud:a.spatialHUD?.getUploadDiagnostics?.(),
         diagnostics:lod.getDiagnostics(), contextLost:r.getContext().isContextLost(), completed:a.completedProfile, savedOnDevice:a.profileSavedOnDevice};
     })()`);
     if (sample.recording && !sample.recordingBuild?.startsWith(build + '-')) throw Error('Recording build does not match the requested checkpoint.');

@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const out = path.resolve(process.env.TREK_TOUR_OUT ?? '.review-cache/diorama-tour');
 fs.mkdirSync(out, { recursive: true });
+const expectedBuild = JSON.parse(fs.readFileSync('dist/build-info.json', 'utf8'));
+const expectedEntry = path.posix.basename(fs.readFileSync('dist/index.html', 'utf8').match(/src="([^"]+\.js)"[^>]*data-trek-entry="true"/)[1]);
 const fixture = `<gpx><trk><name>Diorama tour fixture</name><trkseg>
   <trkpt lat="47" lon="-122"><ele>100</ele><time>2026-10-19T00:00:00Z</time></trkpt>
   <trkpt lat="47.001" lon="-122.001"><ele>250</ele><time>2026-10-19T00:02:00Z</time></trkpt>
@@ -37,6 +39,10 @@ try {
     const diagnostics = viewport.width < 600 ? 'profile' : 'debug';
     await page.goto(`${base}?${diagnostics}=1&terrainTiles=0&regionalBase=0`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.__trekViewerApp, null, { timeout: 20000 });
+    const actualEntries = await page.evaluate(() => [...document.scripts].map(script => script.src));
+    assert.ok(actualEntries.some(source => source && new URL(source).pathname.endsWith('/' + expectedEntry)), `Expected actual client entry ${expectedEntry}; got ${actualEntries.join(', ')}`);
+    const build = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json());
+    assert.equal(build.id, expectedBuild.id, 'Hosted metadata must match the local build being verified');
     await page.evaluate(xml => window.__trekViewerApp.loadTrackFromXML(xml), fixture);
     await page.waitForFunction(() => window.__trekViewerApp.currentTrack?.name === 'Diorama tour fixture', null, { timeout: 60000 });
     assert.equal(await page.locator('#playbackMode').inputValue(), 'tour');
@@ -67,6 +73,53 @@ try {
       return { mode, speed };
     });
     assert.deepEqual(spatial, { mode: 'recorded', speed: 20 });
+    const hudLayout = await page.evaluate(() => {
+      const app = window.__trekViewerApp, hud = app.spatialHUD;
+      hud.group.visible = true;
+      hud.clearStatus();
+      const controls = hud.ctx.getImageData(35, 620, 955, 54).data;
+      const footer = hud.ctx.getImageData(35, 680, 955, 36).data;
+      hud.showStatus('Jumped to: Camp (Upper)', 0.5);
+      const changed = (before, after) => {
+        let pixels = 0;
+        for (let i = 0; i < before.length; i += 4) {
+          if (before[i] !== after[i] || before[i + 1] !== after[i + 1] || before[i + 2] !== after[i + 2] || before[i + 3] !== after[i + 3]) pixels++;
+        }
+        return pixels;
+      };
+      const result = {
+        controlsChangedPixels: changed(controls, hud.ctx.getImageData(35, 620, 955, 54).data),
+        footerChangedPixels: changed(footer, hud.ctx.getImageData(35, 680, 955, 36).data),
+        png: hud.canvas.toDataURL('image/png'),
+        diagnostics: hud.getUploadDiagnostics?.() ?? null,
+        counters: app.getProfileCounters(),
+      };
+      hud.group.visible = false;
+      const requests = hud.getUploadDiagnostics?.().requests;
+      hud.showStatus('Hidden status'); hud.update();
+      result.hiddenUploadRequests = (hud.getUploadDiagnostics?.().requests ?? 0) - (requests ?? 0);
+      return result;
+    });
+    fs.writeFileSync(path.join(out, `${viewport.width}-hud-status.png`), Buffer.from(hudLayout.png.split(',')[1], 'base64'));
+    delete hudLayout.png;
+    if (process.env.TREK_HUD_BASELINE) {
+      assert.ok(hudLayout.controlsChangedPixels > 0, 'The baseline should reproduce the control obstruction');
+      fs.writeFileSync(path.join(out, 'hud-baseline.json'), JSON.stringify(hudLayout, null, 2) + '\n');
+      console.log(JSON.stringify({ baseline: true, ...hudLayout }));
+      await context.close();
+      break;
+    }
+    assert.equal(hudLayout.controlsChangedPixels, 0);
+    assert.ok(hudLayout.footerChangedPixels > 0);
+    assert.equal(hudLayout.hiddenUploadRequests, 0);
+    assert.equal(hudLayout.counters.playbackMode, 'tour');
+    assert.equal(hudLayout.counters.playbackSpeed, 1);
+    assert.equal(hudLayout.counters.isPlaying, false);
+    assert.equal(hudLayout.counters.hudVisible, true);
+    assert.ok(hudLayout.diagnostics.requests > 0);
+    assert.equal(hudLayout.diagnostics.requestedBytes, hudLayout.diagnostics.requests * 1024 * 768 * 4);
+    assert.equal(hudLayout.counters.hudUploadRequestsTotal, hudLayout.diagnostics.requests);
+    if (diagnostics === 'profile') await page.evaluate(() => window.__trekViewerApp.startProfile());
     await page.locator('#btnFollowRoute').click();
     await page.waitForTimeout(1800);
     const following = await page.evaluate(() => {
@@ -87,6 +140,16 @@ try {
     await page.evaluate(() => window.__trekViewerApp.frameDesktopDiorama());
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), false);
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().progress), progress);
+    if (diagnostics === 'profile') {
+      const report = await page.evaluate(() => {
+        const app = window.__trekViewerApp;
+        app.stopProfile(); return app.completedProfile;
+      });
+      assert.ok(report.windows.length > 0);
+      assert.ok(report.windows.every(window => window.playbackMode === 'tour' && window.playbackSpeed === 1 && window.isPlaying === false));
+      assert.ok(report.events.filter(event => event.name === 'playback-context').length >= 3);
+      fs.writeFileSync(path.join(out, `${viewport.width}-profile.json`), JSON.stringify(report, null, 2) + '\n');
+    }
     await page.locator('#btnFollowRoute').click();
     await page.locator('#btnViewToggle').click();
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), false);
@@ -138,8 +201,7 @@ try {
       assert.ok(panel.y + panel.height < player.y, 'Profiling controls must clear the player bar');
     }
     assert.deepEqual(errors, []);
-    const build = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json());
-    results.push({ viewport, progress, spatial, following, landmarks, overflow, pageErrors: errors, build });
+    results.push({ viewport, progress, spatial, hudLayout, following, landmarks, overflow, pageErrors: errors, build });
     console.log(JSON.stringify(results.at(-1)));
     await context.close();
   }
