@@ -150,6 +150,66 @@ try {
       assert.ok(report.events.filter(event => event.name === 'playback-context').length >= 3);
       fs.writeFileSync(path.join(out, `${viewport.width}-profile.json`), JSON.stringify(report, null, 2) + '\n');
     }
+    // Shape the fixture's real rendered base mesh into a ridge, retaining the
+    // production triangle sampler rather than substituting an analytic height.
+    await page.evaluate(() => {
+      const app = window.__trekViewerApp, terrain = app.activeTrek.terrainResult;
+      const group = terrain.group, camera = app.sceneManager.camera;
+      group.updateWorldMatrix(true, false);
+      const focus = app.trailResult.hikerMarker.getWorldPosition(camera.position.clone());
+      const local = group.worldToLocal(focus.clone());
+      const worldScale = Math.hypot(...[0, 1, 2].map(row => group.matrixWorld.elements[8 + row]));
+      const heights = terrain.baseSurfaceData.heights;
+      const original = heights.slice();
+      const vertices = terrain.terrainMesh.geometry.attributes.position;
+      for (let i = 0; i < heights.length; i++) {
+        const z = (vertices.getZ(i) - local.z) * worldScale;
+        heights[i] = local.y + (z >= 0.1 && z <= 0.2 ? 0.3 / worldScale : 0);
+      }
+      const exaggeration = terrain.getVerticalExaggeration();
+      terrain.setVerticalExaggeration(exaggeration);
+      app.controls.target.copy(focus);
+      camera.position.copy(focus); camera.position.y += 0.18; camera.position.z += 0.25;
+      app.controls.update();
+      window.__followRidge = { original, exaggeration, focus: focus.clone() };
+    });
+    const measureClearance = async () => page.evaluate(() => {
+      const app = window.__trekViewerApp, terrain = app.activeTrek.terrainResult, group = terrain.group;
+      const camera = app.sceneManager.camera, focus = window.__followRidge.focus;
+      const a = group.worldToLocal(focus.clone()), b = group.worldToLocal(camera.position.clone());
+      const scale = Math.hypot(...[0, 1, 2].map(row => group.matrixWorld.elements[4 + row]));
+      let minimum = Infinity;
+      for (let i = 1; i <= 16; i++) {
+        const point = a.clone().lerp(b, i / 16);
+        minimum = Math.min(minimum, (point.y - terrain.sampleRenderedSurfaceY(point.x, point.z) * terrain.getVerticalExaggeration()) * scale);
+      }
+      return { minimum, camera: camera.position.toArray(), active: app.session.getState().followRoute };
+    });
+    const obstructed = await measureClearance();
+    assert.ok(obstructed.minimum < -0.05, 'Real ridge fixture must obstruct the original offset');
+    await page.screenshot({ path: path.join(out, `${viewport.width}-ridge-before.png`) });
+    await page.locator('#btnFollowRoute').click();
+    await page.waitForTimeout(1200);
+    const cleared = await measureClearance();
+    const clearance = { obstructed, cleared };
+    await page.screenshot({ path: path.join(out, `${viewport.width}-ridge-after.png`) });
+    if (process.env.TREK_FOLLOW_BASELINE) {
+      assert.ok(cleared.minimum < 0, 'Baseline must reproduce the obstructed follow view');
+      fs.writeFileSync(path.join(out, 'follow-baseline.json'), JSON.stringify({ clearance, build }, null, 2) + '\n');
+      console.log(JSON.stringify({ baseline: true, clearance, build }));
+      await context.close();
+      break;
+    }
+    assert.ok(cleared.minimum > 0, 'Follow must clear the sampled ridge sightline');
+    assert.equal(cleared.active, true);
+    await page.evaluate(() => {
+      const app = window.__trekViewerApp, terrain = app.activeTrek.terrainResult;
+      app.session.setFollowRoute(false);
+      terrain.baseSurfaceData.heights.set(window.__followRidge.original);
+      terrain.setVerticalExaggeration(window.__followRidge.exaggeration);
+      delete window.__followRidge;
+      app.frameDesktopDiorama();
+    });
     await page.locator('#btnFollowRoute').click();
     await page.locator('#btnViewToggle').click();
     assert.equal(await page.evaluate(() => window.__trekViewerApp.session.getState().followRoute), false);
@@ -220,7 +280,7 @@ try {
       assert.ok(panel.y + panel.height < player.y, 'Profiling controls must clear the player bar');
     }
     assert.deepEqual(errors, []);
-    results.push({ viewport, progress, spatial, hudLayout, following, xmlImport, landmarks, overflow, pageErrors: errors, build });
+    results.push({ viewport, progress, spatial, hudLayout, following, clearance, xmlImport, landmarks, overflow, pageErrors: errors, build });
     console.log(JSON.stringify(results.at(-1)));
     await context.close();
   }

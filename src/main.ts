@@ -350,6 +350,10 @@ export class TrekViewerApp {
         this.overlay.setFollowRoute(state.followRoute);
         if (state.followRoute) {
           this.desktopViewFitted = false;
+          const damping = this.controls.enableDamping;
+          this.controls.enableDamping = false;
+          this.controls.update();
+          this.controls.enableDamping = damping;
           this.dioramaFollow.start(this.sceneManager.camera, this.controls.target);
         }
       }
@@ -549,6 +553,7 @@ export class TrekViewerApp {
 
   private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
     this.session.setFollowRoute(false);
+    this.dioramaFollow.setTerrain(newTrek.terrainResult);
     const track = newTrek.track;
     this.routeLandmarks = resolveRouteLandmarks(track);
 
@@ -653,6 +658,7 @@ export class TrekViewerApp {
   }
 
   private disposeCurrentTrek(): void {
+    this.dioramaFollow.setTerrain(null);
     if (this.spatialHUD) {
       if (this.xrManager) {
         this.xrManager.setSpatialHUD(null);
