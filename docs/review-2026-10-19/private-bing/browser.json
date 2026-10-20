@@ -1,0 +1,35 @@
+{
+  "condition": "Private aerial-only source/launch test in desktop Edge. External DEM blocked; synthetic terrain. Not native acceptance or a general Bing integration/attribution review.",
+  "build": {
+    "id": "f993ddf-modified-2026-10-20T06:26:03.096Z",
+    "sha": "f993ddfbb4717d73a35a4c09d9ab0d03afffcef9",
+    "shortSha": "f993ddf",
+    "branch": "main",
+    "dirty": true,
+    "builtAt": "2026-10-20T06:26:03.096Z",
+    "label": "TrekViewer 1.0.0 • f993ddf (modified)"
+  },
+  "entry": "index-DjmNkWXP.js",
+  "tile": {
+    "width": 256,
+    "height": 256,
+    "elapsedMs": 124.69999998807907,
+    "provider": "cesium-bing",
+    "bootstrapRemoved": true
+  },
+  "afterReload": "public-naip",
+  "metadata": [
+    {
+      "host": "api.cesium.com",
+      "path": "/v1/assets/2/endpoint",
+      "status": 200
+    },
+    {
+      "host": "dev.virtualearth.net",
+      "path": "/REST/V1/Imagery/Metadata/Aerial",
+      "status": 200
+    }
+  ],
+  "credentialAbsentFromBuild": true,
+  "errors": []
+}

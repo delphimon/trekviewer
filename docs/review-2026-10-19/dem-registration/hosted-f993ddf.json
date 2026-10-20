@@ -1,0 +1,71 @@
+{
+  "condition": "Production desktop Edge, Quest geometry budget selected by test UA, single-route manifest fixture, live USGS DEM. Imagery and broad tiled refinement are disabled; the legacy local refinement path may still request elevation. Reload assertions concern the whole-model raster. No native acceptance claim.",
+  "build": {
+    "id": "f993ddf-2026-10-20T06:16:30.787Z",
+    "sha": "f993ddfbb4717d73a35a4c09d9ab0d03afffcef9",
+    "shortSha": "f993ddf",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-20T06:16:30.787Z",
+    "label": "TrekViewer 1.0.0 • f993ddf"
+  },
+  "entry": "index-BEmpsqSg.js",
+  "wholeModelRequests": 1,
+  "passes": [
+    {
+      "pass": "cold",
+      "grid": {
+        "width": 1024,
+        "height": 675,
+        "source": "USGS 3DEP best available (public domain)",
+        "min": 114.18814086914062,
+        "max": 2406.257568359375,
+        "rasterBounds": {
+          "west": -13809570.357589465,
+          "east": -13742413.826069318,
+          "south": 6063963.954043844,
+          "north": 6108184.405446953
+        },
+        "sampleSpacingMeters": 44.03271400762315
+      },
+      "mesh": {
+        "width": 40904.6013713073,
+        "depth": 26934.302301405136,
+        "segmentsX": 434,
+        "segmentsZ": 286
+      },
+      "cacheHits": 0,
+      "xr": false,
+      "contextLost": false,
+      "glError": 0
+    },
+    {
+      "pass": "reload",
+      "grid": {
+        "width": 1024,
+        "height": 675,
+        "source": "USGS 3DEP best available (public domain)",
+        "min": 114.18814086914062,
+        "max": 2406.257568359375,
+        "rasterBounds": {
+          "west": -13809570.357589465,
+          "east": -13742413.826069318,
+          "south": 6063963.954043844,
+          "north": 6108184.405446953
+        },
+        "sampleSpacingMeters": 44.03271400762315
+      },
+      "mesh": {
+        "width": 40904.6013713073,
+        "depth": 26934.302301405136,
+        "segmentsX": 434,
+        "segmentsZ": 286
+      },
+      "cacheHits": 1,
+      "xr": false,
+      "contextLost": false,
+      "glError": 0
+    }
+  ],
+  "errors": []
+}

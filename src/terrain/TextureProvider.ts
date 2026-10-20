@@ -64,7 +64,21 @@ export class TextureProvider {
     return this.satelliteProviderSetting;
   }
 
+  /** Private launch configuration, supplied in browser memory before startup.
+   * Unlike build-time VITE variables, this need not put an account token into
+   * a hosted asset. A token alone never opts the public default into Bing. */
+  private static getRuntimeProviderConfig(): { provider: 'cesium-bing'; ionToken?: string } | undefined {
+    const config = (globalThis as typeof globalThis & {
+      __TREK_VIEWER_PROVIDERS__?: { provider?: unknown; ionToken?: unknown };
+    }).__TREK_VIEWER_PROVIDERS__;
+    if (config?.provider !== 'cesium-bing') return undefined;
+    const token = typeof config.ionToken === 'string' ? config.ionToken.trim() : '';
+    return { provider: 'cesium-bing', ionToken: token.length > 10 && token.length <= 8192 ? token : undefined };
+  }
+
   public static getEnvToken(): string | undefined {
+    const runtime = this.getRuntimeProviderConfig();
+    if (runtime) return runtime.ionToken;
     const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
     const procEnv = typeof globalThis !== 'undefined' ? (globalThis as any).process?.env : undefined;
     return (
@@ -75,6 +89,7 @@ export class TextureProvider {
   }
 
   public static getEnvProviderSetting(): 'auto' | 'esri' | 'cesium-bing' {
+    if (this.getRuntimeProviderConfig()) return 'cesium-bing';
     const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
     const procEnv = typeof globalThis !== 'undefined' ? (globalThis as any).process?.env : undefined;
     const raw = (
