@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { installResourceCacheAudit } from './resource-cache-audit.mjs';
 import { installTerrainIndexAudit } from './terrain-index-audit.mjs';
+import { installTerrainPlanAudit } from './terrain-plan-audit.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base = process.env.TREK_LIVE_BATCH_URL ?? 'https://127.0.0.1:4212/';
@@ -97,6 +98,10 @@ try {
   const build = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json());
   assert.equal(build.id, expected.id); assert.ok(await page.evaluate(entry => [...document.scripts].some(s => s.src.endsWith('/' + entry)), entry));
   const readyElapsedMs = Date.now() - start;
+  if (process.env.TREK_PLAN_AUDIT === '1') {
+    assert.ok(!config, 'Plan auditing is restricted to public sources');
+    await page.evaluate(installTerrainPlanAudit);
+  }
   console.log(JSON.stringify({ phase: 'ready', elapsedMs: readyElapsedMs, build: build.id }));
   await page.evaluate(() => {
     const app = window.__trekViewerApp;
@@ -366,6 +371,7 @@ try {
     terrainLifecycle: await page.evaluate(() => window.__terrainLifecycle),
     elevationRequests: { total: [...elevationRequests.values()].reduce((a, b) => a + b, 0), unique: elevationRequests.size },
     terrainNormals, resourceCacheAudit: await page.evaluate(() => window.__resourceCacheAudit ?? null),
+    terrainPlanAudit: await page.evaluate(() => window.__terrainPlanAudit ?? null),
     baseIndexAudit: await page.evaluate(() => window.__terrainIndexAudit?.identify(window.__trekViewerApp.activeTrek.terrainResult.terrainMesh.geometry.index.array) ?? null),
     renderBenchmark, errors, glErrors };
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify(evidence, null, 2) + '\n');

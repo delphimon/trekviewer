@@ -1,0 +1,138 @@
+{
+  "condition": "Isolated Node desktop complete 23,409-vertex DEM chunk construction with imagery UVs. Exact full build-data parity against fa75d0b. Five alternating passes after warmup; excludes transport, publication, GPU and native frames.",
+  "reference": "fa75d0b",
+  "node": "v24.21.0",
+  "parity": true,
+  "passes": [
+    {
+      "name": "previous",
+      "chunks": 60,
+      "elapsedMs": 848.9881
+    },
+    {
+      "name": "reuse-coordinates",
+      "chunks": 60,
+      "elapsedMs": 710.5930000000001
+    },
+    {
+      "name": "reuse-coordinates",
+      "chunks": 60,
+      "elapsedMs": 714.7466999999997
+    },
+    {
+      "name": "previous",
+      "chunks": 60,
+      "elapsedMs": 850.8334000000004
+    },
+    {
+      "name": "previous",
+      "chunks": 60,
+      "elapsedMs": 832.5334999999995
+    },
+    {
+      "name": "reuse-coordinates",
+      "chunks": 60,
+      "elapsedMs": 708.3439000000008
+    },
+    {
+      "name": "reuse-coordinates",
+      "chunks": 60,
+      "elapsedMs": 705.2341999999999
+    },
+    {
+      "name": "previous",
+      "chunks": 60,
+      "elapsedMs": 868.2881000000007
+    },
+    {
+      "name": "previous",
+      "chunks": 60,
+      "elapsedMs": 951.3263999999999
+    },
+    {
+      "name": "reuse-coordinates",
+      "chunks": 60,
+      "elapsedMs": 840.8370000000014
+    }
+  ],
+  "matchedUVs": 46818,
+  "uvPasses": [
+    {
+      "name": "previous",
+      "pattern": "rows",
+      "samples": 468180,
+      "elapsedMs": 55.074900000001435
+    },
+    {
+      "name": "previous",
+      "pattern": "scattered",
+      "samples": 468180,
+      "elapsedMs": 55.48459999999977
+    },
+    {
+      "name": "reuse-coordinates",
+      "pattern": "rows",
+      "samples": 468180,
+      "elapsedMs": 25.026599999999235
+    },
+    {
+      "name": "reuse-coordinates",
+      "pattern": "scattered",
+      "samples": 468180,
+      "elapsedMs": 52.83129999999983
+    },
+    {
+      "name": "reuse-coordinates",
+      "pattern": "rows",
+      "samples": 468180,
+      "elapsedMs": 24.924199999999473
+    },
+    {
+      "name": "reuse-coordinates",
+      "pattern": "scattered",
+      "samples": 468180,
+      "elapsedMs": 57.07960000000094
+    },
+    {
+      "name": "previous",
+      "pattern": "rows",
+      "samples": 468180,
+      "elapsedMs": 49.05589999999938
+    },
+    {
+      "name": "previous",
+      "pattern": "scattered",
+      "samples": 468180,
+      "elapsedMs": 51.78230000000076
+    },
+    {
+      "name": "previous",
+      "pattern": "rows",
+      "samples": 468180,
+      "elapsedMs": 48.71990000000005
+    },
+    {
+      "name": "previous",
+      "pattern": "scattered",
+      "samples": 468180,
+      "elapsedMs": 51.94949999999881
+    },
+    {
+      "name": "reuse-coordinates",
+      "pattern": "rows",
+      "samples": 468180,
+      "elapsedMs": 19.780399999999645
+    },
+    {
+      "name": "reuse-coordinates",
+      "pattern": "scattered",
+      "samples": 468180,
+      "elapsedMs": 53.93240000000151
+    }
+  ],
+  "checksum": 6339276.5031721555,
+  "medianMs": {
+    "previous": 850.8334000000004,
+    "reuseCoordinates": 710.5930000000001
+  }
+}

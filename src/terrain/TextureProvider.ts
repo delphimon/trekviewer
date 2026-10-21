@@ -32,6 +32,10 @@ export interface ProviderInitState {
 }
 
 export class TextureProvider {
+  // Only the dimensionless latitude projection is reused. Grid bounds, zoom
+  // and longitude are always read from this call; no imagery/data is retained.
+  private static lastUVLatitude: number | undefined;
+  private static lastUVProjectedY = NaN;
   private static esriSatelliteProvider = new EsriWorldImageryProvider();
   private static publicSatelliteProvider = new PublicImageryProvider();
   private static publicReferenceProvider = new USGSReferenceProvider();
@@ -317,8 +321,12 @@ export class TextureProvider {
   ): { u: number; v: number } {
     const n = 2 ** grid.zoom;
     const xGlobal = ((lon + 180) / 360) * n;
-    const latRad = (lat * Math.PI) / 180;
-    const yGlobal = ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n;
+    if (!Object.is(lat, this.lastUVLatitude)) {
+      const latRad = (lat * Math.PI) / 180;
+      this.lastUVProjectedY = (1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2;
+      this.lastUVLatitude = lat;
+    }
+    const yGlobal = this.lastUVProjectedY * n;
 
     const u = (xGlobal - grid.tileXMin) / grid.numTilesX;
     // In Three.js with flipY=true, v=1 is Top (North: yGlobal = tileYMin), v=0 is Bottom (South)

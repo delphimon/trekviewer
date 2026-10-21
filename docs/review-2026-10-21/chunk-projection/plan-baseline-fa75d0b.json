@@ -1,0 +1,51 @@
+{
+  "input": ".review-cache/terrain-plans/baseline/browser.json",
+  "inputSha256": "3d847d1e26af9fba5b4e6550391af5097b6d5aaa6da1b5d0fe8cf2794c519425",
+  "build": {
+    "id": "fa75d0b-2026-10-21T08:03:54.414Z",
+    "sha": "fa75d0b4272d3b7d0f7524d7bd98fd37a8406f0d",
+    "shortSha": "fa75d0b",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-21T08:03:54.414Z",
+    "label": "TrekViewer 1.0.0 • fa75d0b"
+  },
+  "entry": "index-Bqh_SF_g.js",
+  "condition": "Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.",
+  "detailSummary": {
+    "samples": 367,
+    "fineAtHikerSamples": 333,
+    "maxFocusToVisualM": 6.372806725528775e-10,
+    "maxAnalyticalToVisualM": 953.5245002307943,
+    "firstFineAfterMonitorMs": 2254.699999988079
+  },
+  "plans": {
+    "count": 786,
+    "distinctTiles": 1363,
+    "additions": 3363,
+    "returns": 2000,
+    "completedWantedIntervals": 3338,
+    "intervalsUnder250ms": 684,
+    "intervalsUnder1s": 2394,
+    "intervalsUnder5s": 3336,
+    "intervalMedianMs": 723.1000000238419,
+    "minDesired": 25,
+    "maxDesired": 28
+  },
+  "acquisitions": {
+    "count": 993,
+    "completed": 991,
+    "withGrid": 727,
+    "aborted": 300,
+    "abortedStillWanted": 24,
+    "abortedAfterSettled": 36,
+    "abortMedianMs": 187.19999998807907,
+    "completedMedianMs": 103.39999997615814
+  },
+  "workers": {
+    "created": 2,
+    "closed": 0
+  },
+  "errors": [],
+  "glErrors": []
+}

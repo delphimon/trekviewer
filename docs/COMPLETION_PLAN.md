@@ -188,6 +188,13 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `fa75d0b` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39566075453). Exact hosted full-tour, normal/exaggeration, desktop/mobile and geographic/stereo/recovery checks pass. WebGL index bytes fall 99.71% against whole-prefix uploads for the same hosted update sequence; the native driver/frame-rate tradeoff remains unmeasured. [Release evidence](review-2026-10-21/TERRAIN_INDEX.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
 
+### 0s. Reuse exact geography for fine-terrain imagery
+
+- [x] Trace moving-tour tile demand and cancellation without changing fidelity or budgets. Reduce duplicate coordinate/latitude projection during fine-terrain construction with exact full build-data parity; isolated median CPU falls 16.5%, with the scattered-mapping tradeoff stated. See [projection evidence and limits](review-2026-10-21/CHUNK_PROJECTION.md).
+- [x] Verify both typechecks, 729 Windows tests and the production build.
+- [ ] Complete local/hosted full-tour, controls, recovery and account-path checks; publish the validated application.
+- [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

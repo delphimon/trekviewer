@@ -232,6 +232,12 @@ export class LocalTerrainChunk {
 
       this.unscaledHeights[i] = h;
       posAttr.setY(i, h * this.currentExaggeration);
+      // Geographic coordinates are already exact for this vertex. Reuse them
+      // for imagery instead of projecting the entire grid a second time.
+      if (options.tileGrid) {
+        const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, options.tileGrid);
+        this.geometry.attributes.uv.setXY(i, uv.u, uv.v);
+      }
     }
 
     posAttr.needsUpdate = true;
@@ -243,17 +249,7 @@ export class LocalTerrainChunk {
     }
 
     // Map local chunk vertices to global geographic UVs (Stage X3)
-    if (options.tileGrid && !options.preparedData) {
-      const uvAttr = this.geometry.attributes.uv;
-      for (let i = 0; i < vertexCount; i++) {
-        const vx = posAttr.getX(i);
-        const vz = posAttr.getZ(i);
-        const geo = localMetersToGeo(this.localCenter.x + vx, this.localCenter.z + vz, this.referenceCenterLat, this.referenceCenterLon);
-        const uv = TextureProvider.getUVForGeo(geo.lat, geo.lon, options.tileGrid);
-        uvAttr.setXY(i, uv.u, uv.v);
-      }
-      uvAttr.needsUpdate = true;
-    }
+    if (options.tileGrid && !options.preparedData) this.geometry.attributes.uv.needsUpdate = true;
 
     // Physical non-metallic terrain material with active map texture (Stage X3)
     this.material = new THREE.MeshStandardMaterial({
