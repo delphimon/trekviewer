@@ -45,6 +45,18 @@ export interface ElevationSampleResult {
   isValid: boolean;
 }
 
+// Regular terrain rows repeatedly sample the same latitude. Keep just the last
+// pure projection, independent of any grid, validity mask or elevation values.
+let lastProjectedLatitude: number | undefined;
+let lastMercatorLatitude = NaN;
+function projectMercatorLatitude(lat: number): number {
+  if (!Object.is(lat, lastProjectedLatitude)) {
+    lastProjectedLatitude = lat;
+    lastMercatorLatitude = Math.asinh(Math.tan((lat * Math.PI) / 180));
+  }
+  return lastMercatorLatitude;
+}
+
 export class ElevationTileService {
   private static elevationProvider = new AWSTerrariumElevationProvider();
   private static regionalProvider = new EnchantmentsRegionalDEMProvider();
@@ -463,12 +475,12 @@ export class ElevationTileService {
   ): ElevationSampleResult {
     const n = 2 ** grid.zoom;
     const xGlobal = ((lon + 180) / 360) * n;
-    const latRad = (lat * Math.PI) / 180;
-    const yGlobal = ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n;
+    const mercatorLatitude = projectMercatorLatitude(lat);
+    const yGlobal = ((1 - mercatorLatitude / Math.PI) / 2) * n;
 
     const raster = grid.rasterBounds;
     const mercatorX = lon * Math.PI * 6378137 / 180;
-    const mercatorY = Math.asinh(Math.tan(latRad)) * 6378137;
+    const mercatorY = mercatorLatitude * 6378137;
     const gx = raster ? (mercatorX - raster.west) * (grid.width - 1) / (raster.east - raster.west) : (xGlobal - grid.tileXMin) * 256;
     const gy = raster ? (raster.north - mercatorY) * (grid.height - 1) / (raster.north - raster.south) : (yGlobal - grid.tileYMin) * 256;
 

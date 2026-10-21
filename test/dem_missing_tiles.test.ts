@@ -7,6 +7,25 @@ import {
 import { tileToLatLon } from '../src/gpx/Coordinates.ts';
 
 describe('DEM Missing-Tile & Partial Tile Failure Handling', () => {
+  it('keeps repeated-latitude samples fresh across grids, data edits, validity changes and latitude changes', () => {
+    const grid: ElevationGrid = { width: 2, height: 2, zoom: 0, tileXMin: 0, tileXMax: 0, tileYMin: 0, tileYMax: 0,
+      numTilesX: 1, numTilesY: 1, data: new Float32Array([100, 200, 300, 400]), tileValidity: new Uint8Array([1]),
+      minElevation: 100, maxElevation: 400, isRealDEM: true,
+      rasterBounds: { west: -100, east: 100, south: -100, north: 100 } };
+    assert.strictEqual(ElevationTileService.sampleElevation(grid, 0, 0).elevation, 250);
+    const other = { ...grid, data: new Float32Array([10, 20, 30, 40]),
+      rasterBounds: { west: -100, east: 100, south: -100, north: 300 } };
+    assert.strictEqual(ElevationTileService.sampleElevation(other, 0, 0).elevation, 30);
+    grid.data[0] = 900;
+    assert.strictEqual(ElevationTileService.sampleElevation(grid, -0, 0).elevation, 450);
+    grid.tileValidity[0] = 0;
+    assert.strictEqual(ElevationTileService.sampleElevation(grid, 0, 0).isValid, false);
+    grid.tileValidity[0] = 1;
+    assert.notStrictEqual(ElevationTileService.sampleElevation(grid, 0.0005, 0).elevation, 450);
+    assert.strictEqual(ElevationTileService.sampleElevation(grid, 0, 0).elevation, 450);
+    grid.data.fill(NaN);
+    assert.strictEqual(ElevationTileService.sampleElevation(grid, 0, 0).isValid, false);
+  });
   it('evaluates DEM tile validity, NaN isolation, and crater guards', () => {
     // Construct a synthetic 2x2 tile ElevationGrid (each tile 256x256 -> 512x512 total)
     const zoom = 12;

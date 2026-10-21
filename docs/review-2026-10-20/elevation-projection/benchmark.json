@@ -1,0 +1,118 @@
+{
+  "condition": "Isolated Node desktop DEM sampling and complete chunk construction, not message transport, main-thread publication, GPU or native frame timing. Alternating passes, unchanged inputs and full build-data parity.",
+  "node": "v24.21.0",
+  "reference": "83721f9",
+  "matchedSamples": 187308,
+  "chunkParity": true,
+  "passes": [
+    {
+      "name": "previous",
+      "rowSamples": {
+        "name": "previous",
+        "samples": 468180,
+        "elapsedMs": 63.53340000000003
+      },
+      "scatteredSamples": {
+        "name": "previous",
+        "samples": 468180,
+        "elapsedMs": 62.75560000000007
+      },
+      "fullChunk": {
+        "name": "previous",
+        "chunks": 50,
+        "elapsedMs": 720.9572000000001
+      }
+    },
+    {
+      "name": "reuse-projection",
+      "rowSamples": {
+        "name": "reuse-projection",
+        "samples": 468180,
+        "elapsedMs": 29.810699999999997
+      },
+      "scatteredSamples": {
+        "name": "reuse-projection",
+        "samples": 468180,
+        "elapsedMs": 62.03520000000003
+      },
+      "fullChunk": {
+        "name": "reuse-projection",
+        "chunks": 50,
+        "elapsedMs": 589.9199000000001
+      }
+    },
+    {
+      "name": "reuse-projection",
+      "rowSamples": {
+        "name": "reuse-projection",
+        "samples": 468180,
+        "elapsedMs": 40.640300000000025
+      },
+      "scatteredSamples": {
+        "name": "reuse-projection",
+        "samples": 468180,
+        "elapsedMs": 67.40620000000035
+      },
+      "fullChunk": {
+        "name": "reuse-projection",
+        "chunks": 50,
+        "elapsedMs": 626.0221999999999
+      }
+    },
+    {
+      "name": "previous",
+      "rowSamples": {
+        "name": "previous",
+        "samples": 468180,
+        "elapsedMs": 66.88940000000002
+      },
+      "scatteredSamples": {
+        "name": "previous",
+        "samples": 468180,
+        "elapsedMs": 61.065700000000106
+      },
+      "fullChunk": {
+        "name": "previous",
+        "chunks": 50,
+        "elapsedMs": 712.8933000000002
+      }
+    },
+    {
+      "name": "previous",
+      "rowSamples": {
+        "name": "previous",
+        "samples": 468180,
+        "elapsedMs": 64.56960000000026
+      },
+      "scatteredSamples": {
+        "name": "previous",
+        "samples": 468180,
+        "elapsedMs": 57.16379999999981
+      },
+      "fullChunk": {
+        "name": "previous",
+        "chunks": 50,
+        "elapsedMs": 685.7471999999998
+      }
+    },
+    {
+      "name": "reuse-projection",
+      "rowSamples": {
+        "name": "reuse-projection",
+        "samples": 468180,
+        "elapsedMs": 36.80189999999948
+      },
+      "scatteredSamples": {
+        "name": "reuse-projection",
+        "samples": 468180,
+        "elapsedMs": 68.13720000000012
+      },
+      "fullChunk": {
+        "name": "reuse-projection",
+        "chunks": 50,
+        "elapsedMs": 548.3472000000002
+      }
+    }
+  ],
+  "checksum": 8206959877.779789
+}

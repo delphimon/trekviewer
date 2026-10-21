@@ -157,6 +157,13 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `279b2f5` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39526299157). Exact hosted full-tour checks reproduce 0.1 ms median / 0.2 ms p95 construction (previous 3.7/5.9 ms), with control, graphics-recovery and private account-path checks passing. [Release evidence and limits](review-2026-10-20/TERRAIN_PUBLICATION.md). Remaining churn, loading and native gates stay open.
 - [ ] Resolve repeated terrain work, loading consistency, overview DEM detail and native performance/visual acceptance.
 
+### 0o. Reuse exact latitude projection across terrain rows
+
+- [x] Reuse only the most recent exact Mercator latitude, preserving current source/grid/data/validity inputs, all numeric sampling behavior and existing quality/resource limits.
+- [x] Verify 712 Windows tests, both typechecks and the production build. Check 187,308 exact sample matches and complete chunk build-data parity; isolated median full construction falls 17.3%, with the scattered-sampling tradeoff stated. See [elevation projection evidence](review-2026-10-20/ELEVATION_PROJECTION.md).
+- [ ] Publish after CI, clean stamped rebuild and exact hosted full-tour, control and graphics-recovery checks.
+- [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.
