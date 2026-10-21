@@ -1,0 +1,210 @@
+{
+  "condition": "Main-thread CDP CPU sampling during the first 15 seconds of normal desktop tour playback, before the first legacy/direct comparison. Function names aggregate all matching frames. Includes idle/browser/native samples; excludes worker CPU and native XR. Sampling overhead and service/phasing variation apply.",
+  "build": {
+    "id": "f47ed33-2026-10-21T07:18:06.809Z",
+    "sha": "f47ed33007d0f1a1fba22a8c3f1dab758b67ff64",
+    "shortSha": "f47ed33",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-21T07:18:06.809Z",
+    "label": "TrekViewer 1.0.0 • f47ed33"
+  },
+  "entry": "index-CMRGzjWT.js",
+  "input": ".review-cache/terrain-boundaries/hosted-tour/cpu-profile.json",
+  "inputSha256": "0c36cbb20c61ed3a26ea699f12d35e83775116cec2276133536c079692f9b44c",
+  "samples": 9385,
+  "totalMs": 15095.603,
+  "maskInclusiveMs": 1.578,
+  "pickingInclusiveMs": 103.933,
+  "pickingMask": [
+    {
+      "name": "getCellMask",
+      "selfMs": 1.578
+    },
+    {
+      "name": "retainedTerrainCellMask",
+      "selfMs": 0
+    },
+    {
+      "name": "publishTerrainCellMask",
+      "selfMs": 0
+    }
+  ],
+  "topSelf": [
+    {
+      "name": "(idle)",
+      "selfMs": 10388.757,
+      "samplePercent": 68.8197549975314
+    },
+    {
+      "name": "(program)",
+      "selfMs": 2146.848,
+      "samplePercent": 14.221677663356674
+    },
+    {
+      "name": "Blob",
+      "selfMs": 157.048,
+      "samplePercent": 1.0403559235096471
+    },
+    {
+      "name": "postMessage",
+      "selfMs": 131.815,
+      "samplePercent": 0.8732012891436003
+    },
+    {
+      "name": "(anonymous)",
+      "selfMs": 124.499,
+      "samplePercent": 0.8247368455569479
+    },
+    {
+      "name": "Ih",
+      "selfMs": 110.131,
+      "samplePercent": 0.729556812006781
+    },
+    {
+      "name": "updateScrubber",
+      "selfMs": 99.725,
+      "samplePercent": 0.6606228316947657
+    },
+    {
+      "name": "(garbage collector)",
+      "selfMs": 94.147,
+      "samplePercent": 0.6236716744604373
+    },
+    {
+      "name": "getImageData",
+      "selfMs": 84.778,
+      "samplePercent": 0.5616072441756715
+    },
+    {
+      "name": "update",
+      "selfMs": 84.199,
+      "samplePercent": 0.5577716902067443
+    },
+    {
+      "name": "h",
+      "selfMs": 82.158,
+      "samplePercent": 0.5442511968551372
+    },
+    {
+      "name": "bufferSubData",
+      "selfMs": 68.496,
+      "samplePercent": 0.45374802185775553
+    },
+    {
+      "name": "multiplyMatrices",
+      "selfMs": 66.944,
+      "samplePercent": 0.4434668823762787
+    },
+    {
+      "name": "read",
+      "selfMs": 60.67,
+      "samplePercent": 0.401905111044587
+    },
+    {
+      "name": "getProgramInfoLog",
+      "selfMs": 44.211,
+      "samplePercent": 0.29287336186570356
+    },
+    {
+      "name": "compose",
+      "selfMs": 44.161,
+      "samplePercent": 0.2925421395885941
+    },
+    {
+      "name": "texSubImage2D",
+      "selfMs": 41.536,
+      "samplePercent": 0.27515297004034883
+    },
+    {
+      "name": "fetch",
+      "selfMs": 41.311,
+      "samplePercent": 0.2736624697933564
+    },
+    {
+      "name": "renderBufferDirect",
+      "selfMs": 35.21,
+      "samplePercent": 0.23324672754046327
+    },
+    {
+      "name": "Qd",
+      "selfMs": 34.279,
+      "samplePercent": 0.22707936874068563
+    },
+    {
+      "name": "xc",
+      "selfMs": 33.987,
+      "samplePercent": 0.22514503064236652
+    },
+    {
+      "name": "updateMatrixWorld",
+      "selfMs": 29.143,
+      "samplePercent": 0.19305621643600457
+    },
+    {
+      "name": "setFromBufferAttribute",
+      "selfMs": 27.485,
+      "samplePercent": 0.18207288572705574
+    },
+    {
+      "name": "Tt",
+      "selfMs": 27.035,
+      "samplePercent": 0.17909188523307085
+    },
+    {
+      "name": "intersectGrid",
+      "selfMs": 26.668,
+      "samplePercent": 0.1766607137190876
+    },
+    {
+      "name": "xt",
+      "selfMs": 25.283,
+      "samplePercent": 0.1674858566431563
+    },
+    {
+      "name": "bindVertexArray",
+      "selfMs": 24.023,
+      "samplePercent": 0.15913905525999855
+    },
+    {
+      "name": "sync",
+      "selfMs": 22.969,
+      "samplePercent": 0.1521568896585317
+    },
+    {
+      "name": "g",
+      "selfMs": 21.081,
+      "samplePercent": 0.13964993647487947
+    },
+    {
+      "name": "i",
+      "selfMs": 20.721,
+      "samplePercent": 0.13726513607969154
+    },
+    {
+      "name": "o",
+      "selfMs": 19.86,
+      "samplePercent": 0.1315614884678671
+    },
+    {
+      "name": "uniformMatrix4fv",
+      "selfMs": 19.335,
+      "samplePercent": 0.12808365455821805
+    },
+    {
+      "name": "arrayBuffer",
+      "selfMs": 19.254,
+      "samplePercent": 0.12754707446930078
+    },
+    {
+      "name": "createObjectURL",
+      "selfMs": 19.105,
+      "samplePercent": 0.12656003208351466
+    },
+    {
+      "name": "gt",
+      "selfMs": 18.023,
+      "samplePercent": 0.1193923820068665
+    }
+  ]
+}

@@ -177,7 +177,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Use stored grid coordinates for cell entry/crossings and include visible shared edges/corners beside coverage holes. Preserve bounded traversal, exact triangle hits and existing source/mesh/resource policy.
 - [x] Verify 720 Windows tests, typechecking/build, 816 targeted native comparisons and 512 seeded relief rays. Local controls/recovery and real-source tour pass image gates, with an explicit isolated CPU tradeoff and incomplete fine-ground coverage. See [boundary evidence and limits](review-2026-10-21/TERRAIN_BOUNDARIES.md).
 - [x] Repeat the current published and corrected full tours: 95.7%/96.7% fine-ground samples, with variable loading/churn and an explicit isolated CPU tradeoff. No overall performance improvement is established.
-- [ ] Publish through CI, a clean stamped build and exact hosted verification.
+- [x] Publish clean `f47ed33` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39560861976). Exact hosted full-tour, desktop/mobile controls and geographic/stereo/context recovery pass. Fine ground is visible in 357/367 samples (97.3%); 430 repeated builds leave churn unresolved. [Release evidence and CPU tradeoff](review-2026-10-21/TERRAIN_BOUNDARIES.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
 
 ### 1. Make High's actual XR rendering quality explicit

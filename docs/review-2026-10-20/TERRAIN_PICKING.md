@@ -34,4 +34,6 @@ The separate [private account-path check](terrain-picking/private-bing-5f993f3.j
 
 The new native-comparison fixture exposed a [preexisting nominal-grid boundary precision miss](terrain-picking/preexisting-boundary.json): a transformed 260×260 grid misses a native hit at local x=3.2, z=-2.3 in both committed `aa7c9ec` and the new picker. Interior/native parity and coverage-mask parity do not close this separate boundary issue. The reproduced fixture is retained for follow-up; this checkpoint does not claim universal boundary precision.
 
+The later [Float32 boundary checkpoint](../review-2026-10-21/TERRAIN_BOUNDARIES.md) resolves this recorded miss and adds shared-edge/corner regressions with an explicit isolated CPU cost. The preceding results describe historical application `5f993f3`.
+
 Terrain churn, source/loading consistency, broad overview DEM detail and native 72 Hz/visual acceptance remain open. The user deferred headset testing; the desktop CPU savings do not certify native performance.

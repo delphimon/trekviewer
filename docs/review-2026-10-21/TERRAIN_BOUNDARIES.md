@@ -24,6 +24,18 @@ The [repeated corrected run](terrain-boundaries/repeated-local-tour.json), with 
 
 The [local normal-playback CPU sample](terrain-boundaries/local-cpu.json) records 32.932 ms in `intersectGrid` and descendants over the first 15 seconds, versus 202.897 ms in the [preceding published sample](terrain-boundaries/baseline-cpu-5f993f3.json). These have different network/publication phasing and ray populations. They do not establish a controlled component speedup, overall frame time or native GPU performance. The CPU summarizer now reports this inclusive component alongside mask acquisition; raw public-source profiles stay ignored and are referenced by SHA256.
 
+## Published checkpoint
+
+Application `f47ed33007d0f1a1fba22a8c3f1dab758b67ff64` passes [CI](https://github.com/delphimon/trekviewer/actions/runs/39560861976) and was rebuilt with a clean tree, credential-scanned and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact hosted build: `f47ed33-2026-10-21T07:18:06.809Z`, entry `index-CMRGzjWT.js`. The evidence-only follow-up preserves this tested client.
+
+The [hosted complete tour](terrain-boundaries/hosted-tour-f47ed33.json) keeps fine hiker terrain visible in **357/367 samples (97.3%)**, with eight fetching and two building samples. Upcoming terrain is selected in all 367. There are still **1,113 builds across 683 IDs (430 repeats)**, 1,093 publications (415 repeats) and 1,059 removals. Browser export events total 1,293 for 845 distinct URLs; these include cancelled/cached requests and do not establish actual wire transfers. Application-ready is 5.583 seconds and overview 6.653 seconds after navigation; first fine observation is 1.751 seconds after monitoring starts. Local requested export spacing remains approximately 1.0001 m, local mesh cells 4.96 m and overview cells 94.3 m.
+
+The [hosted first-15-second CPU sample](terrain-boundaries/hosted-cpu-f47ed33.json) records **103.933 ms** in picking and descendants, versus 58.416 ms in the fresh unchanged baseline and 202.897 ms in its earlier run. Mask acquisition accounts for 1.578 ms. These different sampling/network/publication conditions do not establish a picking speedup; retain the explicit isolated cost above. No overall frame-rate or native performance result is claimed.
+
+All hosted imagery/marker gates pass without page/GL errors: maximum mean 0.05438/255, RMS 1.5178/255 and 0.6639% changed pixels. Both workers stay alive. Main-thread chunk reconstruction remains 0.1 ms median / 0.2 ms p95. [Hosted desktop/mobile controls](terrain-boundaries/controls-hosted-f47ed33.json) and [geographic/stereo/fade/recovery checks](terrain-boundaries/controlled-hosted-f47ed33.json) pass, including model following with an untouched tracked camera and bitwise-identical actual graphics-context recovery. Browser wiring checks are not native tracking/comfort acceptance.
+
+The separate [private account-path check](terrain-boundaries/private-bing-f47ed33.json) passes a 30-second hosted run, with fine ground in 123/125 samples and all existing imagery/marker gates passing. Imagery remains grouped as “other,” so this checks Cesium/Bing account-path compatibility rather than certifying provider-wide coverage or source quality. CPU recording is explicitly disabled, no private CPU profile is created, and credentials remain in browser memory and outside repository/hosted files.
+
 ## Remaining acceptance
 
 Loading/churn, broad overview DEM detail and native 72 Hz/visual acceptance remain open. Native testing remains deferred at the user's request. Boundary correctness alone does not establish that inaccurate terrain hits caused the reported churn or visual regression.
