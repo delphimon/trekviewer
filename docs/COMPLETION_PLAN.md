@@ -147,7 +147,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Trace repeated terrain builds/publications and browser export requests by tile ID. Correct warm eviction recency without changing the desired set or resource limits.
 - [x] Predict 1.5 real seconds of Tour/Track playback without advancing state, then prioritize upcoming ground after current ground within the existing radius/tile/vertex budget. Clear the hint on pause/follow release and retain broad parent coverage, view-driven surrounding detail and source quality.
 - [x] Verify 709 Windows tests, typechecking and the production build. See [terrain look-ahead evidence and limits](review-2026-10-20/TERRAIN_LOOKAHEAD.md).
-- [ ] Complete full-tour/browser validation and publish through exact-commit CI, a clean rebuild and hosted checks.
+- [x] Publish clean `4dbc044` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39520987794). Exact hosted full-tour checks reproduce 97.3% fine hiker coverage; geographic/recovery, look-ahead/pause controls and private account-path compatibility pass. [Release evidence](review-2026-10-20/TERRAIN_LOOKAHEAD.md). Terrain-work counts remain substantial; no native frame-rate acceptance is claimed.
 - [ ] Resolve remaining terrain churn, full-tour loading, broad overview detail and native performance/visual acceptance.
 
 ### 1. Make High's actual XR rendering quality explicit
