@@ -18,7 +18,17 @@ A [retired-geometry cache simulation](terrain-picking/retired-cache-simulation.j
 
 The [local full tour](terrain-picking/local-tour.json) passes image/marker gates without page/GL errors. Fine hiker ground is visible in 354/369 samples (95.9%), with 1,239 builds and 496 repeats; churn/loading are still substantial. Local/overview mesh cells remain approximately 4.96/94 m and requested local export spacing approximately 1.0001 m. This prototype is `aa7c9ec-modified-2026-10-21T02:38:10.703Z`, entry `index-BwN34K4k.js`; final code additionally guards fractional constructor metadata. [Controls](terrain-picking/controls-local.json) and [geographic/stereo/fade/recovery checks](terrain-picking/controlled-local.json) use the final guard, modified build `aa7c9ec-modified-2026-10-21T02:42:44.308Z`, entry `index-DxyprRRe.js`, and pass. Actual graphics-context recovery remains bitwise identical.
 
-Clean hosted release evidence is recorded below after completion.
+## Published checkpoint
+
+Application `5f993f36940b4dfcaf2f2fa820efd086985b670b` passed [CI](https://github.com/delphimon/trekviewer/actions/runs/39534866770), was rebuilt with a clean tree, credential-scanned and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact build: `5f993f3-2026-10-21T02:46:49.847Z`, entry `index-CSbKeTJ1.js`.
+
+The [hosted normal-playback CPU sample](terrain-picking/hosted-cpu-5f993f3.json) confirms the final code and records **3.183 ms** in mask acquisition and its descendants versus **149.353 ms** in the prior published baseline. This is about 98% less sampled CPU for that component over the first 15 seconds. Sampling variability and source/phasing differences apply; the result is not an overall frame-time or native GPU claim.
+
+The [hosted complete tour](terrain-picking/hosted-tour-5f993f3.json) retains fine hiker ground in **356/367 samples (97.0%)**, with ten fetching and one building sample. Upcoming ground is selected in all 367 samples. There are still 1,257 builds across 741 IDs (516 repeats), 1,220 publications (485 repeats), and 1,186 removals. The browser emits 1,386 export request events for 876 distinct URLs, including cancelled/cached requests rather than proven wire transfers. This does not establish a reduction in terrain churn or loading time. Application-ready is 10.536 seconds and overview 11.509 seconds after navigation; first fine observation is 1.752 seconds after monitoring begins.
+
+Source/mesh detail remains approximately 1.0001 m requested local export spacing and 4.96/94 m local/overview mesh cells. Both workers remain alive without restarts. All image/marker gates pass without page/GL errors: maximum mean 0.05541/255, RMS 1.5160/255 and 0.676% changed pixels. Main-thread chunk reconstruction remains 0.1 ms median / 0.2 ms p95. [Hosted desktop/mobile controls](terrain-picking/controls-hosted-5f993f3.json) and [geographic/stereo/fade/recovery checks](terrain-picking/controlled-hosted-5f993f3.json) pass; actual context recovery remains bitwise identical.
+
+The separate [private account-path check](terrain-picking/private-bing-5f993f3.json) passes a 30-second hosted run with 121/124 fine-ground samples and the existing image/marker tolerances. Its imagery remains grouped as “other,” so this is private Cesium/Bing account-path compatibility rather than a source-quality/coverage certification. CPU recording is explicitly disabled for that run; credentials remain memory-only and absent from repository/hosted files. The evidence-only follow-up retains this exact tested application build.
 
 ## Remaining acceptance
 

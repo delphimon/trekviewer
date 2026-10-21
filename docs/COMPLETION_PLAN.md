@@ -168,7 +168,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 - [x] Profile normal playback separately from image-comparison stress. Reuse the generator's exact cell mask across pickers with weak lifetime and index/version/range/dimension guards, preserving all terrain/imagery/quality limits.
 - [x] Verify 716 Windows tests, typechecking/build, 3.97 million visibility decisions, native picking/freshness/fallback regressions and browser controls/recovery. Normal-playback sampled mask CPU falls 149.353 to 1.607 ms in the local prototype; this is a substep measurement. See [coverage reuse evidence](review-2026-10-20/TERRAIN_PICKING.md).
-- [ ] Publish after CI, clean stamped rebuild and exact hosted full-tour/CPU, controls and recovery verification.
+- [x] Publish clean `5f993f3` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39534866770). Exact hosted CPU sampling records 3.183 ms in mask acquisition versus 149.353 ms before; full-tour, controls, geographic/stereo/recovery and private account-path checks pass. [Release evidence and limits](review-2026-10-20/TERRAIN_PICKING.md). Churn/loading and native acceptance remain open.
 - [ ] Resolve the recorded preexisting grid-boundary precision miss, remaining churn/loading/overview detail and native performance/visual acceptance.
 
 ### 1. Make High's actual XR rendering quality explicit
