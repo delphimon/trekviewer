@@ -40,6 +40,14 @@ it.each([100, 300])('renders and samples the same refined surface at DEM height 
   vi.spyOn(ElevationTileService,'sampleElevation').mockImplementation((g)=>({isValid:true,elevation:g===local?localHeight:200}));
   const terrain = await TerrainGenerator.generate({bounds,points:[{lat:46.85,lon:-121.75,ele:200}],minElevation:0} as any,undefined,undefined,1,false,{demGrid:base,terrainGeoBounds:bounds,elevationSamplerForGeo:()=>200});
   const initialIndices = terrain.terrainMesh.geometry.index!.array.slice();
+  const gpuIndices = initialIndices.slice();
+  const consumeUploads = () => {
+    const geometry = terrain.terrainMesh.geometry, index = geometry.index!;
+    for (const range of index.updateRanges) gpuIndices.set(index.array.subarray(range.start, range.start + range.count), range.start);
+    index.clearUpdateRanges();
+    expect(gpuIndices.subarray(0, geometry.drawRange.count)).toEqual(index.array.subarray(0, geometry.drawRange.count));
+  };
+  const triangles = (array: THREE.BufferAttribute['array']) => Array.from({ length: array.length / 6 }, (_, i) => Array.from(array.subarray(i * 6, i * 6 + 6)).join(',')).sort();
   const initialNormals = terrain.terrainMesh.geometry.attributes.normal.array.slice();
   terrain.terrainMesh.geometry.index!.clearUpdateRanges();
   const createChunk = () => new LocalTerrainChunk({localGrid:local,centerLat:46.85,centerLon:-121.75,terrainBaseElevation:terrain.terrainBaseElevation,radiusMeters:300,segments:8,baseMeshGrid:terrain.baseMeshGrid,baseElevationSampler:terrain.sampleBaseSurfaceY});
@@ -47,7 +55,8 @@ it.each([100, 300])('renders and samples the same refined surface at DEM height 
   terrain.attachLocalChunk!(chunk);
   const coveredGeometry = terrain.terrainMesh.geometry;
   expect(coveredGeometry.drawRange.count).toBeLessThan(initialIndices.length);
-  expect(coveredGeometry.index!.updateRanges).toEqual([{ start: 0, count: coveredGeometry.drawRange.count }]);
+  expect(coveredGeometry.index!.updateRanges.reduce((total, range) => total + range.count, 0)).toBeLessThan(coveredGeometry.drawRange.count);
+  consumeUploads();
   expect(coveredGeometry.attributes.normal.array).toEqual(initialNormals);
   terrain.group.updateMatrixWorld(true);
   const hits = new THREE.Raycaster(new THREE.Vector3(0,1000,0),new THREE.Vector3(0,-1,0)).intersectObjects([terrain.terrainMesh,chunk.mesh]);
@@ -64,20 +73,21 @@ it.each([100, 300])('renders and samples the same refined surface at DEM height 
   const patchHits = new THREE.Raycaster(new THREE.Vector3(0,1000,0),new THREE.Vector3(0,-1,0)).intersectObject(patchMesh);
   expect(patchHits[0].point.y).toBeCloseTo(hits[0].point.y + .04, 3);
   terrain.setVerticalExaggeration(2);
-  expect(coveredGeometry.index!.updateRanges).toEqual([{ start: 0, count: coveredGeometry.drawRange.count }]);
+  expect(coveredGeometry.index).toBe(index);
+  expect(coveredGeometry.index!.updateRanges).toEqual([]);
+  expect(coveredGeometry.attributes.normal.array).toEqual(initialNormals);
   terrain.group.updateMatrixWorld(true);
   const scaledHits = new THREE.Raycaster(new THREE.Vector3(0,2000,0),new THREE.Vector3(0,-1,0)).intersectObjects([terrain.terrainMesh,chunk.mesh]);
   expect(scaledHits[0].point.y).toBeCloseTo(terrain.sampleRenderedSurfaceY!(0,0)*2,3);
   terrain.detachLocalChunk!(chunk);
   expect(terrain.terrainMesh.geometry.index).toBe(index);
   expect(terrain.terrainMesh.geometry.drawRange.count).toBe(index!.count);
-  expect(index!.array).toEqual(initialIndices);
-  expect(index!.updateRanges).toEqual([{ start: 0, count: index!.count }]);
+  expect(triangles(index!.array)).toEqual(triangles(initialIndices));
   expect(terrain.sampleRenderedSurfaceY!(0,0)).toBe(230);
-  // A restore followed by a promotion before rendering must retain the larger pending upload.
+  // A restore followed by a promotion before rendering must retain every pending write.
   terrain.attachLocalChunk!(createChunk());
   expect(coveredGeometry.drawRange.count).toBeLessThan(index!.count);
-  expect(index!.updateRanges).toEqual([{ start: 0, count: index!.count }]);
+  consumeUploads();
   const indexVersion = index!.version;
   terrain.notifySurfaceChange!();
   expect(index!.version).toBe(indexVersion); // unchanged coverage does no extra GPU work

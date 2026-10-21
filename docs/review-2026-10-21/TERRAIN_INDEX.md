@@ -1,0 +1,31 @@
+# Update only changed coarse-terrain indices
+
+The fixed-view investigation did not reproduce persistent terrain churn. The [paused public-source Olympus overview](terrain-index/paused-baseline-f47ed33.json) loads 27 children, then records **zero builds, publications, removals or plan changes** during a 60-second observation after 30 seconds of warmup. Desktop camera/model matrices remain unchanged. A separate [moving-tour cache audit](terrain-index/cache-audit-f47ed33.json) records 1,720 completed reads, 179 cached bodies returned successfully, and zero aborted reads. The other 1,541 reads have no stored entry at read time. Cache contention is not established by this run; caching and its budgets remain unchanged.
+
+The [moving-tour baseline](terrain-index/baseline-tour-f47ed33.json) identifies repeated coarse-index uploads instead: **6,669,981,888 bytes in 2,278 `bufferSubData` calls**, excluding the initial 2,978,976-byte allocation. It has 1,157 publications and 1,123 removals. Each coverage change compacts the complete visible prefix and uploads nearly all of it. The opt-in WebGL audit identifies the actual base index buffer through its source array and records the byte ranges submitted to WebGL. These are API-submitted index bytes, not hardware bus counters or GPU/frame timings.
+
+## Change
+
+`BaseTerrainIndex` keeps a compact visible prefix by exchanging a removed cell with the last visible cell and appending restored cells. Each cell retains its original six indices and winding. The opaque base terrain renders the exact same triangle set, while cell order may change. Vertex attributes, normals, geography, imagery, mesh/source detail, coverage and draw count are unchanged. There are no added degenerate triangles or hidden quality reductions.
+
+Visibility comparison reads four mask bytes at once. Changed slots mark 64-cell upload blocks, merging adjacent blocks. Pending writes are unioned into those fixed blocks across multiple surface revisions until Three.js consumes them, bounding the queue while the mesh is culled. Blocks retain pending writes past a shortened/empty draw range: an empty update-range list with a pending version would make Three.js upload the complete buffer. Hiding the last visible cell only changes the draw count and requires no index write. Ray picking continues borrowing the authoritative coverage mask, independent of slot ordering.
+
+Normal generation during exaggeration temporarily selects the complete immutable original index attribute, then restores the live attribute synchronously. It does not overwrite the incremental slot ordering or upload the temporary attribute. Additional CPU bookkeeping is **1,119,056 bytes** for the measured 434×286-cell base grid; no GPU allocation or source/residency limit is increased.
+
+## Isolated verification
+
+The [benchmark](terrain-index/benchmark.json), against committed `f47ed33`, checks **124,124,000 matching visibility decisions** across 1,000 changes to 34 aligned child footprints. Requested index upload ranges total **2,926,752,000 bytes before / 16,957,440 bytes after (99.42% less)**. Median CPU time is **270.606 ms before / 149.101 ms after** per 1,000 updates, about **44.9% less**. This excludes rendering, complete chunk construction, workers and native XR; range bytes precede renderer merging. Reproduce with `node --experimental-transform-types scripts/benchmark-terrain-index.mjs` on Node 24.
+
+Regressions compare exact visible triangle membership/winding, immutable source indices, 16/32-bit grids, odd mask lengths, holes/overlaps/exact cell-centre boundaries, complete hide/restore and native picking after reordering. A simulated GPU applies only queued ranges, including multiple coverage revisions before rendering, and must match every byte of the drawn prefix. Terrain integration checks retain rendered/sampled height parity, complete-surface normals, exaggeration and pending restore/promotion writes.
+
+A [local prototype full tour](terrain-index/local-prototype-tour.json), before the additional bounded-pending-range guard, submits 18,077,664 index bytes in 10,396 small calls versus the baseline's 6.67 GB in 2,278 calls. This is **99.73% fewer bytes with more calls**, not a measured native frame-rate result. It keeps fine ground visible in 352/367 samples (95.9%), passes imagery/marker gates, and preserves exact complete-surface normals/index bytes/draw count through 2×/1× exaggeration. The final guard additionally covers 300 unrendered revisions and completely hidden coverage before restore.
+
+## Final local checks
+
+`npm run verify` passes both typechecks, **726 Windows tests with five platform skips**, and the production build. The [final full tour](terrain-index/local-final-tour.json), modified build `87030dc-modified-2026-10-21T07:56:12.341Z`, entry `index-hr1rZI0s.js`, submits **14,109,696 bytes in 7,718 calls**. Its construction/publication population differs from the baseline (892 builds, 858 publications and 825 removals); this is not a matched loading-time or frame-rate improvement. The hosted audit additionally records an equivalent whole-prefix byte count for each submitted index version, using that run's actual draw count.
+
+Fine ground is visible in **344/367 samples (93.7%)**, with 21 fetching, one building and one decoded sample; first fine observation is 5.000 seconds after monitoring starts. This leaves loading acceptance open. Source/mesh spacing remains approximately 1.0001 m requested exports and 4.96/94.3 m local/overview cells. All imagery/marker gates pass without page/GL errors: maximum mean 0.05432/255, RMS 1.5130/255 and 0.6423% changed pixels. Both workers remain alive. Exaggeration checks again show zero normal mismatches and unchanged index bytes/attribute/draw count. [Desktop/mobile controls](terrain-index/controls-local.json) and [geographic/stereo/fade/recovery checks](terrain-index/controlled-local.json) pass; actual context recovery remains bitwise identical.
+
+## Remaining acceptance
+
+Full-tour loading/churn, broad overview DEM detail and native 72 Hz/visual acceptance remain open. This change removes redundant coarse-index work; it does not eliminate the need to build newly requested fine terrain. Native testing remains deferred at the user's request.

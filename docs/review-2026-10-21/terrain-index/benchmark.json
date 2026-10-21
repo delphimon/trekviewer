@@ -1,0 +1,42 @@
+{
+  "condition": "Isolated coverage/index update on a 434x286-cell base grid. Sliding set of 34 aligned child footprints, 1,000 changes per pass. Upload bytes are requested index-element ranges before renderer merging, not measured GPU timing. Excludes geometry construction, rendering, frames and native XR.",
+  "reference": "f47ed33",
+  "node": "v24.21.0",
+  "visibilityDecisions": 124124000,
+  "orderedBytes": 2926752000,
+  "incrementalBytes": 16957440,
+  "incrementalRanges": 9263,
+  "extraIndexStateBytes": 1119056,
+  "passes": [
+    {
+      "name": "ordered",
+      "updates": 1000,
+      "elapsedMs": 270.60569999999996
+    },
+    {
+      "name": "incremental",
+      "updates": 1000,
+      "elapsedMs": 149.1008999999999
+    },
+    {
+      "name": "incremental",
+      "updates": 1000,
+      "elapsedMs": 151.14470000000006
+    },
+    {
+      "name": "ordered",
+      "updates": 1000,
+      "elapsedMs": 298.78060000000005
+    },
+    {
+      "name": "ordered",
+      "updates": 1000,
+      "elapsedMs": 261.8430000000001
+    },
+    {
+      "name": "incremental",
+      "updates": 1000,
+      "elapsedMs": 147.7469000000001
+    }
+  ]
+}

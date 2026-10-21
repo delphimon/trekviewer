@@ -180,6 +180,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `f47ed33` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39560861976). Exact hosted full-tour, desktop/mobile controls and geographic/stereo/context recovery pass. Fine ground is visible in 357/367 samples (97.3%); 430 repeated builds leave churn unresolved. [Release evidence and CPU tradeoff](review-2026-10-21/TERRAIN_BOUNDARIES.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
 
+### 0r. Avoid full coarse-index uploads during terrain changes
+
+- [x] Establish stationary and source-cache baselines. Reproduce 6.67 GB of coarse-index WebGL updates in one moving desktop tour; cache read aborts and settled-view churn are not reproduced.
+- [x] Implement incremental whole-cell index compaction with exact triangle/winding/coverage parity, bounded pending upload blocks and preserved complete-surface normals. An isolated 1,000-change comparison requests 99.42% fewer index bytes with about 44.9% less CPU, adding about 1.1 MB of bounded CPU bookkeeping. See [index-update evidence and limits](review-2026-10-21/TERRAIN_INDEX.md).
+- [x] Verify 726 Windows tests, typechecking/build, pending writes through 300 culled revisions, real-source full tours with exact normals through exaggeration, desktop/mobile controls and graphics recovery. Final local base-index updates total 14.11 MB; loading remains incomplete.
+- [ ] Publish through CI, a clean stamped build and exact hosted verification.
+- [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

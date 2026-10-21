@@ -8,7 +8,7 @@ import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import type { TerrainGridLayout } from './TerrainGrid.ts';
 import type { TerrainSurfaceData } from './TerrainGrid.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
-import { BaseTerrainCoverage } from './BaseTerrainCoverage.ts';
+import { BaseTerrainIndex } from './BaseTerrainIndex.ts';
 import { publishTerrainCellMask } from './TerrainCellMask.ts';
 import { TerrainImagery } from './TerrainImagery.ts';
 import { disposeOwnedCanvasTexture } from './CompositeImagery.ts';
@@ -390,7 +390,8 @@ export class TerrainGenerator {
     const liveIndex = planeGeo.index!;
     liveIndex.setUsage(THREE.DynamicDrawUsage);
     const originalIndices = liveIndex.array.slice();
-    const baseCoverage = new BaseTerrainCoverage(baseMeshGrid, originalIndices as Uint16Array | Uint32Array);
+    const baseCoverage = new BaseTerrainIndex(baseMeshGrid, originalIndices as Uint16Array | Uint32Array);
+    const completeIndex = new THREE.BufferAttribute(originalIndices, 1);
     let visibleFootprints = '';
     const updateBaseCoverage = () => {
       const visible = activeLocalChunks.filter(chunk => chunk.mesh.visible);
@@ -401,12 +402,11 @@ export class TerrainGenerator {
       planeGeo.userData.surfaceHoles = holes;
       // Only whole aligned coarse cells are replaced. Keep original vertex attributes
       // and change indices once per promotion, never per frame or per pixel.
-      const indexCount = baseCoverage.update(holes, liveIndex.array as Uint16Array | Uint32Array);
-      // Only the drawn prefix needs uploading. Keep pending writes until Three consumes them.
-      const pendingEnd = liveIndex.updateRanges.reduce((end, range) => Math.max(end, range.start + range.count), indexCount);
+      const indexCount = baseCoverage.update(holes, liveIndex.array as Uint16Array | Uint32Array, liveIndex.updateRanges);
+      // Union unconsumed writes into bounded blocks, including while culled.
       liveIndex.clearUpdateRanges();
-      if (pendingEnd) liveIndex.addUpdateRange(0, pendingEnd);
-      liveIndex.needsUpdate = true;
+      for (const range of baseCoverage.dirtyRanges) liveIndex.addUpdateRange(range.start, range.count);
+      if (baseCoverage.dirtyRanges.length) liveIndex.needsUpdate = true;
       planeGeo.setDrawRange(0, indexCount);
       publishTerrainCellMask(planeGeo, segX, segZ, baseCoverage.hiddenCells, true);
     };
@@ -467,8 +467,8 @@ export class TerrainGenerator {
       }
       posAttr.needsUpdate = true;
       // Compute smooth normals from the complete surface, including temporarily hidden cells.
-      liveIndex.array.set(originalIndices);
-      planeGeo.computeVertexNormals();
+      planeGeo.setIndex(completeIndex);
+      try { planeGeo.computeVertexNormals(); } finally { planeGeo.setIndex(liveIndex); }
       visibleFootprints = "invalidated";
       planeGeo.computeBoundingBox();
       planeGeo.computeBoundingSphere();

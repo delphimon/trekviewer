@@ -38,6 +38,7 @@ const summary = {
   builds: { total: total('builds'), distinctTiles: built.length, repeats: total('builds') - built.length },
   publications: { total: total('published'), distinctTiles: published.length, repeats: total('published') - published.length, removals: total('removed') },
   elevationRequestEvents: report.elevationRequests, workers: report.workerLifecycle, jobs, byTile,
+  terrainNormals: report.terrainNormals ?? null, resourceCacheAudit: report.resourceCacheAudit ?? null, baseIndexAudit: report.baseIndexAudit ?? null,
   mainChunkConstruction: construction.length ? { count: construction.length,
     totalMs: construction.reduce((a, b) => a + b, 0), medianMs: construction[Math.floor(construction.length / 2)],
     p95Ms: construction[Math.floor(construction.length * 0.95)], maxMs: construction.at(-1),

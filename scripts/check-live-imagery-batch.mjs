@@ -3,6 +3,8 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { installResourceCacheAudit } from './resource-cache-audit.mjs';
+import { installTerrainIndexAudit } from './terrain-index-audit.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base = process.env.TREK_LIVE_BATCH_URL ?? 'https://127.0.0.1:4212/';
@@ -28,6 +30,11 @@ try {
   browser = await chromium.launch({ executablePath: process.env.TREK_EDGE_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1000, height: 800 }, userAgent: 'TrekViewer desktop live-source audit (Quest geometry budget)' });
   const page = await context.newPage(), errors = [], glErrors = [];
+  if (process.env.TREK_INDEX_AUDIT === '1') await page.addInitScript(installTerrainIndexAudit);
+  if (process.env.TREK_RESOURCE_AUDIT === '1') {
+    assert.ok(!config, 'Resource auditing is restricted to public sources');
+    await page.addInitScript(installResourceCacheAudit);
+  }
   if (process.env.TREK_TERRAIN_PIPELINE_AUDIT === '1') await page.addInitScript(() => {
     const NativeWorker = window.Worker;
     window.__terrainJobAudit = [];
@@ -279,6 +286,27 @@ try {
   }
   if (fullTour) { await page.waitForFunction(() => window.__trekViewerApp.session.getState().progress >= 1, null, { timeout: 20000 }); await sample('finished'); }
   if (await page.evaluate(() => window.__trekViewerApp.session.getState().isPlaying)) await page.locator('#btnPlay').click();
+  const terrainNormals = process.env.TREK_CHECK_TERRAIN_NORMALS === '1' ? await page.evaluate(() => {
+    const app = window.__trekViewerApp, terrain = app.activeTrek.terrainResult, geometry = terrain.terrainMesh.geometry;
+    const index = geometry.index, before = index.array.slice(), count = geometry.drawRange.count;
+    const initial = app.session.getState().verticalExaggeration;
+    const { width, height, widthSegments, heightSegments } = geometry.parameters;
+    const reference = new geometry.constructor(width, height, widthSegments, heightSegments);
+    const results = [];
+    try {
+      for (const factor of [2, 1, initial]) {
+        app.session.setVerticalExaggeration(factor);
+        reference.setAttribute('position', geometry.attributes.position.clone()); reference.computeVertexNormals();
+        const actual = geometry.attributes.normal.array, expected = reference.attributes.normal.array;
+        let mismatches = 0;
+        for (let i = 0; i < actual.length; i++) if (actual[i] !== expected[i]) mismatches++;
+        results.push({ factor, normalMismatches: mismatches, sameIndexAttribute: geometry.index === index,
+          sameIndexBytes: index.array.every((value, i) => value === before[i]), sameDrawCount: geometry.drawRange.count === count });
+      }
+      return { condition: 'Real streamed coverage retained while changing exaggeration; exact normals against the full original regular-grid triangle ordering.', chunks: terrain.localChunks.length, results };
+    } finally { reference.dispose(); }
+  }) : null;
+  if (terrainNormals) assert.ok(terrainNormals.chunks > 0 && terrainNormals.results.every(row => row.normalMismatches === 0 && row.sameIndexAttribute && row.sameIndexBytes && row.sameDrawCount), 'Exaggeration changed coverage or complete-surface normals');
   const playbackProfile = await page.evaluate(() => { const app = window.__trekViewerApp; app.stopProfile(); return app.completedProfile; });
   await page.screenshot({ path: path.join(out, 'scene.png') });
   let renderBenchmark;
@@ -337,6 +365,8 @@ try {
     terrainJobAudit: await page.evaluate(() => window.__terrainJobAudit),
     terrainLifecycle: await page.evaluate(() => window.__terrainLifecycle),
     elevationRequests: { total: [...elevationRequests.values()].reduce((a, b) => a + b, 0), unique: elevationRequests.size },
+    terrainNormals, resourceCacheAudit: await page.evaluate(() => window.__resourceCacheAudit ?? null),
+    baseIndexAudit: await page.evaluate(() => window.__terrainIndexAudit?.identify(window.__trekViewerApp.activeTrek.terrainResult.terrainMesh.geometry.index.array) ?? null),
     renderBenchmark, errors, glErrors };
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify(evidence, null, 2) + '\n');
   assert.deepEqual(errors, []); assert.deepEqual(glErrors, []);

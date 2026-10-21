@@ -2,7 +2,31 @@ import { expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { TerrainRaycast } from '../src/terrain/TerrainRaycast.ts';
 import { BaseTerrainCoverage } from '../src/terrain/BaseTerrainCoverage.ts';
+import { BaseTerrainIndex } from '../src/terrain/BaseTerrainIndex.ts';
 import { publishTerrainCellMask } from '../src/terrain/TerrainCellMask.ts';
+
+it('picks the same rendered terrain through incrementally reordered and restored coverage', () => {
+  const grid = { width: 8, depth: 8, segmentsX: 32, segmentsZ: 32 };
+  const geometry = new THREE.PlaneGeometry(8, 8, 32, 32); geometry.rotateX(-Math.PI / 2);
+  const index = geometry.index!, original = index.array.slice() as Uint16Array;
+  const coverage = new BaseTerrainIndex(grid, original), picker = new TerrainRaycast();
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  mesh.position.set(0.3, 0.5, -0.1); mesh.rotation.set(0.1, 0.2, 0.05); mesh.scale.set(0.8, 0.7, 1.1); mesh.updateMatrixWorld(true);
+  try {
+    for (const holes of [[{ minX: -2, maxX: 2, minZ: -2, maxZ: 2 }], [{ minX: -4, maxX: 0, minZ: -4, maxZ: 4 }], []]) {
+      geometry.setDrawRange(0, coverage.update(holes, index.array as Uint16Array)); index.needsUpdate = true;
+      publishTerrainCellMask(geometry, 32, 32, coverage.hiddenCells, true);
+      for (const x of [-3.25, -1, 0, 1, 3.25]) for (const z of [-3.25, -1, 0, 1, 3.25]) {
+        const origin = mesh.localToWorld(new THREE.Vector3(x, 10, z));
+        const target = mesh.localToWorld(new THREE.Vector3(x, 0, z));
+        const ray = new THREE.Raycaster(origin, target.sub(origin).normalize());
+        const native = ray.intersectObject(mesh)[0] ?? null, actual = picker.closest(ray, [mesh]);
+        expect(actual === null).toBe(native === null);
+        if (actual && native) expect(actual.point.distanceTo(native.point)).toBeLessThan(1e-10);
+      }
+    }
+  } finally { geometry.dispose(); mesh.material.dispose(); }
+});
 
 it.each([16, 260])('matches native hits at rounded grid boundaries, corners and coverage holes (%i)', segments => {
   const geometry = new THREE.PlaneGeometry(8, 8, segments, segments); geometry.rotateX(-Math.PI / 2);
