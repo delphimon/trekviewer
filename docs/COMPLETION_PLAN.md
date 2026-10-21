@@ -161,7 +161,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 - [x] Reuse only the most recent exact Mercator latitude, preserving current source/grid/data/validity inputs, all numeric sampling behavior and existing quality/resource limits.
 - [x] Verify 712 Windows tests, both typechecks and the production build. Check 187,308 exact sample matches and complete chunk build-data parity; isolated median full construction falls 17.3%, with the scattered-sampling tradeoff stated. See [elevation projection evidence](review-2026-10-20/ELEVATION_PROJECTION.md).
-- [ ] Publish after CI, clean stamped rebuild and exact hosted full-tour, control and graphics-recovery checks.
+- [x] Publish clean `30f45a2` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39530766480). Exact hosted full-tour, desktop/mobile controls, geographic/stereo/context-recovery and private account-path checks pass. Fine ground is visible in 357/368 samples; churn remains substantial. [Release evidence and limits](review-2026-10-20/ELEVATION_PROJECTION.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
 
 ### 1. Make High's actual XR rendering quality explicit
