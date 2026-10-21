@@ -199,7 +199,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 - [x] Count complete required bilinear support in the worker; tolerate only NoData outside that support, without invented heights. Keep valid partial encoded bytes and footprint-specific cache/backoff ownership. Preserve existing default request identities, source/mesh precision and resource limits.
 - [x] Check 2,504,034 Float32 positions, three real source pairs and 738 Windows tests. The compact-request experiment reduces pixels/bytes but its first full tour has only 19% fine-ground coverage; keep it developer opt-in rather than changing the default. See [footprint evidence and limits](review-2026-10-21/TERRAIN_FOOTPRINT.md).
-- [ ] Complete exact local/hosted worker, full-tour, control/recovery and account-path validation; publish the verified application.
+- [x] Complete exact local/hosted worker, full-tour, control/recovery and account-path validation; publish clean `7b204fd` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39673689727). Hosted fine terrain appears in only 293/367 tour samples (79.8%), versus 97.0% locally; live loading remains inconsistent and is not accepted as improved. Evidence-only follow-up retains the measured build.
 - [ ] Complete loading/churn, overview detail, interior NoData and native visual/performance/lifecycle acceptance.
 
 ### 0u. Investigate installed delivery and explicit offline route packs

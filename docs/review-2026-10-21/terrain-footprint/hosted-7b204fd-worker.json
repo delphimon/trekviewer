@@ -1,0 +1,52 @@
+{
+  "condition": "Exact built worker and genuine upstream NoData mask, transferred input/output buffers, bounded covered/missing/invalid windows. No app rendering or native headset claim.",
+  "build": {
+    "id": "7b204fd-2026-10-21T20:51:19.577Z",
+    "sha": "7b204fdb6fb1446978bb4a5e55981ba70cebd5bc",
+    "shortSha": "7b204fd",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-21T20:51:19.577Z",
+    "label": "TrekViewer 1.0.0 • 7b204fd"
+  },
+  "workerName": "TerrainWorker-DnffFKGQ.js",
+  "workerHash": "2df6abf9f355dd788c77879e50db97377b87853cfa563aba7ba3c8c3157611dd",
+  "rows": [
+    {
+      "requiredWindow": {
+        "minX": 40,
+        "maxX": 104,
+        "minY": 8,
+        "maxY": 72
+      },
+      "validCount": 58515,
+      "requiredValidCount": 4225,
+      "missing": 101485,
+      "dataHash": "62215c723e678fd3aac9948d4753003e21a9bfbd0eff597ca6d95d4a68a959d1",
+      "inputTransferred": true
+    },
+    {
+      "requiredWindow": {
+        "minX": 0,
+        "maxX": 399,
+        "minY": 0,
+        "maxY": 399
+      },
+      "validCount": 58515,
+      "requiredValidCount": 58515,
+      "missing": 101485,
+      "dataHash": "62215c723e678fd3aac9948d4753003e21a9bfbd0eff597ca6d95d4a68a959d1",
+      "inputTransferred": true
+    },
+    {
+      "requiredWindow": {
+        "minX": -1,
+        "maxX": 2,
+        "minY": 0,
+        "maxY": 2
+      },
+      "error": "RangeError",
+      "inputTransferred": true
+    }
+  ]
+}
