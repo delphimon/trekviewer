@@ -150,6 +150,13 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `4dbc044` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39520987794). Exact hosted full-tour checks reproduce 97.3% fine hiker coverage; geographic/recovery, look-ahead/pause controls and private account-path compatibility pass. [Release evidence](review-2026-10-20/TERRAIN_LOOKAHEAD.md). Terrain-work counts remain substantial; no native frame-rate acceptance is claimed.
 - [ ] Resolve remaining terrain churn, full-tour loading, broad overview detail and native performance/visual acceptance.
 
+### 0n. Adopt worker-prepared terrain without rebuilding it on the render thread
+
+- [x] Transfer prepared indices/bounds and adopt the worker-owned arrays using a constant-size grid shell. Preserve regular-grid traversal/clipping, exact geometry/UVs/normals, terrain sampling, exaggeration, source quality and all selection/resource limits.
+- [x] Verify 711 Windows tests, both typechecks and the production build; benchmark exact prepared-geometry parity and add real-transfer/16-bit/32-bit index/picking regressions. Exclude the unproven tile-retention experiment. See [terrain publication evidence](review-2026-10-20/TERRAIN_PUBLICATION.md).
+- [ ] Publish after CI, a clean stamped rebuild and exact hosted full-tour, control and graphics-recovery checks.
+- [ ] Resolve repeated terrain work, loading consistency, overview DEM detail and native performance/visual acceptance.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

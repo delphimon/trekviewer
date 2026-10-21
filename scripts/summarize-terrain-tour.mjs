@@ -27,6 +27,7 @@ for (const row of report.terrainLifecycle) tile(row.tileId)[row.method === 'atta
 const byTile = [...tiles.values()].sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }));
 const built = byTile.filter(row => row.builds), published = byTile.filter(row => row.published);
 const total = key => byTile.reduce((sum, row) => sum + row[key], 0);
+const construction = report.terrainJobAudit.filter(row => Number.isFinite(row.mainConstructionMs)).map(row => row.mainConstructionMs).sort((a, b) => a - b);
 const summary = {
   condition: report.condition,
   evidence: 'Derived summary of the local raw report; tile IDs and counters are model data, not native headset performance.',
@@ -37,6 +38,10 @@ const summary = {
   builds: { total: total('builds'), distinctTiles: built.length, repeats: total('builds') - built.length },
   publications: { total: total('published'), distinctTiles: published.length, repeats: total('published') - published.length, removals: total('removed') },
   elevationRequestEvents: report.elevationRequests, workers: report.workerLifecycle, jobs, byTile,
+  mainChunkConstruction: construction.length ? { count: construction.length,
+    totalMs: construction.reduce((a, b) => a + b, 0), medianMs: construction[Math.floor(construction.length / 2)],
+    p95Ms: construction[Math.floor(construction.length * 0.95)], maxMs: construction.at(-1),
+    condition: 'Worker message receipt through async chunk construction; includes promise scheduling, excludes later validation, imagery promotion and GPU upload.' } : null,
   comparisons: report.checkpoints.map(row => ({ label: row.label, elapsedMs: row.elapsedMs,
     legacyCalls: row.legacyCalls, batchedCalls: row.batchedCalls, mean: row.meanChannelError, rms: row.rmsChannelError,
     changedPixels: row.differentPixels, pixels: row.pixelCount, glErrors: row.glErrors,

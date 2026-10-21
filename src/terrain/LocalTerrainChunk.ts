@@ -12,7 +12,9 @@ export interface TerrainChunkData {
   positions: Float32Array;
   normals: Float32Array;
   uvs: Float32Array;
+  indices: Uint16Array | Uint32Array;
   heights: Float32Array;
+  bounds: { min: [number, number, number]; max: [number, number, number]; center: [number, number, number]; radius: number };
   fallbackCount: number;
   maxDiffFromBase: number;
 }
@@ -33,6 +35,7 @@ export interface LocalTerrainChunkOptions {
   mapTexture?: THREE.Texture | null;
   baseMeshGrid?: TerrainGridLayout;
   layout?: TerrainGridLayout & { bounds: TerrainSurfaceBounds };
+  /** Transfers ownership of the prepared arrays to this chunk. */
   preparedData?: TerrainChunkData;
 }
 
@@ -110,6 +113,9 @@ export class LocalTerrainChunk {
       positions: this.geometry.attributes.position.array as Float32Array,
       normals: this.geometry.attributes.normal.array as Float32Array,
       uvs: this.geometry.attributes.uv.array as Float32Array,
+      indices: this.geometry.index!.array as Uint16Array | Uint32Array,
+      bounds: { min: this.geometry.boundingBox!.min.toArray(), max: this.geometry.boundingBox!.max.toArray(),
+        center: this.geometry.boundingSphere!.center.toArray(), radius: this.geometry.boundingSphere!.radius },
       heights: this.unscaledHeights, fallbackCount: this.fallbackCount, maxDiffFromBase: this.maxDiffFromBase,
     };
   }
@@ -160,25 +166,36 @@ export class LocalTerrainChunk {
       || (this.segmentsX + 1) * (this.segmentsZ + 1) > 200_000) {
       throw new RangeError('Local terrain exceeds the vertex budget or has invalid dimensions.');
     }
-    this.geometry = new THREE.PlaneGeometry(this.widthM, this.depthM, this.segmentsX, this.segmentsZ);
-    this.geometry.rotateX(-Math.PI / 2);
+    const prepared = options.preparedData;
+    if (prepared) {
+      // The worker transfers sole ownership of these buffers. Adopt them directly
+      // instead of generating, rotating and overwriting another complete plane.
+      // Keep the regular-grid contract used by exact terrain ray traversal and
+      // imagery clipping. Only the constant-size shell is generated here.
+      this.geometry = new THREE.PlaneGeometry(this.widthM, this.depthM, 1, 1);
+      Object.assign(this.geometry.parameters, { widthSegments: this.segmentsX, heightSegments: this.segmentsZ });
+      this.geometry.setAttribute('position', new THREE.BufferAttribute(prepared.positions, 3));
+      this.geometry.setAttribute('normal', new THREE.BufferAttribute(prepared.normals, 3));
+      this.geometry.setAttribute('uv', new THREE.BufferAttribute(prepared.uvs, 2));
+      this.geometry.setIndex(new THREE.BufferAttribute(prepared.indices, 1));
+      this.geometry.boundingBox = new THREE.Box3(new THREE.Vector3(...prepared.bounds.min), new THREE.Vector3(...prepared.bounds.max));
+      this.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(...prepared.bounds.center), prepared.bounds.radius);
+    } else {
+      this.geometry = new THREE.PlaneGeometry(this.widthM, this.depthM, this.segmentsX, this.segmentsZ);
+      this.geometry.rotateX(-Math.PI / 2);
+    }
 
     const posAttr = this.geometry.attributes.position;
     const vertexCount = posAttr.count;
     this.totalVertices = vertexCount;
-    this.unscaledHeights = new Float32Array(vertexCount);
+    this.unscaledHeights = prepared?.heights ?? new Float32Array(vertexCount);
     this.fallbackCount = 0;
     this.maxDiffFromBase = 0;
 
 
     if (options.preparedData) {
-      const prepared = options.preparedData;
-      (posAttr.array as Float32Array).set(prepared.positions);
-      (this.geometry.attributes.normal.array as Float32Array).set(prepared.normals);
-      (this.geometry.attributes.uv.array as Float32Array).set(prepared.uvs);
-      this.unscaledHeights = prepared.heights;
-      this.fallbackCount = prepared.fallbackCount;
-      this.maxDiffFromBase = prepared.maxDiffFromBase;
+      this.fallbackCount = options.preparedData.fallbackCount;
+      this.maxDiffFromBase = options.preparedData.maxDiffFromBase;
     } else for (let i = 0; i < vertexCount; i++) {
       const vx = posAttr.getX(i);
       const vz = posAttr.getZ(i);
@@ -220,8 +237,10 @@ export class LocalTerrainChunk {
     posAttr.needsUpdate = true;
     if (!options.preparedData) this.geometry.computeVertexNormals();
     if (!options.preparedData) this.applyParentEdgeNormals();
-    this.geometry.computeBoundingBox();
-    this.geometry.computeBoundingSphere();
+    if (!prepared) {
+      this.geometry.computeBoundingBox();
+      this.geometry.computeBoundingSphere();
+    }
 
     // Map local chunk vertices to global geographic UVs (Stage X3)
     if (options.tileGrid && !options.preparedData) {

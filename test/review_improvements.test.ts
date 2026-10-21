@@ -10,6 +10,7 @@ import { decodeTerrarium } from '../src/terrain/TerrariumDecode.ts';
 import { runTerrainJob, disposeTerrainJobs } from '../src/terrain/TerrainJobs.ts';
 import { sampleTerrainSurface } from '../src/terrain/TerrainGrid.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
+import { TerrainRaycast } from '../src/terrain/TerrainRaycast.ts';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -241,6 +242,49 @@ it('preserves valleys and reproduces coarse diagonal sampling in prepared local 
   expect(prepared.sampleLocalSurfaceY(0, 0)).toBe(-20);
   expect(prepared.geometry.attributes.normal.array).toEqual(chunk.geometry.attributes.normal.array);
   chunk.dispose(); prepared.dispose();
+});
+
+it.each([8, 256])('adopts transferred terrain buffers with %i segments, bounds, exaggeration and picking', (segments) => {
+  vi.spyOn(ElevationTileService, 'sampleElevation').mockImplementation((_grid, lat, lon) =>
+    ({ elevation: 150 + 20 * Math.sin(lat * 1000) * Math.cos(lon * 1000), isValid: true }));
+  const options: any = { localGrid: { zoom: 15, isRealDEM: true }, centerLat: 46, centerLon: -120,
+    terrainBaseElevation: 100, radiusMeters: 100, segments, initialExaggeration: 1.6 };
+  const source = new LocalTerrainChunk(options);
+  const data = source.getBuildData();
+  const index = Array.from(data.indices), positions = Array.from(data.positions);
+  const expected = source.sampleLocalSurfaceY(12, 23);
+  const transferred = structuredClone(data, { transfer: [data.positions.buffer, data.normals.buffer,
+    data.uvs.buffer, data.indices.buffer, data.heights.buffer] });
+  source.dispose();
+  expect(data.positions.byteLength).toBe(0);
+  const bounds = vi.spyOn(THREE.BufferGeometry.prototype, 'computeBoundingBox');
+  const sphere = vi.spyOn(THREE.BufferGeometry.prototype, 'computeBoundingSphere');
+  const sample = vi.spyOn(ElevationTileService, 'sampleElevation'); sample.mockClear();
+  const chunk = new LocalTerrainChunk({ ...options, preparedData: transferred });
+  expect(sample).not.toHaveBeenCalled(); expect(bounds).not.toHaveBeenCalled(); expect(sphere).not.toHaveBeenCalled();
+  expect(chunk.geometry.attributes.position.array).toBe(transferred.positions);
+  expect(chunk.geometry.attributes.normal.array).toBe(transferred.normals);
+  expect(chunk.geometry.attributes.uv.array).toBe(transferred.uvs);
+  expect(chunk.geometry.index!.array).toBe(transferred.indices);
+  expect(chunk.geometry).toBeInstanceOf(THREE.PlaneGeometry);
+  expect(chunk.geometry.parameters.widthSegments).toBe(segments);
+  expect(chunk.geometry.parameters.heightSegments).toBe(segments);
+  expect(Array.from(chunk.geometry.index!.array)).toEqual(index);
+  expect(Array.from(chunk.geometry.attributes.position.array)).toEqual(positions);
+  expect(chunk.sampleLocalSurfaceY(12, 23)).toBe(expected);
+  expect(chunk.validate().isValid).toBe(true);
+  const ray = new THREE.Raycaster(new THREE.Vector3(12, 500, 23), new THREE.Vector3(0, -1, 0));
+  chunk.mesh.updateMatrixWorld(true);
+  expect(ray.intersectObject(chunk.mesh)[0].point.y).toBeCloseTo(expected! * 1.6);
+  const nativeHit = vi.spyOn(chunk.mesh, 'raycast'); nativeHit.mockClear();
+  expect(new TerrainRaycast().closest(ray, [chunk.mesh])!.point.y).toBeCloseTo(expected! * 1.6);
+  expect(nativeHit).not.toHaveBeenCalled();
+  bounds.mockClear(); sphere.mockClear();
+  chunk.setVerticalExaggeration(2);
+  expect(bounds).toHaveBeenCalledOnce(); expect(sphere).toHaveBeenCalledOnce();
+  expect(chunk.sampleLocalSurfaceY(12, 23)).toBe(expected);
+  expect(ray.intersectObject(chunk.mesh)[0].point.y).toBeCloseTo(expected! * 2);
+  chunk.dispose();
 });
 
 it('keeps hidden HUD state dirty without rasterization and meets angular sizing targets', () => {

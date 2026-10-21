@@ -7,8 +7,9 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base = process.env.TREK_LIVE_BATCH_URL ?? 'https://127.0.0.1:4212/';
 const out = process.env.TREK_LIVE_BATCH_OUT ?? '.review-cache/live-imagery-batch';
-const expected = JSON.parse(fs.readFileSync('dist/build-info.json', 'utf8'));
-const entry = path.posix.basename(fs.readFileSync('dist/index.html', 'utf8').match(/src="([^"]+\.js)"[^>]*data-trek-entry="true"/)[1]);
+const expectedDist = process.env.TREK_LIVE_BATCH_EXPECTED_DIST ?? 'dist';
+const expected = JSON.parse(fs.readFileSync(path.join(expectedDist, 'build-info.json'), 'utf8'));
+const entry = path.posix.basename(fs.readFileSync(path.join(expectedDist, 'index.html'), 'utf8').match(/src="([^"]+\.js)"[^>]*data-trek-entry="true"/)[1]);
 const route = JSON.parse(fs.readFileSync('public/routes/manifest.json', 'utf8')).find(row => row.id === 'olympus-bailey-2026');
 const config = process.env.TREK_LOCAL_PROVIDERS_PATH ? JSON.parse(fs.readFileSync(process.env.TREK_LOCAL_PROVIDERS_PATH, 'utf8')) : null;
 if (config) assert.ok(config.imageryAssetId === 2 && config.ionToken?.length > 10, 'Expected eligible local Bing configuration');
@@ -36,7 +37,8 @@ try {
         super(...args);
         this.addEventListener('message', event => {
           if (event.data?.ready || !this.pendingAudit) return;
-          this.pendingAudit.elapsedMs = performance.now() - this.pendingAudit.startedAtMs;
+          this.pendingAudit.completedAtMs = performance.now();
+          this.pendingAudit.elapsedMs = this.pendingAudit.completedAtMs - this.pendingAudit.startedAtMs;
           this.pendingAudit.failed = !!event.data?.error;
           this.pendingAudit = null;
         });
@@ -94,6 +96,21 @@ try {
     window.__liveDetailSamples = [];
     window.__terrainLifecycle = [];
     const terrain = app.activeTrek.terrainResult, grid = terrain.baseMeshGrid;
+    let chunkConstructionObserved = false;
+    const observeChunkConstruction = chunk => {
+      if (chunkConstructionObserved || !window.__terrainJobAudit || !chunk?.constructor?.createAsync) return;
+      chunkConstructionObserved = true;
+      const Chunk = chunk.constructor, original = Chunk.createAsync;
+      Chunk.createAsync = async function (...args) {
+        const started = performance.now(), candidate = await original.apply(this, args);
+        const completed = performance.now();
+        const job = window.__terrainJobAudit.findLast(row => row.kind === 'chunk'
+          && row.tileId === args[0]?.layout?.id && row.startedAtMs >= started && row.completedAtMs <= completed);
+        if (job && !job.failed) job.mainConstructionMs = completed - job.completedAtMs;
+        return candidate;
+      };
+    };
+    observeChunkConstruction(terrain.localChunks?.[0]);
     const tileId = chunk => {
       const bounds = chunk.getSurfaceBounds();
       return `${Math.round((bounds.minX + grid.width / 2) / (grid.width / grid.segmentsX * 8))}:${Math.round((bounds.minZ + grid.depth / 2) / (grid.depth / grid.segmentsZ * 8))}`;
@@ -101,7 +118,10 @@ try {
     for (const method of ['attachLocalChunk', 'detachLocalChunk']) {
       const original = terrain[method];
       terrain[method] = function (chunk) {
-        if (chunk) window.__terrainLifecycle.push({ method, tileId: tileId(chunk), timeMs: performance.now() });
+        if (chunk) {
+          observeChunkConstruction(chunk);
+          window.__terrainLifecycle.push({ method, tileId: tileId(chunk), timeMs: performance.now() });
+        }
         return original.apply(this, arguments);
       };
     }
@@ -202,7 +222,18 @@ try {
     fs.writeFileSync(path.join(out, 'progress.json'), JSON.stringify(checkpoints, null, 2));
     console.log(JSON.stringify({ phase: label, elapsedMs: Date.now() - start, calls: [result.legacyCalls, result.batchedCalls], batch: result.batch, pixels: [result.maxError, result.differentPixels], chunks: result.counters.localTerrainChunks }));
   }
-  await page.waitForFunction(() => window.__trekViewerApp.activeTrek.imageryLOD.patches.size >= 16, null, { timeout: 90000 });
+  try {
+    await page.waitForFunction(() => window.__trekViewerApp.activeTrek.imageryLOD.patches.size >= 16, null, { timeout: 90000 });
+  } catch (error) {
+    console.log(JSON.stringify({ phase: 'imagery-readiness-failed', errors: errors.length, glErrors: glErrors.length,
+      diagnostics: await page.evaluate(() => {
+        const app = window.__trekViewerApp, lod = app.activeTrek.imageryLOD, streamer = app.activeTrek.localTerrainStreamer;
+        return { imagery: lod.getDiagnostics(), chunks: streamer.chunks.size, wanted: streamer.wanted.size,
+          acquisitions: streamer.acquisitions.size, busy: streamer.busy, failed: streamer.failed.size,
+          workerJobs: window.__terrainJobAudit?.slice(-4), lastDetail: window.__liveDetailSamples.at(-1) };
+      }) }));
+    throw error;
+  }
   await sample('overview');
   const markerComparison = await page.evaluate(() => {
     const app = window.__trekViewerApp, trek = app.activeTrek, renderer = app.sceneManager.renderer, gl = renderer.getContext();

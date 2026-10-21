@@ -1,0 +1,40 @@
+{
+  "condition": "Isolated Node desktop prepared-chunk construction/disposal. Identical 23,409-vertex worker result, full arrays/index/bounds/sample parity. Excludes worker construction, transfer, GPU upload and full frames; not native headset timing.",
+  "reference": "35a7f1a",
+  "node": "v24.21.0",
+  "vertices": 23409,
+  "adoptedBufferBytes": 1119972,
+  "parity": true,
+  "passes": [
+    {
+      "name": "previous",
+      "iterations": 200,
+      "elapsedMs": 1121.9282
+    },
+    {
+      "name": "adopt-buffers",
+      "iterations": 200,
+      "elapsedMs": 3.1276000000000295
+    },
+    {
+      "name": "adopt-buffers",
+      "iterations": 200,
+      "elapsedMs": 3.9203999999999724
+    },
+    {
+      "name": "previous",
+      "iterations": 200,
+      "elapsedMs": 1103.3523000000002
+    },
+    {
+      "name": "previous",
+      "iterations": 200,
+      "elapsedMs": 1319.0088999999998
+    },
+    {
+      "name": "adopt-buffers",
+      "iterations": 200,
+      "elapsedMs": 2.6642000000001644
+    }
+  ]
+}
