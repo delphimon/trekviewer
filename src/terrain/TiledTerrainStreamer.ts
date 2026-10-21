@@ -252,8 +252,11 @@ export class TiledTerrainStreamer {
       const controller = new AbortController();
       const geo = localMetersToGeo((tile.bounds.minX + tile.bounds.maxX) / 2,
         (tile.bounds.minZ + tile.bounds.maxZ) / 2, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
+      const nw = localMetersToGeo(tile.bounds.minX, tile.bounds.minZ, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
+      const se = localMetersToGeo(tile.bounds.maxX, tile.bounds.maxZ, terrain.terrainGeoBounds.centerLat, terrain.terrainGeoBounds.centerLon);
       const result = ElevationTileService.fetchLocalElevationGrid(geo.lat, geo.lon,
-        Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, controller.signal)
+        Math.max(tile.width, tile.depth) / 2 + 100, 15, this.profile.localDemMaxTiles, controller.signal,
+        { minLat: se.lat, maxLat: nw.lat, minLon: nw.lon, maxLon: se.lon })
         .then(grid => ({ grid }), error => ({ grid: null, error }));
       const entry = { controller, result, settled: false };
       this.acquisitions.set(tile.id, entry);

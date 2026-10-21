@@ -6,7 +6,7 @@ import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import { PublicImageryProvider, NAIP_SERVICE, NAIP_PLUS_SERVICE, USGS_IMAGERY_SERVICE, USGSReferenceProvider, tileMercatorBounds } from '../src/terrain/providers/PublicImageryProvider.ts';
 import { latLonToTile } from '../src/gpx/Coordinates.ts';
 import { USGSTopoProvider } from '../src/terrain/providers/ImageryProvider.ts';
-import { elevationRasterRequest, fetchBestAvailableElevation, clearBestElevationFailures, hasUSGSElevationCoverage } from '../src/terrain/BestAvailableElevation.ts';
+import { elevationRasterRequest, fetchBestAvailableElevation, clearBestElevationFailures, hasUSGSElevationCoverage, requiredElevationWindow } from '../src/terrain/BestAvailableElevation.ts';
 import { decodeLercElevation } from '../src/terrain/LercElevation.ts';
 import { ElevationTileService, type ElevationGrid } from '../src/terrain/ElevationTiles.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
@@ -16,6 +16,10 @@ import { PersistentResourceCache } from '../src/terrain/PersistentResourceCache.
 vi.mock('../src/terrain/TerrainJobs.ts', () => ({ runTerrainJob: (_job: unknown, fallback: () => unknown) => fallback() }));
 const fixtureBytes = () => {
   const bytes = readFileSync('test/fixtures/elevation/rainier-3dep.lerc');
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+};
+const windowFixtureBytes = () => {
+  const bytes = readFileSync('test/fixtures/elevation/rainier-3dep-window.lerc');
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 };
 beforeAll(async () => {
@@ -163,6 +167,68 @@ describe('best available public-domain elevation', () => {
     expect(decoded.validCount).toBe(0); expect(decoded.data.every(Number.isNaN)).toBe(true);
     vi.stubGlobal('fetch', vi.fn(async () => new Response(fixtureBytes())));
     expect(await fetchBestAvailableElevation(fixture.bounds, 1)).toBeNull();
+  });
+
+  it('keeps exact valid heights when NoData is confined outside guarded required bilinear support', async () => {
+    const original = Lerc.decode(windowFixtureBytes());
+    const mask = new Uint8Array(original.width * original.height).fill(1); mask[0] = 0;
+    vi.spyOn(Lerc, 'decode').mockReturnValue({ ...original, mask });
+    const footprint = { minLat: 46.8519, maxLat: 46.8521, minLon: -121.7601, maxLon: -121.7599 };
+    vi.spyOn(PersistentResourceCache, 'read').mockResolvedValue(new Blob([windowFixtureBytes()]));
+    const remove = vi.spyOn(PersistentResourceCache, 'remove');
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    // Rejecting full coverage must neither discard valid source bytes nor block
+    // a smaller, completely covered footprint of that same raster.
+    expect(await fetchBestAvailableElevation(fixture.bounds, 1, undefined, fixture.bounds)).toBeNull();
+    const grid = await fetchBestAvailableElevation(fixture.bounds, 1, undefined, footprint);
+    expect(grid?.isRealDEM).toBe(true);
+    expect(grid?.quality?.validRasterSampleRatio).toBe((mask.length - 1) / mask.length);
+    expect(Number.isNaN(grid!.data[0])).toBe(true);
+    for (let i = 1; i < mask.length; i++) expect(grid!.data[i]).toBe(original.pixels[0][i]);
+    expect(remove).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('validates required coverage while preserving the default legacy request and exact source bytes', async () => {
+    const original = Lerc.decode(fixtureBytes());
+    const mask = new Uint8Array(original.width * original.height).fill(1); mask[0] = 0;
+    vi.spyOn(Lerc, 'decode').mockReturnValue({ ...original, mask });
+    const fetch = vi.fn(async () => new Response(fixtureBytes())); vi.stubGlobal('fetch', fetch);
+    const required = { minLat: 46.8519, maxLat: 46.8521, minLon: -121.7601, maxLon: -121.7599 };
+    const grid = await fetchBestAvailableElevation(fixture.bounds, 1, undefined, required, false);
+    expect(fetch).toHaveBeenCalledWith(fixture.request.url + '&adjustAspectRatio=false', expect.anything());
+    expect(grid?.width).toBe(fixture.request.width); expect(grid?.height).toBe(fixture.request.height);
+    expect(grid?.rasterBounds).toEqual(fixture.request.rasterBounds);
+    for (let i = 1; i < mask.length; i++) expect(grid!.data[i]).toBe(original.pixels[0][i]);
+    expect(Number.isNaN(grid!.data[0])).toBe(true);
+  });
+
+  it('rejects NoData in any guarded support pixel, retaining cached valid bytes without a redundant download', async () => {
+    const original = Lerc.decode(windowFixtureBytes());
+    const footprint = { minLat: 46.8519, maxLat: 46.8521, minLon: -121.7601, maxLon: -121.7599 };
+    const window = requiredElevationWindow(elevationRasterRequest(fixture.bounds, 1, 1024, true), footprint);
+    const mask = new Uint8Array(original.width * original.height).fill(1); mask[window.minY * original.width + window.minX] = 0;
+    const decode = vi.spyOn(Lerc, 'decode').mockReturnValue({ ...original, mask });
+    vi.spyOn(PersistentResourceCache, 'read').mockResolvedValue(new Blob([windowFixtureBytes()]));
+    const remove = vi.spyOn(PersistentResourceCache, 'remove');
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    expect(await fetchBestAvailableElevation(fixture.bounds, 1, undefined, footprint)).toBeNull();
+    expect(await fetchBestAvailableElevation(fixture.bounds, 1, undefined, footprint)).toBeNull();
+    expect(decode).toHaveBeenCalledOnce(); expect(remove).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+    await expect(fetchBestAvailableElevation(fixture.bounds, 1, undefined, { ...footprint, maxLat: 50 })).rejects.toThrow(RangeError);
+  });
+
+  it('counts an actual upstream NoData mask inside bounded required windows without filling invalid samples', async () => {
+    const bytes = readFileSync('test/fixtures/elevation/esri-california-nodata.lerc');
+    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const input = { buffer, width: 400, height: 400, requiredWindow: { minX: 40, maxX: 104, minY: 8, maxY: 72 } };
+    const decoded = await decodeLercElevation(input);
+    expect(decoded.validCount).toBe(58515); expect(decoded.requiredValidCount).toBe(65 ** 2);
+    expect([...decoded.data].filter(Number.isNaN)).toHaveLength(101485);
+    const unavailable = await decodeLercElevation({ ...input, requiredWindow: { minX: 0, maxX: 399, minY: 0, maxY: 399 } });
+    expect(unavailable.requiredValidCount).toBe(58515);
+    for (const requiredWindow of [{ minX: -1, maxX: 2, minY: 0, maxY: 2 }, { minX: 0, maxX: 400, minY: 0, maxY: 2 },
+      { minX: 1.1, maxX: 2, minY: 0, maxY: 2 }, { minX: 10, maxX: 2, minY: 0, maxY: 2 }])
+      await expect(decodeLercElevation({ ...input, requiredWindow })).rejects.toThrow(RangeError);
   });
 
   it('reuses exact persisted LERC bytes and refetches a corrupt cached raster before publishing', async () => {

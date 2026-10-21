@@ -1,0 +1,250 @@
+{
+  "condition": "Pure footprint/Float32 support audit across every tiled layout of all eight bundled routes, current High 60 m target with constrained/desktop vertex caps. Same layout/detail/target sampling and limits; no network or native frame claim.",
+  "checkedAxes": 2504034,
+  "totalTiles": 11158,
+  "previousPixels": 6598921044,
+  "currentPixels": 3653541964,
+  "pixelReductionPercent": 44.63425248401865,
+  "results": [
+    {
+      "route": "rainier-emmons",
+      "constrained": true,
+      "parent": {
+        "width": 13503.704548402802,
+        "depth": 8467.382469057,
+        "segmentsX": 226,
+        "segmentsZ": 142
+      },
+      "tiles": 522,
+      "previousPixels": 240491773,
+      "currentPixels": 119268071,
+      "decodedBytesSaved": 484894808,
+      "maxSpacingM": 0.9997285976633649
+    },
+    {
+      "route": "rainier-emmons",
+      "constrained": false,
+      "parent": {
+        "width": 13503.704548402802,
+        "depth": 8467.382469057,
+        "segmentsX": 226,
+        "segmentsZ": 142
+      },
+      "tiles": 522,
+      "previousPixels": 240491773,
+      "currentPixels": 119268071,
+      "decodedBytesSaved": 484894808,
+      "maxSpacingM": 0.9997285976633649
+    },
+    {
+      "route": "baker-2026",
+      "constrained": true,
+      "parent": {
+        "width": 3213.2474054903923,
+        "depth": 11941.501159676121,
+        "segmentsX": 54,
+        "segmentsZ": 200
+      },
+      "tiles": 175,
+      "previousPixels": 80682175,
+      "currentPixels": 40058456,
+      "decodedBytesSaved": 162494876,
+      "maxSpacingM": 0.9999527571222141
+    },
+    {
+      "route": "baker-2026",
+      "constrained": false,
+      "parent": {
+        "width": 3213.2474054903923,
+        "depth": 11941.501159676121,
+        "segmentsX": 54,
+        "segmentsZ": 200
+      },
+      "tiles": 175,
+      "previousPixels": 80682175,
+      "currentPixels": 40058456,
+      "decodedBytesSaved": 162494876,
+      "maxSpacingM": 0.9999527571222141
+    },
+    {
+      "route": "adams-2026",
+      "constrained": true,
+      "parent": {
+        "width": 1745.8072219106539,
+        "depth": 11139.563348714872,
+        "segmentsX": 32,
+        "segmentsZ": 186
+      },
+      "tiles": 96,
+      "previousPixels": 44168976,
+      "currentPixels": 20314860,
+      "decodedBytesSaved": 95416464,
+      "maxSpacingM": 0.9999341165062385
+    },
+    {
+      "route": "adams-2026",
+      "constrained": false,
+      "parent": {
+        "width": 1745.8072219106539,
+        "depth": 11139.563348714872,
+        "segmentsX": 32,
+        "segmentsZ": 186
+      },
+      "tiles": 96,
+      "previousPixels": 44168976,
+      "currentPixels": 20314860,
+      "decodedBytesSaved": 95416464,
+      "maxSpacingM": 0.9999341165062385
+    },
+    {
+      "route": "hood-2026",
+      "constrained": true,
+      "parent": {
+        "width": 1615.0639013935809,
+        "depth": 7054.317341257161,
+        "segmentsX": 32,
+        "segmentsZ": 118
+      },
+      "tiles": 60,
+      "previousPixels": 27358500,
+      "currentPixels": 11924856,
+      "decodedBytesSaved": 61734576,
+      "maxSpacingM": 0.9995781603977124
+    },
+    {
+      "route": "hood-2026",
+      "constrained": false,
+      "parent": {
+        "width": 1615.0639013935809,
+        "depth": 7054.317341257161,
+        "segmentsX": 32,
+        "segmentsZ": 118
+      },
+      "tiles": 60,
+      "previousPixels": 27358500,
+      "currentPixels": 11924856,
+      "decodedBytesSaved": 61734576,
+      "maxSpacingM": 0.9995781603977124
+    },
+    {
+      "route": "glacier-peak-2026",
+      "constrained": true,
+      "parent": {
+        "width": 20414.55542347832,
+        "depth": 13801.236307806475,
+        "segmentsX": 341,
+        "segmentsZ": 231
+      },
+      "tiles": 1247,
+      "previousPixels": 576495509,
+      "currentPixels": 293732840,
+      "decodedBytesSaved": 1131050676,
+      "maxSpacingM": 0.9999863509149983
+    },
+    {
+      "route": "glacier-peak-2026",
+      "constrained": false,
+      "parent": {
+        "width": 20414.55542347832,
+        "depth": 13801.236307806475,
+        "segmentsX": 341,
+        "segmentsZ": 231
+      },
+      "tiles": 1247,
+      "previousPixels": 576495509,
+      "currentPixels": 293732840,
+      "decodedBytesSaved": 1131050676,
+      "maxSpacingM": 0.9999863509149983
+    },
+    {
+      "route": "olympus-bailey-2026",
+      "constrained": true,
+      "parent": {
+        "width": 40904.6013713073,
+        "depth": 26934.302301405136,
+        "segmentsX": 434,
+        "segmentsZ": 286
+      },
+      "tiles": 1980,
+      "previousPixels": 1809199215,
+      "currentPixels": 1132877577,
+      "decodedBytesSaved": 2705286552,
+      "maxSpacingM": 0.9999914293331547
+    },
+    {
+      "route": "olympus-bailey-2026",
+      "constrained": false,
+      "parent": {
+        "width": 40904.6013713073,
+        "depth": 26934.302301405136,
+        "segmentsX": 549,
+        "segmentsZ": 362
+      },
+      "tiles": 3174,
+      "previousPixels": 2015847633,
+      "currentPixels": 1139263581,
+      "decodedBytesSaved": 3506336208,
+      "maxSpacingM": 0.9999695361590298
+    },
+    {
+      "route": "enchantments-dragontail",
+      "constrained": true,
+      "parent": {
+        "width": 15452.585725941395,
+        "depth": 11214.61992420007,
+        "segmentsX": 258,
+        "segmentsZ": 187
+      },
+      "tiles": 792,
+      "previousPixels": 366936560,
+      "currentPixels": 180859200,
+      "decodedBytesSaved": 744309440,
+      "maxSpacingM": 0.9999896796318609
+    },
+    {
+      "route": "enchantments-dragontail",
+      "constrained": false,
+      "parent": {
+        "width": 15452.585725941395,
+        "depth": 11214.61992420007,
+        "segmentsX": 258,
+        "segmentsZ": 187
+      },
+      "tiles": 792,
+      "previousPixels": 366936560,
+      "currentPixels": 180859200,
+      "decodedBytesSaved": 744309440,
+      "maxSpacingM": 0.9999896796318609
+    },
+    {
+      "route": "defiance-putrid-pete",
+      "constrained": true,
+      "parent": {
+        "width": 5154.034113994752,
+        "depth": 4566.442052511892,
+        "segmentsX": 86,
+        "segmentsZ": 77
+      },
+      "tiles": 110,
+      "previousPixels": 50803605,
+      "currentPixels": 24542120,
+      "decodedBytesSaved": 105045940,
+      "maxSpacingM": 0.99993878603374
+    },
+    {
+      "route": "defiance-putrid-pete",
+      "constrained": false,
+      "parent": {
+        "width": 5154.034113994752,
+        "depth": 4566.442052511892,
+        "segmentsX": 86,
+        "segmentsZ": 77
+      },
+      "tiles": 110,
+      "previousPixels": 50803605,
+      "currentPixels": 24542120,
+      "decodedBytesSaved": 105045940,
+      "maxSpacingM": 0.99993878603374
+    }
+  ]
+}

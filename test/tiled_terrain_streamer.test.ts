@@ -42,6 +42,10 @@ it('prepares upcoming visual-route ground within the same wanted set while keepi
   expect((streamer as any).prefetchTileId).toBe('3:3');
   expect([...((streamer as any).acquisitions.keys())].slice(0, 2)).toEqual(['0:0', '3:3']);
   expect(fetch).toHaveBeenCalledTimes(3);
+  const firstLayout = (streamer as any).wanted.get('0:0');
+  const northwest = localMetersToGeo(firstLayout.bounds.minX, firstLayout.bounds.minZ, 46, -120);
+  const southeast = localMetersToGeo(firstLayout.bounds.maxX, firstLayout.bounds.maxZ, 46, -120);
+  expect(fetch.mock.calls[0][6]).toEqual({ minLat: southeast.lat, maxLat: northwest.lat, minLon: northwest.lon, maxLon: southeast.lon });
   pending[0].resolve({ zoom: 15, isRealDEM: true }); pending[1].resolve({ zoom: 15, isRealDEM: true });
   await flushBuild();
   expect((streamer as any).ready.id).toBe('0:0');

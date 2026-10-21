@@ -1,0 +1,48 @@
+# Installed app and offline route packs
+
+Status: proposed delivery direction, verified against the current repository and primary documentation on October 21, 2026. No offline pack, service worker, signed APK or first-launch offline acceptance is claimed here.
+
+The user asks to install selected routes with high-quality terrain/imagery so tours do not depend on constant downloads, and whether installation can improve on visiting the website. The recommended first implementation keeps the existing WebXR renderer, adds an offline application shell and explicit route packs, then produces an installable Quest APK. The website remains an update/download endpoint. A PWA wrapper alone does not bundle route data or remove the initial hosted-origin requirement.
+
+## Current state and supported delivery
+
+The repository already has `public/manifest.webmanifest` and `scripts/package-quest-apk.sh`. The script packages a hosted PWA, with checks for a newly produced APK; it does not embed `dist`, routes or map data. The app has no service-worker shell cache or explicit offline pack manager. The existing 256 MiB, seven-day source cache is temporary opportunistic reuse, not a complete route or a suitable pinned pack store.
+
+Meta supports [packaging WebXR as a PWA APK](https://developers.meta.com/horizon/documentation/web/pwa-packaging), including an app-library entry and optional sideloading. It uses a hosted HTTPS manifest, a signed package and verified Digital Asset Links. [Meta's PWA overview](https://developers.meta.com/horizon/documentation/web/pwa-overview) distinguishes windowed and immersive launch modes. Keep browser/desktop delivery alongside the installed app; packaging does not require replacing Three.js with another engine.
+
+Offline startup needs a separately implemented [service worker and cached application resources](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers). It must cover the HTML, exact entry and imported chunks, worker scripts, LERC WASM, fonts/icons, build provenance and route/catalogue assets. Updates need an atomic version transition and must preserve an active XR session. Browser storage has [quota and eviction rules](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria), so persistence availability, free-space checks and pack recovery need actual browser/device tests rather than assumed guarantees.
+
+A self-contained native package with all assets available on its first launch without any online provisioning is a different delivery requirement. It provides direct control over packaged files, but needs more runtime/packaging engineering; do not assume an ordinary Android web view supplies Quest's immersive browser runtime. Start with the supported PWA path unless first-launch offline or storage tests require another runtime.
+
+## Route pack content and ownership
+
+- Route GPX, landmarks, attribution and verified source/date/coverage metadata.
+- Terrain/elevation and imagery assets for an explicitly displayed area and detail level, using sources whose terms permit persistent offline storage.
+- A bounded overview plus the declared high-detail coverage. If a pack covers a corridor rather than the whole surrounding region, show that boundary and never present missing offline detail as fully downloaded.
+- A versioned manifest with byte sizes, hashes, source identity, coordinate/reference information and renderer compatibility. Retain exact floating-point elevation samples and source-native imagery; validate any alternative texture compression visually before using it.
+- Optional prepared terrain chunks to avoid rebuilding known route geometry during playback. Couple them to the actual base-grid/geometry version and preserve source-versus-mesh resolution reporting. Otherwise read/decode source tiles through the existing bounded worker pipeline.
+
+Downloaded packs need their own persistent ownership, separate from routine cache eviction. Download/import to staging, verify every required asset, then mark the pack ready atomically. Support resume, explicit deletion, storage estimates, interrupted import/update recovery and export/import of a route archive. Never load an entire multi-gigabyte pack into RAM or the GPU at once: page nearby detail from local storage under the existing resource limits.
+
+Source chunks should be geographically indexed rather than tied only to transient network URLs. Different base-grid profiles can request different elevation rectangles; a pack must either supply a stable source grid that can serve all supported profiles or declare and validate its prepared-geometry variants. Imagery can retain shared parent rasters/crop metadata to avoid storing the same source image repeatedly.
+
+## Size and source limits
+
+[All-eight-route estimates and reproducible evidence](review-2026-10-21/offline-packs/SIZE_ESTIMATES.md) are complete. With the current lossless imagery layout through Z19 plus a raw elevation budget, plan approximately **66–174 GB for complete models** or **17–42 GB for 1 km route corridors plus complete overview**. Explicit Z18 options are approximately **24–51 GB full / 9–15 GB corridor**; they are not established visual equivalents. Optional prepared geometry adds approximately **3.47 GB full / 0.88 GB corridor**. These are broad planning budgets from exact inventories and 24 validated sample images (37.8 MB retained), not finished archive sizes. No bulk pack acquisition occurred. A source-native, resolution-aware sample bake is the next sizing/quality step before committing to large packs.
+
+The current Olympus model spans approximately 40.9 by 26.9 km. An uncompressed one-metre Float32 elevation grid for that complete footprint is roughly 4.4 GB before imagery, geometry, masks and packaging. That is a raw size calculation, not a download-size estimate or native survey-resolution claim. Scope and actual compression must be measured before preparing large packs. Offer clear per-route/area sizes; avoid forcing every route into every application update. A small starter pack can be provisioned during setup, with additional packs downloaded once or imported from files.
+
+The first inventory preserves the current public provider's lossless PNG export layout, sharing each 1024-square source raster among its sixteen child crops. It compares maximum Z17, Z18 and Z19 rather than assuming the highest requested zoom adds survey detail everywhere. Source-native imagery archives and resolution-aware pyramids may avoid storing oversized resampled exports; that needs dataset/coverage validation and a separately measured bake. Do not describe a lower zoom as equivalent without that evidence or silently lower live High quality. The current built website, including all eight GPX files and public assets, is approximately 7.8 MB before HTTP compression; route map data is the large storage component. A signed APK's exact overhead is unmeasured.
+
+The user's Cesium/Bing account does not establish permission to archive imagery. [Cesium third-party terms](https://cesium.com/legal/third-party-terms/) limit caching to HTTP rules or explicit provider permission, and [Bing's incorporated terms](https://cesium.com/legal/terms-for-bing/) restrict copying/storing/archiving content. Build the initial packs from verified permitted USGS/open sources or user-supplied data; keep Bing as its existing online opt-in unless separate offline rights are established. [USGS offers downloadable NAIP imagery](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip) with public-domain source/usage metadata. Source terms, credits, NoData and native resolution remain per-dataset checks.
+
+## Implementation and acceptance sequence
+
+1. Estimate all eight bundled routes first, as requested by the user. Compare complete-model high detail with a declared 1 km route corridor and full-model overview, including several maximum imagery zoom levels. Inventory source rights and estimate encoded/installed sizes before bulk acquisition.
+2. Define a streaming pack manifest/index and integrity checks; prepare a bounded real route sample. Keep live imports and online viewing available.
+3. Add offline shell/versioned asset recovery plus pack download/import/resume/remove controls and separate pack storage.
+4. Resolve terrain/imagery from a ready pack before any network access. In offline mode report missing coverage directly. Keep CPU/GPU limits and source provenance intact.
+5. Disable network completely and test startup, reload, the full tour, inspection outside the route corridor, imports/updates, interrupted storage and retained pack recovery.
+6. Produce the signed Quest APK using the existing package identifier and chosen signing identity, verify asset links, then test installed launch/re-entry and offline operation on-device. Packaging and offline data do not certify native 72 Hz, thermals or visual acceptance.
+
+The user selected **all bundled routes, estimates first**. The inventory and bounded public imagery probe run independently of the app's source cache and private providers. No multi-gigabyte acquisition is started by this document.

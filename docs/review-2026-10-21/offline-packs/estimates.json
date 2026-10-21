@@ -1,0 +1,1793 @@
+{
+  "generatedAt": "2026-10-21T20:48:44.374Z",
+  "scope": "All eight bundled GPX routes; complete model = max(1.5 x track bounds, 1500 m). Corridor = all full-model Z13-16 imagery, Z17-19 image groups and High terrain tiles intersecting a 1000 m buffer around each actual GPX segment, clipped to the model. No bridging GPX segment gaps.",
+  "units": "bytes (decimal GB = 1e9 bytes)",
+  "corridorHalfWidthM": 1000,
+  "maxZoom": 19,
+  "imageryMethod": "Count unique source rasters (1024 px for Z17-19, 256 px for Z13-16), preserving all seven stored LOD levels. No duplicate storage of 16 crops of the same fine source image. No compression estimate until all sample images pass browser alpha/nonblank validation. Requested zoom does not certify native source resolution.",
+  "terrainMethod": "One-metre requested Float32 source sample inventory of exact High Quest tile bounds plus 4 m guards, endpoint-inclusive. Proposed offline baking layout only; production network request identities unchanged. Raw budget, not measured LERC download size or a universal native 1 m survey claim. Prepared geometry = actual current <=5 m tile typed arrays; optional, uncompressed, single Quest profile. All source grids cannot be loaded in memory at once.",
+  "exclusions": "Optional label/topographic layers, source masks, full pack manifest/index, filesystem overhead, staging copies, app shell/APK overhead, future finer meshes and desktop geometry variants. Estimate source rights and complete NoData coverage still require a pack audit.",
+  "crossRouteImageCounts": {
+    "full": 71730,
+    "corridor": 27091
+  },
+  "results": [
+    {
+      "id": "rainier-emmons",
+      "name": "Mount Rainier via Emmons Glacier",
+      "gpxBytes": 577552,
+      "gpxSha256": "96d2a48d60544022a8f8cb6139f43f9f07be693a551543f3fe0c8007c5b4aa69",
+      "distanceKm": 27.528532204999628,
+      "modelWidthKm": 13.503704548402801,
+      "modelDepthKm": 8.467382469057,
+      "terrain": {
+        "parent": {
+          "width": 13503.704548402802,
+          "depth": 8467.382469057,
+          "segmentsX": 226,
+          "segmentsZ": 142
+        },
+        "full": {
+          "tiles": 522,
+          "sourceFloat32Bytes": 477072284,
+          "preparedGeometryBytes": 225375048
+        },
+        "corridor": {
+          "tiles": 159,
+          "sourceFloat32Bytes": 151149216,
+          "preparedGeometryBytes": 71441244
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 15,
+          "corridorImages": 15
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 54,
+          "corridorImages": 54
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 187,
+          "corridorImages": 187
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 714,
+          "corridorImages": 714
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 187,
+          "corridorImages": 62
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 714,
+          "corridorImages": 200
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 2772,
+          "corridorImages": 713
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13542195.427228106%2C5925398.432666862%2C-13540972.434775542%2C5926621.425119426&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 2057337,
+          "sha256": "ab275d8eb8ef10a794c6cd57be259520a9e1ca42a9844610270556cb370b570b",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 253
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 1081488,
+          "sha256": "23012927e69e776b3bc600e5b76467d7c69be74fd500a8393a4600c96ffbf028",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 230
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13541278.182888685%2C5926009.928893145%2C-13540972.434775542%2C5926315.677006286&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 1005107,
+          "sha256": "533ce96ebd0cc56caca94a4673e1a824e7561571a5976be36a18a5d3fd0bfb09",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 242
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 1157,
+          "imageryBytes": {
+            "low": 395245937,
+            "high": 831362709
+          },
+          "sourceFloat32Bytes": 477072284,
+          "planningBytes": {
+            "low": 872895773,
+            "high": 1309012545
+          },
+          "optionalPreparedGeometryBytes": 225375048
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 1032,
+          "imageryBytes": {
+            "low": 301017156,
+            "high": 445612021
+          },
+          "sourceFloat32Bytes": 151149216,
+          "planningBytes": {
+            "low": 452743924,
+            "high": 597338789
+          },
+          "optionalPreparedGeometryBytes": 71441244
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 1871,
+          "imageryBytes": {
+            "low": 933480736,
+            "high": 3034770636
+          },
+          "sourceFloat32Bytes": 477072284,
+          "planningBytes": {
+            "low": 1411130572,
+            "high": 3512420472
+          },
+          "optionalPreparedGeometryBytes": 225375048
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 1232,
+          "imageryBytes": {
+            "low": 451783206,
+            "high": 1062813121
+          },
+          "sourceFloat32Bytes": 151149216,
+          "planningBytes": {
+            "low": 603509974,
+            "high": 1214539889
+          },
+          "optionalPreparedGeometryBytes": 71441244
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 4643,
+          "imageryBytes": {
+            "low": 3023098189,
+            "high": 11589177882
+          },
+          "sourceFloat32Bytes": 477072284,
+          "planningBytes": {
+            "low": 3500748025,
+            "high": 12066827718
+          },
+          "optionalPreparedGeometryBytes": 225375048
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 1945,
+          "imageryBytes": {
+            "low": 989264174,
+            "high": 3263135043
+          },
+          "sourceFloat32Bytes": 151149216,
+          "planningBytes": {
+            "low": 1140990942,
+            "high": 3414861811
+          },
+          "optionalPreparedGeometryBytes": 71441244
+        }
+      ]
+    },
+    {
+      "id": "baker-2026",
+      "name": "Mount Baker (July 2026)",
+      "gpxBytes": 451036,
+      "gpxSha256": "26e19cc9f69ad72775bdc52430a4d8f505b041556dd8046db0297351108d053f",
+      "distanceKm": 23.955553211089455,
+      "modelWidthKm": 3.2132474054903923,
+      "modelDepthKm": 11.941501159676122,
+      "terrain": {
+        "parent": {
+          "width": 3213.2474054903923,
+          "depth": 11941.501159676121,
+          "segmentsX": 54,
+          "segmentsZ": 200
+        },
+        "full": {
+          "tiles": 175,
+          "sourceFloat32Bytes": 160233824,
+          "preparedGeometryBytes": 75843900
+        },
+        "corridor": {
+          "tiles": 112,
+          "sourceFloat32Bytes": 103696096,
+          "preparedGeometryBytes": 49097376
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 10,
+          "corridorImages": 10
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 27,
+          "corridorImages": 27
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 80,
+          "corridorImages": 80
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 279,
+          "corridorImages": 279
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 80,
+          "corridorImages": 52
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 279,
+          "corridorImages": 167
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 1037,
+          "corridorImages": 596
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13560540.314016549%2C6225031.5835447535%2C-13559317.321563985%2C6226254.575997317&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 2210025,
+          "sha256": "f08cbc8fb0791016bd1f07c536c343b20498f1d939d8c8342e549ed1e811c34c",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 253
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13560540.314016549%2C6236650.0118441%2C-13559928.817790266%2C6237261.508070383&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 798633,
+          "sha256": "4903552fc6bb4f2a816243d01e24bca755695ae759439960532b8978e150c46f",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 196
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13560234.565903408%2C6225031.5835447535%2C-13559928.817790266%2C6225337.331657894&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 1116309,
+          "sha256": "c4a915925e109c2c009a88462cb394697f0715280d4515a7f64344f55c1c9694",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 250
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 476,
+          "imageryBytes": {
+            "low": 151727004,
+            "high": 369012024
+          },
+          "sourceFloat32Bytes": 160233824,
+          "planningBytes": {
+            "low": 312411864,
+            "high": 529696884
+          },
+          "optionalPreparedGeometryBytes": 75843900
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 448,
+          "imageryBytes": {
+            "low": 134955711,
+            "high": 276190974
+          },
+          "sourceFloat32Bytes": 103696096,
+          "planningBytes": {
+            "low": 239102843,
+            "high": 380338106
+          },
+          "optionalPreparedGeometryBytes": 49097376
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 755,
+          "imageryBytes": {
+            "low": 318840960,
+            "high": 1293907487
+          },
+          "sourceFloat32Bytes": 160233824,
+          "planningBytes": {
+            "low": 479525820,
+            "high": 1454592347
+          },
+          "optionalPreparedGeometryBytes": 75843900
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 615,
+          "imageryBytes": {
+            "low": 234984495,
+            "high": 829802237
+          },
+          "sourceFloat32Bytes": 103696096,
+          "planningBytes": {
+            "low": 339131627,
+            "high": 933949369
+          },
+          "optionalPreparedGeometryBytes": 49097376
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 1792,
+          "imageryBytes": {
+            "low": 939977775,
+            "high": 4731601374
+          },
+          "sourceFloat32Bytes": 160233824,
+          "planningBytes": {
+            "low": 1100662635,
+            "high": 4892286234
+          },
+          "optionalPreparedGeometryBytes": 75843900
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 1211,
+          "imageryBytes": {
+            "low": 591973446,
+            "high": 2805564587
+          },
+          "sourceFloat32Bytes": 103696096,
+          "planningBytes": {
+            "low": 696120578,
+            "high": 2909711719
+          },
+          "optionalPreparedGeometryBytes": 49097376
+        }
+      ]
+    },
+    {
+      "id": "adams-2026",
+      "name": "Mount Adams (July 2026)",
+      "gpxBytes": 391902,
+      "gpxSha256": "1ad29ece00124d5325b9473a4eaedab57846a6ed032fafc4ee178f26bc7975af",
+      "distanceKm": 20.010627075723086,
+      "modelWidthKm": 1.745807221910654,
+      "modelDepthKm": 11.139563348714871,
+      "terrain": {
+        "parent": {
+          "width": 1745.8072219106539,
+          "depth": 11139.563348714872,
+          "segmentsX": 32,
+          "segmentsZ": 186
+        },
+        "full": {
+          "tiles": 96,
+          "sourceFloat32Bytes": 81259440,
+          "preparedGeometryBytes": 38340864
+        },
+        "corridor": {
+          "tiles": 83,
+          "sourceFloat32Bytes": 72475668,
+          "preparedGeometryBytes": 34209612
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 4,
+          "corridorImages": 4
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 16,
+          "corridorImages": 16
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 45,
+          "corridorImages": 45
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 140,
+          "corridorImages": 140
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 45,
+          "corridorImages": 35
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 140,
+          "corridorImages": 111
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 486,
+          "corridorImages": 386
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13525073.532892227%2C5801876.194958018%2C-13523850.540439665%2C5803099.187410582&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 2463258,
+          "sha256": "ca490df52e3ebd4ab9fbcf9bd00ef3bcd2cb113af861cb52e554f6f0410a90f9",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 256
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13524462.036665946%2C5812271.630804803%2C-13523850.540439665%2C5812883.127031084&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 523522,
+          "sha256": "63eb2d4c764ae7422a4f3a9c0ee94a03cf4b8f8ed2b6745fe454d1fab1449eca",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 61
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13525073.532892227%2C5802181.943071159%2C-13524767.784779087%2C5802487.691184299&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 1374142,
+          "sha256": "c3aaf8d26dd7a2b9d90e8a153528e7248f7e12a21203af0af2b90e09ed7ee730",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 256
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 250,
+          "imageryBytes": {
+            "low": 71408388,
+            "high": 220009435
+          },
+          "sourceFloat32Bytes": 81259440,
+          "planningBytes": {
+            "low": 153059730,
+            "high": 301660777
+          },
+          "optionalPreparedGeometryBytes": 38340864
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 240,
+          "imageryBytes": {
+            "low": 67481973,
+            "high": 183060565
+          },
+          "sourceFloat32Bytes": 72475668,
+          "planningBytes": {
+            "low": 140349543,
+            "high": 255928135
+          },
+          "optionalPreparedGeometryBytes": 34209612
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 390,
+          "imageryBytes": {
+            "low": 126378198,
+            "high": 737293615
+          },
+          "sourceFloat32Bytes": 81259440,
+          "planningBytes": {
+            "low": 208029540,
+            "high": 818944957
+          },
+          "optionalPreparedGeometryBytes": 38340864
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 351,
+          "imageryBytes": {
+            "low": 111065179,
+            "high": 593193022
+          },
+          "sourceFloat32Bytes": 72475668,
+          "planningBytes": {
+            "low": 183932749,
+            "high": 666060592
+          },
+          "optionalPreparedGeometryBytes": 34209612
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 876,
+          "imageryBytes": {
+            "low": 317201967,
+            "high": 2533008697
+          },
+          "sourceFloat32Bytes": 81259440,
+          "planningBytes": {
+            "low": 398853309,
+            "high": 2614660039
+          },
+          "optionalPreparedGeometryBytes": 38340864
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 737,
+          "imageryBytes": {
+            "low": 262624798,
+            "high": 2019419404
+          },
+          "sourceFloat32Bytes": 72475668,
+          "planningBytes": {
+            "low": 335492368,
+            "high": 2092286974
+          },
+          "optionalPreparedGeometryBytes": 34209612
+        }
+      ]
+    },
+    {
+      "id": "hood-2026",
+      "name": "Mount Hood (June 2026)",
+      "gpxBytes": 347421,
+      "gpxSha256": "042f002a7ee31377fff05b242515a96e56ca09d1364996dc51f9da7544960626",
+      "distanceKm": 11.269630859427913,
+      "modelWidthKm": 1.6150639013935808,
+      "modelDepthKm": 7.054317341257161,
+      "terrain": {
+        "parent": {
+          "width": 1615.0639013935809,
+          "depth": 7054.317341257161,
+          "segmentsX": 32,
+          "segmentsZ": 118
+        },
+        "full": {
+          "tiles": 60,
+          "sourceFloat32Bytes": 47699424,
+          "preparedGeometryBytes": 24320880
+        },
+        "corridor": {
+          "tiles": 58,
+          "sourceFloat32Bytes": 46280232,
+          "preparedGeometryBytes": 23598792
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 3,
+          "corridorImages": 3
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 12,
+          "corridorImages": 12
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 30,
+          "corridorImages": 30
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 90,
+          "corridorImages": 90
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 30,
+          "corridorImages": 24
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 90,
+          "corridorImages": 77
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 306,
+          "corridorImages": 262
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13549533.381943483%2C5673461.987438923%2C-13548310.389490921%2C5674684.979891485&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 2020401,
+          "sha256": "83740ef1fa2b1ca642a65e842f8c1f1d35f8084ad3dd6ac4c998f95a10b273a9",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 256
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13547698.89326464%2C5679576.949701736%2C-13547087.39703836%2C5680188.445928019&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1581143,
+          "sha256": "9eb4b16746b2e288a714d08db76fdb94689308fef20b2393a5afa693639aef36",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 245
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13548616.137604062%2C5673767.735552063%2C-13548310.389490921%2C5674073.483665204&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 1675852,
+          "sha256": "608324b5847b56c2a919f5cc2cebe2030f9bc3ec6bca00ad9ff242e3836bd3b5",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 254
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 165,
+          "imageryBytes": {
+            "low": 70965158,
+            "high": 126307485
+          },
+          "sourceFloat32Bytes": 47699424,
+          "planningBytes": {
+            "low": 119012003,
+            "high": 174354330
+          },
+          "optionalPreparedGeometryBytes": 24320880
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 159,
+          "imageryBytes": {
+            "low": 63850014,
+            "high": 108123876
+          },
+          "sourceFloat32Bytes": 46280232,
+          "planningBytes": {
+            "low": 110477667,
+            "high": 154751529
+          },
+          "optionalPreparedGeometryBytes": 23598792
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 255,
+          "imageryBytes": {
+            "low": 177692310,
+            "high": 399061620
+          },
+          "sourceFloat32Bytes": 47699424,
+          "planningBytes": {
+            "low": 225739155,
+            "high": 447108465
+          },
+          "optionalPreparedGeometryBytes": 24320880
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 236,
+          "imageryBytes": {
+            "low": 155161023,
+            "high": 341480192
+          },
+          "sourceFloat32Bytes": 46280232,
+          "planningBytes": {
+            "low": 201788676,
+            "high": 388107845
+          },
+          "optionalPreparedGeometryBytes": 23598792
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 561,
+          "imageryBytes": {
+            "low": 540564629,
+            "high": 1326425679
+          },
+          "sourceFloat32Bytes": 47699424,
+          "planningBytes": {
+            "low": 588611474,
+            "high": 1374472524
+          },
+          "optionalPreparedGeometryBytes": 24320880
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 498,
+          "imageryBytes": {
+            "low": 465855622,
+            "high": 1135497785
+          },
+          "sourceFloat32Bytes": 46280232,
+          "planningBytes": {
+            "low": 512483275,
+            "high": 1182125438
+          },
+          "optionalPreparedGeometryBytes": 23598792
+        }
+      ]
+    },
+    {
+      "id": "glacier-peak-2026",
+      "name": "Glacier Peak Traverse (July 2026)",
+      "gpxBytes": 613449,
+      "gpxSha256": "6371cbccf7d2dbd7364cd290762e6937bb7dfc1fd1d244f78de020dafc1ff5b7",
+      "distanceKm": 54.54889597701262,
+      "modelWidthKm": 20.41455542347832,
+      "modelDepthKm": 13.801236307806475,
+      "terrain": {
+        "parent": {
+          "width": 20414.55542347832,
+          "depth": 13801.236307806475,
+          "segmentsX": 341,
+          "segmentsZ": 231
+        },
+        "full": {
+          "tiles": 1247,
+          "sourceFloat32Bytes": 1174931360,
+          "preparedGeometryBytes": 553073148
+        },
+        "corridor": {
+          "tiles": 279,
+          "sourceFloat32Bytes": 266307456,
+          "preparedGeometryBytes": 125359164
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 40,
+          "corridorImages": 40
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 126,
+          "corridorImages": 126
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 468,
+          "corridorImages": 468
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 1734,
+          "corridorImages": 1734
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 468,
+          "corridorImages": 108
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 1734,
+          "corridorImages": 365
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 6868,
+          "corridorImages": 1328
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13501836.676293533%2C6116185.255266663%2C-13500613.683840971%2C6117408.247719226&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 1830533,
+          "sha256": "a5d6a7823104fcb91fdbd91b2794d366991ef75a49ddfaa1256dec50a10e0469",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 234
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13482268.797052529%2C6124134.706208322%2C-13481657.300826248%2C6124746.202434603&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+          "bytes": 792544,
+          "sha256": "6cdf572f80671385c3730b54cd5352b63f9c9df1a5975c36053f2308855a4862",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 217
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13501836.676293533%2C6116491.003379803%2C-13501530.928180393%2C6116796.751492944&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1416809,
+          "sha256": "61d64881bcd08e4e815730fe80a7f1fc73337b141ee47a71b9be4802a440f130",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 251
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 2836,
+          "imageryBytes": {
+            "low": 898939936,
+            "high": 1905791158
+          },
+          "sourceFloat32Bytes": 1174931360,
+          "planningBytes": {
+            "low": 2074484745,
+            "high": 3081335967
+          },
+          "optionalPreparedGeometryBytes": 553073148
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 2476,
+          "imageryBytes": {
+            "low": 684953056,
+            "high": 917303338
+          },
+          "sourceFloat32Bytes": 266307456,
+          "planningBytes": {
+            "low": 951873961,
+            "high": 1184224243
+          },
+          "optionalPreparedGeometryBytes": 125359164
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 4570,
+          "imageryBytes": {
+            "low": 1929643408,
+            "high": 6667007491
+          },
+          "sourceFloat32Bytes": 1174931360,
+          "planningBytes": {
+            "low": 3105188217,
+            "high": 7842552300
+          },
+          "optionalPreparedGeometryBytes": 553073148
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 2841,
+          "imageryBytes": {
+            "low": 901911976,
+            "high": 1919520156
+          },
+          "sourceFloat32Bytes": 266307456,
+          "planningBytes": {
+            "low": 1168832881,
+            "high": 2186441061
+          },
+          "optionalPreparedGeometryBytes": 125359164
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 11438,
+          "imageryBytes": {
+            "low": 6012037552,
+            "high": 25525158457
+          },
+          "sourceFloat32Bytes": 1174931360,
+          "planningBytes": {
+            "low": 7187582361,
+            "high": 26700703266
+          },
+          "optionalPreparedGeometryBytes": 553073148
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 4169,
+          "imageryBytes": {
+            "low": 1691285800,
+            "high": 5565941892
+          },
+          "sourceFloat32Bytes": 266307456,
+          "planningBytes": {
+            "low": 1958206705,
+            "high": 5832862797
+          },
+          "optionalPreparedGeometryBytes": 125359164
+        }
+      ]
+    },
+    {
+      "id": "olympus-bailey-2026",
+      "name": "Olympus & Bailey Range Traverse (2026)",
+      "gpxBytes": 602728,
+      "gpxSha256": "3f743624297cd69278d7a91295ca7221022d4db34403e73ed25534ca86cbcf40",
+      "distanceKm": 85.95446135165179,
+      "modelWidthKm": 40.904601371307294,
+      "modelDepthKm": 26.934302301405136,
+      "terrain": {
+        "parent": {
+          "width": 40904.6013713073,
+          "depth": 26934.302301405136,
+          "segmentsX": 434,
+          "segmentsZ": 286
+        },
+        "full": {
+          "tiles": 1980,
+          "sourceFloat32Bytes": 4531510308,
+          "preparedGeometryBytes": 2172338088
+        },
+        "corridor": {
+          "tiles": 367,
+          "sourceFloat32Bytes": 857336352,
+          "preparedGeometryBytes": 411029724
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 140,
+          "corridorImages": 140
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 468,
+          "corridorImages": 468
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 1734,
+          "corridorImages": 1734
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 6767,
+          "corridorImages": 6767
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 1734,
+          "corridorImages": 321
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 6767,
+          "corridorImages": 1098
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 26733,
+          "corridorImages": 3947
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13796577.857361173%2C6083164.4590474665%2C-13795354.86490861%2C6084387.45150003&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1859606,
+          "sha256": "33bf334ee3b5d0562c62bc3e1d477fc586a084e10389ae9d04db8924b3477774",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 254
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13761111.076236852%2C6073380.519426964%2C-13760499.58001057%2C6073992.015653245&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1620708,
+          "sha256": "c049e7bb88e5aef1da7a360851d393d88c215a26d0f3c13b9a0fc8d65467129c",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 238
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13785570.925288107%2C6099369.109043924%2C-13785265.177174967%2C6099674.857157065&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1443875,
+          "sha256": "f62e603e2a7b9a587ba35e5271b68b04481809c423e3d61d2ba282e3b604e994",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 248
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 10843,
+          "imageryBytes": {
+            "low": 4265629134,
+            "high": 7224704902
+          },
+          "sourceFloat32Bytes": 4531510308,
+          "planningBytes": {
+            "low": 8797742170,
+            "high": 11756817938
+          },
+          "optionalPreparedGeometryBytes": 2172338088
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 9430,
+          "imageryBytes": {
+            "low": 2735482603,
+            "high": 3283269985
+          },
+          "sourceFloat32Bytes": 857336352,
+          "planningBytes": {
+            "low": 3593421683,
+            "high": 4141209065
+          },
+          "optionalPreparedGeometryBytes": 411029724
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 17610,
+          "imageryBytes": {
+            "low": 11593655728,
+            "high": 26100635605
+          },
+          "sourceFloat32Bytes": 4531510308,
+          "planningBytes": {
+            "low": 16125768764,
+            "high": 30632748641
+          },
+          "optionalPreparedGeometryBytes": 2172338088
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 10528,
+          "imageryBytes": {
+            "low": 3924513665,
+            "high": 6346041067
+          },
+          "sourceFloat32Bytes": 857336352,
+          "planningBytes": {
+            "low": 4782452745,
+            "high": 7203980147
+          },
+          "optionalPreparedGeometryBytes": 411029724
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 44343,
+          "imageryBytes": {
+            "low": 40542988509,
+            "high": 100669906402
+          },
+          "sourceFloat32Bytes": 4531510308,
+          "planningBytes": {
+            "low": 45075101545,
+            "high": 105202019438
+          },
+          "optionalPreparedGeometryBytes": 2172338088
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 14475,
+          "imageryBytes": {
+            "low": 8198744634,
+            "high": 17355838390
+          },
+          "sourceFloat32Bytes": 857336352,
+          "planningBytes": {
+            "low": 9056683714,
+            "high": 18213777470
+          },
+          "optionalPreparedGeometryBytes": 411029724
+        }
+      ]
+    },
+    {
+      "id": "enchantments-dragontail",
+      "name": "Enchantments & Dragontail Peak",
+      "gpxBytes": 294110,
+      "gpxSha256": "6130a0f3b7a067b8eff288a672fb7cb38eea73e5f4d244e406a88f20ec45cf0c",
+      "distanceKm": 32.63292324405213,
+      "modelWidthKm": 15.452585725941395,
+      "modelDepthKm": 11.21461992420007,
+      "terrain": {
+        "parent": {
+          "width": 15452.585725941395,
+          "depth": 11214.61992420007,
+          "segmentsX": 258,
+          "segmentsZ": 187
+        },
+        "full": {
+          "tiles": 792,
+          "sourceFloat32Bytes": 723436800,
+          "preparedGeometryBytes": 338845680
+        },
+        "corridor": {
+          "tiles": 269,
+          "sourceFloat32Bytes": 257883080,
+          "preparedGeometryBytes": 120866004
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 24,
+          "corridorImages": 24
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 77,
+          "corridorImages": 77
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 280,
+          "corridorImages": 280
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 1092,
+          "corridorImages": 1092
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 280,
+          "corridorImages": 104
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 1092,
+          "corridorImages": 352
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 4180,
+          "corridorImages": 1262
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13450470.993285894%2C6028129.79868214%2C-13449248.000833333%2C6029352.791134702&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 2058403,
+          "sha256": "cc73b07d5eac9f575891cb4700f2d4675daa5d5f936d4fb56f146f3f86801a82",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 255
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1739357,
+          "sha256": "02ce791cbdb142161dcfd2ed8d863caa02317a871299b62762acb34b3d691953",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 214
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13437629.572533986%2C6031187.279813547%2C-13437323.824420845%2C6031493.027926687&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1360276,
+          "sha256": "340546d1e775e210fde86ded7c1941187634e6d26cf6f3f0bc3eb19e5c386f23",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 254
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 1753,
+          "imageryBytes": {
+            "low": 671796072,
+            "high": 1250667372
+          },
+          "sourceFloat32Bytes": 723436800,
+          "planningBytes": {
+            "low": 1395526982,
+            "high": 1974398282
+          },
+          "optionalPreparedGeometryBytes": 338845680
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 1577,
+          "imageryBytes": {
+            "low": 492239640,
+            "high": 707248980
+          },
+          "sourceFloat32Bytes": 257883080,
+          "planningBytes": {
+            "low": 750416830,
+            "high": 965426170
+          },
+          "optionalPreparedGeometryBytes": 120866004
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 2845,
+          "imageryBytes": {
+            "low": 1785862116,
+            "high": 4622331486
+          },
+          "sourceFloat32Bytes": 723436800,
+          "planningBytes": {
+            "low": 2509593026,
+            "high": 5346062396
+          },
+          "optionalPreparedGeometryBytes": 338845680
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 1929,
+          "imageryBytes": {
+            "low": 851352504,
+            "high": 1794085764
+          },
+          "sourceFloat32Bytes": 257883080,
+          "planningBytes": {
+            "low": 1109529694,
+            "high": 2052262954
+          },
+          "optionalPreparedGeometryBytes": 120866004
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 7025,
+          "imageryBytes": {
+            "low": 6050327376,
+            "high": 17528518296
+          },
+          "sourceFloat32Bytes": 723436800,
+          "planningBytes": {
+            "low": 6774058286,
+            "high": 18252249206
+          },
+          "optionalPreparedGeometryBytes": 338845680
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 3191,
+          "imageryBytes": {
+            "low": 2138853738,
+            "high": 5690642643
+          },
+          "sourceFloat32Bytes": 257883080,
+          "planningBytes": {
+            "low": 2397030928,
+            "high": 5948819833
+          },
+          "optionalPreparedGeometryBytes": 120866004
+        }
+      ]
+    },
+    {
+      "id": "defiance-putrid-pete",
+      "name": "Putrid Pete's Peak, Web Mtn & Mt Defiance",
+      "gpxBytes": 143790,
+      "gpxSha256": "386b61df2435c978b9b26a66875a073844db37e8ed499356dd852f15edf4c402",
+      "distanceKm": 15.535635477539659,
+      "modelWidthKm": 5.1540341139947525,
+      "modelDepthKm": 4.566442052511892,
+      "terrain": {
+        "parent": {
+          "width": 5154.034113994752,
+          "depth": 4566.442052511892,
+          "segmentsX": 86,
+          "segmentsZ": 77
+        },
+        "full": {
+          "tiles": 110,
+          "sourceFloat32Bytes": 98168480,
+          "preparedGeometryBytes": 46512648
+        },
+        "corridor": {
+          "tiles": 92,
+          "sourceFloat32Bytes": 83696688,
+          "preparedGeometryBytes": 39665232
+        }
+      },
+      "imagery": [
+        {
+          "zoom": 13,
+          "groupZoom": 13,
+          "imageSide": 256,
+          "fullImages": 6,
+          "corridorImages": 6
+        },
+        {
+          "zoom": 14,
+          "groupZoom": 14,
+          "imageSide": 256,
+          "fullImages": 16,
+          "corridorImages": 16
+        },
+        {
+          "zoom": 15,
+          "groupZoom": 15,
+          "imageSide": 256,
+          "fullImages": 48,
+          "corridorImages": 48
+        },
+        {
+          "zoom": 16,
+          "groupZoom": 16,
+          "imageSide": 256,
+          "fullImages": 168,
+          "corridorImages": 168
+        },
+        {
+          "zoom": 17,
+          "groupZoom": 15,
+          "imageSide": 1024,
+          "fullImages": 48,
+          "corridorImages": 39
+        },
+        {
+          "zoom": 18,
+          "groupZoom": 16,
+          "imageSide": 1024,
+          "fullImages": 168,
+          "corridorImages": 130
+        },
+        {
+          "zoom": 19,
+          "groupZoom": 17,
+          "imageSide": 1024,
+          "fullImages": 598,
+          "corridorImages": 458
+        }
+      ],
+      "samples": [
+        {
+          "zoom": 17,
+          "fraction": 0,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13534857.47251273%2C6011007.904346261%2C-13533634.480060168%2C6012230.896798823&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 2069442,
+          "sha256": "20ce3425f5780f6ab2ef5e6a45715ed69c4e1df245c324636355f907dc94d174",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 255
+          }
+        },
+        {
+          "zoom": 18,
+          "fraction": 0.5,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13533022.983833887%2C6012842.393025104%2C-13532411.487607604%2C6013453.889251387&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 2153090,
+          "sha256": "7e80379b86f128dc646df7edf5edcee5c4a3c0f1c05d3c5d2222316a8ec3ccf2",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 256
+          }
+        },
+        {
+          "zoom": 19,
+          "fraction": 1,
+          "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13534245.976286449%2C6011007.904346261%2C-13533940.228173308%2C6011313.652459402&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+          "bytes": 1546268,
+          "sha256": "fb2ef334f52bed80feb6402196e05eeb8ff9a4719eaad39ffd3ebc4751c8b7a7",
+          "validation": {
+            "width": 1024,
+            "height": 1024,
+            "nonOpaquePixels": 0,
+            "sampledUniqueColors": 255
+          }
+        }
+      ],
+      "estimates": [
+        {
+          "maxZoom": 17,
+          "scope": "full",
+          "images": 286,
+          "imageryBytes": {
+            "low": 118055920,
+            "high": 217412752
+          },
+          "sourceFloat32Bytes": 98168480,
+          "planningBytes": {
+            "low": 216368190,
+            "high": 315725022
+          },
+          "optionalPreparedGeometryBytes": 46512648
+        },
+        {
+          "maxZoom": 17,
+          "scope": "corridor",
+          "images": 277,
+          "imageryBytes": {
+            "low": 107618611,
+            "high": 188346037
+          },
+          "sourceFloat32Bytes": 83696688,
+          "planningBytes": {
+            "low": 191459089,
+            "high": 272186515
+          },
+          "optionalPreparedGeometryBytes": 39665232
+        },
+        {
+          "maxZoom": 18,
+          "scope": "full",
+          "images": 454,
+          "imageryBytes": {
+            "low": 312885688,
+            "high": 759991432
+          },
+          "sourceFloat32Bytes": 98168480,
+          "planningBytes": {
+            "low": 411197958,
+            "high": 858303702
+          },
+          "optionalPreparedGeometryBytes": 46512648
+        },
+        {
+          "maxZoom": 18,
+          "scope": "corridor",
+          "images": 407,
+          "imageryBytes": {
+            "low": 258379741,
+            "high": 608198587
+          },
+          "sourceFloat32Bytes": 83696688,
+          "planningBytes": {
+            "low": 342220219,
+            "high": 692039065
+          },
+          "optionalPreparedGeometryBytes": 39665232
+        },
+        {
+          "maxZoom": 19,
+          "scope": "full",
+          "images": 1052,
+          "imageryBytes": {
+            "low": 1006386886,
+            "high": 2691313162
+          },
+          "sourceFloat32Bytes": 98168480,
+          "planningBytes": {
+            "low": 1104699156,
+            "high": 2789625432
+          },
+          "optionalPreparedGeometryBytes": 46512648
+        },
+        {
+          "maxZoom": 19,
+          "scope": "corridor",
+          "images": 865,
+          "imageryBytes": {
+            "low": 789522799,
+            "high": 2087371417
+          },
+          "sourceFloat32Bytes": 83696688,
+          "planningBytes": {
+            "low": 873363277,
+            "high": 2171211895
+          },
+          "optionalPreparedGeometryBytes": 39665232
+        }
+      ]
+    }
+  ],
+  "inputSha256": "4c0adba1dd1cfcc1bf0ac9985e25820babff6374f49598b4c1a962ed1491b360",
+  "compressedEstimateMethod": "24 real lossless 1024-square public-source images, one per fine zoom per route at track index fractions 0, 0.5, 1. All pixels fully opaque and sampled RGB nonblank in Chromium. For each route use 0.75 x smallest observed bytes/pixel through 1.5 x largest observed bytes/pixel for all fine levels, plus raw RGBA overview budget and uncompressed Float32 source budget. Planning range, not a statistical confidence interval or verified final archive size. No native-resolution proof. Summed independent routes are conservative; actual packs can share identical geographic imagery.",
+  "totalProbeBytes": 37798128,
+  "totals": [
+    {
+      "maxZoom": 17,
+      "scope": "full",
+      "imageryBytes": {
+        "low": 6643767549,
+        "high": 12145267837
+      },
+      "sourceFloat32Bytes": 7294311920,
+      "planningBytes": {
+        "low": 13941501457,
+        "high": 19443001745
+      },
+      "optionalPreparedGeometryBytes": 3474650256
+    },
+    {
+      "maxZoom": 17,
+      "scope": "corridor",
+      "imageryBytes": {
+        "low": 4587598764,
+        "high": 6109155776
+      },
+      "sourceFloat32Bytes": 1838824788,
+      "planningBytes": {
+        "low": 6429845540,
+        "high": 7951402552
+      },
+      "optionalPreparedGeometryBytes": 875267148
+    },
+    {
+      "maxZoom": 18,
+      "scope": "full",
+      "imageryBytes": {
+        "low": 17178439144,
+        "high": 43614999372
+      },
+      "sourceFloat32Bytes": 7294311920,
+      "planningBytes": {
+        "low": 24476173052,
+        "high": 50912733280
+      },
+      "optionalPreparedGeometryBytes": 3474650256
+    },
+    {
+      "maxZoom": 18,
+      "scope": "corridor",
+      "imageryBytes": {
+        "low": 6889151789,
+        "high": 13495134146
+      },
+      "sourceFloat32Bytes": 1838824788,
+      "planningBytes": {
+        "low": 8731398565,
+        "high": 15337380922
+      },
+      "optionalPreparedGeometryBytes": 875267148
+    },
+    {
+      "maxZoom": 19,
+      "scope": "full",
+      "imageryBytes": {
+        "low": 58432582883,
+        "high": 166595109949
+      },
+      "sourceFloat32Bytes": 7294311920,
+      "planningBytes": {
+        "low": 65730316791,
+        "high": 173892843857
+      },
+      "optionalPreparedGeometryBytes": 3474650256
+    },
+    {
+      "maxZoom": 19,
+      "scope": "corridor",
+      "imageryBytes": {
+        "low": 15128125011,
+        "high": 39923411161
+      },
+      "sourceFloat32Bytes": 1838824788,
+      "planningBytes": {
+        "low": 16970371787,
+        "high": 41765657937
+      },
+      "optionalPreparedGeometryBytes": 875267148
+    }
+  ]
+}

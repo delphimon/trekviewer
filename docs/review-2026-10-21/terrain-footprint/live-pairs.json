@@ -1,0 +1,53 @@
+{
+  "condition": "Three sequential paired real USGS zero-loss exports around the same Olympus tile meshes. Request grid phase changes; compare every rendered vertex sample. Not exact height parity, native survey-resolution certification or loading/frame timing.",
+  "pairs": [
+    {
+      "fraction": 0,
+      "id": "9:19",
+      "bytes": {
+        "previous": 3655814,
+        "current": 2337910
+      },
+      "spacing": {
+        "previous": 1.0000739009186124,
+        "current": 0.9990184139597548
+      },
+      "samples": 23409,
+      "maxHeightDifferenceM": 0.16340944084913644,
+      "p95HeightDifferenceM": 0.01936262788964882,
+      "rmsHeightDifferenceM": 0.009209001756230267
+    },
+    {
+      "fraction": 0.5,
+      "id": "40:28",
+      "bytes": {
+        "previous": 3655814,
+        "current": 2337910
+      },
+      "spacing": {
+        "previous": 1.0000739009094486,
+        "current": 0.9998621201842204
+      },
+      "samples": 23409,
+      "maxHeightDifferenceM": 0.16053853654193517,
+      "p95HeightDifferenceM": 0.007414781092620615,
+      "rmsHeightDifferenceM": 0.0053742241837819085
+    },
+    {
+      "fraction": 1,
+      "id": "18:5",
+      "bytes": {
+        "previous": 3655814,
+        "current": 2331798
+      },
+      "spacing": {
+        "previous": 1.0000739009353372,
+        "current": 0.9995068975908773
+      },
+      "samples": 23409,
+      "maxHeightDifferenceM": 0.07762652381461521,
+      "p95HeightDifferenceM": 0.0027687989743299113,
+      "rmsHeightDifferenceM": 0.0023525128109879298
+    }
+  ]
+}

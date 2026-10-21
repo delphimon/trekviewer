@@ -1,0 +1,21 @@
+{
+  "input": ".review-cache/terrain-footprint/local-tour/browser.json",
+  "inputSha256": "1e2127a750e14cad7aaefa50cd6ceed89fa75e9650156b274dc0d18e5c4627a7",
+  "build": {
+    "id": "11d8867-modified-2026-10-21T16:18:17.991Z",
+    "sha": "11d886797057700849b4161ece9eb589cf502ca0",
+    "shortSha": "11d8867",
+    "branch": "main",
+    "dirty": true,
+    "builtAt": "2026-10-21T16:18:17.991Z",
+    "label": "TrekViewer 1.0.0 • 11d8867 (modified)"
+  },
+  "entry": "index-Cvgy6Qjz.js",
+  "condition": "Actual native raster buffers sent to chunk jobs, compared with the legacy padded request for those same exact tile meshes. Equivalent bytes are calculated, not a second network/device run; excludes encoded transfers, GPU and frame timing.",
+  "count": 36,
+  "previousPixels": 32901696,
+  "currentPixels": 21022224,
+  "equivalentPreviousBytes": 131606784,
+  "actualGridBytes": 84088896,
+  "reductionPercent": 36.10595636164167
+}

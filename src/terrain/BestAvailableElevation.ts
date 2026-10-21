@@ -1,11 +1,39 @@
 import type { ElevationGrid } from './ElevationTiles.ts';
-import type { DecodedElevation } from './LercElevation.ts';
+import type { DecodedElevation, RasterSampleWindow } from './LercElevation.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
 import { PersistentResourceCache, readBoundedBlob } from './PersistentResourceCache.ts';
 
 export const USGS_ELEVATION_SERVICE = 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer';
 const HALF_WORLD = Math.PI * 6378137;
 export interface RasterFootprint { minLat: number; maxLat: number; minLon: number; maxLon: number }
+
+/** Keep a small sample guard around the exact rendered footprint. The larger
+ * legacy station radius remains available for non-tiled/fallback acquisition. */
+export function paddedElevationFootprint(bounds: RasterFootprint): RasterFootprint {
+  const groundScale = Math.cos((bounds.minLat + bounds.maxLat) * Math.PI / 360);
+  const guard = 4 / groundScale;
+  const y = (lat: number) => Math.asinh(Math.tan(lat * Math.PI / 180)) * 6378137;
+  const latitude = (value: number) => Math.atan(Math.sinh(value / 6378137)) * 180 / Math.PI;
+  return { minLon: bounds.minLon - guard * 180 / HALF_WORLD, maxLon: bounds.maxLon + guard * 180 / HALF_WORLD,
+    minLat: latitude(y(bounds.minLat) - guard), maxLat: latitude(y(bounds.maxLat) + guard) };
+}
+
+/** Inclusive bilinear support plus one extra sample on each side for Float32
+ * mesh-coordinate roundoff. All samples in this window must remain genuine. */
+export function requiredElevationWindow(request: ReturnType<typeof elevationRasterRequest>, bounds: RasterFootprint): RasterSampleWindow {
+  const { rasterBounds: raster, width, height } = request;
+  const projectX = (lon: number) => lon * HALF_WORLD / 180;
+  const projectY = (lat: number) => Math.asinh(Math.tan(lat * Math.PI / 180)) * 6378137;
+  if (!Object.values(bounds).every(Number.isFinite) || bounds.minLat >= bounds.maxLat || bounds.minLon >= bounds.maxLon
+    || projectX(bounds.minLon) < raster.west || projectX(bounds.maxLon) > raster.east
+    || projectY(bounds.minLat) < raster.south || projectY(bounds.maxLat) > raster.north) throw new RangeError('Required elevation footprint exceeds the raster.');
+  return {
+    minX: Math.max(0, Math.floor((projectX(bounds.minLon) - raster.west) * (width - 1) / (raster.east - raster.west)) - 1),
+    maxX: Math.min(width - 1, Math.ceil((projectX(bounds.maxLon) - raster.west) * (width - 1) / (raster.east - raster.west)) + 1),
+    minY: Math.max(0, Math.floor((raster.north - projectY(bounds.maxLat)) * (height - 1) / (raster.north - raster.south)) - 1),
+    maxY: Math.min(height - 1, Math.ceil((raster.north - projectY(bounds.minLat)) * (height - 1) / (raster.north - raster.south)) + 1),
+  };
+}
 
 export function hasUSGSElevationCoverage(bounds: RasterFootprint): boolean {
   // A coarse eligibility test, not a claim of 1 m source coverage. NoData is checked after decoding.
@@ -14,7 +42,7 @@ export function hasUSGSElevationCoverage(bounds: RasterFootprint): boolean {
     && bounds.minLat >= south && bounds.maxLat <= north);
 }
 
-export function elevationRasterRequest(bounds: RasterFootprint, spacingMeters: number, maxSide = 1024) {
+export function elevationRasterRequest(bounds: RasterFootprint, spacingMeters: number, maxSide = 1024, includeEndpoint = false) {
   if (![bounds.minLat, bounds.maxLat, bounds.minLon, bounds.maxLon, spacingMeters].every(Number.isFinite)
     || bounds.minLat >= bounds.maxLat || bounds.minLon >= bounds.maxLon || spacingMeters <= 0
     || Math.max(Math.abs(bounds.minLat), Math.abs(bounds.maxLat)) > 85
@@ -24,8 +52,10 @@ export function elevationRasterRequest(bounds: RasterFootprint, spacingMeters: n
   const south = mercatorY(bounds.minLat), north = mercatorY(bounds.maxLat);
   const groundScale = Math.cos((bounds.minLat + bounds.maxLat) * Math.PI / 360);
   const scale = Math.max(spacingMeters / groundScale, (east - west) / maxSide, (north - south) / maxSide);
-  const width = Math.max(2, Math.min(maxSide, Math.ceil((east - west) / scale)));
-  const height = Math.max(2, Math.min(maxSide, Math.ceil((north - south) / scale)));
+  // New footprint exports include both sample endpoints. Keep legacy request
+  // identities/registration for the overview and station fallback paths.
+  const width = Math.max(2, Math.min(maxSide, Math.ceil((east - west) / scale) + Number(includeEndpoint)));
+  const height = Math.max(2, Math.min(maxSide, Math.ceil((north - south) / scale) + Number(includeEndpoint)));
   // ArcGIS samples at pixel centres. Expand by half a sample so the requested bounds
   // lie on samples, including shared chunk edges, rather than half a pixel outside.
   const dx = (east - west) / (width - 1), dy = (north - south) / (height - 1);
@@ -46,12 +76,18 @@ export function elevationRasterRequest(bounds: RasterFootprint, spacingMeters: n
 // Failed footprints back off without permanently disabling the better source.
 const failures = new Map<string, number>();
 export function clearBestElevationFailures(): void { failures.clear(); }
+function rememberFailure(key: string): void {
+  failures.delete(key); failures.set(key, Date.now() + 60_000);
+  while (failures.size > 128) failures.delete(failures.keys().next().value!);
+}
 
 export async function fetchBestAvailableElevation(bounds: RasterFootprint, spacingMeters: number,
-  signal?: AbortSignal): Promise<ElevationGrid | null> {
+  signal?: AbortSignal, requiredBounds?: RasterFootprint, includeEndpoint = !!requiredBounds): Promise<ElevationGrid | null> {
   if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
   if (!hasUSGSElevationCoverage(bounds)) return null;
-  const request = elevationRasterRequest(bounds, spacingMeters);
+  const request = elevationRasterRequest(bounds, spacingMeters, 1024, includeEndpoint);
+  const requiredWindow = requiredBounds ? requiredElevationWindow(request, requiredBounds) : undefined;
+  const coverageKey = request.url + '#coverage=' + JSON.stringify(requiredWindow ?? 'all');
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
@@ -60,32 +96,38 @@ export async function fetchBestAvailableElevation(bounds: RasterFootprint, spaci
   let cached = false;
   try {
     let blob = await PersistentResourceCache.read(request.url); cached = !!blob;
+    if ((failures.get(coverageKey) ?? 0) > Date.now()) return null;
     if (!blob && (failures.get(request.url) ?? 0) > Date.now()) return null;
     if (!blob) blob = await readBoundedBlob(await fetch(request.url, { signal: controller.signal }), 32 * 1024 * 1024);
     const buffer = await blob.arrayBuffer();
     if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
-    const input = { buffer, width: request.width, height: request.height };
+    const input = { buffer, width: request.width, height: request.height, ...(requiredWindow ? { requiredWindow } : {}) };
     const decoded = await runTerrainJob<DecodedElevation>({ kind: 'lerc', input }, async () => {
       const { decodeLercElevation } = await import('./LercElevation.ts');
       return decodeLercElevation(input);
     }, signal, [buffer]);
-    // A partial coverage raster must not replace complete terrain or create coast-edge cliffs.
-    if (decoded.validCount !== request.width * request.height) throw new Error('Incomplete USGS elevation coverage');
-    if (!cached) PersistentResourceCache.write(request.url, blob, cacheGeneration);
+    // Valid encoded bytes with NoData are not corrupt. Retain them without
+    // refetching the same raster just because one requested region is missing.
+    if (!cached && decoded.validCount > 0) PersistentResourceCache.write(request.url, blob, cacheGeneration);
+    const requiredCount = requiredWindow
+      ? (requiredWindow.maxX - requiredWindow.minX + 1) * (requiredWindow.maxY - requiredWindow.minY + 1) : request.width * request.height;
+    if ((requiredWindow ? decoded.requiredValidCount : decoded.validCount) !== requiredCount) {
+      rememberFailure(coverageKey); return null;
+    }
     return { width: request.width, height: request.height, data: decoded.data, minElevation: decoded.min,
       maxElevation: decoded.max, isRealDEM: true, zoom: 0, tileXMin: 0, tileXMax: 0, tileYMin: 0, tileYMax: 0,
       numTilesX: 1, numTilesY: 1, tileValidity: new Uint8Array([1]), rasterBounds: request.rasterBounds,
       source: 'USGS 3DEP best available (public domain)', sampleSpacingMeters: request.sampleSpacingMeters,
-      quality: { validTileRatio: 1, totalTiles: 1, validTiles: 1, zoom: 0, usgsRasters: 1 } };
+      quality: { validTileRatio: 1, totalTiles: 1, validTiles: 1, zoom: 0, usgsRasters: 1,
+        validRasterSampleRatio: decoded.validCount / (request.width * request.height) } };
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
     if (cached) {
       await PersistentResourceCache.remove(request.url); failures.delete(request.url);
       clearTimeout(timer); signal?.removeEventListener('abort', abort);
-      return fetchBestAvailableElevation(bounds, spacingMeters, signal);
+      return fetchBestAvailableElevation(bounds, spacingMeters, signal, requiredBounds, includeEndpoint);
     }
-    failures.delete(request.url); failures.set(request.url, Date.now() + 60_000);
-    while (failures.size > 128) failures.delete(failures.keys().next().value!);
+    rememberFailure(request.url);
     return null;
   } finally {
     clearTimeout(timer); signal?.removeEventListener('abort', abort);

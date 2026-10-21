@@ -1,6 +1,6 @@
 # TrekViewer completion plan
 
-Updated October 19, 2026 (America/Los_Angeles), incorporating the supplied architecture review, its verification against `edeb169`, and the user's revised diorama/flyover priority. The work from [the prior chat](codex://threads/01a1367f-44dc-7a92-9f73-5542191e510a) remains the baseline, including caching, source provenance, worker recovery and entry integrity. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
+Updated October 21, 2026 (America/Los_Angeles), incorporating the supplied architecture reviews, the user's diorama/flyover priority and the question about installed offline route packs. The work from [the prior chat](codex://threads/01a1367f-44dc-7a92-9f73-5542191e510a) remains the baseline, including caching, source provenance, worker recovery and entry integrity. Checkpoint 1 is implemented with regression/browser evidence in [XR quality](review-2026-10-17/XR_QUALITY.md); native checkpoints remain open. This is the authoritative remaining-work plan; dated checkpoint reports describe historical results rather than current completion status.
 
 ## Outcome and constraints
 
@@ -194,6 +194,22 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Verify both typechecks, 729 Windows tests and the production build.
 - [x] Publish clean `3dce114` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39613052050). Exact hosted full-tour, normal/exaggeration, desktop/mobile, geographic/stereo/recovery and private account-path checks pass. Fine ground is visible in 359/368 hosted samples (97.6%); loading/churn remains unresolved. [Release evidence](review-2026-10-21/CHUNK_PROJECTION.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
+
+### 0t. Validate the rendered DEM footprint before falling back
+
+- [x] Count complete required bilinear support in the worker; tolerate only NoData outside that support, without invented heights. Keep valid partial encoded bytes and footprint-specific cache/backoff ownership. Preserve existing default request identities, source/mesh precision and resource limits.
+- [x] Check 2,504,034 Float32 positions, three real source pairs and 738 Windows tests. The compact-request experiment reduces pixels/bytes but its first full tour has only 19% fine-ground coverage; keep it developer opt-in rather than changing the default. See [footprint evidence and limits](review-2026-10-21/TERRAIN_FOOTPRINT.md).
+- [ ] Complete exact local/hosted worker, full-tour, control/recovery and account-path validation; publish the verified application.
+- [ ] Complete loading/churn, overview detail, interior NoData and native visual/performance/lifecycle acceptance.
+
+### 0u. Investigate installed delivery and explicit offline route packs
+
+- [x] Verify current Quest PWA/APK support, the repository's hosted-only wrapper and absent offline shell/pack manager. Record source-rights, storage, versioning, size and strict offline acceptance requirements in [the delivery proposal](OFFLINE_ROUTE_PACKS.md).
+- [x] Confirm the user's scope: **all eight bundled routes, estimate sizes first**. Compare full model coverage with an explicitly declared 1 km high-detail route corridor and complete overview; preserve normal High coverage in the app.
+- [x] Estimate every bundled route before bulk acquisition using exact terrain/imagery inventories and 24 validated public images (37.8 MB retained). Current lossless Z19 planning budgets are 66–174 GB full / 17–42 GB corridor, including raw elevation; see [all route/component/detail options](review-2026-10-21/offline-packs/SIZE_ESTIMATES.md). No pack-scale download or native-resolution equivalence is claimed.
+- [ ] Validate a bounded source-native bake with source rights, complete NoData coverage and actual encoded/installed sizes before provisioning large packs. Resolve whether the chosen pack covers the whole surrounding model or a declared corridor.
+- [ ] Implement offline shell/versioning and independently retained pack download/import/resume/remove with integrity, storage and recovery checks. Keep live imports and existing High quality/resource limits.
+- [ ] Verify completely network-disabled startup/reload, full tours, inspection boundaries and pack/update recovery, then test the signed installed Quest app. Native visual/performance/lifecycle acceptance remains separate.
 
 ### 1. Make High's actual XR rendering quality explicit
 

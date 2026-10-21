@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/Esri/lerc/blob/master/testData/california_400_400_1_float.lerc2",
+  "license": "Apache-2.0; see ESRI-LERC-LICENSE.txt",
+  "purpose": "Official decoder test data with a genuine NoData mask. Not a georeferenced 1 m survey or application terrain source.",
+  "width": 400,
+  "sha256": "814673af554357ebfe47fcdaca38caf1e6b27ac859c578d2214d477a5ca0f261",
+  "height": 400,
+  "validCount": 58515,
+  "maxZerror": 0.000075,
+  "completeWindow": { "minX": 40, "maxX": 104, "minY": 8, "maxY": 72 }
+}

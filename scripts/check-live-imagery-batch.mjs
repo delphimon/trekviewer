@@ -64,7 +64,12 @@ try {
           uncachedSourceBytes: message.kind === 'surface' && !message.reuseSources ? this.surfaceSizes.reduce((a, b) => a + b, 0) : 0,
           baseBytes: message.base?.heights?.byteLength ?? 0, uncachedBaseBytes: message.kind === 'chunk' ? this.baseSize : 0,
           tileId: message.options?.layout?.id ?? null,
-          gridBytes: message.options?.localGrid?.data?.byteLength ?? 0 };
+          gridBytes: message.options?.localGrid?.data?.byteLength ?? 0,
+          footprint: message.kind === 'chunk' && message.options?.localGrid?.rasterBounds ? {
+            width: message.options.localGrid.width, height: message.options.localGrid.height,
+            tileWidth: message.options.layout?.width, tileDepth: message.options.layout?.depth,
+            centerLat: message.options.centerLat, centerLon: message.options.centerLon,
+          } : null };
         this.pendingAudit = row; window.__terrainJobAudit.push(row);
         const result = super.postMessage(message, ...args);
         row.postMs = performance.now() - row.startedAtMs;
@@ -92,7 +97,8 @@ try {
   const cdp = await context.newCDPSession(page); await cdp.send('Page.enable');
   if (config) bootstrap = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `globalThis.__TREK_VIEWER_PROVIDERS__=${JSON.stringify({ provider: 'cesium-bing', ionToken: config.ionToken })};` });
   const start = Date.now();
-  await page.goto(base + '?profile=1&' + (process.env.TREK_DIRECT_TERRAIN === '1' ? 'terrainImagery=1' : 'imageryBatch=1'), { waitUntil: 'domcontentloaded' });
+  await page.goto(base + '?profile=1&' + (process.env.TREK_DIRECT_TERRAIN === '1' ? 'terrainImagery=1' : 'imageryBatch=1')
+    + (process.env.TREK_COMPACT_FOOTPRINTS === '1' ? '&terrainSourceBounds=compact' : ''), { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__trekViewerApp?.session.getState().loadingPhase === 'ready', null, { timeout: 120000 });
   if (bootstrap) { await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: bootstrap.identifier }); await page.evaluate(() => { delete window.__TREK_VIEWER_PROVIDERS__; }); }
   const build = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json());
@@ -366,7 +372,7 @@ try {
     firstFineAfterMonitorMs: detailSamples.some(row => row.fineAtHiker)
       ? detailSamples.find(row => row.fineAtHiker).timeMs - monitorStartedAtMs : null };
   const evidence = { condition: 'Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.', fullTour: process.env.TREK_FULL_TOUR === '1', build, entry,
-    provider: config ? 'private-cesium-bing' : 'public-default', readyElapsedMs, checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle,
+    provider: config ? 'private-cesium-bing' : 'public-default', compactFootprints: process.env.TREK_COMPACT_FOOTPRINTS === '1', readyElapsedMs, checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle,
     terrainJobAudit: await page.evaluate(() => window.__terrainJobAudit),
     terrainLifecycle: await page.evaluate(() => window.__terrainLifecycle),
     elevationRequests: { total: [...elevationRequests.values()].reduce((a, b) => a + b, 0), unique: elevationRequests.size },

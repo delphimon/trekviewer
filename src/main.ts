@@ -167,6 +167,7 @@ export class TrekViewerApp {
     TileImageCache.applyProfile(initialProfile);
     const demParams = new URLSearchParams(window.location.search);
     ElevationTileService.setBestAvailableEnabled(demParams.get('bestDem') !== '0');
+    ElevationTileService.setCompactFootprintsEnabled(demParams.get('terrainSourceBounds') === 'compact');
     ElevationTileService.setRegionalDEMEnabled(demParams.get('regionalDem') !== '0');
     this.session.setQualityProfile(initialProfile.name);
 

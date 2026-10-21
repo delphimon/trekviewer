@@ -5,7 +5,7 @@ import { EnchantmentsRegionalDEMProvider } from './providers/RegionalDEMProvider
 import { TileImageCache } from './TileImageCache.ts';
 import { decodeTerrarium } from './TerrariumDecode.ts';
 import { runTerrainJob } from './TerrainJobs.ts';
-import { fetchBestAvailableElevation, clearBestElevationFailures, hasUSGSElevationCoverage } from './BestAvailableElevation.ts';
+import { fetchBestAvailableElevation, clearBestElevationFailures, hasUSGSElevationCoverage, paddedElevationFootprint, type RasterFootprint } from './BestAvailableElevation.ts';
 
 export interface LocalDEMQuality {
   validTileRatio: number;
@@ -15,6 +15,9 @@ export interface LocalDEMQuality {
   regionalTiles?: number;
   awsTiles?: number;
   usgsRasters?: number;
+  /** Whole downloaded raster coverage; a tiled footprint is accepted only when
+   * its full guarded bilinear support is valid, regardless of outer NoData. */
+  validRasterSampleRatio?: number;
 }
 
 export interface ElevationGrid {
@@ -62,6 +65,14 @@ export class ElevationTileService {
   private static regionalProvider = new EnchantmentsRegionalDEMProvider();
   private static regionalDEMEnabled = false;
   private static bestAvailableEnabled = false;
+  private static compactFootprintsEnabled = false;
+
+  /** Experimental source-request shape; retain warm legacy identities until
+   * cold-source acquisition is reliable. Required coverage is checked in both. */
+  public static setCompactFootprintsEnabled(enabled: boolean): void {
+    if (enabled === this.compactFootprintsEnabled) return;
+    this.compactFootprintsEnabled = enabled; this.clearLocalGridCache();
+  }
 
   public static setBestAvailableEnabled(enabled: boolean): void {
     if (enabled === this.bestAvailableEnabled) return;
@@ -211,7 +222,8 @@ export class ElevationTileService {
     radiusMeters: number = 1250,
     targetZoom: number = 15,
     maxTilesOrSignal?: number | AbortSignal,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    requiredFootprint?: RasterFootprint
   ): Promise<ElevationGrid | null> {
     try {
       let maxTiles = 16;
@@ -230,16 +242,21 @@ export class ElevationTileService {
       const maxLat = Math.max(nw.lat, se.lat);
       const minLon = Math.min(nw.lon, se.lon);
       const maxLon = Math.max(nw.lon, se.lon);
-      const wantsBestSource = this.bestAvailableEnabled && hasUSGSElevationCoverage({ minLat, maxLat, minLon, maxLon });
+      const compact = !!requiredFootprint && this.compactFootprintsEnabled;
+      const bestBounds = compact ? paddedElevationFootprint(requiredFootprint!) : { minLat, maxLat, minLon, maxLon };
+      const wantsBestSource = this.bestAvailableEnabled && hasUSGSElevationCoverage(bestBounds);
 
       if (wantsBestSource) {
-        const bestKey = `usgs_${centerLat.toFixed(7)}_${centerLon.toFixed(7)}_${radiusMeters.toFixed(2)}`;
+        // A partially valid raster is reusable only for this exact guarded
+        // footprint, not a larger request at the same station centre/radius.
+        const bestKey = requiredFootprint ? `usgs_footprint_${JSON.stringify([requiredFootprint.minLat, requiredFootprint.maxLat, requiredFootprint.minLon, requiredFootprint.maxLon])}`
+          : `usgs_${centerLat.toFixed(7)}_${centerLon.toFixed(7)}_${radiusMeters.toFixed(2)}`;
         const retained = this.localDemGridCache.get(bestKey);
         if (retained) {
           this.localDemGridCache.delete(bestKey); this.localDemGridCache.set(bestKey, retained);
           return retained;
         }
-        const best = await fetchBestAvailableElevation({ minLat, maxLat, minLon, maxLon }, 1, effectiveSignal);
+        const best = await fetchBestAvailableElevation(bestBounds, 1, effectiveSignal, requiredFootprint, compact);
         if (best) { this.retainLocalGrid(bestKey, best); return best; }
       }
 

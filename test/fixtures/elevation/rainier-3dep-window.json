@@ -1,0 +1,22 @@
+{
+  "source": "USGS 3DEP (public domain), endpoint-inclusive fixture",
+  "bounds": {
+    "minLat": 46.8518,
+    "maxLat": 46.8522,
+    "minLon": -121.7603,
+    "maxLon": -121.7597
+  },
+  "request": {
+    "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13554295.320832908%2C5917916.796872988%2C-13554227.077145074%2C5917983.35380491&bboxSR=3857&imageSR=3857&size=47%2C46&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+    "width": 47,
+    "height": 46,
+    "sampleSpacingMeters": 0.9929968163103419,
+    "rasterBounds": {
+      "west": -13554294.59483623,
+      "east": -13554227.803141752,
+      "south": 5917917.520317901,
+      "north": 5917982.630359997
+    }
+  },
+  "sha256": "7e9bc89361a124f78aadaaac4f85fabb0c356827743ab74b97c1ebcd00a0598b"
+}

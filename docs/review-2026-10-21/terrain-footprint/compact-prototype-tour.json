@@ -1,0 +1,742 @@
+{
+  "condition": "Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.",
+  "evidence": "Derived summary of the local raw report; tile IDs and counters are model data, not native headset performance.",
+  "inputReport": ".review-cache/terrain-footprint/local-tour/browser.json",
+  "inputSha256": "1e2127a750e14cad7aaefa50cd6ceed89fa75e9650156b274dc0d18e5c4627a7",
+  "build": {
+    "id": "11d8867-modified-2026-10-21T16:18:17.991Z",
+    "sha": "11d886797057700849b4161ece9eb589cf502ca0",
+    "shortSha": "11d8867",
+    "branch": "main",
+    "dirty": true,
+    "builtAt": "2026-10-21T16:18:17.991Z",
+    "label": "TrekViewer 1.0.0 • 11d8867 (modified)"
+  },
+  "entry": "index-Cvgy6Qjz.js",
+  "provider": "public-default",
+  "fullTour": true,
+  "readyElapsedMs": 2863,
+  "detail": {
+    "samples": 364,
+    "fineAtHikerSamples": 69,
+    "maxFocusToVisualM": 6.263350344520908e-10,
+    "maxAnalyticalToVisualM": 964.8255606792095,
+    "firstFineAfterMonitorMs": 24250.100000023842
+  },
+  "stages": {
+    "fetching": 293,
+    "visible": 69,
+    "ready": 2
+  },
+  "upcomingTilePlannedSamples": 364,
+  "builds": {
+    "total": 44,
+    "distinctTiles": 41,
+    "repeats": 3
+  },
+  "publications": {
+    "total": 37,
+    "distinctTiles": 37,
+    "repeats": 0,
+    "removals": 3
+  },
+  "elevationRequestEvents": {
+    "total": 423,
+    "unique": 255
+  },
+  "workers": {
+    "created": 2,
+    "closed": 0
+  },
+  "jobs": {
+    "lerc": {
+      "count": 34,
+      "postMs": 1.0999999046325684,
+      "maxPostMs": 0.19999998807907104,
+      "maxElapsedMs": 35.39999997615814,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    },
+    "finalize": {
+      "count": 1,
+      "postMs": 4.199999988079071,
+      "maxPostMs": 4.199999988079071,
+      "maxElapsedMs": 45.5,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    },
+    "surface": {
+      "count": 141,
+      "postMs": 17,
+      "maxPostMs": 2.799999952316284,
+      "maxElapsedMs": 94.30000001192093,
+      "sourceBytes": 23221656,
+      "uncachedSourceBytes": 252815688,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    },
+    "chunk": {
+      "count": 44,
+      "postMs": 47.700000524520874,
+      "maxPostMs": 2.099999964237213,
+      "maxElapsedMs": 40.200000047683716,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 499380,
+      "uncachedBaseBytes": 21972720,
+      "gridBytes": 94050368
+    },
+    "decode": {
+      "count": 9,
+      "postMs": 0.5,
+      "maxPostMs": 0.10000002384185791,
+      "maxElapsedMs": 14.099999964237213,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    }
+  },
+  "byTile": [
+    {
+      "id": "18:5",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "19:6",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "19:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "21:6",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "21:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "22:7",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "24:6",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "24:8",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "25:7",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "26:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "26:14",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "27:9",
+      "builds": 2,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "28:9",
+      "builds": 2,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "32:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "32:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "32:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "33:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "33:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "33:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "33:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "34:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "35:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "36:15",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "36:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "37:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "37:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "38:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "38:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "39:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "39:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "39:28",
+      "builds": 2,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "39:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "40:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "40:34",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "42:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "42:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "43:21",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "43:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "44:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "44:26",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "49:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    }
+  ],
+  "terrainNormals": {
+    "condition": "Real streamed coverage retained while changing exaggeration; exact normals against the full original regular-grid triangle ordering.",
+    "chunks": 33,
+    "results": [
+      {
+        "factor": 2,
+        "normalMismatches": 0,
+        "sameIndexAttribute": true,
+        "sameIndexBytes": true,
+        "sameDrawCount": true
+      },
+      {
+        "factor": 1,
+        "normalMismatches": 0,
+        "sameIndexAttribute": true,
+        "sameIndexBytes": true,
+        "sameDrawCount": true
+      },
+      {
+        "factor": 1,
+        "normalMismatches": 0,
+        "sameIndexAttribute": true,
+        "sameIndexBytes": true,
+        "sameDrawCount": true
+      }
+    ]
+  },
+  "resourceCacheAudit": null,
+  "baseIndexAudit": null,
+  "mainChunkConstruction": {
+    "count": 43,
+    "totalMs": 4.599999785423279,
+    "medianMs": 0.10000002384185791,
+    "p95Ms": 0.20000004768371582,
+    "maxMs": 0.2999999523162842,
+    "condition": "Worker message receipt through async chunk construction; includes promise scheduling, excludes later validation, imagery promotion and GPU upload."
+  },
+  "comparisons": [
+    {
+      "label": "overview",
+      "elapsedMs": 3693,
+      "legacyCalls": 97,
+      "batchedCalls": 89,
+      "mean": 0.0077340625,
+      "rms": 0.39952276218007904,
+      "changedPixels": 604,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "unavailable",
+      "localExportSpacingM": 0,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 0,
+      "progress": 0,
+      "playing": false,
+      "chunks": 0,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 0,
+        "status": "active",
+        "pages": 1,
+        "patches": 8,
+        "uploads": 16,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 16.200000047683716,
+        "maxPreparationMs": 2.899999976158142,
+        "arrayBytes": 11184768,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-15s",
+      "elapsedMs": 19237,
+      "legacyCalls": 95,
+      "batchedCalls": 41,
+      "mean": 0.045830625,
+      "rms": 1.5537185234140707,
+      "changedPixels": 3080,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "unavailable",
+      "localExportSpacingM": 0,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 0,
+      "progress": 0.16701444444457672,
+      "playing": true,
+      "chunks": 0,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 0,
+        "status": "active",
+        "pages": 3,
+        "patches": 94,
+        "uploads": 196,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 201.60000050067902,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 33554304,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-30s",
+      "elapsedMs": 34587,
+      "legacyCalls": 150,
+      "batchedCalls": 76,
+      "mean": 0.054921875,
+      "rms": 1.2966900169277158,
+      "changedPixels": 4959,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 0.9997503422486745,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 0.33463333333333256,
+      "playing": true,
+      "chunks": 5,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 7,
+        "status": "active",
+        "pages": 4,
+        "patches": 113,
+        "uploads": 328,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 315.20000118017197,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 44739072,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-45s",
+      "elapsedMs": 49971,
+      "legacyCalls": 163,
+      "batchedCalls": 81,
+      "mean": 0.050925,
+      "rms": 1.154358317421415,
+      "changedPixels": 4891,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 0.9997503422486745,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 0.5025355555560842,
+      "playing": true,
+      "chunks": 10,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 12,
+        "status": "active",
+        "pages": 4,
+        "patches": 119,
+        "uploads": 453,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 415.90000092983246,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 44739072,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-60s",
+      "elapsedMs": 65435,
+      "legacyCalls": 137,
+      "batchedCalls": 77,
+      "mean": 0.0470696875,
+      "rms": 1.3436330181638139,
+      "changedPixels": 3650,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 0.9998797035658751,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 0.6703488888899459,
+      "playing": true,
+      "chunks": 22,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 29,
+        "status": "active",
+        "pages": 4,
+        "patches": 123,
+        "uploads": 580,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 518.2999999523163,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 44739072,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-75s",
+      "elapsedMs": 80829,
+      "legacyCalls": 96,
+      "batchedCalls": 47,
+      "mean": 0.0311190625,
+      "rms": 1.0305133732756697,
+      "changedPixels": 2917,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 0.9998797035658751,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 0.8382255555563477,
+      "playing": true,
+      "chunks": 27,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 36,
+        "status": "active",
+        "pages": 4,
+        "patches": 125,
+        "uploads": 707,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 625.7999997735023,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 44739072,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-90s",
+      "elapsedMs": 96256,
+      "legacyCalls": 73,
+      "batchedCalls": 36,
+      "mean": 0.0108040625,
+      "rms": 0.39305096679692825,
+      "changedPixels": 1498,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 0.9998621201842204,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 1,
+      "playing": false,
+      "chunks": 33,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 58,
+        "status": "active",
+        "pages": 5,
+        "patches": 136,
+        "uploads": 854,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 749.1999982595444,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 55923840,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "finished",
+      "elapsedMs": 96534,
+      "legacyCalls": 73,
+      "batchedCalls": 36,
+      "mean": 0.010595625,
+      "rms": 0.3773956809503787,
+      "changedPixels": 1473,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 0.9998621201842204,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 1,
+      "playing": false,
+      "chunks": 33,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 58,
+        "status": "active",
+        "pages": 5,
+        "patches": 136,
+        "uploads": 990,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 798.8999981284142,
+        "maxPreparationMs": 3.200000047683716,
+        "arrayBytes": 55923840,
+        "geometryBytes": 0
+      }
+    }
+  ],
+  "markerComparison": [
+    {
+      "active": false,
+      "changed": 4,
+      "max": 31,
+      "mean": 0.000080625,
+      "calls": [
+        133,
+        87
+      ],
+      "errors": [
+        0,
+        0
+      ]
+    },
+    {
+      "active": true,
+      "changed": 0,
+      "max": 1,
+      "mean": 6.25e-7,
+      "calls": [
+        206,
+        160
+      ],
+      "errors": [
+        0,
+        0
+      ]
+    }
+  ],
+  "profileSummary": {
+    "durationSeconds": 94.61439999997616,
+    "callbackSamples": 2832,
+    "minWindowCallbackHz": 12.783636944710414,
+    "maxCallbackIntervalMs": 219.09999999999127,
+    "maxCpuSubmitMs": 75.19999998807907,
+    "estimatedMissedCallbacks": null,
+    "maxDrawCalls": 90,
+    "maxTextures": 41,
+    "longTaskCount": 7
+  },
+  "errors": [],
+  "glErrors": []
+}
