@@ -45,6 +45,9 @@ export class TiledTerrainStreamer {
   private readonly acquisitions = new Map<string, ElevationAcquisition>();
   private acquiringTile: string | null = null;
   private focusTileId: string | null = null;
+  private prefetchTileId: string | null = null;
+  private prefetchPlanKey = '';
+  private readonly prefetchPosition = new THREE.Vector3();
 
   constructor(private readonly options: LocalTerrainStreamerOptions) {
     this.mode = options.initialViewMode ?? 'diorama';
@@ -90,7 +93,7 @@ export class TiledTerrainStreamer {
     this.ready?.chunk.setVerticalExaggeration(factor);
   }
 
-  public update(progress: number, tabletopFocus?: { lat: number; lon: number } | null, detailFocus?: readonly { lat: number; lon: number }[]): void {
+  public update(progress: number, tabletopFocus?: { lat: number; lon: number } | null, detailFocus?: readonly { lat: number; lon: number }[], prefetchProgress?: number): void {
     if (this.disposed || !this.options.terrainResult.baseMeshGrid) return;
     const terrain = this.options.terrainResult;
     if (!(this.mode === 'diorama' && tabletopFocus) && (!this.routeGeo || progress !== this.routeProgress)) {
@@ -105,6 +108,16 @@ export class TiledTerrainStreamer {
       this.focusLat = geo.lat; this.focusLon = geo.lon;
     }
     const local = this.localFocus;
+    const policy = terrainDetailPolicy(this.profile);
+    let upcoming: THREE.Vector3 | undefined;
+    if (this.mode === 'diorama' && tabletopFocus && typeof prefetchProgress === 'number'
+      && Number.isFinite(prefetchProgress) && prefetchProgress > progress) {
+      const route = this.options.routeGeometry;
+      const point = route.getVisualPositionAtDistance(Math.min(1, prefetchProgress) * route.totalDistance, this.prefetchPosition);
+      if (Math.hypot(point.x - local.x, point.z - local.z) <= policy.radiusM) upcoming = point;
+    }
+    const grid = terrain.baseMeshGrid!;
+    const upcomingKey = upcoming ? `${Math.floor((upcoming.x + grid.width / 2) / (grid.width / grid.segmentsX * 8))}:${Math.floor((upcoming.z + grid.depth / 2) / (grid.depth / grid.segmentsZ * 8))}` : '';
     let detailChanged = false;
     if (detailFocus !== this.detailFocusInput) {
       this.detailFocusInput = detailFocus;
@@ -119,17 +132,24 @@ export class TiledTerrainStreamer {
     const focusBounds = this.focusTileId ? this.wanted.get(this.focusTileId)?.bounds : undefined;
     const crossedTile = focusBounds && (local.x < focusBounds.minX || local.x > focusBounds.maxX
       || local.z < focusBounds.minZ || local.z > focusBounds.maxZ);
-    if (!this.plannedAt || detailChanged || crossedTile || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
+    if (!this.plannedAt || detailChanged || crossedTile || upcomingKey !== this.prefetchPlanKey
+      || Math.hypot(local.x - this.plannedAt.x, local.z - this.plannedAt.z) >= 60) {
       this.plannedAt = { x: local.x, z: local.z };
-      const policy = terrainDetailPolicy(this.profile);
+      this.prefetchPlanKey = upcomingKey;
       const plan = planTerrainTiles({
         parent: terrain.baseMeshGrid!, focusX: local.x, focusZ: local.z,
-        additionalFocus: this.detailFocus, ...policy, parentCellsPerTile: 8,
+        additionalFocus: this.detailFocus, priorityFocus: upcoming, ...policy, parentCellsPerTile: 8,
       });
       const key = plan.tiles.map(tile => tile.id).sort().join('|');
       // Membership can stay identical while the hiker crosses the footprint.
       // Always refresh acquisition order, without retiring retained terrain.
       this.wanted = new Map(plan.tiles.map(tile => [tile.id, tile]));
+      // Evict warm terrain by its last use, not its creation time. Revisited
+      // detail should outlive older unused coverage; focus wins recency ties.
+      for (let i = plan.tiles.length - 1; i >= 0; i--) {
+        const id = plan.tiles[i].id, chunk = this.chunks.get(id);
+        if (chunk) { this.chunks.delete(id); this.chunks.set(id, chunk); }
+      }
       this.focus = { lat: geo.lat, lon: geo.lon };
       this.focusTileId = plan.tiles.find(tile => local.x >= tile.bounds.minX && local.x <= tile.bounds.maxX
         && local.z >= tile.bounds.minZ && local.z <= tile.bounds.maxZ)?.id ?? null;
@@ -144,6 +164,12 @@ export class TiledTerrainStreamer {
         this.nextWorkAt = 0;
       }
     }
+    let ahead: string | null = null;
+    if (upcoming) {
+      for (const tile of this.wanted.values()) if (upcoming.x >= tile.bounds.minX && upcoming.x <= tile.bounds.maxX
+        && upcoming.z >= tile.bounds.minZ && upcoming.z <= tile.bounds.maxZ) { ahead = tile.id; break; }
+    }
+    if (ahead !== this.prefetchTileId) { this.prefetchTileId = ahead; this.nextWorkAt = 0; }
     if (this.readyRemoval) {
       const { entries, generation, publish } = this.readyRemoval;
       this.readyRemoval = null;
@@ -193,6 +219,13 @@ export class TiledTerrainStreamer {
     if (!this.busy && !this.ready && !this.readyRemoval && performance.now() >= this.nextWorkAt) void this.prepareNext();
   }
 
+  private *prioritizedWanted(): IterableIterator<TerrainTileLayout> {
+    const focus = this.wanted.get(this.focusTileId ?? ''), ahead = this.wanted.get(this.prefetchTileId ?? '');
+    if (focus) yield focus;
+    if (ahead && ahead !== focus) yield ahead;
+    for (const tile of this.wanted.values()) if (tile !== focus && tile !== ahead) yield tile;
+  }
+
   private prefetchElevation(): void {
     const terrain = this.options.terrainResult;
     const now = performance.now();
@@ -207,13 +240,13 @@ export class TiledTerrainStreamer {
     // unfinished download when every network slot was filled by an older view.
     const urgent = this.focusTileId;
     if (urgent && !this.acquisitions.has(urgent) && needsAcquisition(urgent) && this.acquisitions.size >= capacity) {
-      const victim = [...this.wanted.keys()].reverse().find(id => {
-        const entry = this.acquisitions.get(id);
-        return entry && !entry.settled && id !== this.acquiringTile;
+      const victim = [...this.prioritizedWanted()].reverse().find(tile => {
+        const entry = this.acquisitions.get(tile.id);
+        return entry && !entry.settled && tile.id !== this.acquiringTile;
       });
-      if (victim) { this.acquisitions.get(victim)!.controller.abort(); this.acquisitions.delete(victim); }
+      if (victim) { this.acquisitions.get(victim.id)!.controller.abort(); this.acquisitions.delete(victim.id); }
     }
-    for (const tile of this.wanted.values()) {
+    for (const tile of this.prioritizedWanted()) {
       if (this.acquisitions.size >= capacity) break;
       if (this.acquisitions.has(tile.id) || !needsAcquisition(tile.id)) continue;
       const controller = new AbortController();
@@ -262,7 +295,7 @@ export class TiledTerrainStreamer {
     }
     const now = performance.now();
     const eligible: TerrainTileLayout[] = [];
-    for (const wanted of this.wanted.values()) {
+    for (const wanted of this.prioritizedWanted()) {
       const existing = this.chunks.get(wanted.id);
       if (existing && !existing.currentGrid?.preferredSourceRetry) continue;
       const retryAt = this.failed.get(wanted.id)?.retryAt ?? 0;
@@ -283,7 +316,7 @@ export class TiledTerrainStreamer {
         await Promise.race(eligible.map(item => this.acquisitions.get(item.id)!.result));
       }
       if (this.disposed || generation !== this.generation) return;
-      tile = [...this.wanted.values()].find(item => this.acquisitions.get(item.id)?.settled
+      tile = [...this.prioritizedWanted()].find(item => this.acquisitions.get(item.id)?.settled
         && (this.failed.get(item.id)?.retryAt ?? 0) <= performance.now()
         && (!this.chunks.has(item.id) || this.chunks.get(item.id)?.currentGrid?.preferredSourceRetry));
       if (!tile) return;

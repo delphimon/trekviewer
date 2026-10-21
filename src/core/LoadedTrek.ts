@@ -185,10 +185,11 @@ export class LoadedTrek {
   public updateHikerProgress(
     progress: number,
     tabletopFocusGeo?: { lat: number; lon: number } | null,
-    detailFocus?: readonly { lat: number; lon: number }[]
+    detailFocus?: readonly { lat: number; lon: number }[],
+    prefetchProgress?: number
   ): void {
     if (this._isDisposed) return;
-    if (this.localTerrainStreamer instanceof TiledTerrainStreamer) this.localTerrainStreamer.update(progress, tabletopFocusGeo, detailFocus);
+    if (this.localTerrainStreamer instanceof TiledTerrainStreamer) this.localTerrainStreamer.update(progress, tabletopFocusGeo, detailFocus, prefetchProgress);
     else this.localTerrainStreamer?.update(progress, tabletopFocusGeo);
   }
 

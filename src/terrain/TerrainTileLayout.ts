@@ -20,6 +20,7 @@ export interface TerrainTilePlanOptions {
   focusX: number;
   focusZ: number;
   additionalFocus?: readonly { x: number; z: number }[];
+  priorityFocus?: { x: number; z: number };
   radiusM: number;
   parentCellsPerTile: number;
   targetCellM: number;
@@ -139,7 +140,14 @@ export function planTerrainTiles(options: TerrainTilePlanOptions): TerrainTilePl
     });
   }
 
-  candidates.sort((a, b) =>
+  const ahead = options.priorityFocus;
+  const prioritizeAhead = ahead && Number.isFinite(ahead.x) && Number.isFinite(ahead.z)
+    && (ahead.x - focusX) ** 2 + (ahead.z - focusZ) ** 2 <= radiusM * radiusM;
+  // Classify each candidate once instead of repeating bounds tests inside sort.
+  const priorities = prioritizeAhead ? new Map(candidates.map(tile => [tile,
+    distanceToBoundsSquared(focusX, focusZ, tile.bounds) === 0 ? 0
+      : distanceToBoundsSquared(ahead.x, ahead.z, tile.bounds) === 0 ? 1 : 2])) : null;
+  candidates.sort((a, b) => (priorities ? priorities.get(a)! - priorities.get(b)! : 0) ||
     distances.get(a.row * columns + a.column)! - distances.get(b.row * columns + b.column)! ||
     distanceToBoundsSquared(focusX, focusZ, a.bounds) - distanceToBoundsSquared(focusX, focusZ, b.bounds) ||
     a.row - b.row || a.column - b.column);

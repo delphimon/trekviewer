@@ -18,6 +18,25 @@ function route() {
 }
 
 describe('diorama route tours', () => {
+  it.each(['tour', 'recorded'] as const)('predicts %s playback without advancing state, including speed, pauses and the end', mode => {
+    const { controller, trail } = route();
+    controller.setPlaybackMode(mode); controller.setProgress(0.4); controller.setSpeed(3);
+    expect(controller.getLookaheadProgress(1.5)).toBe(0.4);
+    controller.play();
+    const time = controller.getPlaybackTime(), predicted = controller.getLookaheadProgress(1.5);
+    expect(controller.getProgress()).toBe(0.4); expect(controller.getPlaybackTime()).toBe(time);
+    controller.update(1.5);
+    expect(controller.getProgress()).toBeCloseTo(predicted, 10);
+    expect(controller.getLookaheadProgress(Infinity)).toBe(controller.getProgress());
+    expect(controller.getLookaheadProgress(-1)).toBe(controller.getProgress());
+    expect(controller.getLookaheadProgress(1e9)).toBe(1);
+    controller.pause();
+    expect(controller.getLookaheadProgress(1.5)).toBe(controller.getProgress());
+    controller.setViewMode('first-person'); controller.play();
+    expect(controller.getLookaheadProgress(1.5)).toBe(controller.getProgress());
+    controller.dispose(); trail.dispose();
+  });
+
   it('covers a multi-day route in 90 seconds regardless of recorded pace, with pause and replay', () => {
     const { controller, track } = route();
     expect(track.totalPlaybackSeconds).toBeGreaterThan(90);

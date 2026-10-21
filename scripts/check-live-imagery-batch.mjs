@@ -51,6 +51,7 @@ try {
           sourceBytes: sources.reduce((bytes, source) => bytes + (source.positions?.byteLength ?? 0) + (source.normals?.byteLength ?? 0), 0),
           uncachedSourceBytes: message.kind === 'surface' && !message.reuseSources ? this.surfaceSizes.reduce((a, b) => a + b, 0) : 0,
           baseBytes: message.base?.heights?.byteLength ?? 0, uncachedBaseBytes: message.kind === 'chunk' ? this.baseSize : 0,
+          tileId: message.options?.layout?.id ?? null,
           gridBytes: message.options?.localGrid?.data?.byteLength ?? 0 };
         this.pendingAudit = row; window.__terrainJobAudit.push(row);
         const result = super.postMessage(message, ...args);
@@ -60,6 +61,12 @@ try {
     };
   });
   const workerLifecycle = { created: 0, closed: 0 };
+  const elevationRequests = new Map();
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.hostname === 'elevation.nationalmap.gov' && url.pathname.endsWith('/exportImage'))
+      elevationRequests.set(url.href, (elevationRequests.get(url.href) ?? 0) + 1);
+  });
   page.on('worker', worker => { workerLifecycle.created++; worker.on('close', () => workerLifecycle.closed++); });
   // No credential-bearing response URLs, exception messages, console text or
   // private bootstrap values enter the report.
@@ -78,12 +85,26 @@ try {
   if (bootstrap) { await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: bootstrap.identifier }); await page.evaluate(() => { delete window.__TREK_VIEWER_PROVIDERS__; }); }
   const build = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json());
   assert.equal(build.id, expected.id); assert.ok(await page.evaluate(entry => [...document.scripts].some(s => s.src.endsWith('/' + entry)), entry));
-  console.log(JSON.stringify({ phase: 'ready', elapsedMs: Date.now() - start, build: build.id }));
+  const readyElapsedMs = Date.now() - start;
+  console.log(JSON.stringify({ phase: 'ready', elapsedMs: readyElapsedMs, build: build.id }));
   await page.evaluate(() => {
     const app = window.__trekViewerApp;
     app.startProfile();
     window.__liveDetailStartedAt = performance.now();
     window.__liveDetailSamples = [];
+    window.__terrainLifecycle = [];
+    const terrain = app.activeTrek.terrainResult, grid = terrain.baseMeshGrid;
+    const tileId = chunk => {
+      const bounds = chunk.getSurfaceBounds();
+      return `${Math.round((bounds.minX + grid.width / 2) / (grid.width / grid.segmentsX * 8))}:${Math.round((bounds.minZ + grid.depth / 2) / (grid.depth / grid.segmentsZ * 8))}`;
+    };
+    for (const method of ['attachLocalChunk', 'detachLocalChunk']) {
+      const original = terrain[method];
+      terrain[method] = function (chunk) {
+        if (chunk) window.__terrainLifecycle.push({ method, tileId: tileId(chunk), timeMs: performance.now() });
+        return original.apply(this, arguments);
+      };
+    }
     window.__liveDetailTimer = setInterval(() => {
       const state = app.session.getState(), terrain = app.activeTrek.terrainResult;
       const point = app.activeTrek.trailResult.routeGeometry.getTelemetryAtProgress(state.progress).position;
@@ -109,6 +130,7 @@ try {
           : streamer.acquisitions.has(hikerTile.id) ? 'fetching' : 'queued',
         acquisitionCount: streamer?.acquisitions?.size ?? 0,
         settledAcquisitions: [...(streamer?.acquisitions?.values() ?? [])].filter(entry => entry.settled).length,
+        upcomingTilePlanned: !!streamer?.prefetchTileId,
         focusToVisualM: streamer?.localFocus ? Math.hypot(streamer.localFocus.x - point.x, streamer.localFocus.z - point.z) : null,
         analyticalToVisualM: Math.hypot(analyticalX - point.x, analyticalZ - point.z),
         sourceSampleSpacingM: grid?.sampleSpacingMeters ?? null,
@@ -272,8 +294,11 @@ try {
     firstFineAfterMonitorMs: detailSamples.some(row => row.fineAtHiker)
       ? detailSamples.find(row => row.fineAtHiker).timeMs - monitorStartedAtMs : null };
   const evidence = { condition: 'Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.', fullTour: process.env.TREK_FULL_TOUR === '1', build, entry,
-    provider: config ? 'private-cesium-bing' : 'public-default', checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle,
-    terrainJobAudit: await page.evaluate(() => window.__terrainJobAudit), renderBenchmark, errors, glErrors };
+    provider: config ? 'private-cesium-bing' : 'public-default', readyElapsedMs, checkpoints, markerComparison, detailSummary, detailSamples, playbackProfile, workerLifecycle,
+    terrainJobAudit: await page.evaluate(() => window.__terrainJobAudit),
+    terrainLifecycle: await page.evaluate(() => window.__terrainLifecycle),
+    elevationRequests: { total: [...elevationRequests.values()].reduce((a, b) => a + b, 0), unique: elevationRequests.size },
+    renderBenchmark, errors, glErrors };
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify(evidence, null, 2) + '\n');
   assert.deepEqual(errors, []); assert.deepEqual(glErrors, []);
   if (process.env.TREK_ASSERT_VISUAL_FOCUS === '1') assert.ok(tour.length > 0 && tour.every(row => row.focusToVisualM < 0.00001), 'Terrain focus must follow the displayed hiker');

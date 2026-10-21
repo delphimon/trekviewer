@@ -14,9 +14,9 @@ it.each([false, true])('prioritizes the displayed hiker ground during diorama fo
   const marker = new THREE.Group(); marker.position.set(500, 1500, -250); root.add(marker); root.updateMatrixWorld(true);
   const bounds = { centerLat: 47, centerLon: -122 }, raw = localMetersToGeo(-500, 500, 47, -122);
   const inspected = { lat: 47.1, lon: -122.1 };
-  const update = vi.fn(), state = { viewMode: 'diorama', followRoute: true, currentPoint: raw };
+  const update = vi.fn(), lookahead = vi.fn(() => 0.6), state = { viewMode: 'diorama', followRoute: true, isPlaying: true, currentPoint: raw };
   const trek: any = { track: { bounds }, trailResult: { hikerMarker: marker }, terrainResult: { surfaceRevision: 1 },
-    flyoverController: { getProgress: () => 0.5, update: () => {} },
+    flyoverController: { getProgress: () => 0.5, getLookaheadProgress: lookahead, update: () => {} },
     imageryLOD: { setActiveInteractionRay: () => {}, update: () => {}, getInspectedGeo: () => inspected, getDetailFocusPoints: () => [] },
     updateHikerProgress: update, updateWaypoints: () => {} };
   app.routeLoader = { getActiveTrek: () => trek }; app.session = { getState: () => state };
@@ -26,6 +26,7 @@ it.each([false, true])('prioritizes the displayed hiker ground during diorama fo
   app.dioramaFollow = app.dioramaModelFollow = { update: () => {} }; app.followFocus = new THREE.Vector3(); app.lastTimestamp = performance.now();
   app.animate(performance.now());
   const geo = update.mock.calls[0][1];
+  expect(lookahead).toHaveBeenCalledWith(1.5); expect(update.mock.calls[0][3]).toBe(0.6);
   const local = geoToLocalMeters(geo.lat, geo.lon, 0, bounds.centerLat, bounds.centerLon);
   expect(local.x).toBeCloseTo(marker.position.x, 6); expect(local.z).toBeCloseTo(marker.position.z, 6);
   expect(state.currentPoint).toBe(raw);

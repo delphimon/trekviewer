@@ -1424,7 +1424,9 @@ export class TrekViewerApp {
         inspectedGeo = localMetersToGeo(point.x, point.z, center.centerLat, center.centerLon);
       }
       const previousSurfaceRevision = this.activeTrek.terrainResult.surfaceRevision;
-      this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo, this.activeTrek.imageryLOD.getDetailFocusPoints());
+      const prefetchProgress = state.followRoute && state.isPlaying && this.currentViewMode === 'diorama'
+        ? this.activeTrek.flyoverController.getLookaheadProgress(1.5) : undefined;
+      this.activeTrek.updateHikerProgress(currentProgress, inspectedGeo, this.activeTrek.imageryLOD.getDetailFocusPoints(), prefetchProgress);
       if (this.currentViewMode === 'first-person' && previousSurfaceRevision !== this.activeTrek.terrainResult.surfaceRevision) {
         // Ground the viewer on the promoted surface before this frame renders.
         this.flyoverController?.update(0, activeCamera, this.sceneManager.dioramaRoot, isPresenting);

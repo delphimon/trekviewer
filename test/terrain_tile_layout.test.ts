@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { planTerrainTiles, selectTerrainFocus } from '../src/terrain/TerrainTileLayout.ts';
 
+it('reserves current and upcoming ground before broad anchors within the same radius and vertex budget', () => {
+  const input = { parent: { width: 9600, depth: 9600, segmentsX: 80, segmentsZ: 80 },
+    focusX: -3500, focusZ: -3500, additionalFocus: [{ x: -3500, z: -1500 }, { x: -1500, z: -1500 }],
+    radiusM: 4000, parentCellsPerTile: 8, targetCellM: 5, maxTiles: 3, maxVertices: 120000 };
+  const original = planTerrainTiles(input);
+  expect(original.tiles.map(tile => tile.id)).not.toContain('3:1');
+  const upcoming = planTerrainTiles({ ...input, priorityFocus: { x: -1500, z: -3500 } });
+  expect(upcoming.tiles.map(tile => tile.id).slice(0, 2)).toEqual(['1:1', '3:1']);
+  expect(upcoming.tiles.length).toBe(original.tiles.length);
+  expect(upcoming.vertexCount).toBe(original.vertexCount);
+  expect(upcoming.vertexCount).toBeLessThanOrEqual(input.maxVertices);
+  expect(planTerrainTiles({ ...input, priorityFocus: { x: 4000, z: 4000 } })).toEqual(original);
+});
+
 it('spreads detail across the view with stable ties, original point ownership and bounded spacing/count', () => {
   const points = [-200, 0, 200].flatMap(x => [-200, 0, 200].map(z => ({ x, z })));
   const before = [...points];

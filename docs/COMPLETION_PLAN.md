@@ -142,6 +142,14 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `b030fe9` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39516535269). Exact hosted full-tour auditing reduces equivalent surface/base bytes by 78.17%; imagery/recovery, private account-path compatibility and desktop/mobile checks pass. Fine-ground coverage remains incomplete (286/368 samples). [Release evidence](review-2026-10-20/WORKER_TRANSPORT.md).
 - [ ] Complete native performance and full-tour fine-terrain/overview-detail acceptance; reduced copying alone does not close these gates.
 
+### 0m. Prepare upcoming ground during Follow playback
+
+- [x] Trace repeated terrain builds/publications and browser export requests by tile ID. Correct warm eviction recency without changing the desired set or resource limits.
+- [x] Predict 1.5 real seconds of Tour/Track playback without advancing state, then prioritize upcoming ground after current ground within the existing radius/tile/vertex budget. Clear the hint on pause/follow release and retain broad parent coverage, view-driven surrounding detail and source quality.
+- [x] Verify 709 Windows tests, typechecking and the production build. See [terrain look-ahead evidence and limits](review-2026-10-20/TERRAIN_LOOKAHEAD.md).
+- [ ] Complete full-tour/browser validation and publish through exact-commit CI, a clean rebuild and hosted checks.
+- [ ] Resolve remaining terrain churn, full-tour loading, broad overview detail and native performance/visual acceptance.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

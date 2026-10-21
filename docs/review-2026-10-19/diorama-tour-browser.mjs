@@ -76,7 +76,7 @@ try {
         terrain: app.activeTrek.updateHikerProgress, enabled: app.controls.enabled,
         position: root.position.clone(), quaternion: root.quaternion.clone(), scale: root.scale.clone() };
       const initialCamera = camera.position.clone(), rotation = camera.quaternion.clone();
-      let terrainFocus;
+      let terrainFocus, upcomingProgress;
       const anchor = camera.getWorldPosition(camera.position.clone());
       const direction = camera.getWorldDirection(camera.position.clone()); direction.y = 0;
       if (direction.lengthSq() < 1e-8) direction.set(0, 0, -1);
@@ -84,7 +84,7 @@ try {
       try {
         xr.isPresenting = true; xr.getCamera = () => camera;
         app.xrManager.update = app.sceneManager.render = app.activeTrek.imageryLOD.update = () => {};
-        app.activeTrek.updateHikerProgress = (_progress, focus) => { terrainFocus = focus; };
+        app.activeTrek.updateHikerProgress = (_progress, focus, _detail, upcoming) => { terrainFocus = focus; upcomingProgress = upcoming; };
         app.controls.enabled = false;
         app.togglePlay();
         const startedFollowing = app.session.getState().followRoute;
@@ -92,15 +92,18 @@ try {
           app.lastTimestamp = performance.now() - 1000 / 60;
           app.animate(performance.now());
         }
+        const upcomingGroundHint = Number.isFinite(upcomingProgress) && upcomingProgress > app.flyoverController.getProgress();
         app.togglePlay();
         const hiker = app.trailResult.hikerMarker.getWorldPosition(camera.position.clone());
-        const result = { startedFollowing, targetError: hiker.distanceTo(anchor),
+        const result = { startedFollowing, upcomingGroundHint, targetError: hiker.distanceTo(anchor),
           modelMoved: root.position.distanceTo(saved.position), cameraMoved: camera.position.distanceTo(initialCamera),
           cameraTurned: camera.quaternion.angleTo(rotation), modelTurned: root.quaternion.angleTo(saved.quaternion),
           modelRescaled: root.scale.distanceTo(saved.scale),
             terrainFollowsHiker: Math.hypot(
               (terrainFocus.lon - app.currentTrack.bounds.centerLon) * Math.PI / 180 * 6371000 * Math.cos(app.currentTrack.bounds.centerLat * Math.PI / 180) - app.trailResult.hikerMarker.position.x,
               -(terrainFocus.lat - app.currentTrack.bounds.centerLat) * Math.PI / 180 * 6371000 - app.trailResult.hikerMarker.position.z) < 0.000001 };
+        app.animate(performance.now());
+        result.pausedHintCleared = upcomingProgress === undefined;
         // Spatial toggle releases ownership without requiring a DOM control.
         app.spatialHUD.onPointerClick({ x: 315 / 1024, y: 1 - 514 / 768 });
         result.spatialStopped = !app.session.getState().followRoute;
@@ -124,6 +127,7 @@ try {
     assert.equal(xrFollow.cameraMoved, 0); assert.ok(xrFollow.cameraTurned < 1e-7);
     assert.ok(xrFollow.modelTurned < 1e-7); assert.equal(xrFollow.modelRescaled, 0);
     assert.equal(xrFollow.terrainFollowsHiker, true);
+    assert.equal(xrFollow.upcomingGroundHint, true); assert.equal(xrFollow.pausedHintCleared, true);
     assert.equal(xrFollow.spatialStopped, true); assert.equal(xrFollow.spatialStarted, true);
     assert.equal(xrFollow.manualStopped, true);
 

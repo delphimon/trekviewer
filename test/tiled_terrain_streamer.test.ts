@@ -28,6 +28,79 @@ function fixture() {
 
 async function flushBuild(): Promise<void> { for (let i = 0; i < 16; i++) await Promise.resolve(); }
 
+it('prepares upcoming visual-route ground within the same wanted set while keeping current ground first', async () => {
+  const { streamer } = fixture();
+  const route = (streamer as any).options.routeGeometry;
+  route.totalDistance = 1000;
+  route.getVisualPositionAtDistance = vi.fn((_distance, target) => target.set(1300, 0, 1300));
+  const pending: { resolve: (grid: any) => void; signal: AbortSignal }[] = [];
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation((_lat, _lon, _radius, _zoom, _max, signal) =>
+    new Promise(resolve => pending.push({ resolve, signal: signal! })));
+  const focus = localMetersToGeo(-1300, -1300, 46, -120);
+  streamer.update(0, focus, undefined, 0.1);
+  const wanted = [...(streamer as any).wanted.keys()];
+  expect((streamer as any).prefetchTileId).toBe('3:3');
+  expect([...((streamer as any).acquisitions.keys())].slice(0, 2)).toEqual(['0:0', '3:3']);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  pending[0].resolve({ zoom: 15, isRealDEM: true }); pending[1].resolve({ zoom: 15, isRealDEM: true });
+  await flushBuild();
+  expect((streamer as any).ready.id).toBe('0:0');
+  streamer.update(0, focus, undefined, 0.1); await flushBuild();
+  expect((streamer as any).ready.id).toBe('3:3');
+  streamer.update(0, focus); // Pause/follow release removes the hint, retaining useful work.
+  expect((streamer as any).prefetchTileId).toBeNull();
+  expect([...(streamer as any).wanted.keys()].sort()).toEqual(wanted.sort());
+  expect(pending[1].signal.aborted).toBe(false);
+  expect((streamer as any).chunks.has('3:3')).toBe(true);
+  streamer.dispose(); await flushBuild();
+});
+
+it('does not add speculative terrain when the upcoming route point is outside the desired footprint', async () => {
+  const { streamer } = fixture();
+  const route = (streamer as any).options.routeGeometry;
+  route.totalDistance = 1000;
+  route.getVisualPositionAtDistance = vi.fn((_distance, target) => target.set(100000, 0, 100000));
+  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(() => {}));
+  streamer.update(0, localMetersToGeo(-1300, -1300, 46, -120), undefined, 0.1);
+  expect((streamer as any).prefetchTileId).toBeNull();
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect([...((streamer as any).acquisitions.keys())][0]).toBe('0:0');
+  streamer.dispose(); await flushBuild();
+});
+
+it('retires unused warm terrain before an older tile that was just wanted again', async () => {
+  const { streamer, terrain, attached } = fixture();
+  terrain.baseMeshGrid = { width: 9600, depth: 9600, segmentsX: 40, segmentsZ: 40 };
+  const plan = planTerrainTiles({ parent: terrain.baseMeshGrid, focusX: -3500, focusZ: -3500,
+    ...terrainDetailPolicy(QUALITY_PROFILES['quest-high']), parentCellsPerTile: 8 });
+  const layout = plan.tiles[0];
+  const chunk = (bounds: any) => ({ mesh: new THREE.Mesh(), totalVertices: layout.vertexCount,
+    currentGrid: { isRealDEM: true }, getSurfaceBounds: () => bounds, dispose: vi.fn() }) as any;
+  const recent = chunk(layout.bounds);
+  const stale = Array.from({ length: 4 }, (_, i) => chunk({ minX: 20000 + i * 1000, maxX: 21000 + i * 1000, minZ: 0, maxZ: 1000 }));
+  (streamer as any).chunks.set(layout.id, recent);
+  for (let i = 0; i < stale.length; i++) (streamer as any).chunks.set(`stale${i}`, stale[i]);
+  [recent, ...stale].forEach(item => attached.add(item));
+  const pending: { signal: AbortSignal; resolve: (grid: any) => void }[] = [];
+  vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation((_lat, _lon, _radius, _zoom, _max, signal) =>
+    new Promise((resolve, reject) => {
+      pending.push({ signal: signal!, resolve });
+      signal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true });
+    }));
+  const retire = vi.fn(async (_chunks: LocalTerrainChunk[]) => () => true);
+  (streamer as any).options.prepareSurfaceRemoval = retire;
+  streamer.update(0, localMetersToGeo(-3500, -3500, 46, -120));
+  expect((streamer as any).wanted.has(layout.id)).toBe(true);
+  streamer.update(0, localMetersToGeo(3500, 3500, 46, -120));
+  expect((streamer as any).wanted.has(layout.id)).toBe(false);
+  pending.filter(entry => !entry.signal.aborted).forEach(entry => entry.resolve({ zoom: 15, isRealDEM: true }));
+  await flushBuild();
+  expect(retire).toHaveBeenCalledTimes(1);
+  expect(retire.mock.calls[0][0]).toEqual([stale[0]]);
+  expect(recent.mesh.visible).toBe(true);
+  streamer.dispose(); await flushBuild();
+});
+
 it('admits the current ground immediately after crossing a tile corner below the movement threshold', async () => {
   const { streamer } = fixture();
   const signals: AbortSignal[] = [];

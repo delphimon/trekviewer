@@ -134,6 +134,15 @@ export class FlyoverController {
     return this.progress;
   }
 
+  /** Predict only distance progress; never advance playback or move the viewer. */
+  public getLookaheadProgress(seconds: number): number {
+    if (!this.isPlaying || this.viewMode !== 'diorama' || !Number.isFinite(seconds) || seconds <= 0) return this.progress;
+    const delta = seconds * this.playbackSpeed;
+    return this.playbackMode === 'tour'
+      ? Math.min(1, this.progress + delta / TOUR_DURATION_SECONDS)
+      : this.timeToProgress(Math.min(this.totalPlaybackSeconds, this.playbackTime + delta));
+  }
+
   public getPlaybackTime(): number {
     return this.playbackTime;
   }
