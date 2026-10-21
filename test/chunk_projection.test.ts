@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { TextureProvider, type TileGridBounds } from '../src/terrain/TextureProvider.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
-import { localMetersToGeo } from '../src/gpx/Coordinates.ts';
+import { latLonToTile, localMetersToGeo } from '../src/gpx/Coordinates.ts';
 
 const referenceUV = (lat: number, lon: number, grid: TileGridBounds) => {
   const n = 2 ** grid.zoom;
@@ -10,7 +10,9 @@ const referenceUV = (lat: number, lon: number, grid: TileGridBounds) => {
   return { u: Math.max(0, Math.min(1, (x - grid.tileXMin) / grid.numTilesX)),
     v: Math.max(0, Math.min(1, 1 - (y - grid.tileYMin) / grid.numTilesY)) };
 };
-const grid: TileGridBounds = { zoom: 13, tileXMin: 1200, tileXMax: 1203, tileYMin: 2800, tileYMax: 2802, numTilesX: 4, numTilesY: 3 };
+const tile = latLonToTile(46.8, -123.8, 13);
+const grid: TileGridBounds = { zoom: 13, tileXMin: tile.x - 1, tileXMax: tile.x + 2,
+  tileYMin: tile.y - 1, tileYMax: tile.y + 1, numTilesX: 4, numTilesY: 3 };
 
 it('reuses only exact latitude projection across current zoom, bounds, longitude and grid edits', () => {
   const edited = { ...grid };
@@ -32,9 +34,12 @@ it.each([true, false])('retains exact full-grid imagery UVs with nonzero chunk o
   const chunk = new LocalTerrainChunk(options);
   try {
     if (!initialMap) chunk.setMapTexture(null, grid);
-    for (const current of [grid, { ...grid, zoom: 14, tileXMin: 2500, tileYMin: 5600 }]) {
+    for (const current of [grid, { ...grid, zoom: 14, tileXMin: grid.tileXMin * 2, tileYMin: grid.tileYMin * 2, numTilesX: 8, numTilesY: 6 }]) {
       chunk.setMapTexture(null, current);
       const p = chunk.geometry.attributes.position, uv = chunk.geometry.attributes.uv;
+      expect(uv.getX(0)).toBeGreaterThan(0); expect(uv.getX(0)).toBeLessThan(1);
+      expect(uv.getY(0)).toBeGreaterThan(0); expect(uv.getY(0)).toBeLessThan(1);
+      expect(uv.getX(0)).not.toBe(uv.getX(24)); expect(uv.getY(0)).not.toBe(uv.getY(p.count - 1));
       for (let i = 0; i < p.count; i++) {
         const geo = localMetersToGeo(chunk.localCenter.x + p.getX(i), chunk.localCenter.z + p.getZ(i), 46.8, -123.8);
         const expected = referenceUV(geo.lat, geo.lon, current);

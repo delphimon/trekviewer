@@ -192,7 +192,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 - [x] Trace moving-tour tile demand and cancellation without changing fidelity or budgets. Reduce duplicate coordinate/latitude projection during fine-terrain construction with exact full build-data parity; isolated median CPU falls 16.5%, with the scattered-mapping tradeoff stated. See [projection evidence and limits](review-2026-10-21/CHUNK_PROJECTION.md).
 - [x] Verify both typechecks, 729 Windows tests and the production build.
-- [ ] Complete local/hosted full-tour, controls, recovery and account-path checks; publish the validated application.
+- [x] Publish clean `3dce114` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39613052050). Exact hosted full-tour, normal/exaggeration, desktop/mobile, geographic/stereo/recovery and private account-path checks pass. Fine ground is visible in 359/368 hosted samples (97.6%); loading/churn remains unresolved. [Release evidence](review-2026-10-21/CHUNK_PROJECTION.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
 
 ### 1. Make High's actual XR rendering quality explicit

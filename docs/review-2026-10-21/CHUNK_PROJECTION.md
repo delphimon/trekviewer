@@ -20,4 +20,14 @@ The [local full tour](chunk-projection/local-tour.json) passes image/marker gate
 
 Two workers remain alive. With 33 streamed chunks, 2×/1× exaggeration retains exact complete-surface normals, index bytes, index attribute identity and draw count. [Desktop/mobile controls](chunk-projection/controls-local.json) and [geographic/stereo/fade/recovery checks](chunk-projection/controlled-local.json) pass; actual graphics recovery is bitwise identical.
 
-Hosted application checks are recorded below after completion. Loading/churn, overview DEM detail and native 72 Hz/visual acceptance remain open. The user has deferred headset testing.
+## Published checkpoint
+
+Application `3dce1141dc0fc4cbaec94e27f49f559dab7b242e` passes [CI](https://github.com/delphimon/trekviewer/actions/runs/39613052050), was rebuilt with a clean tree, credential-scanned and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact hosted build: `3dce114-2026-10-21T14:02:10.796Z`, entry `index-C0WiBm2w.js`. The evidence/test-only follow-up preserves this tested application and strengthens the UV regression with explicitly nonclamped, varying coordinates.
+
+The [hosted full tour](chunk-projection/hosted-tour-3dce114.json) passes every imagery/marker gate without page/GL errors: maximum mean 0.05467/255, RMS 1.5072/255 and 0.6579% changed pixels. Fine ground is visible in **359/368 samples (97.6%)**, with six fetching, one building and two decoded samples. There are still **1,122 builds (468 repeats), 1,088 publications (445 repeats) and 1,054 removals**. The 1,290 browser export-request events (851 distinct URLs) include cancelled/cached work and are not wire-transfer counts. This does not establish a matched loading/churn improvement. Requested local export spacing and local/overview mesh cells remain approximately 1.0001/4.96/94.3 m.
+
+Both workers remain alive. With 34 streamed chunks, exaggeration changes preserve exact complete-surface normals and live index bytes/attribute/draw count. [Hosted desktop/mobile controls](chunk-projection/controls-hosted-3dce114.json) and [geographic/stereo/fade/recovery checks](chunk-projection/controlled-hosted-3dce114.json) pass; graphics recovery is bitwise identical. Controlled XR following translates the model while retaining the tracked camera, without certifying native comfort or frame delivery.
+
+The separate [private account-path check](chunk-projection/private-bing-3dce114.json) passes its 30-second hosted tour, imagery/marker and normal/index gates. Imagery remains classified as “other,” establishing account-path compatibility rather than provider-wide Bing source-quality certification. Credentials stay in browser memory, CPU/resource/plan recording is disabled for this run, no private CPU profile is created, and repository/hosted files pass the exact credential scan.
+
+Loading/churn, overview DEM detail and native 72 Hz/visual acceptance remain open. The user has deferred headset testing.
