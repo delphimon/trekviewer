@@ -1,0 +1,46 @@
+{
+  "condition": "Trace replay only; hypothetical retired-chunk LRU. Excludes source-cache interference, object costs and GPU work. No cache change shipped.",
+  "input": ".review-cache/elevation-projection/hosted-tour/browser.json",
+  "inputSha256": "afee5700b3659170140c9034fe0a755f80a2534bb941f87129f17ec42f01ded0",
+  "build": {
+    "id": "30f45a2-2026-10-21T02:02:45.804Z",
+    "sha": "30f45a22d686b3a99ebe5a7279da03c2092bbb47",
+    "shortSha": "30f45a2",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-21T02:02:45.804Z",
+    "label": "TrekViewer 1.0.0 • 30f45a2"
+  },
+  "runs": [
+    {
+      "capacity": 4,
+      "builds": 1235,
+      "hits": 2
+    },
+    {
+      "capacity": 8,
+      "builds": 1235,
+      "hits": 8
+    },
+    {
+      "capacity": 12,
+      "builds": 1235,
+      "hits": 15
+    },
+    {
+      "capacity": 14,
+      "builds": 1235,
+      "hits": 26
+    },
+    {
+      "capacity": 18,
+      "builds": 1235,
+      "hits": 40
+    },
+    {
+      "capacity": 24,
+      "builds": 1235,
+      "hits": 76
+    }
+  ]
+}

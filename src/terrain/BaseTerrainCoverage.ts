@@ -11,12 +11,15 @@ export class BaseTerrainCoverage {
     this.hidden = new Uint8Array(grid.segmentsX * grid.segmentsZ);
   }
 
+  /** Borrowed by ray picking after publication; updated with the next index revision. */
+  public get hiddenCells(): Uint8Array { return this.hidden; }
+
   public update(holes: readonly TerrainSurfaceBounds[], target: TerrainIndices): number {
+    this.hidden.fill(0);
     if (!holes.length) {
       target.set(this.original);
       return this.original.length;
     }
-    this.hidden.fill(0);
     const { width, depth, segmentsX, segmentsZ } = this.grid;
     for (const bounds of holes) {
       if (!(bounds.minX <= bounds.maxX && bounds.minZ <= bounds.maxZ)) continue;

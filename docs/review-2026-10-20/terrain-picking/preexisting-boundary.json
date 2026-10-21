@@ -1,0 +1,38 @@
+{
+  "condition": "Deterministic desktop native-versus-grid picking reproduction; preexisting in aa7c9ec and unchanged by shared mask publication.",
+  "reference": "aa7c9ec",
+  "geometry": {
+    "width": 8,
+    "depth": 8,
+    "segmentsX": 260,
+    "segmentsZ": 260
+  },
+  "position": [
+    0.3,
+    0.5,
+    -0.1
+  ],
+  "rotation": [
+    0.1,
+    0.2,
+    0.05
+  ],
+  "scale": [
+    0.8,
+    0.7,
+    1.1
+  ],
+  "localRayOrigin": [
+    3.2,
+    10,
+    -2.3
+  ],
+  "localRayTarget": [
+    3.2,
+    0,
+    -2.3
+  ],
+  "nativeHits": 1,
+  "previousGridHit": false,
+  "currentGridHit": false
+}

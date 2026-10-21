@@ -1,0 +1,47 @@
+{
+  "condition": "Isolated desktop mask acquisition after coverage/index publication on a 434x286-cell base grid, two independent pickers. Excludes coverage generation, triangle intersection, frames, GPU and native headset timing.",
+  "reference": "aa7c9ec",
+  "node": "v24.21.0",
+  "matchedCells": 3971968,
+  "borrowedMaskBytes": 124124,
+  "previousMaskBytesPerRevision": 248248,
+  "extraMaskBytesPerRevision": 0,
+  "passes": [
+    {
+      "name": "previous",
+      "revisions": 300,
+      "pickers": 2,
+      "elapsedMs": 665.0137000000005
+    },
+    {
+      "name": "borrow-coverage",
+      "revisions": 300,
+      "pickers": 2,
+      "elapsedMs": 0.4914999999991778
+    },
+    {
+      "name": "borrow-coverage",
+      "revisions": 300,
+      "pickers": 2,
+      "elapsedMs": 0.4749999999994543
+    },
+    {
+      "name": "previous",
+      "revisions": 300,
+      "pickers": 2,
+      "elapsedMs": 622.5098999999998
+    },
+    {
+      "name": "previous",
+      "revisions": 300,
+      "pickers": 2,
+      "elapsedMs": 625.2359999999956
+    },
+    {
+      "name": "borrow-coverage",
+      "revisions": 300,
+      "pickers": 2,
+      "elapsedMs": 0.18790000000217333
+    }
+  ]
+}

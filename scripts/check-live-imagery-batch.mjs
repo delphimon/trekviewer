@@ -13,6 +13,8 @@ const entry = path.posix.basename(fs.readFileSync(path.join(expectedDist, 'index
 const route = JSON.parse(fs.readFileSync('public/routes/manifest.json', 'utf8')).find(row => row.id === 'olympus-bailey-2026');
 const config = process.env.TREK_LOCAL_PROVIDERS_PATH ? JSON.parse(fs.readFileSync(process.env.TREK_LOCAL_PROVIDERS_PATH, 'utf8')) : null;
 if (config) assert.ok(config.imageryAssetId === 2 && config.ionToken?.length > 10, 'Expected eligible local Bing configuration');
+const recordCPU = process.env.TREK_CPU_PROFILE === '1';
+assert.ok(!recordCPU || !config, 'CPU profiling is restricted to public-source runs');
 fs.mkdirSync(out, { recursive: true });
 let browser, server;
 try {
@@ -265,9 +267,15 @@ try {
     return results;
   });
   await page.locator('#btnPlay').click();
+  if (recordCPU) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.start'); }
   const fullTour = process.env.TREK_FULL_TOUR === '1';
   for (const label of (fullTour ? [15, 30, 45, 60, 75, 90] : [15, 30]).map(seconds => `following-${seconds}s`)) {
-    await page.waitForTimeout(15000); await sample(label);
+    await page.waitForTimeout(15000);
+    if (recordCPU && label === 'following-15s') {
+      const { profile } = await cdp.send('Profiler.stop'); await cdp.send('Profiler.disable');
+      fs.writeFileSync(path.join(out, 'cpu-profile.json'), JSON.stringify(profile));
+    }
+    await sample(label);
   }
   if (fullTour) { await page.waitForFunction(() => window.__trekViewerApp.session.getState().progress >= 1, null, { timeout: 20000 }); await sample('finished'); }
   if (await page.evaluate(() => window.__trekViewerApp.session.getState().isPlaying)) await page.locator('#btnPlay').click();

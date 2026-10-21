@@ -164,6 +164,13 @@ These checkmarks mean implemented and tested in their documented environments. T
 - [x] Publish clean `30f45a2` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39530766480). Exact hosted full-tour, desktop/mobile controls, geographic/stereo/context-recovery and private account-path checks pass. Fine ground is visible in 357/368 samples; churn remains substantial. [Release evidence and limits](review-2026-10-20/ELEVATION_PROJECTION.md).
 - [ ] Complete loading/churn, overview-detail and native performance/visual acceptance.
 
+### 0p. Share published terrain coverage with ray picking
+
+- [x] Profile normal playback separately from image-comparison stress. Reuse the generator's exact cell mask across pickers with weak lifetime and index/version/range/dimension guards, preserving all terrain/imagery/quality limits.
+- [x] Verify 716 Windows tests, typechecking/build, 3.97 million visibility decisions, native picking/freshness/fallback regressions and browser controls/recovery. Normal-playback sampled mask CPU falls 149.353 to 1.607 ms in the local prototype; this is a substep measurement. See [coverage reuse evidence](review-2026-10-20/TERRAIN_PICKING.md).
+- [ ] Publish after CI, clean stamped rebuild and exact hosted full-tour/CPU, controls and recovery verification.
+- [ ] Resolve the recorded preexisting grid-boundary precision miss, remaining churn/loading/overview detail and native performance/visual acceptance.
+
 ### 1. Make High's actual XR rendering quality explicit
 
 - [x] Implement an explicit foveation policy: High requests 0; Balanced uses a documented separate policy. Apply correctly at session creation and quality changes without overriding runtime head tracking.

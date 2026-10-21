@@ -1,17 +1,10 @@
 import * as THREE from 'three';
+import { publishTerrainCellMask, retainedTerrainCellMask, type TerrainCellMask } from './TerrainCellMask.ts';
 
 export interface TerrainHit {
   point: THREE.Vector3;
   distance: number;
   mesh: THREE.Mesh;
-}
-
-interface CellMask {
-  index: THREE.BufferAttribute;
-  version: number;
-  start: number;
-  count: number;
-  cells: Uint8Array;
 }
 
 /**
@@ -20,7 +13,6 @@ interface CellMask {
  * chunk changes the base mesh's visible index range. No spatial tree is rebuilt.
  */
 export class TerrainRaycast {
-  private readonly masks = new WeakMap<THREE.BufferGeometry, CellMask>();
   private readonly boxVersions = new WeakMap<THREE.BufferGeometry, { position: THREE.BufferAttribute; version: number }>();
   // Grid traversal is synchronous. Reuse its workspace across surfaces and rays,
   // but always return an owned point so later queries cannot change saved hits.
@@ -52,7 +44,7 @@ export class TerrainRaycast {
       return this.nativeHit(raycaster, mesh);
     }
     const { width, height: depth, widthSegments: sx, heightSegments: sz } = geometry.parameters;
-    if (!Number.isFinite(width) || !Number.isFinite(depth) || sx < 1 || sz < 1) {
+    if (!Number.isFinite(width) || !Number.isFinite(depth) || !Number.isInteger(sx) || !Number.isInteger(sz) || sx < 1 || sz < 1) {
       return this.nativeHit(raycaster, mesh);
     }
     const mask = this.getCellMask(geometry, sx, sz);
@@ -88,7 +80,7 @@ export class TerrainRaycast {
     // A diagonal ray can cross at most sx + sz - 1 cells. The extra iterations
     // accommodate an entry exactly on a grid boundary.
     for (let steps = 0; steps <= sx + sz + 2 && x >= 0 && x < sx && z >= 0 && z < sz; steps++) {
-      if (!mask || mask[z * sx + x]) {
+      if (!mask || (mask.hidden ? !mask.cells[z * sx + x] : mask.cells[z * sx + x])) {
         const vertex = z * (sx + 1) + x;
         a.fromBufferAttribute(positions, vertex);
         b.fromBufferAttribute(positions, vertex + 1);
@@ -124,17 +116,17 @@ export class TerrainRaycast {
     return nearestDistance < Infinity ? { point: hitPoint.clone(), distance: nearestDistance, mesh } : null;
   }
 
-  private getCellMask(geometry: THREE.PlaneGeometry, sx: number, sz: number): Uint8Array | null | undefined {
+  private getCellMask(geometry: THREE.PlaneGeometry, sx: number, sz: number): TerrainCellMask | null | undefined {
     const index = geometry.index;
     if (!index) return undefined;
     const { start, count } = geometry.drawRange;
-    if (start === 0 && count >= sx * sz * 6) return null;
-    const cached = this.masks.get(geometry);
-    if (cached && cached.index === index && cached.version === index.version &&
-        cached.start === start && cached.count === count) return cached.cells;
+    const effectiveCount = Math.min(index.count - start, count);
+    if (start === 0 && effectiveCount >= sx * sz * 6) return null;
+    const cached = retainedTerrainCellMask(geometry, sx, sz);
+    if (cached) return cached;
     // TerrainGenerator compacts whole cells when a visible local DEM chunk
     // replaces coarse terrain. The first index in each six-index cell identifies it.
-    if (start % 6 !== 0 || count % 6 !== 0) return undefined;
+    if (start % 6 !== 0 || effectiveCount % 6 !== 0) return undefined;
     const cells = new Uint8Array(sx * sz);
     for (let offset = start; offset < Math.min(index.count, start + count); offset += 6) {
       const vertex = index.getX(offset);
@@ -142,8 +134,7 @@ export class TerrainRaycast {
       const x = vertex % (sx + 1);
       if (x < sx && z < sz) cells[z * sx + x] = 1;
     }
-    this.masks.set(geometry, { index, version: index.version, start, count, cells });
-    return cells;
+    return publishTerrainCellMask(geometry, sx, sz, cells, false);
   }
 
   private nativeHit(raycaster: THREE.Raycaster, mesh: THREE.Mesh): TerrainHit | null {

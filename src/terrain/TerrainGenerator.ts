@@ -9,6 +9,7 @@ import type { TerrainGridLayout } from './TerrainGrid.ts';
 import type { TerrainSurfaceData } from './TerrainGrid.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { BaseTerrainCoverage } from './BaseTerrainCoverage.ts';
+import { publishTerrainCellMask } from './TerrainCellMask.ts';
 import { TerrainImagery } from './TerrainImagery.ts';
 import { disposeOwnedCanvasTexture } from './CompositeImagery.ts';
 
@@ -407,6 +408,7 @@ export class TerrainGenerator {
       if (pendingEnd) liveIndex.addUpdateRange(0, pendingEnd);
       liveIndex.needsUpdate = true;
       planeGeo.setDrawRange(0, indexCount);
+      publishTerrainCellMask(planeGeo, segX, segZ, baseCoverage.hiddenCells, true);
     };
 
     const updateLocalChunksTexture = (tex: THREE.Texture | null) => {
