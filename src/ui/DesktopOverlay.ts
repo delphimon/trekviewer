@@ -6,6 +6,7 @@ import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { PersistentResourceCache } from '../terrain/PersistentResourceCache.ts';
 import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from '../gpx/RouteLandmarks.ts';
+import { OfflineDownloadsPanel } from '../offline/OfflineDownloadsPanel.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -30,6 +31,7 @@ export interface OverlayCallbacks {
 }
 
 export class DesktopOverlay {
+  private offlineDownloads: OfflineDownloadsPanel;
   private container: HTMLElement;
   private callbacks: OverlayCallbacks;
   private manifest: RouteManifestItem[] = [];
@@ -68,6 +70,7 @@ export class DesktopOverlay {
     this.container = container;
     this.callbacks = callbacks;
     this.createDOM();
+    this.offlineDownloads = new OfflineDownloadsPanel(document.getElementById('offlineDownloads')!, () => !this.isPlaying);
     this.setupEventListeners();
     const cacheToggle = document.getElementById('resourceCacheEnabled') as HTMLInputElement | null;
     if (cacheToggle) cacheToggle.checked = PersistentResourceCache.isEnabled();
@@ -81,6 +84,7 @@ export class DesktopOverlay {
 
   public setManifest(manifest: RouteManifestItem[]): void {
     this.manifest = manifest;
+    this.offlineDownloads.setManifest(manifest);
     const select = document.getElementById('routeSelect') as HTMLSelectElement;
     if (select) {
       select.innerHTML = '';
@@ -487,11 +491,13 @@ export class DesktopOverlay {
             </div>
             <a href="${resolveAssetUrl('data-sources.html')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:#7dd3fc;font-size:12px;">Data sources &amp; licenses ↗</a>
 
-            <h3>Saved terrain &amp; imagery</h3>
+            <h3>Temporary terrain &amp; imagery cache</h3>
             <label class="comfort-option"><span>Cache on this device</span><input id="resourceCacheEnabled" type="checkbox" checked /></label>
             <p class="trek-meta">Reuse original source data on return visits. Up to 256 MiB, refreshed after 7 days. Browser storage may be reclaimed.</p>
-            <button id="btnClearResourceCache" class="btn btn-sm">Clear saved terrain &amp; imagery</button>
+            <button id="btnClearResourceCache" class="btn btn-sm">Clear temporary cache</button>
             <p id="resourceCacheStatus" class="trek-meta" role="status" aria-live="polite">Data saves automatically as you explore.</p>
+
+            <section id="offlineDownloads" aria-label="Offline route downloads"></section>
 
             <h3>VR Comfort</h3>
             <label class="comfort-option">Movement
@@ -593,7 +599,7 @@ export class DesktopOverlay {
       const button = event.currentTarget as HTMLButtonElement; button.disabled = true;
       const cleared = await PersistentResourceCache.clear();
       button.disabled = false;
-      await this.refreshResourceCacheStatus(cleared ? 'Saved data cleared. ' : 'Storage is unavailable. ');
+      await this.refreshResourceCacheStatus(cleared ? 'Temporary cache cleared. Downloaded packs are kept. ' : 'Storage is unavailable. ');
     });
     document.getElementById('btnSettings')?.addEventListener('click', () => { void this.refreshResourceCacheStatus(); });
     document.getElementById('btnRetryGraphics')?.addEventListener('click', () => this.callbacks.onRetryGraphics?.());
@@ -1068,6 +1074,7 @@ export class DesktopOverlay {
   }
 
   public dispose(): void {
+    this.offlineDownloads.dispose();
     if (this.statusTimeout) {
       window.clearTimeout(this.statusTimeout);
       this.statusTimeout = null;

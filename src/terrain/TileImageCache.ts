@@ -1,6 +1,7 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
 import { recordImagerySource } from './ImagerySource.ts';
 import { PersistentResourceCache, persistentResourceAllowed, readBoundedBlob } from './PersistentResourceCache.ts';
+import { OfflineStore, offlineSourceAllowed } from '../offline/OfflineStore.ts';
 import { isSwissImageryURL, isCompleteSwissImage } from './providers/SwissImagery.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 import { consumeSharedRequest, cancelSharedRequests, type SharedRequest } from './SharedRequest.ts';
@@ -472,7 +473,7 @@ export class TileImageCache {
       return Promise.reject(new Error('Image is not defined in this environment'));
     }
 
-    if (PersistentResourceCache.isAvailable() && PersistentResourceCache.isEnabled() && persistentResourceAllowed(url)) {
+    if ((OfflineStore.available() && offlineSourceAllowed(url)) || (PersistentResourceCache.isAvailable() && PersistentResourceCache.isEnabled() && persistentResourceAllowed(url))) {
       return this.loadPersistedImage(url, timeoutMs, signal);
     }
 

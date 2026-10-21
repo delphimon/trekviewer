@@ -1,4 +1,5 @@
 import { describe, it, beforeEach, afterEach, vi } from 'vitest';
+vi.mock('../src/offline/OfflineDownloadsPanel.ts', () => ({ OfflineDownloadsPanel: class { setManifest() {} dispose() {} } }));
 import assert from 'node:assert';
 import * as THREE from 'three';
 import { RouteLoader } from '../src/core/RouteLoader.ts';

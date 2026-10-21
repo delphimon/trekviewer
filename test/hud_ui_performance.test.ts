@@ -1,4 +1,7 @@
 import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
+// This suite's hand-written DOM models chart controls only; offline storage/UI
+// has separate production-browser coverage.
+vi.mock('../src/offline/OfflineDownloadsPanel.ts', () => ({ OfflineDownloadsPanel: class { setManifest() {} dispose() {} } }));
 import assert from 'node:assert';
 import * as THREE from 'three';
 import { SpatialHUD } from '../src/ui/SpatialHUD.ts';

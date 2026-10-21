@@ -1,4 +1,5 @@
 import { isSwissImageryURL, checkSwissImageryRevision, getSwissImageryRevision } from './providers/SwissImagery.ts';
+import { OfflineStore } from '../offline/OfflineStore.ts';
 
 const DATABASE = 'trekviewer-resources-v1';
 const LIMIT_BYTES = 256 * 1024 * 1024;
@@ -83,6 +84,8 @@ export class PersistentResourceCache {
   }
 
   public static async read(url: string): Promise<Blob | null> {
+    const pinned = await OfflineStore.read(url);
+    if (pinned) return pinned;
     if (!this.isEnabled() || !persistentResourceAllowed(url)) return null;
     const generation = this.generation;
     if (isSwissImageryURL(url)) {
@@ -187,6 +190,7 @@ export class PersistentResourceCache {
   }
 
   public static async remove(url: string): Promise<void> {
+    await OfflineStore.invalidate(url);
     if (isSwissImageryURL(url)) {
       const revision = getSwissImageryRevision(); if (!revision) return;
       url += `#swiss-${revision}`;

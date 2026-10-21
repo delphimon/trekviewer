@@ -29,6 +29,7 @@ import { configureDesktopInspection, fitInspectionBounds, levelHorizon, readHori
 import { GraphicsRecovery } from './core/GraphicsRecovery.ts';
 import { releaseGraphicsResources } from './core/GraphicsResources.ts';
 import { PersistentResourceCache } from './terrain/PersistentResourceCache.ts';
+import { OfflineDownloads } from './offline/OfflineDownloads.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from './gpx/RouteLandmarks.ts';
 import { localMetersToGeo } from './gpx/Coordinates.ts';
 
@@ -759,6 +760,7 @@ export class TrekViewerApp {
   }
 
   private togglePlay(): void {
+    OfflineDownloads.pause();
     if (this.graphicsRecovery?.isSuspended) return;
     if (!this.flyoverController) return;
     const isPlaying = this.flyoverController.togglePlay();
@@ -1302,6 +1304,7 @@ export class TrekViewerApp {
     }
 
     this.xrEntryPending = true;
+    OfflineDownloads.pause();
     let requestedSession: XRSession | null = null;
     try {
       const isSupported = await (navigator as any).xr.isSessionSupported(mode);

@@ -1,12 +1,12 @@
 # Installed app and offline route packs
 
-Status: proposed delivery direction, verified against the current repository and primary documentation on October 21, 2026. No offline pack, service worker, signed APK or first-launch offline acceptance is claimed here.
+Status: delivery direction and staged implementation on October 21, 2026. The user selected Rainier and Enchantments as default downloads. A versioned offline shell and foreground download/pinned-storage path are implemented in [the defaults checkpoint](review-2026-10-21/OFFLINE_DEFAULTS.md). Complete multi-GB route acquisition, source-native repackaging, signed APK and installed/native offline acceptance remain open.
 
 The user asks to install selected routes with high-quality terrain/imagery so tours do not depend on constant downloads, and whether installation can improve on visiting the website. The recommended first implementation keeps the existing WebXR renderer, adds an offline application shell and explicit route packs, then produces an installable Quest APK. The website remains an update/download endpoint. A PWA wrapper alone does not bundle route data or remove the initial hosted-origin requirement.
 
 ## Current state and supported delivery
 
-The repository already has `public/manifest.webmanifest` and `scripts/package-quest-apk.sh`. The script packages a hosted PWA, with checks for a newly produced APK; it does not embed `dist`, routes or map data. The app has no service-worker shell cache or explicit offline pack manager. The existing 256 MiB, seven-day source cache is temporary opportunistic reuse, not a complete route or a suitable pinned pack store.
+The repository has `public/manifest.webmanifest` and `scripts/package-quest-apk.sh`. The script packages a hosted PWA, with checks for a newly produced APK; it does not embed `dist`, routes or map data. The new service worker caches a complete verified shell, and the new download manager stages, validates, resumes and removes independent pinned route data. The existing 256 MiB, seven-day source cache remains temporary opportunistic reuse, separate from ready packs. No complete default pack has yet been acquired/accepted at multi-GB scale.
 
 Meta supports [packaging WebXR as a PWA APK](https://developers.meta.com/horizon/documentation/web/pwa-packaging), including an app-library entry and optional sideloading. It uses a hosted HTTPS manifest, a signed package and verified Digital Asset Links. [Meta's PWA overview](https://developers.meta.com/horizon/documentation/web/pwa-overview) distinguishes windowed and immersive launch modes. Keep browser/desktop delivery alongside the installed app; packaging does not require replacing Three.js with another engine.
 
@@ -45,4 +45,4 @@ The user's Cesium/Bing account does not establish permission to archive imagery.
 5. Disable network completely and test startup, reload, the full tour, inspection outside the route corridor, imports/updates, interrupted storage and retained pack recovery.
 6. Produce the signed Quest APK using the existing package identifier and chosen signing identity, verify asset links, then test installed launch/re-entry and offline operation on-device. Packaging and offline data do not certify native 72 Hz, thermals or visual acceptance.
 
-The user selected **all bundled routes, estimates first**. The inventory and bounded public imagery probe run independently of the app's source cache and private providers. No multi-gigabyte acquisition is started by this document.
+The user first selected **all bundled routes, estimates first**, then chose **Rainier and Enchantments for the default downloads**. The current downloader explicitly prepares full surrounding-model High public satellite coverage and reports conservative storage capacity before a user starts acquisition. No multi-gigabyte acquisition is started automatically by installing/opening the website or by this document.

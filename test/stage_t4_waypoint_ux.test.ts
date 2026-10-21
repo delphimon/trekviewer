@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+vi.mock('../src/offline/OfflineDownloadsPanel.ts', () => ({ OfflineDownloadsPanel: class { setManifest() {} dispose() {} } }));
 import * as THREE from 'three';
 import { DioramaBase } from '../src/visualization/DioramaBase';
 import { GPXWaypoint, TrackStats } from '../src/gpx/TrackTypes';
