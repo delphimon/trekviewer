@@ -1,0 +1,29 @@
+# Correct terrain hits at rendered grid boundaries
+
+The accelerated picker now locates and crosses cells using the actual Float32 vertex coordinates. Nominal double-precision cell spacing could select the wrong cell at a rounded boundary, including the recorded miss at local (3.2, -2.3) on the transformed 260×260 grid. Entry no longer advances by a fixed epsilon. Shared edges/corners test the touching cells, respecting each cell's rendered coverage; a hidden cell must not hide its visible neighbour's edge. Crossing times are recomputed from stored vertices rather than accumulated ideal spacing.
+
+The regular-grid traversal remains bounded by the grid dimensions, reuses its existing workspace, and keeps the shared coverage/version guards and owned result points. It does not add an acceleration tree or per-revision coordinate/mask allocation. A conservative vertex-height bound rejects triangle work outside the ray's cell interval; accepted hits still use Three.js's exact triangle intersection and side/near/far rules. Terrain, imagery, normals, lighting, mesh/source resolution, selection policy and resource limits are unchanged.
+
+## Correctness and cost
+
+The [reproducible comparison](terrain-boundaries/benchmark.json) tests **816** targeted rays against native Three.js picking: flat/relief grids, Float32 boundaries and their immediate neighbours, outer edges, corners, coverage holes, nonuniform transforms and miniature scale. The published `5f993f3` picker disagrees **157** times; the corrected picker agrees in all 816. These are adversarial fixtures, not an estimate of the frequency of misses in normal playback. Reproduce with `node --experimental-transform-types scripts/benchmark-terrain-boundaries.mjs` on Node 24.
+
+For 128 ordinary oblique rays where both implementations agree, exact triangle tests fall from **1,526 to 260**, but the extra boundary handling costs CPU: median **14.898 ms before / 19.359 ms after** for 16,384 warmed queries, about **0.27 microseconds more per query**. This is a correctness repair with a measured isolated tradeoff, not a general speedup or frame-rate result.
+
+`npm run verify` passes both typechecks, **720 Windows tests with five platform skips**, and the production build. Regressions include the exact recorded flat-grid miss without native fallback (at most eight triangle tests), transformed 16/32-bit grids with holes/outer boundaries, 512 seeded rays across translated irregular relief with miniature scale and clipped distances, existing coverage freshness, early stopping and nested fallback/result ownership.
+
+## Local browser evidence
+
+The [local full tour](terrain-boundaries/local-tour.json), modified build `9ebbc9c-modified-2026-10-21T07:07:06.704Z`, entry `index-Bpgn3C6X.js`, passes all same-scene imagery/marker gates without page/GL errors. Maximum mean error is 0.06042/255, RMS 1.5213/255 and changed pixels 0.6443%. Both workers remain alive. [Desktop/mobile controls](terrain-boundaries/controls-local.json) and [geographic/stereo/fade/recovery checks](terrain-boundaries/controlled-local.json) pass; actual context recovery remains bitwise identical.
+
+Fine hiker terrain is visible in **280/366 samples (76.5%)**; 84 are fetching and two building. There are 671 builds across 484 IDs (187 repeats), 649 publications (171 repeats) and 615 removals. Application-ready is 2.950 seconds and overview 3.667 seconds after navigation. These differ substantially from the preceding release run, so fewer builds cannot be presented as a loading improvement: fine-ground coverage is worse in this run.
+
+A new [unchanged published baseline run](terrain-boundaries/repeated-baseline-tour-5f993f3.json) keeps fine ground visible in **352/368 samples (95.7%)**, with 883 builds (302 repeats). Its [CPU sample](terrain-boundaries/repeated-baseline-cpu-5f993f3.json) records 58.416 ms in picking, much lower than its previous 202.897 ms despite identical code.
+
+The [repeated corrected run](terrain-boundaries/repeated-local-tour.json), with identical code/build to the first corrected run, keeps fine ground visible in **356/368 samples (96.7%)**, with 1,033 builds (377 repeats). Its [picking CPU sample](terrain-boundaries/repeated-local-cpu.json) is **84.751 ms**, higher than the fresh baseline's 58.416 ms. This does not establish a performance improvement: the initial corrected run's lower coverage/CPU/build count was not repeatable, service timing and publication/ray populations are uncontrolled, and the isolated benchmark explicitly shows additional cost. Both corrected runs pass the image gates, preserve approximately 1.0001 m requested export spacing and 4.96/94.3 m local/overview mesh cells, and keep both workers alive. Loading/churn acceptance stays open.
+
+The [local normal-playback CPU sample](terrain-boundaries/local-cpu.json) records 32.932 ms in `intersectGrid` and descendants over the first 15 seconds, versus 202.897 ms in the [preceding published sample](terrain-boundaries/baseline-cpu-5f993f3.json). These have different network/publication phasing and ray populations. They do not establish a controlled component speedup, overall frame time or native GPU performance. The CPU summarizer now reports this inclusive component alongside mask acquisition; raw public-source profiles stay ignored and are referenced by SHA256.
+
+## Remaining acceptance
+
+Loading/churn, broad overview DEM detail and native 72 Hz/visual acceptance remain open. Native testing remains deferred at the user's request. Boundary correctness alone does not establish that inaccurate terrain hits caused the reported churn or visual regression.

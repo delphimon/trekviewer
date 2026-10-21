@@ -1,0 +1,43 @@
+{
+  "condition": "Isolated desktop regular-grid picking. Boundary comparisons include flat/relief, holes, transformed miniature grids and outer edges. Timed oblique rays agree between implementations and exclude masks, publication, frames, workers and GPU.",
+  "reference": "5f993f3",
+  "node": "v24.21.0",
+  "boundaryComparisons": 816,
+  "previousMismatches": 157,
+  "currentMismatches": 0,
+  "timedFixtureRays": 128,
+  "previousTriangles": 1526,
+  "currentTriangles": 260,
+  "passes": [
+    {
+      "name": "previous",
+      "queries": 16384,
+      "elapsedMs": 14.898000000000138
+    },
+    {
+      "name": "current",
+      "queries": 16384,
+      "elapsedMs": 20.064699999999903
+    },
+    {
+      "name": "current",
+      "queries": 16384,
+      "elapsedMs": 19.07619999999997
+    },
+    {
+      "name": "previous",
+      "queries": 16384,
+      "elapsedMs": 15.530399999999645
+    },
+    {
+      "name": "previous",
+      "queries": 16384,
+      "elapsedMs": 13.99980000000005
+    },
+    {
+      "name": "current",
+      "queries": 16384,
+      "elapsedMs": 19.359199999999873
+    }
+  ]
+}

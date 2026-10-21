@@ -1,0 +1,210 @@
+{
+  "condition": "Main-thread CDP CPU sampling during the first 15 seconds of normal desktop tour playback, before the first legacy/direct comparison. Function names aggregate all matching frames. Includes idle/browser/native samples; excludes worker CPU and native XR. Sampling overhead and service/phasing variation apply.",
+  "build": {
+    "id": "9ebbc9c-modified-2026-10-21T07:07:06.704Z",
+    "sha": "9ebbc9cca996e089a9b708e054a46ca61d99eb53",
+    "shortSha": "9ebbc9c",
+    "branch": "main",
+    "dirty": true,
+    "builtAt": "2026-10-21T07:07:06.704Z",
+    "label": "TrekViewer 1.0.0 • 9ebbc9c (modified)"
+  },
+  "entry": "index-Bpgn3C6X.js",
+  "input": ".review-cache/terrain-boundaries/local-tour/cpu-profile.json",
+  "inputSha256": "d9f7c983b6f0d0a6021ff6a89544352e4b73017ee7865538a28013fb43a66613",
+  "samples": 9432,
+  "totalMs": 15106.893,
+  "maskInclusiveMs": 0,
+  "pickingInclusiveMs": 32.932,
+  "pickingMask": [
+    {
+      "name": "getCellMask",
+      "selfMs": 0
+    },
+    {
+      "name": "retainedTerrainCellMask",
+      "selfMs": 0
+    },
+    {
+      "name": "publishTerrainCellMask",
+      "selfMs": 0
+    }
+  ],
+  "topSelf": [
+    {
+      "name": "(idle)",
+      "selfMs": 11873.367,
+      "samplePercent": 78.59569138405892
+    },
+    {
+      "name": "(program)",
+      "selfMs": 1164.585,
+      "samplePercent": 7.708964378049147
+    },
+    {
+      "name": "getProgramInfoLog",
+      "selfMs": 185.544,
+      "samplePercent": 1.22820754737589
+    },
+    {
+      "name": "h",
+      "selfMs": 127.144,
+      "samplePercent": 0.8416290497324632
+    },
+    {
+      "name": "(anonymous)",
+      "selfMs": 102.159,
+      "samplePercent": 0.6762409715882677
+    },
+    {
+      "name": "Blob",
+      "selfMs": 97.66,
+      "samplePercent": 0.646459864381114
+    },
+    {
+      "name": "updateScrubber",
+      "selfMs": 90.696,
+      "samplePercent": 0.6003617024360999
+    },
+    {
+      "name": "getImageData",
+      "selfMs": 86.763,
+      "samplePercent": 0.5743272292985725
+    },
+    {
+      "name": "Ih",
+      "selfMs": 70.153,
+      "samplePercent": 0.4643774202941664
+    },
+    {
+      "name": "(garbage collector)",
+      "selfMs": 67.957,
+      "samplePercent": 0.4498410096636019
+    },
+    {
+      "name": "postMessage",
+      "selfMs": 65.387,
+      "samplePercent": 0.4328289079693621
+    },
+    {
+      "name": "multiplyMatrices",
+      "selfMs": 55.692,
+      "samplePercent": 0.3686529056636596
+    },
+    {
+      "name": "texSubImage2D",
+      "selfMs": 48.707,
+      "samplePercent": 0.32241573432736964
+    },
+    {
+      "name": "update",
+      "selfMs": 45.162,
+      "samplePercent": 0.2989496251810349
+    },
+    {
+      "name": "createObjectURL",
+      "selfMs": 34.34,
+      "samplePercent": 0.22731345221019306
+    },
+    {
+      "name": "fetch",
+      "selfMs": 27.947,
+      "samplePercent": 0.1849950218089186
+    },
+    {
+      "name": "compose",
+      "selfMs": 27.813,
+      "samplePercent": 0.184108009502682
+    },
+    {
+      "name": "xt",
+      "selfMs": 25.873,
+      "samplePercent": 0.17126618954671885
+    },
+    {
+      "name": "xc",
+      "selfMs": 24.336,
+      "samplePercent": 0.16109202600428824
+    },
+    {
+      "name": "drawImage",
+      "selfMs": 24.197,
+      "samplePercent": 0.1601719162239383
+    },
+    {
+      "name": "Tt",
+      "selfMs": 23.615,
+      "samplePercent": 0.15631937023714937
+    },
+    {
+      "name": "renderBufferDirect",
+      "selfMs": 21.009,
+      "samplePercent": 0.1390689667292937
+    },
+    {
+      "name": "read",
+      "selfMs": 19.13,
+      "samplePercent": 0.1266309359575129
+    },
+    {
+      "name": "sync",
+      "selfMs": 17.635,
+      "samplePercent": 0.11673479119763408
+    },
+    {
+      "name": "gt",
+      "selfMs": 15.913,
+      "samplePercent": 0.10533602111301113
+    },
+    {
+      "name": "invert",
+      "selfMs": 15.616,
+      "samplePercent": 0.10337003115068069
+    },
+    {
+      "name": "drawElements",
+      "selfMs": 14.56,
+      "samplePercent": 0.09637984461795022
+    },
+    {
+      "name": "s.onsuccess",
+      "selfMs": 14.363,
+      "samplePercent": 0.09507580413788592
+    },
+    {
+      "name": "Qd",
+      "selfMs": 14.143,
+      "samplePercent": 0.09361951527690042
+    },
+    {
+      "name": "copy",
+      "selfMs": 14.093,
+      "samplePercent": 0.09328854053576735
+    },
+    {
+      "name": "render",
+      "selfMs": 13.979,
+      "samplePercent": 0.09253391812598395
+    },
+    {
+      "name": "updateMatrixWorld",
+      "selfMs": 13.457,
+      "samplePercent": 0.08907854182855468
+    },
+    {
+      "name": "o",
+      "selfMs": 12.985,
+      "samplePercent": 0.08595414027225849
+    },
+    {
+      "name": "put",
+      "selfMs": 12.892,
+      "samplePercent": 0.08533852725375099
+    },
+    {
+      "name": "setValue",
+      "selfMs": 12.757,
+      "samplePercent": 0.0844448954526917
+    }
+  ]
+}

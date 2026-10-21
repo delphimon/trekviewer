@@ -4,6 +4,89 @@ import { TerrainRaycast } from '../src/terrain/TerrainRaycast.ts';
 import { BaseTerrainCoverage } from '../src/terrain/BaseTerrainCoverage.ts';
 import { publishTerrainCellMask } from '../src/terrain/TerrainCellMask.ts';
 
+it.each([16, 260])('matches native hits at rounded grid boundaries, corners and coverage holes (%i)', segments => {
+  const geometry = new THREE.PlaneGeometry(8, 8, segments, segments); geometry.rotateX(-Math.PI / 2);
+  const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
+  // Keep real relief while exercising rays exactly on the shared grid lines.
+  for (let i = 0; i < positions.count; i++) positions.setY(i, 0.15 * Math.sin(positions.getX(i)) + 0.08 * Math.cos(positions.getZ(i)));
+  positions.needsUpdate = true; geometry.computeBoundingSphere();
+  const original = geometry.index!.array.slice();
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  const picker = new TerrainRaycast();
+  const points: number[][] = [[3.2, -2.3], [-4, 0.137], [4, 0.137], [0.173, -4], [0.173, 4], [-4, -4], [4, 4]];
+  for (const column of [1, Math.floor(segments / 3), segments - 1]) {
+    const x = positions.getX(column), z = positions.getZ(column * (segments + 1));
+    for (const epsilon of [-1e-10, 0, 1e-10]) points.push([x + epsilon, 0.137], [0.173, z + epsilon], [x + epsilon, z + epsilon]);
+  }
+  try {
+    for (const transformed of [false, true]) {
+      mesh.position.set(0.3, 0.5, -0.1); mesh.rotation.set(transformed ? 0.1 : 0, transformed ? 0.2 : 0, transformed ? 0.05 : 0);
+      mesh.scale.set(transformed ? 0.8 : 1, transformed ? 0.7 : 1, transformed ? 1.1 : 1); mesh.updateMatrixWorld(true);
+      for (const holes of [false, true]) {
+        const index = geometry.index!; let count = 0;
+        for (let row = 0; row < segments; row++) for (let column = 0; column < segments; column++) {
+          if (holes && (column + row) % 2 === 0) continue;
+          const offset = (row * segments + column) * 6;
+          for (let i = 0; i < 6; i++) index.setX(count++, original[offset + i]);
+        }
+        index.needsUpdate = true; geometry.setDrawRange(0, count);
+        for (const [x, z] of points) for (const [dx, dz] of [[0, 0], [0.7, -0.5], [-0.7, 0.5]]) {
+          const origin = mesh.localToWorld(new THREE.Vector3(x + dx, 10, z + dz));
+          const target = mesh.localToWorld(new THREE.Vector3(x, 0, z));
+          const ray = new THREE.Raycaster(origin, target.sub(origin).normalize());
+          const native = ray.intersectObject(mesh)[0] ?? null, hit = picker.closest(ray, [mesh]);
+          const label = JSON.stringify({ segments, transformed, holes, x, z, dx, dz });
+          expect(hit === null, label).toBe(native === null);
+          if (hit && native) expect(hit.point.distanceTo(native.point), label).toBeLessThan(1e-8);
+        }
+      }
+    }
+  } finally { geometry.dispose(); mesh.material.dispose(); }
+});
+
+it('hits the recorded flat Float32 boundary without falling back to a full mesh scan', () => {
+  const geometry = new THREE.PlaneGeometry(8, 8, 260, 260); geometry.rotateX(-Math.PI / 2);
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  mesh.position.set(0.3, 0.5, -0.1); mesh.rotation.set(0.1, 0.2, 0.05); mesh.scale.set(0.8, 0.7, 1.1); mesh.updateMatrixWorld(true);
+  const origin = mesh.localToWorld(new THREE.Vector3(3.2, 10, -2.3));
+  const target = mesh.localToWorld(new THREE.Vector3(3.2, 0, -2.3));
+  const ray = new THREE.Raycaster(origin, target.sub(origin).normalize()), native = ray.intersectObject(mesh)[0];
+  const nativeScan = vi.spyOn(mesh, 'raycast'), triangles = vi.spyOn(THREE.Ray.prototype, 'intersectTriangle');
+  try {
+    const hit = new TerrainRaycast().closest(ray, [mesh]);
+    expect(native).toBeTruthy(); expect(hit).toBeTruthy();
+    expect(hit!.point.distanceTo(native.point)).toBeLessThan(1e-10);
+    expect(nativeScan).not.toHaveBeenCalled(); expect(triangles.mock.calls.length).toBeLessThanOrEqual(8);
+  } finally { nativeScan.mockRestore(); triangles.mockRestore(); geometry.dispose(); mesh.material.dispose(); }
+});
+
+it('matches native rays across translated irregular relief with miniature scale and clipped distances', () => {
+  const geometry = new THREE.PlaneGeometry(750, 750, 32, 32); geometry.rotateX(-Math.PI / 2); geometry.translate(1137, 0, -2349);
+  const positions = geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) positions.setY(i, 90 * Math.sin(i * 1.7) + 25 * Math.cos(i * 0.3));
+  positions.needsUpdate = true; geometry.computeBoundingSphere();
+  const original = geometry.index!.array.slice(), index = geometry.index!; let count = 0;
+  for (let cell = 0; cell < 32 * 32; cell++) if (cell % 5 !== 0) {
+    for (let i = 0; i < 6; i++) index.setX(count++, original[cell * 6 + i]);
+  }
+  index.needsUpdate = true; geometry.setDrawRange(0, count);
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  mesh.position.set(0.3, 0.5, -0.1); mesh.rotation.set(0.1, 0.2, 0.05); mesh.scale.set(0.00002, 0.000017, 0.000022); mesh.updateMatrixWorld(true);
+  const picker = new TerrainRaycast(); let seed = 7193;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  try {
+    for (let i = 0; i < 512; i++) {
+      mesh.material.side = [THREE.DoubleSide, THREE.FrontSide, THREE.BackSide][i % 3];
+      const origin = mesh.localToWorld(new THREE.Vector3(1137 + (random() - 0.5) * 1000, (random() - 0.5) * 500, -2349 + (random() - 0.5) * 1000));
+      const target = mesh.localToWorld(new THREE.Vector3(1137 + (random() - 0.5) * 750, (random() - 0.5) * 100, -2349 + (random() - 0.5) * 750));
+      const ray = new THREE.Raycaster(origin, target.sub(origin).normalize(), i % 7 === 0 ? 0.001 : 0, i % 11 === 0 ? 0.004 : Infinity);
+      const native = ray.intersectObject(mesh)[0] ?? null, hit = picker.closest(ray, [mesh]);
+      expect(hit === null, `ray ${i}`).toBe(native === null);
+      if (hit && native) expect(hit.point.distanceTo(native.point), `ray ${i}`).toBeLessThan(1e-10);
+    }
+  } finally { geometry.dispose(); mesh.material.dispose(); }
+});
+
 it.each([16, 260])('reuses authoritative coverage across pickers and invalidates changed indices/ranges (%i)', segments => {
   const grid = { width: 8, depth: 8, segmentsX: segments, segmentsZ: segments };
   const geometry = new THREE.PlaneGeometry(8, 8, segments, segments); geometry.rotateX(-Math.PI / 2);
