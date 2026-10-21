@@ -24,7 +24,17 @@ Fine ground is visible in 356/368 playing/following samples (96.7%), with nine f
 
 [Desktop/mobile controls](terrain-publication/controls-local.json) pass Follow, upcoming-ground/pause cleanup, manual takeover, anchored model/camera ownership, sampled ridge clearance, imports and landmark navigation. [Geographic/stereo/fade/recovery checks](terrain-publication/controlled-local.json) retain the previous visual results and recover a bitwise-identical image after actual graphics-context loss. Earlier local experiments had inconsistent initial imagery readiness, including two 90-second readiness timeouts and a separate 37-second overview. The final full tour reaches overview in 4.0 seconds; this variation leaves cold loading acceptance open.
 
-Clean hosted release evidence is recorded below after completion.
+## Published checkpoint
+
+Application `279b2f5b4a163f3c5a32debbc3c8db06ca14cd26` passed [CI](https://github.com/delphimon/trekviewer/actions/runs/39526299157), was rebuilt with a clean tree, credential-scanned and published successfully to [TrekViewer](https://trekviewer.surge.sh/). Exact build: `279b2f5-2026-10-21T01:16:08.502Z`, entry `index-BYD2HhvA.js`.
+
+The [hosted complete tour](terrain-publication/hosted-full-tour-279b2f5.json) confirms that exact client and measures 1,228 constructions: **244.4 ms total, 0.1 ms median, 0.2 ms p95 and 13.8 ms maximum**, versus 4,857.5/3.7/5.9/15.7 ms in the previous hosted baseline. The observed aggregate interval falls about 95%; the remaining maximum makes clear that this does not remove every render-thread stall. It is not a frame-rate or GPU claim.
+
+Terrain work remains almost unchanged: 1,230 chunk jobs across 737 IDs (493 repeats), 1,206 publications across 734 IDs (472 repeats), and 1,172 removals. There are 1,360 browser export request events covering 876 distinct URLs, including cancelled/cached events rather than proven wire transfers. Fine ground is visible in **354/368 playing/following samples (96.2%)**, versus 358/367 in the repeat baseline; there is no established loading/coverage improvement. Ten samples are fetching, three decoded and one building, with upcoming ground selected in all 368 samples. Application-ready takes 5.588 seconds and overview 6.701 seconds after navigation. First fine observation is 1.751 seconds after monitoring begins, not after navigation. Source/service timing remains uncontrolled.
+
+Two workers stay alive without restarts. Requested local export spacing remains approximately 1.0001 m, with approximately 4.96/94 m local/overview mesh cells. Hosted imagery/marker gates pass with no page/GL errors: maximum mean 0.05597/255, RMS 1.4468/255 and 0.655% changed pixels. [Hosted geographic/stereo/fade/recovery checks](terrain-publication/controlled-hosted-279b2f5.json) retain previous visual results and restore a bitwise-identical image after actual context loss. [Hosted desktop/mobile controls](terrain-publication/controls-hosted-279b2f5.json) pass the same Follow, hint cleanup, ownership, manipulation, ridge clearance, import and navigation gates.
+
+The separate [private account-path check](terrain-publication/private-bing-279b2f5.json) passes a 30-second hosted run with 121/125 fine-ground samples and the existing image/marker tolerances. Supplying imagery remains grouped as “other”; this verifies private Cesium/Bing account-path compatibility, not Bing-wide source quality/coverage. Credentials remain in browser memory only, and the hosted default stays public-source. The evidence-only follow-up retains this exact tested application build.
 
 ## Remaining acceptance
 

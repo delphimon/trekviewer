@@ -154,7 +154,7 @@ These checkmarks mean implemented and tested in their documented environments. T
 
 - [x] Transfer prepared indices/bounds and adopt the worker-owned arrays using a constant-size grid shell. Preserve regular-grid traversal/clipping, exact geometry/UVs/normals, terrain sampling, exaggeration, source quality and all selection/resource limits.
 - [x] Verify 711 Windows tests, both typechecks and the production build; benchmark exact prepared-geometry parity and add real-transfer/16-bit/32-bit index/picking regressions. Exclude the unproven tile-retention experiment. See [terrain publication evidence](review-2026-10-20/TERRAIN_PUBLICATION.md).
-- [ ] Publish after CI, a clean stamped rebuild and exact hosted full-tour, control and graphics-recovery checks.
+- [x] Publish clean `279b2f5` after passing [CI](https://github.com/delphimon/trekviewer/actions/runs/39526299157). Exact hosted full-tour checks reproduce 0.1 ms median / 0.2 ms p95 construction (previous 3.7/5.9 ms), with control, graphics-recovery and private account-path checks passing. [Release evidence and limits](review-2026-10-20/TERRAIN_PUBLICATION.md). Remaining churn, loading and native gates stay open.
 - [ ] Resolve repeated terrain work, loading consistency, overview DEM detail and native performance/visual acceptance.
 
 ### 1. Make High's actual XR rendering quality explicit
