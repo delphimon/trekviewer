@@ -2,8 +2,14 @@ import { readBoundedBlob } from '../terrain/PersistentResourceCache.ts';
 import { runTerrainJob } from '../terrain/TerrainJobs.ts';
 import type { DecodedElevation } from '../terrain/LercElevation.ts';
 import type { OfflinePlan, OfflineResource } from './OfflinePlan.ts';
-import { OfflineStore, hashOfflineBlob, offlineSourceAllowed, type OfflinePackState } from './OfflineStore.ts';
+import { OfflineStore, hashOfflineBlob, offlineSourceAllowed, type OfflinePackState, type OfflineAsset } from './OfflineStore.ts';
 import { requireOfflineCapacity } from './OfflineCapacity.ts';
+import { sameOfflineSource } from './OfflineSourceIdentity.ts';
+
+export interface OfflineAcquisition {
+  message: string;
+  load(position: number, signal: AbortSignal, retained?: OfflineAsset): Promise<{ blob: Blob; sourceUrl: string }>;
+}
 
 export async function validateOfflineResource(resource: OfflineResource, blob: Blob, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) throw new DOMException('Download paused', 'AbortError');
@@ -50,28 +56,44 @@ export class OfflineDownloads {
     });
   }
   public static async start(plan: OfflinePlan): Promise<void> {
+    return this.prepare(async () => ({ plan }));
+  }
+  /** The same ownership/pause/quota/publication path handles downloads and file
+   * imports, including asynchronous manifest and route preparation. */
+  public static async prepare(resolve: (signal: AbortSignal) => Promise<{ plan: OfflinePlan; source?: OfflineAcquisition }>): Promise<void> {
     if (this.busy()) throw Error('A route download is already running.');
-    if (!plan.resources.length || new Set(plan.resources.map(r => r.urls[0])).size !== plan.resources.length
-      || plan.resources.some(r => !r.urls.length || r.urls.some(url => !offlineSourceAllowed(url)))) throw Error('Invalid offline download inventory.');
     const controller = new AbortController(); this.controller = controller;
     try {
       await this.withLock(async () => {
+        const { plan, source } = await resolve(controller.signal);
+        if (controller.signal.aborted) throw new DOMException('Preparation paused', 'AbortError');
+        if (!plan.resources.length || new Set(plan.resources.map(r => r.urls[0])).size !== plan.resources.length
+          || plan.resources.some(r => !r.urls.length || r.urls.some(url => !offlineSourceAllowed(url)))
+          || !OfflineStore.compatible({ routeId: plan.routeId, routeHash: plan.routeHash } as OfflinePackState)) throw Error('Invalid offline download inventory or route revision.');
         const previous = await OfflineStore.state(plan.id);
         if (previous?.state === 'ready') return;
         const persisted = await navigator.storage.persist?.().catch(() => false);
         let state: OfflinePackState = { id: plan.id, routeId: plan.routeId, routeHash: plan.routeHash, name: plan.name,
           state: 'downloading', total: plan.resources.length, completed: previous?.completed ?? 0, bytes: previous?.bytes ?? 0, estimatedBytes: plan.estimatedBytes,
-          message: persisted ? 'Downloading • storage persistence granted' : 'Downloading • browser may reclaim storage', updated: Date.now() };
+          message: `${source?.message ?? 'Downloading'} • ${persisted ? 'storage persistence granted' : 'browser may reclaim storage'}`, updated: Date.now() };
         await OfflineStore.putState(state);
         try {
           let verified = 0, verifiedBytes = 0;
-          for (const resource of plan.resources) {
+          for (let position = 0; position < plan.resources.length; position++) {
+            const resource = plan.resources[position];
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
             const retained = await OfflineStore.stored(plan.id, resource);
             let asset = retained;
             if (asset && (asset.bytes !== asset.blob.size || asset.sha256 !== await hashOfflineBlob(asset.blob))) asset = undefined;
             let blob = asset?.blob, sourceUrl = asset?.sourceUrl ?? '';
-            if (!blob) {
+            if (source) {
+              if (!asset) await requireOfflineCapacity();
+              const loaded = await source.load(position, controller.signal, asset);
+              blob = loaded.blob; sourceUrl = loaded.sourceUrl;
+              if (!offlineSourceAllowed(sourceUrl) || !sameOfflineSource(sourceUrl, resource.urls) || !blob.size || blob.size > (resource.kind === 'image' ? 8 : 32) * 1024 * 1024) throw Error('Invalid imported source');
+              await validateOfflineResource(resource, blob, controller.signal);
+              if (asset && asset.sha256 !== await hashOfflineBlob(blob)) asset = undefined;
+            } else if (!blob) {
               // Check actual shared usage, not the uncompressed planning budget.
               // Already-saved sources can still be verified/published when full.
               await requireOfflineCapacity();
@@ -107,7 +129,7 @@ export class OfflineDownloads {
           if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
           await OfflineStore.publish(plan, verified, verifiedBytes);
         } catch (error) {
-          await OfflineStore.putState({ ...state, state: 'paused', message: controller.signal.aborted ? 'Paused. Resume keeps completed downloads.'
+          await OfflineStore.putState({ ...state, state: 'paused', message: controller.signal.aborted ? 'Paused. Resume downloading or reselect the pack file to keep completed sources.'
             : error instanceof DOMException && error.name === 'QuotaExceededError' ? 'Browser storage is full. Free space, then resume.'
             : (error instanceof Error ? error.message : 'Download interrupted. Resume to retry.'), updated: Date.now() });
           if (!controller.signal.aborted) throw error;

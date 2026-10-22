@@ -1,0 +1,55 @@
+# Portable route preparation and import
+
+Rainier and Enchantments remain the default downloads. This checkpoint adds a desktop preparation command and **Import route pack** in Settings. A complete prepared archive can be copied to another computer/device and imported without acquiring its terrain or imagery again. Full real-route acquisition, multi-GB recovery, native file selection/offline tours and the signed installed app remain unaccepted. No headset is queried or launched.
+
+## User flow and preparation
+
+In Settings, choose **Import route pack** and select the prepared `.trekpack.tar` file. Playback must be paused and VR/MR exited. Pause, playback, XR entry and page exit stop preparation; reselect the same file to resume. Valid committed sources are retained. A pack becomes ready only after all current-plan sources pass hash and coverage checks and publication commits atomically. An already-ready pack is kept; remove it explicitly before importing a replacement under the same plan identity. Temporary-cache clearing retains downloaded/imported packs.
+
+The developer preparation command uses Node (reproduced on 24.21.0), the existing Playwright/Edge validation tools, and the production elevation-worker/Canvas validators. It has no acquisition side effect by default:
+
+```powershell
+node --experimental-transform-types scripts/build-offline-route-pack.mjs --route rainier-emmons
+node --experimental-transform-types scripts/build-offline-route-pack.mjs --route enchantments-dragontail
+```
+
+Those commands write complete inventories and report missing cached sources; exit code 2 means sources are missing and no finished archive was produced. Add `--download` to explicitly acquire missing/invalid sources and prepare the complete archive:
+
+```powershell
+node --experimental-transform-types scripts/build-offline-route-pack.mjs --route rainier-emmons --download
+node --experimental-transform-types scripts/build-offline-route-pack.mjs --route enchantments-dragontail --download
+```
+
+The default output is `.review-cache/prepared-route-packs/output/<route>.trekpack.tar`. `--cache` and `--out` select other directories; `--identity` omits gzip for browsers without gzip decompression support. `TREK_PLAYWRIGHT_MODULE` and `TREK_EDGE_EXECUTABLE` select existing browser tooling on another development PC. No tooling is installed automatically. Sources use one bounded acquisition/validation lane, 35 seconds per attempt and 8 MiB per image / 32 MiB per DEM. Original cached bodies are hash-checked and coverage-validated on resume. Completed sources survive interruption. Graceful interruption releases the preparation lock; hard-kill/stale-lock recovery and complete multi-GB runs still need acceptance.
+
+Preparation uses original public USGS PNG and zero-tolerance Float32 LERC requests for the full High surrounding model through Z19. It does not lower image resolution, change mesh sampling, fill missing heights, include private Bing data or enable the compact-request experiment. Both normal High base-grid profiles are represented. Source gaps stop preparation rather than yielding a supposedly complete coarse fallback. Browser export of an already-downloaded pack and a geographic source index remain follow-ups.
+
+## Container and bounded import
+
+The container uses a restricted regular-file subset of [POSIX USTAR](https://www.gnu.org/software/tar/manual/html_node/Standard.html). A normal TAR reader can inspect it. It contains `trekviewer-pack.json` first, then ordered `sources/000000.bin` or `.bin.gz` members and two zero ending blocks. The whole archive is not gzipped, so the browser can seek by file offset and resume. Links, extension records, duplicate/out-of-order members, extra trailing content, invalid checksums and mismatched sizes are rejected. No member is extracted to an arbitrary filesystem path.
+
+The version-1 manifest is bounded to 8 MiB / 20,000 records. It binds the route's full GPX hash, current plan identity and full source/layout fingerprint. Each source record carries its index, approved-provider alias index, original/stored byte sizes and SHA-256 hashes, optional gzip encoding, original request hash and original Mercator coordinates where needed. URLs are reconstructed from the current app's approved plan, never supplied as arbitrary archive URLs.
+
+A cross-runtime regression found final-ULP differences in projected coordinates: for example Node produced `5918272.071436257` where the browser produced `5918272.071436258` metres. Archive identity alone normalizes 3DEP EPSG:3857 bounding coordinates to millimetre bins. Dimensions, sample windows, service, other request parameters and all imagery URLs remain exact. The original PC coordinates/request hash are retained and verified, and the stored source provenance preserves that original request while lookup aliases match the local browser. Live request URLs, source bytes and geometry are unchanged. Centimetre extent changes and changed resolution/error tolerance/service are rejected.
+
+The browser reads bounded manifest/header slices and one source body at a time. Gzip elevation uses the capability-checked [DecompressionStream API](https://developer.mozilla.org/en-US/docs/Web/API/DecompressionStream); output is bounded by its declared original length. Stored and original hashes are checked, then the production PNG/LERC coverage validators run. Imports share the downloader's browser-wide Web Lock, cancellation ownership, quota checks, staged storage and atomic publication. Preflight itself is cancellable, and a late file-picker selection cannot start preparation during pending XR entry or playback.
+
+Imported bodies are restored to the existing original PNG/LERC storage format. No database migration or gzip decode is added to playback, and earlier app tabs can still read original bodies. Gzip reduces archive component size, not the final original-body footprint. The selected archive also remains on the device's filesystem, so allow storage for both copies. Actual browser usage is checked per write; a quota/write failure pauses with committed progress retained. Hashes check local consistency, not the archive creator's identity or independently authenticated source provenance.
+
+## Validation and acceptance
+
+`npm run verify` passes both typechecks, **765 Windows tests with five platform skips**, and the production build. Regressions cover source/layout/revision binding, exact gzip/original byte round trips, stored corruption, decompression expansion, malformed/truncated/oversized headers and manifests, traversal names, trailing/duplicate entries, cancellation and offsets above 4 GB. The large-offset test is virtual metadata, not an acquired multi-GB pack.
+
+The actual PC producer creates a **3,150,336-byte controlled component fixture** from the real Rainier LERC fixture and two retained real PNGs. System `tar.exe -tf` independently lists its expected manifest and three members. A damaged cached body prevents the final archive filename from being published. This controlled identity cannot masquerade as a complete Rainier or Enchantments pack in the production UI. The browser test imports this fixture through a same-source debug helper to exercise actual IndexedDB, Web Locks, native gzip and worker/Canvas validation; production file-picker rejection/ownership guards are checked separately. Full real-route import is not inferred from it.
+
+The complete default source inventories still contain **5,337 Rainier** and **8,177 Enchantments** sources. The prior bounded public-source cache supplies only eight per route; inventory-only preparation reports **5,329 / 8,169 missing**, without starting bulk acquisition or producing finished default archives. Source-native repackaging, exact complete installed sizes, complete real-pack offline tours, hard-kill/update behavior at multi-GB scale, Quest storage/file-picker/comfort/performance and signed APK acceptance remain open. Local/hosted release evidence is recorded below after the final browser checks.
+
+To reproduce the manual browser integration checks on a fresh development checkout, run the bounded real-source probe first, then `node --experimental-transform-types scripts/check-offline-archive-preparation.mjs`. Run both inventory-only preparation commands with `--cache .review-cache/offline-real-defaults --out .review-cache/portable-packs/inventory`, then build the app and run `node scripts/check-offline-downloads-browser.mjs`. Only the initial probe acquires its sixteen selected public resources; the integration fixture reuses those accepted bodies. These files stay under ignored `.review-cache`, outside the deployable site and Git.
+
+## Local release gate
+
+The final local build **`da8ce2a-modified-2026-10-22T03:40:11.006Z`** passes [archive/storage and exact cached shell/worker checks](portable-packs/local-offline.json), [desktop/mobile controls](portable-packs/local-controls.json) and [graphics/context recovery](portable-packs/local-graphics.json). The [PC preparation fixture](portable-packs/preparation-fixture.json) is independently readable by system TAR. Its browser import issues zero source requests, pauses after the DEM, resumes with committed writes exactly `[1,2,3]`, preserves all original body hashes and original request provenance across a simulated final-ULP runtime alias difference, rejects damaged data/route revision, and cancels during preflight. The actual production file picker rejects the controlled fixture's unsupported route and a truncated file, and blocks import during playback/pending XR entry. This does not establish native file-picker behavior or a full real-route import.
+
+PC and production-browser fingerprints agree on both complete default source inventories; the [Rainier](portable-packs/rainier-inventory.json) and [Enchantments](portable-packs/enchantments-inventory.json) inventory-only checks retain their counts and explicitly report unfinished acquisition. With networking disabled, the exact built worker `TerrainWorker-DXLha-wI.js` (SHA-256 `47c7a381372c3d90aeba97cbb6d4adc5e2b9878a9422ccf1f274c106c29d6ec9`) reproduces all 2,162 reference height samples and Float32 SHA-256 `f031eece8d47b84ffc0a6a7225e07cb6449f27cdf9e071d72c7c419b6ff60ee1`. Shell-only startup uses existing missing-source fallbacks; it is not a complete offline High tour.
+
+The isolated [local full tour](portable-packs/local-tour.json) passes existing image/marker/normal/index and 2x/1x transition gates. Fine terrain is present in **227/367 samples (61.9%)**, first observed 1.50 seconds after monitoring begins; ready time is 3.40 seconds, with 405 builds including 116 repeats. Live loading remains inconsistent and is not represented as improved by archive import. Exact clean hosted release checks follow publication; no native frame-rate or subjective quality acceptance is inferred from browser checks.

@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { build } from 'vite';
 import { createHash } from 'node:crypto';
 import * as Lerc from 'lerc';
+import { checkOfflineArchiveImport } from './offline-archive-browser-check.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base = process.env.TREK_OFFLINE_URL ?? 'https://127.0.0.1:4218/';
@@ -18,6 +19,7 @@ export { PersistentResourceCache } from ${JSON.stringify(path.resolve('src/terra
 export { planOfflineRoute, sha256 } from ${JSON.stringify(path.resolve('src/offline/OfflinePlan.ts'))};
 export { GPXParser } from ${JSON.stringify(path.resolve('src/gpx/GPXParser.ts'))};
 export { disposeTerrainJobs } from ${JSON.stringify(path.resolve('src/terrain/TerrainJobs.ts'))};
+export { inspectOfflineArchive, offlineArchiveSource, archiveInventoryHash } from ${JSON.stringify(path.resolve('src/offline/OfflineArchive.ts'))};
 `);
 await build({ configFile: false, base: './', logLevel: 'error', build: { outDir: helper, emptyOutDir: true, target: 'esnext',
   lib: { entry, formats: ['es'], fileName: () => 'offline-test.js' } } });
@@ -68,6 +70,18 @@ try {
   await page.screenshot({ path: path.join(out, 'settings.png') });
   await page.addScriptTag({ type: 'module', content: `import * as h from '/__offline-test/offline-test.js'; window.__offlineTest=h;` });
   await page.waitForFunction(() => !!window.__offlineTest);
+  const planFingerprints = await page.evaluate(async () => Promise.all(window.__trekViewerApp.overlay.offlineDownloads.plans.map(async plan => ({
+    routeId: plan.routeId, inventorySha256: await window.__offlineTest.archiveInventoryHash(plan) }))));
+  for (const row of planFingerprints) {
+    const pc = JSON.parse(fs.readFileSync(`.review-cache/portable-packs/inventory/${row.routeId}.inventory.json`, 'utf8'));
+    if (row.inventorySha256 !== pc.inventorySha256) {
+      const actual = await page.evaluate(id => window.__trekViewerApp.overlay.offlineDownloads.plans.find(p => p.routeId === id), row.routeId);
+      const expected = JSON.parse(fs.readFileSync(`.review-cache/portable-packs/inventory/${row.routeId}.plan.json`, 'utf8'));
+      const differences = actual.resources.flatMap((resource, index) => JSON.stringify(resource) === JSON.stringify(expected.resources[index]) ? [] : [{ index, browser: resource, pc: expected.resources[index] }]);
+      fs.writeFileSync(path.join(out, 'plan-differences.json'), JSON.stringify({ routeId: row.routeId, differences: differences.slice(0, 5), totalDifferences: differences.length }, null, 2));
+    }
+    assert.equal(row.inventorySha256, pc.inventorySha256, 'Production browser and PC preparer must agree on the complete source contract');
+  }
   const fixture = fs.readFileSync('test/fixtures/elevation/rainier-3dep-window.lerc').toString('base64');
   const fixtureMetadata = JSON.parse(fs.readFileSync('test/fixtures/elevation/rainier-3dep-window.json', 'utf8'));
   await Lerc.load({ locateFile: () => require.resolve('lerc/lerc-wasm.wasm') });
@@ -168,6 +182,7 @@ try {
       managementLockRejected: lockRejected, capacityRejected, encodedPackBelowRawBudget: true, fullStagingPublishesWithoutNewDataQuota: true,
       sharedUsageChangePausedAndResumed: true, incrementalPaused, quotaWritePreservedProgress: true, imageBytes: image.size, demBytes: dem.size };
   }, { encoded: fixture, request: fixtureMetadata.request });
+  const archiveImport = await checkOfflineArchiveImport(page);
   const sw = await page.evaluate(async () => {
     let timer;
     const registration = await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Offline shell installation timed out')), 30000); })]);
@@ -227,6 +242,6 @@ try {
   });
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify({ condition: 'Production shell/default selections and generated helper built from the same source. Controlled three-source storage fixture, real lossless Rainier decoder fixture, actual IndexedDB/Web Locks/Canvas/worker. Network-disabled app shell/catalogue startup uses existing fallbacks; this does not establish full offline High terrain, multi-GB acquisition, installed APK or native acceptance.',
-    build: expected, defaults, estimate, inventories, state, sw, offline, offlineWorker, damaged, externalAborted: external, errors }, null, 2) + '\n');
+    build: expected, defaults, estimate, inventories, planFingerprints, state, archiveImport, sw, offline, offlineWorker, damaged, externalAborted: external, errors }, null, 2) + '\n');
   console.log(JSON.stringify({ build: expected.id, defaults, passed: true, out }));
 } finally { await browser?.close(); server?.kill(); }

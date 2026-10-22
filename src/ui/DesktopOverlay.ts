@@ -28,6 +28,7 @@ export interface OverlayCallbacks {
   onResetHorizon?: () => void;
   onFitTerrain?: () => void;
   onRetryGraphics?: () => void;
+  canPrepareOffline?: () => boolean;
 }
 
 export class DesktopOverlay {
@@ -70,7 +71,7 @@ export class DesktopOverlay {
     this.container = container;
     this.callbacks = callbacks;
     this.createDOM();
-    this.offlineDownloads = new OfflineDownloadsPanel(document.getElementById('offlineDownloads')!, () => !this.isPlaying);
+    this.offlineDownloads = new OfflineDownloadsPanel(document.getElementById('offlineDownloads')!, () => !this.isPlaying && (this.callbacks.canPrepareOffline?.() ?? true));
     this.setupEventListeners();
     const cacheToggle = document.getElementById('resourceCacheEnabled') as HTMLInputElement | null;
     if (cacheToggle) cacheToggle.checked = PersistentResourceCache.isEnabled();

@@ -1,4 +1,5 @@
 import type { OfflinePlan, OfflineResource } from './OfflinePlan.ts';
+import { sameOfflineSource } from './OfflineSourceIdentity.ts';
 declare const __OFFLINE_ROUTE_HASHES__: Record<string, string>;
 
 export interface OfflinePackState {
@@ -100,7 +101,7 @@ export class OfflineStore {
     });
   }
   public static async save(pack: OfflinePackState, resource: OfflineResource, sourceUrl: string, blob: Blob, sha256: string): Promise<void> {
-    if (!resource.urls.length || resource.urls.some(url => !offlineSourceAllowed(url)) || !resource.urls.includes(sourceUrl)
+    if (!resource.urls.length || resource.urls.some(url => !offlineSourceAllowed(url)) || !offlineSourceAllowed(sourceUrl) || !sameOfflineSource(sourceUrl, resource.urls)
       || !blob.size || blob.size > 32 * 1024 * 1024 || !/^[a-f0-9]{64}$/.test(sha256)) throw Error('Invalid offline source');
     await this.transaction<void>(['assets', 'packs'], 'readwrite', tx => {
       tx.objectStore('assets').put({ key: offlineAssetKey(pack.id, resource), packId: pack.id, urls: resource.urls,

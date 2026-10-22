@@ -2,6 +2,8 @@
 
 Status: delivery direction and staged implementation on October 21, 2026. The user selected Rainier and Enchantments as default downloads. A versioned offline shell and foreground download/pinned-storage path are implemented in [the defaults checkpoint](review-2026-10-21/OFFLINE_DEFAULTS.md). Complete multi-GB route acquisition, source-native repackaging, signed APK and installed/native offline acceptance remain open.
 
+The [portable-pack checkpoint](review-2026-10-21/PORTABLE_ROUTE_PACKS.md) adds complete-source PC preparation and bounded route-file import/resume. It retains original source pixels/heights and existing pinned storage. Its real three-component fixture and virtual large-offset test do not establish complete route acquisition or multi-GB/native acceptance. Browser export and geographic indexing remain open.
+
 The user asks to install selected routes with high-quality terrain/imagery so tours do not depend on constant downloads, and whether installation can improve on visiting the website. The recommended first implementation keeps the existing WebXR renderer, adds an offline application shell and explicit route packs, then produces an installable Quest APK. The website remains an update/download endpoint. A PWA wrapper alone does not bundle route data or remove the initial hosted-origin requirement.
 
 ## Current state and supported delivery

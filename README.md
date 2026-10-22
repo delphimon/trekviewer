@@ -58,6 +58,8 @@ The displayed 18.3 GB / 27.8 GB values are **uncompressed planning budgets**, no
 
 Only a completely validated pack becomes ready for offline rendering. Complete multi-GB acquisition and offline High tours of both defaults still need acceptance; the browser tests use a small controlled storage fixture. See [offline implementation and evidence](docs/review-2026-10-21/OFFLINE_DEFAULTS.md).
 
+Settings also provides **Import route pack** for prepared `.trekpack.tar` files. Copy a prepared archive to the target device, import it with playback paused and VR/MR exited, and reselect the same file after interruption to resume. Imported sources retain their original pixels/heights. The [portable-pack guide](docs/review-2026-10-21/PORTABLE_ROUTE_PACKS.md) includes the PC preparation commands, exact format, storage requirements and current acceptance limits. No complete Rainier or Enchantments archive is bundled into the website/APK by this checkpoint.
+
 ---
 
 ## 🖐️ Controls & Mixed Reality Interactions

@@ -263,6 +263,7 @@ export class TrekViewerApp {
 
     // 4. Desktop & Quest 2D Overlay
     this.overlay = new DesktopOverlay(uiContainer, {
+      canPrepareOffline: () => !this.xrEntryPending && !this.sceneManager.renderer.xr.isPresenting && !this.graphicsRecovery?.isSuspended,
       onRetryGraphics: () => { void this.graphicsRecovery?.recover(); },
       onSetHorizonLocked: (locked) => this.setHorizonLocked(locked),
       onResetHorizon: () => this.resetHorizon(),

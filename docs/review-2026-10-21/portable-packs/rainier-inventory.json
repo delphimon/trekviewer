@@ -1,0 +1,11 @@
+{
+  "planId": "rainier-emmons-high-public-v1-0e1942e8741f0b47",
+  "routeId": "rainier-emmons",
+  "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+  "inventorySha256": "720e81f85d5c9874924b3671ce7f71592eb1ae237550d54fa273e8fa3aedcfce",
+  "sources": 5337,
+  "missingSources": 5329,
+  "uncompressedBudgetBytes": 18336324288,
+  "mode": "Local inventory/cache check only; no network acquisition",
+  "complete": false
+}
