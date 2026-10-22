@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { openOfflinePreparationValidator } from './offline-preparation-validator.mjs';
 import { acquireOfflineSource, acquireOfflineResource, OfflineSourceHealth } from './offline-pack-acquisition.mjs';
+import { writePackProgress } from './offline-pack-progress.mjs';
 const sourceRoot = new URL('../src/', import.meta.url).href;
 registerHooks({ load(url, context, nextLoad) {
   if (url.startsWith(sourceRoot) && url.endsWith('.json')) return { format: 'module', shortCircuit: true,
@@ -67,12 +68,11 @@ else {
   pausePoll?.unref();
   const progressFile = path.join(output, id + '.progress.json'), started = Date.now();
   let validated = 0, originalSourceBytes = 0, storedSourceBytes = 0, retainedSources = 0, downloadedSources = 0, requestedAliases = 0, firstRequestedIndex;
-  const progress = (state, extra = {}) => {
+  const progress = async (state, extra = {}) => {
     const value = { routeId: id, planId: plan.id, pid: process.pid, state, validated, total: plan.resources.length,
       originalSourceBytes, storedSourceBytes, retainedSources, downloadedSources, requestedAliases, firstRequestedIndex,
       elapsedSeconds: (Date.now() - started) / 1000, updated: new Date().toISOString(), ...extra };
-    fs.writeFileSync(progressFile + '.partial', JSON.stringify(value, null, 2) + '\n');
-    fs.renameSync(progressFile + '.partial', progressFile);
+    await writePackProgress(progressFile, value);
   };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   const free = (bytes, directory = output) => {
@@ -80,7 +80,7 @@ else {
     if (s.bavail * s.bsize < BigInt(bytes) + 512n * 1024n * 1024n) throw Error('Not enough disk space. Retained sources can be reused after freeing space.');
   };
   try {
-    checkpoint(); progress('preparing');
+    checkpoint(); await progress('preparing');
     validator = await openOfflinePreparationValidator(path.join(cache, 'validator'));
     const records = [], files = [], health = new OfflineSourceHealth();
     for (let index = 0; index < plan.resources.length; index++) {
@@ -129,15 +129,15 @@ else {
       records.push({ index, sourceIndex: accepted.sourceIndex, encoding, bytes: original.length, sha256: sha(original), storedBytes: stored.length, storedSha256: sha(stored), ...await archiveRequestProvenance(accepted.url) });
       files.push(file);
       if (accepted.retained) retainedSources++; else downloadedSources++;
-      validated = index + 1; originalSourceBytes += original.length; storedSourceBytes += stored.length; progress('acquiring');
+      validated = index + 1; originalSourceBytes += original.length; storedSourceBytes += stored.length; await progress('acquiring');
       if ((index + 1) % 32 === 0 || index + 1 === plan.resources.length) console.log(JSON.stringify({ validated: index + 1, total: plan.resources.length }));
     }
-    checkpoint(); progress('writing-archive');
+    checkpoint(); await progress('writing-archive');
     const final = path.join(output, id + '.trekpack.tar'), result = await writeOfflineRouteArchive(plan, records, files, final, controller.signal, checkpoint);
     fs.writeFileSync(path.join(output, id + '.inventory.json'), JSON.stringify({ ...inventory, complete: true, ...result }, null, 2) + '\n');
     console.log(JSON.stringify({ complete: true, ...result, file: final }));
-    progress('complete', result);
+    await progress('complete', result);
   } catch (error) {
-    progress(controller.signal.aborted ? 'paused' : 'failed', { error: error.message }); throw error;
+    await progress(controller.signal.aborted ? 'paused' : 'failed', { error: error.message }); throw error;
   } finally { clearInterval(pausePoll); await validator?.close(); fs.closeSync(lockFd); fs.unlinkSync(lock); process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); }
 }

@@ -1,0 +1,1981 @@
+{
+  "condition": "Live Olympus route in desktop Edge with Quest base-geometry budget and profiling mode (no debug boundary meshes). Real network DEM and imagery, normal selection, worker terrain publication and tour following; paired images hold the same scene/state synchronously. CPU preparation is a synchronous batch-settle stress operation, not normal per-frame or native GPU timing. Detail monitoring samples at 250 ms; native acceptance remains separate.",
+  "evidence": "Derived summary of the local raw report; tile IDs and counters are model data, not native headset performance.",
+  "inputReport": ".review-cache/naip-gap-v2/hosted-final-private/browser.json",
+  "inputSha256": "fcaa4058f4a75ee9edce1c6cb3622aa17f14c31df9db492e15c27d4d109476f0",
+  "build": {
+    "id": "4d0a5f0-2026-10-22T20:47:14.831Z",
+    "sha": "4d0a5f02157f38a992229ff0efc5213af8a5e837",
+    "shortSha": "4d0a5f0",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-22T20:47:14.831Z",
+    "label": "TrekViewer 1.0.0 • 4d0a5f0"
+  },
+  "entry": "index-CGd-J5sN.js",
+  "provider": "private-cesium-bing",
+  "fullTour": false,
+  "readyElapsedMs": 4506,
+  "detail": {
+    "samples": 124,
+    "fineAtHikerSamples": 119,
+    "maxFocusToVisualM": 6.390564780883075e-10,
+    "maxAnalyticalToVisualM": 953.542753468485,
+    "firstFineAfterMonitorMs": 1751.199999988079
+  },
+  "stages": {
+    "fetching": 4,
+    "visible": 119,
+    "decoded": 1
+  },
+  "upcomingTilePlannedSamples": 124,
+  "builds": {
+    "total": 384,
+    "distinctTiles": 280,
+    "repeats": 104
+  },
+  "publications": {
+    "total": 371,
+    "distinctTiles": 273,
+    "repeats": 98,
+    "removals": 337
+  },
+  "elevationRequestEvents": {
+    "total": 457,
+    "unique": 382
+  },
+  "workers": {
+    "created": 2,
+    "closed": 0
+  },
+  "jobs": {
+    "lerc": {
+      "count": 403,
+      "postMs": 13.699998676776886,
+      "maxPostMs": 0.19999998807907104,
+      "maxElapsedMs": 191.39999997615814,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    },
+    "finalize": {
+      "count": 1,
+      "postMs": 3.5,
+      "maxPostMs": 3.5,
+      "maxElapsedMs": 42.60000002384186,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    },
+    "surface": {
+      "count": 144,
+      "postMs": 145.29999965429306,
+      "maxPostMs": 15,
+      "maxElapsedMs": 349.80000001192093,
+      "sourceBytes": 234651672,
+      "uncachedSourceBytes": 680355504,
+      "baseBytes": 0,
+      "uncachedBaseBytes": 0,
+      "gridBytes": 0
+    },
+    "chunk": {
+      "count": 384,
+      "postMs": 335.7000000476837,
+      "maxPostMs": 2.5,
+      "maxElapsedMs": 190.70000004768372,
+      "sourceBytes": 0,
+      "uncachedSourceBytes": 0,
+      "baseBytes": 499380,
+      "uncachedBaseBytes": 191761920,
+      "gridBytes": 1403805696
+    }
+  },
+  "byTile": [
+    {
+      "id": "5:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "6:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "6:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "6:26",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "6:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "7:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "7:24",
+      "builds": 2,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "7:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "7:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "8:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "8:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "9:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "9:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "10:11",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "10:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "10:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "10:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "11:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "11:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "11:25",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "12:11",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "12:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "12:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "12:24",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "12:25",
+      "builds": 2,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "13:11",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "13:18",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "13:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "13:28",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "14:10",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "14:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "14:18",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "14:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "14:25",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "15:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "15:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "15:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "15:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "15:25",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "16:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "16:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "16:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "16:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "16:24",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "16:25",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "16:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "17:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "17:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "17:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "17:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "17:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "17:28",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "18:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "18:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "18:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "18:18",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "18:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "18:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "18:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "19:12",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "19:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "19:18",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "19:23",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "19:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "19:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:12",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "20:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "20:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "20:25",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "20:28",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "21:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "21:24",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "21:25",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "22:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "22:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:24",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "22:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "22:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:8",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "23:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:23",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "23:25",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "23:26",
+      "builds": 2,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "23:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "23:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "23:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "24:8",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:13",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "24:19",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "24:23",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "24:25",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "24:26",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "25:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:12",
+      "builds": 2,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:13",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "25:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "25:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "25:26",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "25:31",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "26:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "26:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "26:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "26:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "26:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "26:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "26:25",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "26:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "27:18",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "27:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:20",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "27:21",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "27:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:23",
+      "builds": 3,
+      "published": 3,
+      "removed": 2
+    },
+    {
+      "id": "27:24",
+      "builds": 3,
+      "published": 3,
+      "removed": 2
+    },
+    {
+      "id": "27:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "27:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "28:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "28:10",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "28:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "28:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "28:17",
+      "builds": 3,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "28:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "28:23",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "28:24",
+      "builds": 2,
+      "published": 3,
+      "removed": 2
+    },
+    {
+      "id": "28:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "28:26",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "28:27",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "28:28",
+      "builds": 3,
+      "published": 2,
+      "removed": 1
+    },
+    {
+      "id": "28:29",
+      "builds": 2,
+      "published": 2,
+      "removed": 1
+    },
+    {
+      "id": "29:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:21",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "29:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:24",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "29:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "29:29",
+      "builds": 2,
+      "published": 2,
+      "removed": 1
+    },
+    {
+      "id": "29:30",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "29:31",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:26",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "30:34",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "31:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "31:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "31:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "31:23",
+      "builds": 3,
+      "published": 3,
+      "removed": 3
+    },
+    {
+      "id": "31:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:11",
+      "builds": 2,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:14",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "32:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "32:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:21",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:22",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "32:23",
+      "builds": 4,
+      "published": 4,
+      "removed": 3
+    },
+    {
+      "id": "32:24",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "32:27",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "32:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "32:31",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "32:32",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "33:10",
+      "builds": 1,
+      "published": 0,
+      "removed": 0
+    },
+    {
+      "id": "33:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:14",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "33:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:23",
+      "builds": 3,
+      "published": 3,
+      "removed": 2
+    },
+    {
+      "id": "33:24",
+      "builds": 3,
+      "published": 3,
+      "removed": 2
+    },
+    {
+      "id": "33:25",
+      "builds": 2,
+      "published": 2,
+      "removed": 1
+    },
+    {
+      "id": "33:26",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "33:29",
+      "builds": 2,
+      "published": 2,
+      "removed": 1
+    },
+    {
+      "id": "33:30",
+      "builds": 2,
+      "published": 2,
+      "removed": 1
+    },
+    {
+      "id": "33:33",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "34:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "34:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "34:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "34:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "34:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "34:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "35:9",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "35:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "35:23",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "35:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "36:17",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "36:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "36:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "36:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "36:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "36:31",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "36:34",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "37:17",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "37:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "37:26",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "37:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "37:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "37:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "38:10",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "38:18",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "38:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "38:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "38:21",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "38:22",
+      "builds": 2,
+      "published": 2,
+      "removed": 2
+    },
+    {
+      "id": "38:23",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "39:11",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "39:12",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "39:13",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "39:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "39:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "39:24",
+      "builds": 0,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "40:15",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "40:16",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "40:18",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "41:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "41:25",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "41:26",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "41:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "41:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "42:19",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "42:29",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "43:20",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "43:21",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "43:22",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "44:24",
+      "builds": 1,
+      "published": 1,
+      "removed": 0
+    },
+    {
+      "id": "52:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "52:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "53:27",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    },
+    {
+      "id": "53:28",
+      "builds": 1,
+      "published": 1,
+      "removed": 1
+    }
+  ],
+  "terrainNormals": {
+    "condition": "Real streamed coverage retained while changing exaggeration; exact normals against the full original regular-grid triangle ordering.",
+    "chunks": 34,
+    "results": [
+      {
+        "factor": 2,
+        "normalMismatches": 0,
+        "sameIndexAttribute": true,
+        "sameIndexBytes": true,
+        "sameDrawCount": true
+      },
+      {
+        "factor": 1,
+        "normalMismatches": 0,
+        "sameIndexAttribute": true,
+        "sameIndexBytes": true,
+        "sameDrawCount": true
+      },
+      {
+        "factor": 1,
+        "normalMismatches": 0,
+        "sameIndexAttribute": true,
+        "sameIndexBytes": true,
+        "sameDrawCount": true
+      }
+    ]
+  },
+  "resourceCacheAudit": null,
+  "baseIndexAudit": null,
+  "mainChunkConstruction": {
+    "count": 383,
+    "totalMs": 80.90000027418137,
+    "medianMs": 0.10000002384185791,
+    "p95Ms": 0.20000004768371582,
+    "maxMs": 11.099999964237213,
+    "condition": "Worker message receipt through async chunk construction; includes promise scheduling, excludes later validation, imagery promotion and GPU upload."
+  },
+  "comparisons": [
+    {
+      "label": "overview",
+      "elapsedMs": 5641,
+      "legacyCalls": 107,
+      "batchedCalls": 97,
+      "mean": 0.00982625,
+      "rms": 0.4032462027099573,
+      "changedPixels": 928,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 1.000073900910897,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 0,
+      "playing": false,
+      "chunks": 8,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 4,
+        "status": "active",
+        "pages": 1,
+        "patches": 10,
+        "uploads": 20,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 15.5,
+        "maxPreparationMs": 2.600000023841858,
+        "arrayBytes": 11184768,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-15s",
+      "elapsedMs": 21439,
+      "legacyCalls": 127,
+      "batchedCalls": 74,
+      "mean": 0.0597584375,
+      "rms": 1.6346466552438788,
+      "changedPixels": 5211,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 1.0000739009283894,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181089,
+      "progress": 0.16678555555608618,
+      "playing": true,
+      "chunks": 33,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 402,
+        "status": "active",
+        "pages": 3,
+        "patches": 95,
+        "uploads": 200,
+        "failures": 0,
+        "lastPreparationMs": 0,
+        "totalPreparationMs": 172.20000034570694,
+        "maxPreparationMs": 2.600000023841858,
+        "arrayBytes": 33554304,
+        "geometryBytes": 0
+      }
+    },
+    {
+      "label": "following-30s",
+      "elapsedMs": 37042,
+      "legacyCalls": 178,
+      "batchedCalls": 104,
+      "mean": 0.0721709375,
+      "rms": 1.4116899225750674,
+      "changedPixels": 6810,
+      "pixels": 800000,
+      "glErrors": [
+        0,
+        0
+      ],
+      "baseSource": "USGS 3DEP best available (public domain)",
+      "localSource": "USGS 3DEP best available (public domain)",
+      "localExportSpacingM": 1.000073900910897,
+      "baseMeshCellM": 94.3,
+      "localMeshCellM": 4.960538609181113,
+      "progress": 0.33469555555648156,
+      "playing": true,
+      "chunks": 33,
+      "batch": {
+        "requested": true,
+        "mode": "terrain",
+        "lookupBytes": 3419728,
+        "reprojectionsAvoided": 975,
+        "status": "active",
+        "pages": 4,
+        "patches": 112,
+        "uploads": 329,
+        "failures": 0,
+        "lastPreparationMs": 0.09999996423721313,
+        "totalPreparationMs": 295.10000044107437,
+        "maxPreparationMs": 2.600000023841858,
+        "arrayBytes": 44739072,
+        "geometryBytes": 0
+      }
+    }
+  ],
+  "markerComparison": [
+    {
+      "active": false,
+      "changed": 4,
+      "max": 31,
+      "mean": 0.0000809375,
+      "calls": [
+        141,
+        95
+      ],
+      "errors": [
+        0,
+        0
+      ]
+    },
+    {
+      "active": true,
+      "changed": 0,
+      "max": 1,
+      "mean": 3.125e-7,
+      "calls": [
+        214,
+        168
+      ],
+      "errors": [
+        0,
+        0
+      ]
+    }
+  ],
+  "profileSummary": {
+    "durationSeconds": 33.55330000001192,
+    "callbackSamples": 1708,
+    "minWindowCallbackHz": 28.644501278772378,
+    "maxCallbackIntervalMs": 292.40000000000146,
+    "maxCpuSubmitMs": 67.90000003576279,
+    "estimatedMissedCallbacks": null,
+    "maxDrawCalls": 105,
+    "maxTextures": 41,
+    "longTaskCount": 5
+  },
+  "errors": [],
+  "glErrors": []
+}

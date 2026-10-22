@@ -1,0 +1,50 @@
+{
+  "platform": "Windows",
+  "scenario": "Status file held for reading with FileShare.ReadWrite, without FileShare.Delete",
+  "previousStateReadableWhileLocked": "previous",
+  "childExitCode": 0,
+  "result": {
+    "saved": true,
+    "retries": [
+      {
+        "attempt": 1,
+        "code": "EPERM",
+        "delayMs": 25
+      },
+      {
+        "attempt": 2,
+        "code": "EPERM",
+        "delayMs": 50
+      },
+      {
+        "attempt": 3,
+        "code": "EPERM",
+        "delayMs": 100
+      },
+      {
+        "attempt": 4,
+        "code": "EPERM",
+        "delayMs": 200
+      },
+      {
+        "attempt": 5,
+        "code": "EPERM",
+        "delayMs": 250
+      },
+      {
+        "attempt": 6,
+        "code": "EPERM",
+        "delayMs": 250
+      }
+    ],
+    "status": {
+      "state": "acquiring",
+      "validated": 642
+    }
+  },
+  "focusedTestsPassed": 5,
+  "fullTestsPassed": 790,
+  "fullTestsSkipped": 5,
+  "sourceBodiesModified": false,
+  "archivePublished": false
+}

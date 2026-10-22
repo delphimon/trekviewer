@@ -30,6 +30,8 @@ The queue accepts `--out` and `--identity` as well. It starts one producer/brows
 
 Output defaults to `.review-cache/prepared-route-packs/output`. Inspect `defaults.progress.json` and `<route>.progress.json` there. This run uses a hidden local queue with `defaults.stdout.log` / `defaults.stderr.log` in the same directory. It continues while the PC stays running; it is not an OS service or a scheduled restart after reboot. Sources, component files, logs and unfinished inventories remain outside Git and the deployed site.
 
+Progress JSON is advisory. A later Windows sharing failure stopped a producer when the old writer could not replace its status file. The [verified recovery](OFFLINE_NAIP_RECOVERY.md) now retries transient sharing errors and preserves the last complete status; a persistent reporting failure emits `progress-write-deferred` in stderr without aborting source acquisition. A stale progress timestamp therefore does not establish that the producer has exited. Source, inventory and archive writes still fail normally, and a complete archive still requires every validated source and successful final publication.
+
 To pause this queue:
 
 ```powershell

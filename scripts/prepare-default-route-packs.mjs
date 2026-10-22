@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import assert from 'node:assert/strict';
+import { writePackProgress } from './offline-pack-progress.mjs';
 
 const options = new Map(), args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
@@ -23,23 +24,22 @@ assert.ok(!active, `Preparation already active or lock needs review: ${active}`)
 assert.ok(!fs.existsSync(stopFile), `Pause file exists: ${stopFile}. Remove it only when ready to resume.`);
 const fd = fs.openSync(lock, 'wx'), started = new Date().toISOString(), results = [];
 fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, started }) + '\n');
-const status = (state, extra = {}) => {
+const status = async (state, extra = {}) => {
   const value = { pid: process.pid, started, updated: new Date().toISOString(), state, results, ...extra };
-  fs.writeFileSync(progressFile + '.partial', JSON.stringify(value, null, 2) + '\n');
-  fs.renameSync(progressFile + '.partial', progressFile);
+  await writePackProgress(progressFile, value);
 };
 const stop = () => { fs.writeFileSync(stopFile, 'Pause requested\n'); };
 process.once('SIGINT', stop); process.once('SIGTERM', stop);
 try {
-  status('starting');
+  await status('starting');
   for (const route of routes) {
-    if (fs.existsSync(stopFile)) { status('paused'); process.exitCode = 2; break; }
+    if (fs.existsSync(stopFile)) { await status('paused'); process.exitCode = 2; break; }
     // Keep completed outputs intact. Reimporting still performs full validation;
     // this queue does not silently trust or replace a pre-existing archive.
     if (fs.existsSync(path.join(output, route + '.trekpack.tar'))) {
       results.push({ route, state: 'existing-archive-requires-review' }); process.exitCode = 1; continue;
     }
-    status('preparing', { route });
+    await status('preparing', { route });
     const childArgs = ['--experimental-transform-types', fileURLToPath(new URL('./build-offline-route-pack.mjs', import.meta.url)),
       '--route', route, '--cache', cache, '--out', output, '--stop-file', stopFile];
     for (const flag of ['--download', '--identity']) if (options.has(flag)) childArgs.push(flag);
@@ -55,8 +55,8 @@ try {
       archiveBytes: complete ? inventory.archiveBytes : undefined, originalSourceBytes: complete ? inventory.originalSourceBytes : undefined });
     if (!complete) process.exitCode = code || 1;
     // An unavailable route does not prevent attempting the other default route.
-    status('between-routes');
+    await status('between-routes');
   }
-  status(fs.existsSync(stopFile) ? 'paused' : results.every(r => r.state === 'complete') ? 'complete' : 'unfinished');
-} catch (error) { status('failed', { error: error.message }); throw error; }
+  await status(fs.existsSync(stopFile) ? 'paused' : results.every(r => r.state === 'complete') ? 'complete' : 'unfinished');
+} catch (error) { await status('failed', { error: error.message }); throw error; }
 finally { fs.closeSync(fd); fs.unlinkSync(lock); process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); }
