@@ -1,0 +1,28 @@
+{
+  "condition": "Actual public-source transient HTTP recovery during real partial Rainier acquisition. Current production coverage validation passed the affected index; full pack remains unfinished.",
+  "checkedAt": "2026-10-22T15:16:48.149Z",
+  "routeId": "rainier-emmons",
+  "events": [
+    {
+      "index": 196,
+      "source": 0,
+      "retry": {
+        "attempt": 1,
+        "nextAttempt": 2,
+        "delayMs": 2000,
+        "error": "Public source returned HTTP 502"
+      }
+    },
+    {
+      "index": 196,
+      "source": 0,
+      "retry": {
+        "attempt": 2,
+        "nextAttempt": 3,
+        "delayMs": 8000,
+        "error": "Public source returned HTTP 502"
+      }
+    }
+  ],
+  "validatedAfterRetries": 225
+}
