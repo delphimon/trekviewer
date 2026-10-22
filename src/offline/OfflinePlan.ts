@@ -16,6 +16,7 @@ export interface OfflineResource {
 export interface OfflinePlan {
   id: string; routeId: string; routeHash: string; name: string;
   version: 1; coverage: 'full-model'; maxZoom: 19;
+  /** Uncompressed planning budget, not measured encoded size or minimum quota. */
   estimatedBytes: number; resources: OfflineResource[];
 }
 export async function sha256(bytes: ArrayBuffer): Promise<string> {
@@ -77,9 +78,13 @@ export function planOfflineRoute(track: TrackStats, routeId: string, routeHash: 
         requiredWindow: requiredElevationWindow(request, { minLat: requiredSE.lat, maxLat: requiredNW.lat, minLon: requiredNW.lon, maxLon: requiredSE.lon }) });
     }
   }
-  // Conservative preflight capacity: raw RGBA per PNG, raw F32 per LERC plus
-  // 10% overhead. Actual bytes are shown while downloading; compression unclaimed.
+  // Uncompressed planning budget: raw RGBA per PNG, raw F32 per LERC plus
+  // 10% overhead. Keep original encoded files; check actual quota per write.
   const estimatedBytes = Math.ceil([...resources.values()].reduce((sum, r) => sum + r.width * r.height * 4, 0) * 1.1);
+  // Discover missing DEM coverage before acquiring thousands of imagery exports.
+  // Stable ordering keeps the overview first, then local terrain, then imagery.
+  // URL-keyed staging remains compatible with the earlier acquisition order.
+  const ordered = [...resources.values()].sort((a, c) => Number(c.kind === 'elevation') - Number(a.kind === 'elevation'));
   return { id: `${routeId}-high-public-v1-${routeHash.slice(0, 16)}`, routeId, routeHash, name: track.name,
-    version: 1, coverage: 'full-model', maxZoom: 19, estimatedBytes, resources: [...resources.values()] };
+    version: 1, coverage: 'full-model', maxZoom: 19, estimatedBytes, resources: ordered };
 }

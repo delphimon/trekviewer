@@ -26,6 +26,10 @@ it.each(DEFAULT_OFFLINE_ROUTES)('covers actual overview request identity and fin
   const url = elevationRasterRequest({ minLat: b.minLat - lat, maxLat: b.maxLat + lat, minLon: b.minLon - lon, maxLon: b.maxLon + lon }, 5).url;
   const urls = new Set(plan.resources.flatMap(r => r.urls));
   expect(urls.has(url)).toBe(true);
+  expect(plan.resources[0].urls).toEqual([url]);
+  const firstImage = plan.resources.findIndex(r => r.kind === 'image');
+  expect(firstImage).toBeGreaterThan(500);
+  expect(plan.resources.slice(firstImage).every(r => r.kind === 'image')).toBe(true);
   const provider = new PublicImageryProvider();
   for (const fraction of [0, 0.25, 0.5, 0.75, 1]) for (let z = 10; z <= 19; z++) {
     const p = track.points[Math.round((track.points.length - 1) * fraction)], xy = latLonToTile(p.lat, p.lon, z);

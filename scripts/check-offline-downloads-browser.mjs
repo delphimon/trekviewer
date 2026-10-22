@@ -57,8 +57,13 @@ try {
   const estimate = await page.locator('[data-offline-message]').textContent();
   const inventories = await page.evaluate(() => window.__trekViewerApp.overlay.offlineDownloads.plans.map(plan => ({ id: plan.id,
     routeId: plan.routeId, coverage: plan.coverage, maxZoom: plan.maxZoom, estimatedBytes: plan.estimatedBytes,
-    sources: plan.resources.length, imagery: plan.resources.filter(r => r.kind === 'image').length, elevation: plan.resources.filter(r => r.kind === 'elevation').length })));
-  assert.ok(estimate.includes('Rainier: up to') && estimate.includes('Enchantments: up to') && estimate.includes('GB'));
+    sources: plan.resources.length, imagery: plan.resources.filter(r => r.kind === 'image').length, elevation: plan.resources.filter(r => r.kind === 'elevation').length,
+    elevationBeforeImagery: plan.resources.slice(0, plan.resources.findIndex(r => r.kind === 'image')).every(r => r.kind === 'elevation')
+      && plan.resources.slice(plan.resources.findIndex(r => r.kind === 'image')).every(r => r.kind === 'image') })));
+  assert.deepEqual(inventories.map(row => row.sources), [5337, 8177]);
+  assert.ok(inventories.every(row => row.elevationBeforeImagery));
+  assert.ok(estimate.includes('Rainier:') && estimate.includes('Enchantments:') && estimate.includes('uncompressed budget')
+    && estimate.includes('not required free space') && estimate.includes('GB'));
   console.log(JSON.stringify({ phase: 'default-estimates', estimate }));
   await page.screenshot({ path: path.join(out, 'settings.png') });
   await page.addScriptTag({ type: 'module', content: `import * as h from '/__offline-test/offline-test.js'; window.__offlineTest=h;` });
@@ -113,9 +118,41 @@ try {
       try { await h.OfflineDownloads.withLock(async () => {}); } catch { lockRejected = true; }
     });
     assert(lockRejected, 'A second management operation must not run under a held browser lock');
+    const encodedPlan = { ...plan, id: 'encoded-capacity-fixture', estimatedBytes: Number.MAX_SAFE_INTEGER };
+    await h.OfflineDownloads.start(encodedPlan);
+    const encodedReady = await h.OfflineStore.state(encodedPlan.id);
+    assert(encodedReady.state === 'ready' && encodedReady.bytes === ready.bytes, 'Raw budget larger than quota must not block a fitting encoded pack');
+    const nativeEstimate = navigator.storage.estimate.bind(navigator.storage);
+    const requestsBeforeCapacity = [...calls.values()].reduce((sum, n) => sum + n, 0);
+    navigator.storage.estimate = async () => ({ quota: 100e6, usage: 99e6 });
     let capacityRejected = false;
-    try { await h.OfflineDownloads.start({ ...plan, id: 'capacity-fixture', estimatedBytes: Number.MAX_SAFE_INTEGER }); } catch { capacityRejected = true; }
-    assert(capacityRejected && !await h.OfflineStore.state('capacity-fixture'), 'Capacity rejection must leave existing packs intact');
+    try { await h.OfflineDownloads.start({ ...plan, id: 'capacity-fixture' }); } catch { capacityRejected = true; }
+    const capacityState = await h.OfflineStore.state('capacity-fixture');
+    assert(capacityRejected && capacityState.state === 'paused' && capacityState.completed === 0,
+      'Low capacity must pause without committing any source');
+    assert(requestsBeforeCapacity === [...calls.values()].reduce((sum, n) => sum + n, 0), 'Low capacity must stop before fetching');
+    // Nothing new is needed: a complete staged pack can still verify/publish.
+    await h.OfflineStore.putState({ ...encodedReady, state: 'paused' });
+    await h.OfflineDownloads.start(encodedPlan);
+    assert((await h.OfflineStore.state(encodedPlan.id)).state === 'ready', 'Full staging must publish without additional data quota');
+    navigator.storage.estimate = nativeEstimate;
+    const nativeCapacitySave = h.OfflineStore.save;
+    h.OfflineStore.save = async (...args) => {
+      await nativeCapacitySave.apply(h.OfflineStore, args);
+      navigator.storage.estimate = async () => ({ quota: 100e6, usage: 99e6 });
+    };
+    const incrementalPlan = { ...plan, id: 'incremental-capacity-fixture' };
+    let incrementalRejected = false;
+    try { await h.OfflineDownloads.start(incrementalPlan); } catch { incrementalRejected = true; }
+    finally { h.OfflineStore.save = nativeCapacitySave; navigator.storage.estimate = nativeEstimate; }
+    const incrementalPaused = await h.OfflineStore.state(incrementalPlan.id);
+    assert(incrementalRejected && incrementalPaused.state === 'paused' && incrementalPaused.completed === 1 && incrementalPaused.bytes === dem.size,
+      'Capacity changing during a download must preserve exactly committed progress');
+    const demCallsBeforeResume = calls.get(request.url);
+    await h.OfflineDownloads.start(incrementalPlan);
+    assert((await h.OfflineStore.state(incrementalPlan.id)).state === 'ready' && calls.get(request.url) === demCallsBeforeResume,
+      'After freeing space, resume must reuse already committed terrain');
+    for (const id of ['capacity-fixture', encodedPlan.id, incrementalPlan.id]) await h.OfflineDownloads.withLock(() => h.OfflineStore.remove(id));
     const nativeSave = h.OfflineStore.save;
     h.OfflineStore.save = async () => { throw new DOMException('Full', 'QuotaExceededError'); };
     let quotaRejected = false;
@@ -128,7 +165,8 @@ try {
     h.disposeTerrainJobs();
     window.__fixturePlan = plan;
     return { interrupted, ready, resumeSourceRequests: resumeRequests, temporaryCacheIndependent: true, missingPublishRejected: true,
-      managementLockRejected: lockRejected, capacityRejected, quotaWritePreservedProgress: true, imageBytes: image.size, demBytes: dem.size };
+      managementLockRejected: lockRejected, capacityRejected, encodedPackBelowRawBudget: true, fullStagingPublishesWithoutNewDataQuota: true,
+      sharedUsageChangePausedAndResumed: true, incrementalPaused, quotaWritePreservedProgress: true, imageBytes: image.size, demBytes: dem.size };
   }, { encoded: fixture, request: fixtureMetadata.request });
   const sw = await page.evaluate(async () => {
     let timer;

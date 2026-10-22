@@ -3,6 +3,7 @@ import { runTerrainJob } from '../terrain/TerrainJobs.ts';
 import type { DecodedElevation } from '../terrain/LercElevation.ts';
 import type { OfflinePlan, OfflineResource } from './OfflinePlan.ts';
 import { OfflineStore, hashOfflineBlob, offlineSourceAllowed, type OfflinePackState } from './OfflineStore.ts';
+import { requireOfflineCapacity } from './OfflineCapacity.ts';
 
 export async function validateOfflineResource(resource: OfflineResource, blob: Blob, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) throw new DOMException('Download paused', 'AbortError');
@@ -57,11 +58,6 @@ export class OfflineDownloads {
       await this.withLock(async () => {
         const previous = await OfflineStore.state(plan.id);
         if (previous?.state === 'ready') return;
-        const storage = await navigator.storage?.estimate();
-        // Count all retained staging/old revisions in usage. Require space for
-        // the rest of this conservative raw budget; never delete another pack.
-        const remaining = Math.max(0, plan.estimatedBytes - (previous?.bytes ?? 0));
-        if (!storage?.quota || storage.quota - (storage.usage ?? 0) < remaining) throw Error('Not enough browser storage for this full-detail pack. Free space and retry.');
         const persisted = await navigator.storage.persist?.().catch(() => false);
         let state: OfflinePackState = { id: plan.id, routeId: plan.routeId, routeHash: plan.routeHash, name: plan.name,
           state: 'downloading', total: plan.resources.length, completed: previous?.completed ?? 0, bytes: previous?.bytes ?? 0, estimatedBytes: plan.estimatedBytes,
@@ -76,6 +72,9 @@ export class OfflineDownloads {
             if (asset && (asset.bytes !== asset.blob.size || asset.sha256 !== await hashOfflineBlob(asset.blob))) asset = undefined;
             let blob = asset?.blob, sourceUrl = asset?.sourceUrl ?? '';
             if (!blob) {
+              // Check actual shared usage, not the uncompressed planning budget.
+              // Already-saved sources can still be verified/published when full.
+              await requireOfflineCapacity();
               let lastError: unknown = Error('Source unavailable.');
               for (const url of resource.urls) {
                 if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
@@ -100,6 +99,8 @@ export class OfflineDownloads {
               continue; // Verified staged bodies are immutable; do not rewrite gigabytes on resume.
             }
             const next = { ...state, completed: state.completed + Number(!retained), bytes: state.bytes + blob.size - (retained?.bytes ?? 0), updated: Date.now() };
+            await requireOfflineCapacity(blob.size);
+            if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
             await OfflineStore.save(next, resource, sourceUrl, blob, await hashOfflineBlob(blob));
             state = next;
           }

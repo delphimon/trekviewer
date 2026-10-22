@@ -70,7 +70,7 @@ export class OfflineDownloadsPanel {
       this.plans = plans;
       const estimate = await navigator.storage?.estimate();
       if (this.disposed) return;
-      this.message.textContent = `${plans.map(p => `${p.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}: up to ${size(p.estimatedBytes)}`).join(' • ')}. Conservative storage budgets; actual compressed sizes appear during download.${estimate?.quota ? ` Available browser storage: ${size(Math.max(0, estimate.quota - (estimate.usage ?? 0)))}.` : ' Browser storage capacity unavailable.'}`;
+      this.message.textContent = `${plans.map(p => `${p.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}: ${size(p.estimatedBytes)} uncompressed budget`).join(' • ')}. Downloads keep original compressed files; actual sizes appear as sources are saved. This budget is not required free space. Space is checked before each write; a full browser pauses the pack for resume.${estimate?.quota ? ` Available browser storage: ${size(Math.max(0, estimate.quota - (estimate.usage ?? 0)))}.` : ' Browser storage capacity unavailable.'}`;
     } catch (error) { if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Could not prepare downloads.'; }
     finally { this.preparing = false; if (!this.disposed) this.controls(); }
   }

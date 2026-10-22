@@ -32,7 +32,7 @@ Completed implementation checkpoints must be checked in and published, as reques
 
 ### Method 2: Sideloadable Meta Quest APK
 
-The wrapper loads the hosted website. It is **not an offline bundle**: startup, routes, elevation, and imagery need network access. There is currently no service-worker shell cache or offline region-download feature.
+The wrapper loads the hosted website and requires initial online provisioning. The app now caches a verified offline shell and supports separate, resumable route downloads. The APK itself does not contain the multi-GB terrain packs; a signed build and installed offline behavior remain unverified.
 
 Follow [Meta's PWA packaging guide](https://developers.meta.com/horizon/documentation/web/pwa-packaging/) to prepare Bubblewrap, signing, and Digital Asset Links:
 
@@ -49,6 +49,14 @@ Follow [Meta's PWA packaging guide](https://developers.meta.com/horizon/document
    ```
 
 `QUEST_ANDROID_DIR` selects another generated-project directory. The script fails for missing prerequisites, failed builds, or missing/stale output. It neither deploys the site nor installs the APK automatically. A real signed build and headset launch remain unverified; see [current validation](docs/review-2026-09-26/IMPLEMENTATION.md).
+
+### Offline route downloads
+
+In Settings, choose **Estimate selected**, then **Download selected**. Rainier and Enchantments are selected by default. Packs preserve full surrounding-model High public USGS satellite imagery through Z19 and 3DEP elevation. Other imagery styles/providers and experimental detail settings can still need a connection.
+
+The displayed 18.3 GB / 27.8 GB values are **uncompressed planning budgets**, not required free space or measured download sizes. Original compressed source files are stored, with actual saved bytes shown during acquisition. Storage is checked before each write; low space pauses the pack without deleting committed sources. Elevation is validated before imagery. Keep the tab open; Play, VR/MR entry or page exit pauses preparation. Resume retains verified progress, and clearing the temporary cache keeps downloaded packs.
+
+Only a completely validated pack becomes ready for offline rendering. Complete multi-GB acquisition and offline High tours of both defaults still need acceptance; the browser tests use a small controlled storage fixture. See [offline implementation and evidence](docs/review-2026-10-21/OFFLINE_DEFAULTS.md).
 
 ---
 
@@ -170,7 +178,7 @@ npm run build
 ## 🌐 Network, Offline & PWA Behavior
 
 - **Client-Side Architecture**: TrekViewer runs 100% clientside inside your browser or WebXR runtime. There is no custom backend server.
-- **Hosted WebXR & APK wrapper**: Use Quest Browser directly or package the hosted site with Bubblewrap. Both currently require network access.
+- **Hosted WebXR & APK wrapper**: Use Quest Browser directly or package the hosted site with Bubblewrap. Initial provisioning requires a connection; the verified shell and explicitly downloaded route packs support later offline use. Installed runtime acceptance remains open.
 - **Network Tile Access**: While the app shell and bundled GPX routes are served locally, real-world DEM elevation grids and high-resolution satellite/topographic imagery tiles are streamed dynamically over Wi-Fi from public providers (USGS 3DEP, public aerial imagery, EOX Sentinel and the Mapzen/AWS fallback). An active internet connection is required to fetch new terrain and map textures.
 
 ---
