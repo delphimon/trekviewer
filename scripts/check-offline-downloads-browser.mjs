@@ -131,7 +131,9 @@ try {
       managementLockRejected: lockRejected, capacityRejected, quotaWritePreservedProgress: true, imageBytes: image.size, demBytes: dem.size };
   }, { encoded: fixture, request: fixtureMetadata.request });
   const sw = await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.ready;
+    let timer;
+    const registration = await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Offline shell installation timed out')), 30000); })]);
+    clearTimeout(timer);
     return { active: registration.active?.scriptURL, cached: (await caches.keys()).filter(k => k.startsWith('trekviewer-shell-')) };
   });
   assert.ok(sw.active?.endsWith('/sw.js')); assert.ok(sw.cached.some(key => key.endsWith(expected.id)));
@@ -145,7 +147,10 @@ try {
   assert.equal(offline.build.id, expected.id); assert.equal(offline.routes, 8); assert.equal(offline.controlled, true);
   assert.deepEqual(offline.selected, defaults);
   const workerName = fs.readdirSync('dist/assets').find(name => /^TerrainWorker-.*\.js$/.test(name));
+  const expectedWorkerHash = createHash('sha256').update(fs.readFileSync(path.join('dist/assets', workerName))).digest('hex');
   const offlineWorker = await page.evaluate(async ({ workerName, encoded, request }) => {
+    const workerBytes = await (await fetch('assets/' + workerName)).arrayBuffer();
+    const workerHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', workerBytes))].map(n => n.toString(16).padStart(2, '0')).join('');
     const worker = new Worker('assets/' + workerName, { type: 'module' });
     const message = () => new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(Error('Offline worker timed out')), 10000);
@@ -159,10 +164,11 @@ try {
       const response = await next;
       if (response.error || response.result.validCount !== request.width * request.height || input.byteLength) throw Error('Offline LERC decode/transfer failed');
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', response.result.data.buffer))].map(n => n.toString(16).padStart(2, '0')).join('');
-      return { workerName, transferred: true, validCount: response.result.validCount, dataHash: hash };
+      return { workerName, workerHash, transferred: true, validCount: response.result.validCount, dataHash: hash };
     } finally { worker.terminate(); }
   }, { workerName, encoded: fixture, request: fixtureMetadata.request });
   assert.equal(offlineWorker.dataHash, referenceHash);
+  assert.equal(offlineWorker.workerHash, expectedWorkerHash);
   await context.setOffline(false);
   await page.evaluate(() => window.__trekViewerApp.sceneManager.renderer.setAnimationLoop(null));
   await page.addScriptTag({ type: 'module', content: `import * as h from '/__offline-test/offline-test.js'; window.__offlineTest=h;` });
