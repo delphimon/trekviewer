@@ -1,0 +1,20 @@
+{
+  "build": "fad1dc2-2026-10-22T03:52:42.030Z",
+  "condition": "Manual record of the observed hosted readiness failure and isolated retry. No installation speed or underlying hosting fix is claimed.",
+  "attempts": [
+    {
+      "run": ".review-cache/portable-packs/hosted-offline",
+      "result": "Offline shell installation timed out",
+      "readinessWaitLimitMs": 30000,
+      "workerStateDiagnosticCaptured": false,
+      "cause": "Unresolved; the initial run did not capture service-worker state or the failing asset."
+    },
+    {
+      "run": ".review-cache/portable-packs/hosted-offline-retry",
+      "result": "passed",
+      "evidence": "hosted-fad1dc2-offline.json",
+      "checks": "Complete hash-verified shell, archive/storage recovery, networking-disabled exact build/catalogue startup and actual worker/reference-height checks."
+    }
+  ],
+  "followUp": "The manual checker now records registration states, shell UI status and cache names if a future readiness timeout occurs. This test-harness change does not change the deployed application."
+}

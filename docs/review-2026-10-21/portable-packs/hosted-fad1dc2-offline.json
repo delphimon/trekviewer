@@ -1,0 +1,199 @@
+{
+  "condition": "Production shell/default selections and generated helper built from the same source. Controlled three-source storage fixture, real lossless Rainier decoder fixture, actual IndexedDB/Web Locks/Canvas/worker. Network-disabled app shell/catalogue startup uses existing fallbacks; this does not establish full offline High terrain, multi-GB acquisition, installed APK or native acceptance.",
+  "build": {
+    "id": "fad1dc2-2026-10-22T03:52:42.030Z",
+    "sha": "fad1dc2eb71c6897303febc1687f1eb1c7aebd80",
+    "shortSha": "fad1dc2",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-22T03:52:42.030Z",
+    "label": "TrekViewer 1.0.0 • fad1dc2"
+  },
+  "defaults": [
+    "rainier-emmons",
+    "enchantments-dragontail"
+  ],
+  "estimate": "Rainier: 18.3 GB uncompressed budget • Enchantments: 27.8 GB uncompressed budget. Downloads keep original compressed files; actual sizes appear as sources are saved. This budget is not required free space. Space is checked before each write; a full browser pauses the pack for resume. Available browser storage: 10.7 GB.",
+  "inventories": [
+    {
+      "id": "rainier-emmons-high-public-v1-0e1942e8741f0b47",
+      "routeId": "rainier-emmons",
+      "coverage": "full-model",
+      "maxZoom": 19,
+      "estimatedBytes": 18336324288,
+      "sources": 5337,
+      "imagery": 4814,
+      "elevation": 523,
+      "elevationBeforeImagery": true
+    },
+    {
+      "id": "enchantments-dragontail-high-public-v1-2a6fdcedbeb7f776",
+      "routeId": "enchantments-dragontail",
+      "coverage": "full-model",
+      "maxZoom": 19,
+      "estimatedBytes": 27761599009,
+      "sources": 8177,
+      "imagery": 7384,
+      "elevation": 793,
+      "elevationBeforeImagery": true
+    }
+  ],
+  "planFingerprints": [
+    {
+      "routeId": "rainier-emmons",
+      "inventorySha256": "720e81f85d5c9874924b3671ce7f71592eb1ae237550d54fa273e8fa3aedcfce"
+    },
+    {
+      "routeId": "enchantments-dragontail",
+      "inventorySha256": "29722d08e43f99f308c91c697bd2fdef5881d7556d2704d440978c24180f6aff"
+    }
+  ],
+  "state": {
+    "interrupted": {
+      "id": "controlled-storage-fixture-v1",
+      "routeId": "controlled-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Controlled storage fixture — not a full route",
+      "state": "paused",
+      "total": 3,
+      "completed": 2,
+      "bytes": 11125,
+      "estimatedBytes": 1000000,
+      "message": "Paused. Resume downloading or reselect the pack file to keep completed sources.",
+      "updated": 1792641519448
+    },
+    "ready": {
+      "id": "controlled-storage-fixture-v1",
+      "routeId": "controlled-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Controlled storage fixture — not a full route",
+      "state": "ready",
+      "total": 3,
+      "completed": 3,
+      "bytes": 13532,
+      "estimatedBytes": 1000000,
+      "message": "High satellite • full surrounding terrain • through Z19",
+      "updated": 1792641519457
+    },
+    "resumeSourceRequests": {
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13554295.320832908%2C5917916.796872988%2C-13554227.077145074%2C5917983.35380491&bboxSR=3857&imageSR=3857&size=47%2C46&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false": 1,
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?fixture=offline-a": 1,
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?fixture=offline-b": 2
+    },
+    "temporaryCacheIndependent": true,
+    "missingPublishRejected": true,
+    "managementLockRejected": true,
+    "capacityRejected": true,
+    "encodedPackBelowRawBudget": true,
+    "fullStagingPublishesWithoutNewDataQuota": true,
+    "sharedUsageChangePausedAndResumed": true,
+    "incrementalPaused": {
+      "id": "incremental-capacity-fixture",
+      "routeId": "controlled-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Controlled storage fixture — not a full route",
+      "state": "paused",
+      "total": 3,
+      "completed": 1,
+      "bytes": 8718,
+      "estimatedBytes": 1000000,
+      "message": "Browser storage is full. Free space, then resume.",
+      "updated": 1792641519485
+    },
+    "quotaWritePreservedProgress": true,
+    "imageBytes": 2407,
+    "demBytes": 8718
+  },
+  "archiveImport": {
+    "condition": "Three real public-source components under an explicitly controlled fixture identity. Not a full Rainier or Enchantments pack. Actual PC producer, production browser validators, lazy file header check, independent system tar listing and damaged-source publication rejection.",
+    "archiveBytes": 3150336,
+    "independentTarNames": [
+      "trekviewer-pack.json",
+      "sources/000000.bin.gz",
+      "sources/000001.bin",
+      "sources/000002.bin"
+    ],
+    "paused": {
+      "id": "controlled-archive-fixture-v1",
+      "routeId": "controlled-archive-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Real source component fixture — not a complete route",
+      "state": "paused",
+      "total": 3,
+      "completed": 1,
+      "bytes": 8718,
+      "estimatedBytes": 3147543,
+      "message": "Paused. Resume downloading or reselect the pack file to keep completed sources.",
+      "updated": 1792641519941
+    },
+    "ready": {
+      "id": "controlled-archive-fixture-v1",
+      "routeId": "controlled-archive-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Real source component fixture — not a complete route",
+      "state": "ready",
+      "total": 3,
+      "completed": 3,
+      "bytes": 3147543,
+      "estimatedBytes": 3147543,
+      "message": "High satellite • full surrounding terrain • through Z19",
+      "updated": 1792641520030
+    },
+    "sourceRequests": 0,
+    "committedWrites": [
+      1,
+      2,
+      3
+    ],
+    "originalHashes": [
+      "7e9bc89361a124f78aadaaac4f85fabb0c356827743ab74b97c1ebcd00a0598b",
+      "ab275d8eb8ef10a794c6cd57be259520a9e1ca42a9844610270556cb370b570b",
+      "23012927e69e776b3bc600e5b76467d7c69be74fd500a8393a4600c96ffbf028"
+    ],
+    "corruptSourceRejected": true,
+    "routeRevisionRejected": true,
+    "preflightPausePreventedAcquisition": true,
+    "originalRequestPreservedAcrossMathULP": true,
+    "uiUnsupportedRouteRejected": true,
+    "uiTruncatedFileRejected": true,
+    "uiPlayingImportBlocked": true,
+    "uiXREntryImportBlocked": true
+  },
+  "sw": {
+    "active": "https://trekviewer.surge.sh/sw.js",
+    "cached": [
+      "trekviewer-shell-fad1dc2-2026-10-22T03:52:42.030Z"
+    ]
+  },
+  "offline": {
+    "build": {
+      "id": "fad1dc2-2026-10-22T03:52:42.030Z",
+      "sha": "fad1dc2eb71c6897303febc1687f1eb1c7aebd80",
+      "shortSha": "fad1dc2",
+      "branch": "main",
+      "dirty": false,
+      "builtAt": "2026-10-22T03:52:42.030Z",
+      "label": "TrekViewer 1.0.0 • fad1dc2"
+    },
+    "routes": 8,
+    "controlled": true,
+    "selected": [
+      "rainier-emmons",
+      "enchantments-dragontail"
+    ]
+  },
+  "offlineWorker": {
+    "workerName": "TerrainWorker-DXLha-wI.js",
+    "workerHash": "47c7a381372c3d90aeba97cbb6d4adc5e2b9878a9422ccf1f274c106c29d6ec9",
+    "transferred": true,
+    "validCount": 2162,
+    "dataHash": "f031eece8d47b84ffc0a6a7225e07cb6449f27cdf9e071d72c7c419b6ff60ee1"
+  },
+  "damaged": {
+    "hashFailureUnpublished": true,
+    "retainedSources": 2,
+    "explicitRemoval": true
+  },
+  "externalAborted": 576,
+  "errors": []
+}

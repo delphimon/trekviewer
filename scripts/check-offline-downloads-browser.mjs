@@ -183,12 +183,19 @@ try {
       sharedUsageChangePausedAndResumed: true, incrementalPaused, quotaWritePreservedProgress: true, imageBytes: image.size, demBytes: dem.size };
   }, { encoded: fixture, request: fixtureMetadata.request });
   const archiveImport = await checkOfflineArchiveImport(page);
-  const sw = await page.evaluate(async () => {
+  let sw;
+  try { sw = await page.evaluate(async () => {
     let timer;
     const registration = await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Offline shell installation timed out')), 30000); })]);
     clearTimeout(timer);
     return { active: registration.active?.scriptURL, cached: (await caches.keys()).filter(k => k.startsWith('trekviewer-shell-')) };
-  });
+  }); } catch (error) {
+    const diagnostic = await page.evaluate(async () => ({ status: document.getElementById('offlineShellStatus')?.textContent,
+      registrations: (await navigator.serviceWorker.getRegistrations()).map(r => ({ active: r.active?.state, installing: r.installing?.state, waiting: r.waiting?.state })),
+      caches: await caches.keys() }));
+    fs.writeFileSync(path.join(out, 'shell-failure.json'), JSON.stringify({ build: expected, diagnostic, error: String(error) }, null, 2) + '\n');
+    throw error;
+  }
   assert.ok(sw.active?.endsWith('/sw.js')); assert.ok(sw.cached.some(key => key.endsWith(expected.id)));
   console.log(JSON.stringify({ phase: 'storage-validated', shell: expected.id }));
   await context.setOffline(true);

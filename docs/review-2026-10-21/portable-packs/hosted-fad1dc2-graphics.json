@@ -1,0 +1,208 @@
+{
+  "build": {
+    "id": "fad1dc2-2026-10-22T03:52:42.030Z",
+    "sha": "fad1dc2eb71c6897303febc1687f1eb1c7aebd80",
+    "shortSha": "fad1dc2",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-22T03:52:42.030Z",
+    "label": "TrekViewer 1.0.0 • fad1dc2"
+  },
+  "condition": "Production direct-terrain shader; generated native-size labeled imagery, actual geographic UVs and clipped reference geometry, hilly source terrain, Z13/Z19 overlap, distant mip and close inspection views, real context recovery. No native XR claim.",
+  "result": {
+    "results": [
+      {
+        "name": "whole",
+        "mean": 0.05085,
+        "rms": 1.4946717867143944,
+        "max": 88,
+        "changed": 1411,
+        "calls": [
+          20,
+          1
+        ],
+        "triangles": [
+          132512,
+          64184
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          122353,
+          122353
+        ]
+      },
+      {
+        "name": "mip-distance",
+        "mean": 0.0019395833333333333,
+        "rms": 0.09737705924223973,
+        "max": 17,
+        "changed": 336,
+        "calls": [
+          20,
+          1
+        ],
+        "triangles": [
+          132512,
+          64184
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          15377,
+          15377
+        ]
+      },
+      {
+        "name": "fine-inspection",
+        "mean": 0.0565046875,
+        "rms": 1.7676451201622267,
+        "max": 115,
+        "changed": 1198,
+        "calls": [
+          10,
+          1
+        ],
+        "triangles": [
+          94194,
+          64184
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          434933,
+          434894
+        ]
+      },
+      {
+        "name": "fine-top",
+        "mean": 0.04368072916666667,
+        "rms": 1.3644746776079553,
+        "max": 105,
+        "changed": 1250,
+        "calls": [
+          7,
+          1
+        ],
+        "triangles": [
+          77676,
+          64184
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          425929,
+          425838
+        ]
+      },
+      {
+        "name": "coarse-fine-fade",
+        "mean": 0.03213385416666667,
+        "rms": 1.16202700951111,
+        "max": 105,
+        "changed": 909,
+        "calls": [
+          7,
+          2
+        ],
+        "triangles": [
+          77676,
+          64196
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          425929,
+          425838
+        ]
+      },
+      {
+        "name": "stereo-close-inspection",
+        "mean": 0.0783421875,
+        "rms": 1.8428738031039094,
+        "max": 105,
+        "changed": 2253,
+        "calls": [
+          14,
+          2
+        ],
+        "triangles": [
+          155352,
+          128368
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          459239,
+          459156
+        ]
+      },
+      {
+        "name": "context-recovery",
+        "mean": 0,
+        "rms": 0,
+        "max": 0,
+        "changed": 0,
+        "calls": [
+          1,
+          1
+        ],
+        "triangles": [
+          64184,
+          64184
+        ],
+        "errors": [
+          0,
+          0
+        ],
+        "foreground": [
+          425838,
+          425838
+        ]
+      }
+    ],
+    "batch": {
+      "requested": true,
+      "mode": "terrain",
+      "lookupBytes": 358416,
+      "reprojectionsAvoided": 0,
+      "status": "active",
+      "pages": 2,
+      "patches": 19,
+      "uploads": 132,
+      "failures": 0,
+      "lastPreparationMs": 0,
+      "totalPreparationMs": 296.40000009536743,
+      "maxPreparationMs": 20.899999976158142,
+      "arrayBytes": 22369536,
+      "geometryBytes": 0
+    },
+    "surfaceAudit": {
+      "base": {
+        "type": "PlaneGeometry",
+        "min": -199.99560546875,
+        "max": 199.99560546875
+      },
+      "patch": {
+        "type": "BufferGeometry",
+        "min": -180.15557861328125,
+        "max": -53.17534255981445
+      },
+      "sameBase": true
+    }
+  },
+  "errors": [],
+  "shaderErrors": []
+}
