@@ -1,0 +1,134 @@
+{
+  "condition": "Production shell/default selections and generated helper built from the same source. Controlled three-source storage fixture, real lossless Rainier decoder fixture, actual IndexedDB/Web Locks/Canvas/worker. Network-disabled app shell/catalogue startup uses existing fallbacks; this does not establish full offline High terrain, multi-GB acquisition, installed APK or native acceptance.",
+  "build": {
+    "id": "f6f1150-2026-10-22T02:10:39.650Z",
+    "sha": "f6f115096da03b87544b107235f3141e25bbe9ee",
+    "shortSha": "f6f1150",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-22T02:10:39.650Z",
+    "label": "TrekViewer 1.0.0 • f6f1150"
+  },
+  "defaults": [
+    "rainier-emmons",
+    "enchantments-dragontail"
+  ],
+  "estimate": "Rainier: 18.3 GB uncompressed budget • Enchantments: 27.8 GB uncompressed budget. Downloads keep original compressed files; actual sizes appear as sources are saved. This budget is not required free space. Space is checked before each write; a full browser pauses the pack for resume. Available browser storage: 10.7 GB.",
+  "inventories": [
+    {
+      "id": "rainier-emmons-high-public-v1-0e1942e8741f0b47",
+      "routeId": "rainier-emmons",
+      "coverage": "full-model",
+      "maxZoom": 19,
+      "estimatedBytes": 18336324288,
+      "sources": 5337,
+      "imagery": 4814,
+      "elevation": 523,
+      "elevationBeforeImagery": true
+    },
+    {
+      "id": "enchantments-dragontail-high-public-v1-2a6fdcedbeb7f776",
+      "routeId": "enchantments-dragontail",
+      "coverage": "full-model",
+      "maxZoom": 19,
+      "estimatedBytes": 27761599009,
+      "sources": 8177,
+      "imagery": 7384,
+      "elevation": 793,
+      "elevationBeforeImagery": true
+    }
+  ],
+  "state": {
+    "interrupted": {
+      "id": "controlled-storage-fixture-v1",
+      "routeId": "controlled-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Controlled storage fixture — not a full route",
+      "state": "paused",
+      "total": 3,
+      "completed": 2,
+      "bytes": 11125,
+      "estimatedBytes": 1000000,
+      "message": "Paused. Resume keeps completed downloads.",
+      "updated": 1792635223773
+    },
+    "ready": {
+      "id": "controlled-storage-fixture-v1",
+      "routeId": "controlled-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Controlled storage fixture — not a full route",
+      "state": "ready",
+      "total": 3,
+      "completed": 3,
+      "bytes": 13532,
+      "estimatedBytes": 1000000,
+      "message": "High satellite • full surrounding terrain • through Z19",
+      "updated": 1792635223786
+    },
+    "resumeSourceRequests": {
+      "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13554295.320832908%2C5917916.796872988%2C-13554227.077145074%2C5917983.35380491&bboxSR=3857&imageSR=3857&size=47%2C46&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false": 1,
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?fixture=offline-a": 1,
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?fixture=offline-b": 2
+    },
+    "temporaryCacheIndependent": true,
+    "missingPublishRejected": true,
+    "managementLockRejected": true,
+    "capacityRejected": true,
+    "encodedPackBelowRawBudget": true,
+    "fullStagingPublishesWithoutNewDataQuota": true,
+    "sharedUsageChangePausedAndResumed": true,
+    "incrementalPaused": {
+      "id": "incremental-capacity-fixture",
+      "routeId": "controlled-fixture",
+      "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "Controlled storage fixture — not a full route",
+      "state": "paused",
+      "total": 3,
+      "completed": 1,
+      "bytes": 8718,
+      "estimatedBytes": 1000000,
+      "message": "Browser storage is full. Free space, then resume.",
+      "updated": 1792635223827
+    },
+    "quotaWritePreservedProgress": true,
+    "imageBytes": 2407,
+    "demBytes": 8718
+  },
+  "sw": {
+    "active": "https://trekviewer.surge.sh/sw.js",
+    "cached": [
+      "trekviewer-shell-f6f1150-2026-10-22T02:10:39.650Z"
+    ]
+  },
+  "offline": {
+    "build": {
+      "id": "f6f1150-2026-10-22T02:10:39.650Z",
+      "sha": "f6f115096da03b87544b107235f3141e25bbe9ee",
+      "shortSha": "f6f1150",
+      "branch": "main",
+      "dirty": false,
+      "builtAt": "2026-10-22T02:10:39.650Z",
+      "label": "TrekViewer 1.0.0 • f6f1150"
+    },
+    "routes": 8,
+    "controlled": true,
+    "selected": [
+      "rainier-emmons",
+      "enchantments-dragontail"
+    ]
+  },
+  "offlineWorker": {
+    "workerName": "TerrainWorker-mSzFGl-m.js",
+    "workerHash": "87eaf0a89585e0e850cdbdad44ef11a2411fc539951d99b8a9cf4689d611924d",
+    "transferred": true,
+    "validCount": 2162,
+    "dataHash": "f031eece8d47b84ffc0a6a7225e07cb6449f27cdf9e071d72c7c419b6ff60ee1"
+  },
+  "damaged": {
+    "hashFailureUnpublished": true,
+    "retainedSources": 2,
+    "explicitRemoval": true
+  },
+  "externalAborted": 493,
+  "errors": []
+}
