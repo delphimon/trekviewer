@@ -10,6 +10,7 @@ import { gzipSync, gunzipSync } from 'node:zlib';
 import { openOfflinePreparationValidator } from './offline-preparation-validator.mjs';
 import { acquireOfflineSource, acquireOfflineResource, OfflineSourceHealth } from './offline-pack-acquisition.mjs';
 import { writePackProgress } from './offline-pack-progress.mjs';
+import { orderedOfflineSources, offlineValidationLane, offlineSourceConcurrency } from './offline-pack-pipeline.mjs';
 const sourceRoot = new URL('../src/', import.meta.url).href;
 registerHooks({ load(url, context, nextLoad) {
   if (url.startsWith(sourceRoot) && url.endsWith('.json')) return { format: 'module', shortCircuit: true,
@@ -24,11 +25,12 @@ const { writeOfflineRouteArchive } = await import('./offline-pack-writer.mjs');
 const args = process.argv.slice(2), options = new Map();
 for (let i = 0; i < args.length; i++) {
   const key = args[i];
-  assert.ok(['--route', '--cache', '--out', '--download', '--identity', '--stop-file'].includes(key), `Unknown option ${key}`);
+  assert.ok(['--route', '--cache', '--out', '--download', '--identity', '--stop-file', '--source-concurrency'].includes(key), `Unknown option ${key}`);
   if (key === '--download' || key === '--identity') options.set(key, true);
   else { assert.ok(args[i + 1] && !args[i + 1].startsWith('--'), `Missing ${key} value`); options.set(key, args[++i]); }
 }
 const id = options.get('--route'); assert.ok(DEFAULT_OFFLINE_ROUTES.includes(id), 'Choose --route rainier-emmons or enchantments-dragontail');
+const sourceConcurrency = offlineSourceConcurrency(options.get('--source-concurrency'));
 const cache = path.resolve(options.get('--cache') ?? '.review-cache/prepared-route-packs'), bodies = path.join(cache, 'bodies');
 const output = path.resolve(options.get('--out') ?? '.review-cache/prepared-route-packs/output');
 fs.mkdirSync(bodies, { recursive: true }); fs.mkdirSync(output, { recursive: true });
@@ -68,8 +70,11 @@ else {
   pausePoll?.unref();
   const progressFile = path.join(output, id + '.progress.json'), started = Date.now();
   let validated = 0, originalSourceBytes = 0, storedSourceBytes = 0, retainedSources = 0, downloadedSources = 0, requestedAliases = 0, firstRequestedIndex;
+  let activeSourceTasks = 0, peakSourceTasks = 0, activeValidationJobs = 0, peakValidationJobs = 0;
   const progress = async (state, extra = {}) => {
     const value = { routeId: id, planId: plan.id, pid: process.pid, state, validated, total: plan.resources.length,
+      sourceConcurrency, validationConcurrency: 1,
+      activeSourceTasks, peakSourceTasks, activeValidationJobs, peakValidationJobs,
       originalSourceBytes, storedSourceBytes, retainedSources, downloadedSources, requestedAliases, firstRequestedIndex,
       elapsedSeconds: (Date.now() - started) / 1000, updated: new Date().toISOString(), ...extra };
     await writePackProgress(progressFile, value);
@@ -83,11 +88,15 @@ else {
     checkpoint(); await progress('preparing');
     validator = await openOfflinePreparationValidator(path.join(cache, 'validator'));
     const records = [], files = [], health = new OfflineSourceHealth();
-    for (let index = 0; index < plan.resources.length; index++) {
+    const validate = offlineValidationLane(async (resource, bytes) => {
+      activeValidationJobs++; peakValidationJobs = Math.max(peakValidationJobs, activeValidationJobs);
+      try { await validator.validate(resource, bytes); } finally { activeValidationJobs--; }
+    });
+    const acquireSource = async (resource, index, signal) => {
       checkpoint();
-      const resource = plan.resources[index], limit = (resource.kind === 'image' ? 8 : 32) * 1024 * 1024;
+      const limit = (resource.kind === 'image' ? 8 : 32) * 1024 * 1024;
       assert.ok(resource.urls.every(offlineSourceAllowed));
-      const accepted = await acquireOfflineResource(resource, controller.signal, {
+      const accepted = await acquireOfflineResource(resource, signal, {
         health,
         readRetained(url) {
           const meta = metadata(url);
@@ -100,14 +109,15 @@ else {
         },
         download: options.has('--download') ? async url => {
           checkpoint(); free(limit * 2, bodies);
-          requestedAliases++; firstRequestedIndex ??= index;
-          return acquireOfflineSource(url, limit, controller.signal, { onRetry: retry => console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), retry })) });
+          requestedAliases++; firstRequestedIndex = Math.min(firstRequestedIndex ?? index, index);
+          return acquireOfflineSource(url, limit, signal, { onRetry: retry => console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), retry })) });
         } : undefined,
         async validate(bytes) {
-          checkpoint(); await validator.validate(resource, bytes);
+          checkpoint(); await validate(resource, bytes, signal);
           checkpoint();
         },
         save(url, bytes, retained) {
+          signal.throwIfAborted(); checkpoint();
           if (!retained) {
             free(bytes.length, bodies); fs.writeFileSync(bodyPath(url) + '.partial', bytes); fs.renameSync(bodyPath(url) + '.partial', bodyPath(url));
           }
@@ -117,6 +127,15 @@ else {
       });
       checkpoint();
       assert.ok(accepted, `Source ${index + 1} unavailable or invalid. Completed sources remain cached; retry to resume.`);
+      return accepted;
+    };
+    const acquire = async (...args) => {
+      activeSourceTasks++; peakSourceTasks = Math.max(peakSourceTasks, activeSourceTasks);
+      try { return await acquireSource(...args); } finally { activeSourceTasks--; }
+    };
+    for await (const { index, value: accepted } of orderedOfflineSources(plan.resources, acquire, controller.signal, sourceConcurrency)) {
+      checkpoint();
+      const resource = plan.resources[index];
       const original = accepted.bytes;
       let stored = original, encoding = 'identity', file = bodyPath(accepted.url);
       if (resource.kind === 'elevation' && !options.has('--identity')) {

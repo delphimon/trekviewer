@@ -1,0 +1,47 @@
+{
+  "condition": "Three real public-source components under an explicitly controlled fixture identity. Controlled delayed source responses, no external requests or public-service speed claim. One/two source lanes, one production browser validator, byte-identical ordered archives, lazy file header check, independent system tar listing and damaged-source publication rejection. Not a full Rainier or Enchantments pack.",
+  "planId": "controlled-archive-fixture-v1",
+  "archiveBytes": 3150336,
+  "originalSourceBytes": 3147543,
+  "manifestSha256": "7ef48f0ec99856d25ce24b1ac990c95ecb5962b4fd41b4056ce8805b78224310",
+  "archiveSha256": "ba526f2866707bb54428f05f563bc68dc663e3a2c75182232486cadebda7f4d2",
+  "pipelineRuns": [
+    {
+      "concurrency": 1,
+      "peakSources": 1,
+      "peakValidation": 1,
+      "completed": [
+        0,
+        1,
+        2
+      ],
+      "archiveBytes": 3150336,
+      "originalSourceBytes": 3147543,
+      "manifestSha256": "7ef48f0ec99856d25ce24b1ac990c95ecb5962b4fd41b4056ce8805b78224310",
+      "archiveSha256": "ba526f2866707bb54428f05f563bc68dc663e3a2c75182232486cadebda7f4d2"
+    },
+    {
+      "concurrency": 2,
+      "peakSources": 2,
+      "peakValidation": 1,
+      "completed": [
+        1,
+        0,
+        2
+      ],
+      "archiveBytes": 3150336,
+      "originalSourceBytes": 3147543,
+      "manifestSha256": "7ef48f0ec99856d25ce24b1ac990c95ecb5962b4fd41b4056ce8805b78224310",
+      "archiveSha256": "ba526f2866707bb54428f05f563bc68dc663e3a2c75182232486cadebda7f4d2"
+    }
+  ],
+  "identicalArchiveBytes": true,
+  "names": [
+    "trekviewer-pack.json",
+    "sources/000000.bin.gz",
+    "sources/000001.bin",
+    "sources/000002.bin"
+  ],
+  "damagedSourceRejected": true,
+  "pausedArchiveNotPublished": true
+}

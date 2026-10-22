@@ -6,14 +6,16 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import assert from 'node:assert/strict';
 import { writePackProgress } from './offline-pack-progress.mjs';
+import { offlineSourceConcurrency } from './offline-pack-pipeline.mjs';
 
 const options = new Map(), args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
-  const key = args[i]; assert.ok(['--cache', '--out', '--download', '--identity'].includes(key), `Unknown option ${key}`);
+  const key = args[i]; assert.ok(['--cache', '--out', '--download', '--identity', '--source-concurrency'].includes(key), `Unknown option ${key}`);
   if (key === '--download' || key === '--identity') options.set(key, true);
   else { assert.ok(args[i + 1] && !args[i + 1].startsWith('--'), `Missing ${key} value`); options.set(key, args[++i]); }
 }
 const output = path.resolve(options.get('--out') ?? '.review-cache/prepared-route-packs/output');
+const sourceConcurrency = offlineSourceConcurrency(options.get('--source-concurrency'));
 const cache = path.resolve(options.get('--cache') ?? '.review-cache/prepared-route-packs');
 fs.mkdirSync(output, { recursive: true });
 const stopFile = path.join(output, 'defaults.stop'), progressFile = path.join(output, 'defaults.progress.json');
@@ -25,7 +27,7 @@ assert.ok(!fs.existsSync(stopFile), `Pause file exists: ${stopFile}. Remove it o
 const fd = fs.openSync(lock, 'wx'), started = new Date().toISOString(), results = [];
 fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, started }) + '\n');
 const status = async (state, extra = {}) => {
-  const value = { pid: process.pid, started, updated: new Date().toISOString(), state, results, ...extra };
+  const value = { pid: process.pid, started, updated: new Date().toISOString(), state, sourceConcurrency, results, ...extra };
   await writePackProgress(progressFile, value);
 };
 const stop = () => { fs.writeFileSync(stopFile, 'Pause requested\n'); };
@@ -41,7 +43,7 @@ try {
     }
     await status('preparing', { route });
     const childArgs = ['--experimental-transform-types', fileURLToPath(new URL('./build-offline-route-pack.mjs', import.meta.url)),
-      '--route', route, '--cache', cache, '--out', output, '--stop-file', stopFile];
+      '--route', route, '--cache', cache, '--out', output, '--stop-file', stopFile, '--source-concurrency', String(sourceConcurrency)];
     for (const flag of ['--download', '--identity']) if (options.has(flag)) childArgs.push(flag);
     const child = spawn(process.execPath, childArgs, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     const outputLines = createInterface({ input: child.stdout });
