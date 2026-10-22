@@ -36,6 +36,18 @@ it('rejects changed route, request layout, source aliases and incomplete plan co
   }
 });
 
+it('binds a v2 GeoPlatform alternate to its exact original request and rejects the earlier alias inventory', async () => {
+  const f = await fixture(), geo = 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&size=2%2C2';
+  const revised: OfflinePlan = { ...plan, id: 'fixture-public-v2', version: 2,
+    resources: [{ ...plan.resources[0], urls: [plan.resources[0].urls[0], geo] }] };
+  const manifest: ArchiveManifest = { ...f.manifest, planId: revised.id, inventorySha256: await archiveInventoryHash(revised),
+    records: [{ ...f.record, sourceIndex: 1, ...await archiveRequestProvenance(geo) }] };
+  const file = tar(manifest, [f.stored]), index = await inspectOfflineArchive(file);
+  const loaded = await (await offlineArchiveSource(file, index, revised)).load(0, new AbortController().signal);
+  expect(loaded.sourceUrl).toBe(geo); expect(await loaded.blob.text()).toBe(await f.original.text());
+  await expect(offlineArchiveSource(file, index, { ...revised, resources: plan.resources })).rejects.toThrow('does not match');
+});
+
 it('rejects corrupted member bytes, original hashes and invalid source selection', async () => {
   const f = await fixture(), damaged = new Blob([new Uint8Array(f.stored.size)]);
   const file = tar(f.manifest, [damaged]), source = await offlineArchiveSource(file, await inspectOfflineArchive(file), plan);

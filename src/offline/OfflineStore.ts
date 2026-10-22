@@ -17,6 +17,7 @@ export function offlineSourceAllowed(url: string): boolean {
     if (u.protocol !== 'https:' || u.username || u.password || u.hash || [...u.searchParams.keys()].some(k => /token|key|auth|signature|credential/i.test(k))) return false;
     if (u.hostname === 'elevation.nationalmap.gov') return u.pathname === '/arcgis/rest/services/3DEPElevation/ImageServer/exportImage';
     if (u.hostname === 'imagery.nationalmap.gov') return /^\/arcgis\/rest\/services\/USGSNAIP(?:Plus|Imagery)\/ImageServer\/exportImage$/.test(u.pathname);
+    if (u.hostname === 'imagery.geoplatform.gov') return u.pathname === '/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage';
     return u.hostname === 'basemap.nationalmap.gov' && u.pathname === '/arcgis/rest/services/USGSImageryOnly/MapServer/export';
   } catch { return false; }
 }

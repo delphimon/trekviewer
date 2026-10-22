@@ -7,6 +7,7 @@ import { build } from 'vite';
 import { createHash } from 'node:crypto';
 import * as Lerc from 'lerc';
 import { checkOfflineArchiveImport } from './offline-archive-browser-check.mjs';
+import { checkNaipGapStorage } from './offline-naip-gap-browser-check.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base = process.env.TREK_OFFLINE_URL ?? 'https://127.0.0.1:4218/';
@@ -183,6 +184,7 @@ try {
       sharedUsageChangePausedAndResumed: true, incrementalPaused, quotaWritePreservedProgress: true, imageBytes: image.size, demBytes: dem.size };
   }, { encoded: fixture, request: fixtureMetadata.request });
   const archiveImport = await checkOfflineArchiveImport(page);
+  const naipGap = process.env.TREK_OFFLINE_GAP_REPORT ? await checkNaipGapStorage(page, process.env.TREK_OFFLINE_GAP_REPORT) : undefined;
   let sw;
   try { sw = await page.evaluate(async () => {
     let timer;
@@ -249,6 +251,6 @@ try {
   });
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(out, 'browser.json'), JSON.stringify({ condition: 'Production shell/default selections and generated helper built from the same source. Controlled three-source storage fixture, real lossless Rainier decoder fixture, actual IndexedDB/Web Locks/Canvas/worker. Network-disabled app shell/catalogue startup uses existing fallbacks; this does not establish full offline High terrain, multi-GB acquisition, installed APK or native acceptance.',
-    build: expected, defaults, estimate, inventories, planFingerprints, state, archiveImport, sw, offline, offlineWorker, damaged, externalAborted: external, errors }, null, 2) + '\n');
+    build: expected, defaults, estimate, inventories, planFingerprints, state, archiveImport, naipGap, sw, offline, offlineWorker, damaged, externalAborted: external, errors }, null, 2) + '\n');
   console.log(JSON.stringify({ build: expected.id, defaults, passed: true, out }));
 } finally { await browser?.close(); server?.kill(); }

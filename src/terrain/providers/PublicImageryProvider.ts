@@ -26,7 +26,7 @@ export function isCONUS(lat: number, lon: number): boolean { return lat >= 24 &&
 export class PublicImageryProvider implements ImageryProvider {
   readonly id = 'public-naip';
   readonly displayName = 'USGS NAIP / high-resolution orthoimagery';
-  readonly attribution = `USGS / USDA NAIP + HRO (public domain); USGS overview. ${SWISS_IMAGE_CREDITS}. Global: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0`;
+  readonly attribution = `USGS / USDA NAIP + HRO (public domain); NAIP: USDA FPAC / USFS GTAC / DOI GeoPlatform; USGS overview. ${SWISS_IMAGE_CREDITS}. Global: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0`;
   readonly maxZoom = 19;
   readonly requestTimeoutMs = 35_000;
 

@@ -5,6 +5,7 @@ import { planTerrainTiles } from '../terrain/TerrainTileLayout.ts';
 import { elevationRasterRequest, requiredElevationWindow } from '../terrain/BestAvailableElevation.ts';
 import type { RasterSampleWindow } from '../terrain/LercElevation.ts';
 import { PublicImageryProvider } from '../terrain/providers/PublicImageryProvider.ts';
+import { offlineSourceAllowed } from './OfflineStore.ts';
 
 export const DEFAULT_OFFLINE_ROUTES = ['rainier-emmons', 'enchantments-dragontail'] as const;
 export interface OfflineResource {
@@ -15,7 +16,7 @@ export interface OfflineResource {
 }
 export interface OfflinePlan {
   id: string; routeId: string; routeHash: string; name: string;
-  version: 1; coverage: 'full-model'; maxZoom: 19;
+  version: 1 | 2; coverage: 'full-model'; maxZoom: 19;
   /** Uncompressed planning budget, not measured encoded size or minimum quota. */
   estimatedBytes: number; resources: OfflineResource[];
 }
@@ -48,9 +49,9 @@ export function planOfflineRoute(track: TrackStats, routeId: string, routeHash: 
     const a = latLonToTile(nw.lat + latMargin, nw.lon - lonMargin, groupZoom), c = latLonToTile(se.lat - latMargin, se.lon + lonMargin, groupZoom);
     for (let y = a.y; y <= c.y; y++) for (let x = a.x; x <= c.x; x++) {
       const urls = provider.getTileUrls(z, z >= 17 ? x * 4 : x, z >= 17 ? y * 4 : y)
-        // The initial offline review covers USGS endpoints. Commercial/keyed,
-        // global and additional mirrors retain their independent online policy.
-        .filter(url => /^https:\/\/(?:imagery|basemap)\.nationalmap\.gov\//.test(url));
+        // Reviewed USGS and USDA/USFS GeoPlatform NAIP exports. Keep the online
+        // provider's exact requests/order, including source provenance.
+        .filter(offlineSourceAllowed);
       if (!urls.length) throw Error('No approved offline imagery source');
       add({ kind: 'image', urls, width: z >= 17 ? 1024 : 256, height: z >= 17 ? 1024 : 256 });
     }
@@ -85,6 +86,6 @@ export function planOfflineRoute(track: TrackStats, routeId: string, routeHash: 
   // Stable ordering keeps the overview first, then local terrain, then imagery.
   // URL-keyed staging remains compatible with the earlier acquisition order.
   const ordered = [...resources.values()].sort((a, c) => Number(c.kind === 'elevation') - Number(a.kind === 'elevation'));
-  return { id: `${routeId}-high-public-v1-${routeHash.slice(0, 16)}`, routeId, routeHash, name: track.name,
-    version: 1, coverage: 'full-model', maxZoom: 19, estimatedBytes, resources: ordered };
+  return { id: `${routeId}-high-public-v2-${routeHash.slice(0, 16)}`, routeId, routeHash, name: track.name,
+    version: 2, coverage: 'full-model', maxZoom: 19, estimatedBytes, resources: ordered };
 }

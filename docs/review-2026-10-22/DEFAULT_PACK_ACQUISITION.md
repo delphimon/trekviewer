@@ -1,5 +1,7 @@
 # Real default-pack acquisition
 
+**Source-coverage follow-up:** the v1 Rainier run later stopped at source 1,771 because both USGS mosaics contained a few masked pixels. The [v2 source recovery checkpoint](OFFLINE_NAIP_RECOVERY.md) adds the existing online GeoPlatform source after source/usage review, fixes cached-alternate priority and retains the current High coverage checks. Earlier running-state descriptions below are historical snapshots; use the live progress files for current job state.
+
 Rainier and Enchantments are being acquired locally, in that order, with the current complete High public-source inventories. Neither complete archive nor a complete real-route offline tour is accepted yet. The website remains the previously measured `fad1dc2-2026-10-22T03:52:42.030Z` build; this checkpoint changes PC preparation tools and evidence, without changing rendering or publishing unfinished packs.
 
 The drive had 358,122,856,448 bytes free before acquisition. The first Rainier attempt retained 39 validated sequential sources before source 40 failed with the previous generic response error. A separate header check of that same request subsequently returned HTTP 200, `application/octet-stream`, and 1,844,234 encoded bytes for its 679 × 679 DEM. The original response status was not captured, so its cause is unresolved; this is not evidence of a coverage or size defect.

@@ -7,6 +7,10 @@ it('persists only reviewed source paths and excludes keys, commercial services a
   expect(persistentResourceAllowed(raster)).toBe(true);
   expect(persistentResourceAllowed('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image')).toBe(true);
   expect(persistentResourceAllowed('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image')).toBe(true);
+  const geo = 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image';
+  expect(persistentResourceAllowed(geo)).toBe(true);
+  for (const invalid of [geo + '&key=private', geo.replace('.gov/', '.gov.example.test/'), geo.replace('/exportImage?', '/query?'),
+    geo.replace('/NAIP_plus/', '/NAIP2023_CONUS/')]) expect(persistentResourceAllowed(invalid)).toBe(false);
   expect(persistentResourceAllowed('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/12/2/3')).toBe(true);
   expect(persistentResourceAllowed('https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/15/1/2.jpg')).toBe(true);
   expect(persistentResourceAllowed('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/15/1/2.png')).toBe(true);

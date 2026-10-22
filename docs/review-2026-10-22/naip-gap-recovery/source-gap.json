@@ -1,0 +1,147 @@
+{
+  "condition": "Three exact approved original PNG exports at one Rainier crop. Production coverage checks; not full-route coverage or a completed pack.",
+  "routeId": "rainier-emmons",
+  "planId": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+  "index": 1770,
+  "resource": {
+    "kind": "image",
+    "urls": [
+      "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13553202.359301172%2C5920506.462856611%2C-13551979.36684861%2C5921729.455309175&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13553202.359301172%2C5920506.462856611%2C-13551979.36684861%2C5921729.455309175&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+      "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13553202.359301172%2C5920506.462856611%2C-13551979.36684861%2C5921729.455309175&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+    ],
+    "width": 1024,
+    "height": 1024
+  },
+  "samples": [
+    {
+      "sourceIndex": 0,
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13553202.359301172%2C5920506.462856611%2C-13551979.36684861%2C5921729.455309175&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "file": "source-0.png",
+      "bytes": 1835236,
+      "sha256": "58f75eb2307079b1797bcc5a3a1c4282453aafc392ec3f72371f6f61cfa5b3dd",
+      "retained": true,
+      "passed": false,
+      "error": "page.evaluate: Error: Imagery source has missing coverage."
+    },
+    {
+      "sourceIndex": 1,
+      "url": "https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image&bbox=-13553202.359301172%2C5920506.462856611%2C-13551979.36684861%2C5921729.455309175&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll&bandIds=0%2C1%2C2",
+      "file": "source-1.png",
+      "bytes": 1748194,
+      "sha256": "7e47e549a42a9031c1c88d9cf243efbdc927a9e8dcb5c7662091ba1b5b77edd7",
+      "retained": true,
+      "passed": true
+    },
+    {
+      "sourceIndex": 2,
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13553202.359301172%2C5920506.462856611%2C-13551979.36684861%2C5921729.455309175&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+      "file": "source-2.png",
+      "bytes": 1835751,
+      "sha256": "2e2f461b50c823f9944f3a15dd8cd5f332453671b64cca96ba24213b8c733310",
+      "retained": true,
+      "passed": false,
+      "error": "page.evaluate: Error: Imagery source has missing coverage."
+    }
+  ],
+  "maskComparison": [
+    {
+      "label": "0-requested-zero-mask",
+      "sha256": "58f75eb2307079b1797bcc5a3a1c4282453aafc392ec3f72371f6f61cfa5b3dd",
+      "pixels": {
+        "width": 1024,
+        "height": 1024,
+        "missing": 4,
+        "missingBounds": {
+          "minX": 418,
+          "minY": 419,
+          "maxX": 421,
+          "maxY": 419
+        },
+        "changedPreviouslyOpaque": 0,
+        "newlyOpaque": 0,
+        "newlyOpaqueBlack": 0
+      }
+    },
+    {
+      "label": "0-native-mask",
+      "sha256": "58f75eb2307079b1797bcc5a3a1c4282453aafc392ec3f72371f6f61cfa5b3dd",
+      "pixels": {
+        "width": 1024,
+        "height": 1024,
+        "missing": 4,
+        "missingBounds": {
+          "minX": 418,
+          "minY": 419,
+          "maxX": 421,
+          "maxY": 419
+        },
+        "changedPreviouslyOpaque": 0,
+        "newlyOpaque": 0,
+        "newlyOpaqueBlack": 0
+      }
+    },
+    {
+      "label": "1-requested-zero-mask",
+      "sha256": "2e2f461b50c823f9944f3a15dd8cd5f332453671b64cca96ba24213b8c733310",
+      "pixels": {
+        "width": 1024,
+        "height": 1024,
+        "missing": 3,
+        "missingBounds": {
+          "minX": 418,
+          "minY": 419,
+          "maxX": 420,
+          "maxY": 419
+        },
+        "changedPreviouslyOpaque": 0,
+        "newlyOpaque": 0,
+        "newlyOpaqueBlack": 0
+      }
+    },
+    {
+      "label": "1-native-mask",
+      "sha256": "2e2f461b50c823f9944f3a15dd8cd5f332453671b64cca96ba24213b8c733310",
+      "pixels": {
+        "width": 1024,
+        "height": 1024,
+        "missing": 3,
+        "missingBounds": {
+          "minX": 418,
+          "minY": 419,
+          "maxX": 420,
+          "maxY": 419
+        },
+        "changedPreviouslyOpaque": 0,
+        "newlyOpaque": 0,
+        "newlyOpaqueBlack": 0
+      }
+    },
+    {
+      "label": "2-requested-zero-mask",
+      "sha256": "7e47e549a42a9031c1c88d9cf243efbdc927a9e8dcb5c7662091ba1b5b77edd7",
+      "pixels": {
+        "width": 1024,
+        "height": 1024,
+        "missing": 0,
+        "missingBounds": null,
+        "changedPreviouslyOpaque": 0,
+        "newlyOpaque": 0,
+        "newlyOpaqueBlack": 0
+      }
+    },
+    {
+      "label": "2-native-mask",
+      "sha256": "7e47e549a42a9031c1c88d9cf243efbdc927a9e8dcb5c7662091ba1b5b77edd7",
+      "pixels": {
+        "width": 1024,
+        "height": 1024,
+        "missing": 0,
+        "missingBounds": null,
+        "changedPreviouslyOpaque": 0,
+        "newlyOpaque": 0,
+        "newlyOpaqueBlack": 0
+      }
+    }
+  ]
+}

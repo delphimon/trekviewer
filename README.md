@@ -52,7 +52,7 @@ Follow [Meta's PWA packaging guide](https://developers.meta.com/horizon/document
 
 ### Offline route downloads
 
-In Settings, choose **Estimate selected**, then **Download selected**. Rainier and Enchantments are selected by default. Packs preserve full surrounding-model High public USGS satellite imagery through Z19 and 3DEP elevation. Other imagery styles/providers and experimental detail settings can still need a connection.
+In Settings, choose **Estimate selected**, then **Download selected**. Rainier and Enchantments are selected by default. Packs preserve full surrounding-model High public USGS / GeoPlatform NAIP imagery through Z19 and 3DEP elevation. Other imagery styles/providers and experimental detail settings can still need a connection.
 
 The displayed 18.3 GB / 27.8 GB values are **uncompressed planning budgets**, not required free space or measured download sizes. Original compressed source files are stored, with actual saved bytes shown during acquisition. Storage is checked before each write; low space pauses the pack without deleting committed sources. Elevation is validated before imagery. Keep the tab open; Play, VR/MR entry or page exit pauses preparation. Resume retains verified progress, and clearing the temporary cache keeps downloaded packs.
 

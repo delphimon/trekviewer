@@ -20,6 +20,7 @@ export function persistentResourceAllowed(url: string): boolean {
     if (isSwissImageryURL(url)) return true;
     if (u.hostname === 'elevation.nationalmap.gov') return p === '/arcgis/rest/services/3DEPElevation/ImageServer/exportImage';
     if (u.hostname === 'imagery.nationalmap.gov') return /^\/arcgis\/rest\/services\/USGSNAIP(?:Plus|Imagery)\/ImageServer\/exportImage$/.test(p);
+    if (u.hostname === 'imagery.geoplatform.gov') return p === '/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage';
     if (u.hostname === 'basemap.nationalmap.gov') return /^\/arcgis\/rest\/services\/(?:USGSImageryOnly|USGSTopo)\/MapServer\/(?:export|tile\/\d+\/\d+\/\d+)$/.test(p);
     if (u.hostname === 'carto.nationalmap.gov') return p === '/arcgis/rest/services/geonames/MapServer/export';
     if (u.hostname === 'tiles.maps.eox.at') return /^\/wmts\/1\.0\.0\/s2cloudless-2025_3857\/default\/g\/\d+\/\d+\/\d+\.jpg$/.test(p);

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { openOfflinePreparationValidator } from './offline-preparation-validator.mjs';
-import { acquireOfflineSource } from './offline-pack-acquisition.mjs';
+import { acquireOfflineSource, acquireOfflineResource, OfflineSourceHealth } from './offline-pack-acquisition.mjs';
 const sourceRoot = new URL('../src/', import.meta.url).href;
 registerHooks({ load(url, context, nextLoad) {
   if (url.startsWith(sourceRoot) && url.endsWith('.json')) return { format: 'module', shortCircuit: true,
@@ -66,10 +66,11 @@ else {
   const pausePoll = stopFile ? setInterval(() => { if (fs.existsSync(stopFile)) stop(); }, 250) : undefined;
   pausePoll?.unref();
   const progressFile = path.join(output, id + '.progress.json'), started = Date.now();
-  let validated = 0, originalSourceBytes = 0, storedSourceBytes = 0;
+  let validated = 0, originalSourceBytes = 0, storedSourceBytes = 0, retainedSources = 0, downloadedSources = 0, requestedAliases = 0, firstRequestedIndex;
   const progress = (state, extra = {}) => {
     const value = { routeId: id, planId: plan.id, pid: process.pid, state, validated, total: plan.resources.length,
-      originalSourceBytes, storedSourceBytes, elapsedSeconds: (Date.now() - started) / 1000, updated: new Date().toISOString(), ...extra };
+      originalSourceBytes, storedSourceBytes, retainedSources, downloadedSources, requestedAliases, firstRequestedIndex,
+      elapsedSeconds: (Date.now() - started) / 1000, updated: new Date().toISOString(), ...extra };
     fs.writeFileSync(progressFile + '.partial', JSON.stringify(value, null, 2) + '\n');
     fs.renameSync(progressFile + '.partial', progressFile);
   };
@@ -81,36 +82,39 @@ else {
   try {
     checkpoint(); progress('preparing');
     validator = await openOfflinePreparationValidator(path.join(cache, 'validator'));
-    const records = [], files = [];
+    const records = [], files = [], health = new OfflineSourceHealth();
     for (let index = 0; index < plan.resources.length; index++) {
       checkpoint();
       const resource = plan.resources[index], limit = (resource.kind === 'image' ? 8 : 32) * 1024 * 1024;
       assert.ok(resource.urls.every(offlineSourceAllowed));
-      let accepted;
-      for (const url of resource.urls) {
-        checkpoint();
-        try {
-          let bytes, retained = false;
+      const accepted = await acquireOfflineResource(resource, controller.signal, {
+        health,
+        readRetained(url) {
           const meta = metadata(url);
           if (fs.existsSync(bodyPath(url)) && meta) {
             try {
-              assert.ok(fs.statSync(bodyPath(url)).size <= limit); bytes = fs.readFileSync(bodyPath(url));
-              assert.equal(bytes.length, meta.bytes); assert.equal(sha(bytes), meta.sha256); retained = true;
-            } catch { bytes = undefined; }
+              assert.ok(fs.statSync(bodyPath(url)).size <= limit); const bytes = fs.readFileSync(bodyPath(url));
+              assert.equal(bytes.length, meta.bytes); assert.equal(sha(bytes), meta.sha256); return bytes;
+            } catch { /* Invalid originals can be acquired again with --download. */ }
           }
-          if (!retained) {
-            assert.ok(options.has('--download'), 'Source is not available in the verified cache'); free(limit * 2, bodies);
-            bytes = await acquireOfflineSource(url, limit, controller.signal, { onRetry: retry => console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), retry })) });
-          }
+        },
+        download: options.has('--download') ? async url => {
+          checkpoint(); free(limit * 2, bodies);
+          requestedAliases++; firstRequestedIndex ??= index;
+          return acquireOfflineSource(url, limit, controller.signal, { onRetry: retry => console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), retry })) });
+        } : undefined,
+        async validate(bytes) {
           checkpoint(); await validator.validate(resource, bytes);
           checkpoint();
+        },
+        save(url, bytes, retained) {
           if (!retained) {
             free(bytes.length, bodies); fs.writeFileSync(bodyPath(url) + '.partial', bytes); fs.renameSync(bodyPath(url) + '.partial', bodyPath(url));
           }
           fs.writeFileSync(path.join(bodies, sha(url) + '.json'), JSON.stringify({ url, bytes: bytes.length, sha256: sha(bytes) }) + '\n');
-          accepted = { bytes, url, sourceIndex: resource.urls.indexOf(url) }; break;
-        } catch (error) { console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), error: error.message })); }
-      }
+        },
+        onFailure: (url, error, retained) => console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), retained, error: error.message })),
+      });
       checkpoint();
       assert.ok(accepted, `Source ${index + 1} unavailable or invalid. Completed sources remain cached; retry to resume.`);
       const original = accepted.bytes;
@@ -124,6 +128,7 @@ else {
       }
       records.push({ index, sourceIndex: accepted.sourceIndex, encoding, bytes: original.length, sha256: sha(original), storedBytes: stored.length, storedSha256: sha(stored), ...await archiveRequestProvenance(accepted.url) });
       files.push(file);
+      if (accepted.retained) retainedSources++; else downloadedSources++;
       validated = index + 1; originalSourceBytes += original.length; storedSourceBytes += stored.length; progress('acquiring');
       if ((index + 1) % 32 === 0 || index + 1 === plan.resources.length) console.log(JSON.stringify({ validated: index + 1, total: plan.resources.length }));
     }

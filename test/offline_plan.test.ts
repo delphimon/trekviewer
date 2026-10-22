@@ -19,6 +19,7 @@ it.each(DEFAULT_OFFLINE_ROUTES)('covers actual overview request identity and fin
   expect(OfflineStore.compatible({ routeId: id, routeHash: actualHash } as never)).toBe(true);
   expect(OfflineStore.compatible({ routeId: id, routeHash: 'a'.repeat(64) } as never)).toBe(false);
   const plan = planOfflineRoute(track, id, 'a'.repeat(64));
+  expect(plan.version).toBe(2); expect(plan.id).toContain('-high-public-v2-');
   const overview = vi.spyOn(ElevationTileService, 'fetchElevationGrid').mockResolvedValue(null);
   await TerrainGenerator.prepareElevation(track.bounds);
   const [b, margin = 0.25] = overview.mock.calls[0];
@@ -34,6 +35,10 @@ it.each(DEFAULT_OFFLINE_ROUTES)('covers actual overview request identity and fin
   for (const fraction of [0, 0.25, 0.5, 0.75, 1]) for (let z = 10; z <= 19; z++) {
     const p = track.points[Math.round((track.points.length - 1) * fraction)], xy = latLonToTile(p.lat, p.lon, z);
     expect(urls.has(provider.getTileUrls(z, xy.x, xy.y)[0])).toBe(true);
+    if (z >= 17) {
+      const candidates = provider.getTileUrls(z, xy.x, xy.y);
+      expect(plan.resources.find(r => r.urls[0] === candidates[0])?.urls).toEqual(candidates);
+    }
   }
   expect(plan.resources.length).toBeGreaterThan(4000);
   expect(plan.resources.every(r => r.urls.every(offlineSourceAllowed))).toBe(true);
@@ -47,6 +52,10 @@ it.each(DEFAULT_OFFLINE_ROUTES)('covers actual overview request identity and fin
 it('restricts offline acquisition to reviewed public sources without credential-bearing or lookalike URLs', () => {
   const url = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image';
   expect(offlineSourceAllowed(url)).toBe(true);
+  const geo = 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?f=image';
+  expect(offlineSourceAllowed(geo)).toBe(true);
+  for (const invalid of [geo + '&access_token=private', geo.replace('.gov/', '.gov.example.test/'),
+    geo.replace('/exportImage?', '/query?'), geo.replace('/NAIP_plus/', '/NAIP2018_CONUS/'), geo.replace('https:', 'http:')]) expect(offlineSourceAllowed(invalid)).toBe(false);
   for (const invalid of [url + '&key=private', url + '&access_token=private', url.replace('.gov/', '.gov.example.test/'),
     url.replace('https:', 'http:'), 'https://assets.cesium.com/1?token=private']) expect(offlineSourceAllowed(invalid)).toBe(false);
   expect(() => planOfflineRoute({} as never, 'olympus-bailey-2026', 'a'.repeat(64))).toThrow('Unsupported');

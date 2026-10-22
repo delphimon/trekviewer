@@ -1,0 +1,11 @@
+{
+  "planId": "enchantments-dragontail-high-public-v2-2a6fdcedbeb7f776",
+  "routeId": "enchantments-dragontail",
+  "routeHash": "2a6fdcedbeb7f776253cb4b37056db530748d4207f630a68277119f649de4ad9",
+  "inventorySha256": "b4f79c2cd58443f7783e85ec73451385a643b6b4787d0f23be0139298c95dcfb",
+  "sources": 8177,
+  "missingSources": 8168,
+  "uncompressedBudgetBytes": 27761599009,
+  "mode": "Local inventory/cache check only; no network acquisition",
+  "complete": false
+}

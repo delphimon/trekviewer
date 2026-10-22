@@ -27,7 +27,7 @@ export class OfflineDownloadsPanel {
   private pageHide = () => OfflineDownloads.pause();
   constructor(private root: HTMLElement, private canPrepare: () => boolean = () => true) {
     root.innerHTML = `<h3>Offline route downloads</h3>
-      <p class="trek-meta">USGS satellite imagery and 3DEP elevation, with full surrounding terrain in High. Rainier and Enchantments are selected by default. Downloads can be several GB and require this tab to stay open. Play or entering VR/MR pauses preparation.</p>
+      <p class="trek-meta">Public USGS / GeoPlatform NAIP imagery and 3DEP elevation, with full surrounding terrain in High. Rainier and Enchantments are selected by default. Downloads can be several GB and require this tab to stay open. Play or entering VR/MR pauses preparation.</p>
       <label class="comfort-option"><span>Mount Rainier — Emmons</span><input type="checkbox" data-offline-route="rainier-emmons" checked /></label>
       <label class="comfort-option"><span>Enchantments &amp; Dragontail</span><input type="checkbox" data-offline-route="enchantments-dragontail" checked /></label>
       <div class="btn-group"><button class="btn btn-sm" data-offline-action="prepare">Estimate selected</button><button class="btn btn-sm" data-offline-action="download" disabled>Download selected</button><button class="btn btn-sm" data-offline-action="pause" disabled>Pause</button></div>
