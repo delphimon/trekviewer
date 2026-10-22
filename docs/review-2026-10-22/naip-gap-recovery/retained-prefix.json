@@ -1,0 +1,18 @@
+{
+  "condition": "Real retained 1771-source prefix, production PC alias selector and worker/Canvas coverage validation. No network acquisition or full-route/archive/native acceptance.",
+  "planId": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+  "validated": 1771,
+  "elevationSources": 523,
+  "imagerySources": 1248,
+  "bytes": 1331022289,
+  "sourceNetworkAttempts": 0,
+  "changedHashes": 0,
+  "rewrittenOriginals": 0,
+  "sourceIndices": {
+    "0": 1766,
+    "1": 1,
+    "2": 4
+  },
+  "proofSha256": "1ffcaada0a882191f62011c022d0e9aaa9b754bf9d86dfadee6dd29b2133898b",
+  "checkedAt": "2026-10-22T16:42:56.810Z"
+}

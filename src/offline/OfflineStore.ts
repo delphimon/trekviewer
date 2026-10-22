@@ -31,11 +31,14 @@ export async function hashOfflineBlob(blob: Blob): Promise<string> {
  * One bounded Blob per transaction/read. Never enumerate all encoded bodies.
  * Only completely validated, atomically published packs enter the read path. */
 export class OfflineStore {
+  private static readonly suppliedSources = new WeakMap<Blob, string>();
   private static opening: Promise<IDBDatabase> | undefined;
   private static readyIds: Promise<Set<string>> | undefined;
   private static channel: BroadcastChannel | undefined;
   public static readonly events = new EventTarget();
   public static hits = 0;
+  /** Bind provenance to this verified read only; do not retain source bodies. */
+  public static sourceUrlFor(blob: Blob): string | undefined { return this.suppliedSources.get(blob); }
   public static available(): boolean { return typeof indexedDB !== 'undefined'; }
   public static bundledHash(routeId: string): string | undefined {
     return typeof __OFFLINE_ROUTE_HASHES__ === 'undefined' ? undefined : __OFFLINE_ROUTE_HASHES__[routeId];
@@ -140,7 +143,9 @@ export class OfflineStore {
         };
       });
       if (!asset) return null;
-      if (asset.blob.size !== asset.bytes || await hashOfflineBlob(asset.blob) !== asset.sha256) { await this.invalidate(url); return null; }
+      if (!offlineSourceAllowed(asset.sourceUrl) || !sameOfflineSource(asset.sourceUrl, asset.urls)
+        || asset.blob.size !== asset.bytes || await hashOfflineBlob(asset.blob) !== asset.sha256) { await this.invalidate(url); return null; }
+      this.suppliedSources.set(asset.blob, asset.sourceUrl);
       this.hits++; return asset.blob;
     } catch { this.readyIds = undefined; return null; }
   }

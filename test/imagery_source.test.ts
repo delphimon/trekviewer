@@ -40,6 +40,17 @@ it('preserves the actual alternative on cropped images and cache hits', async ()
   expect(load).toHaveBeenCalledTimes(2);
 });
 
+it('keeps the supplying pinned source through a preferred lookup alias and later configured alternatives', () => {
+  const original = {}, crop = {}, alternativeCrop = {}, geo = 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage';
+  recordImagerySource(original, geo, preferred);
+  recordImagerySource(crop, preferred, preferred, getImagerySource(original));
+  expect(getImagerySource(crop)).toEqual({ source: 'geoplatform-naip', configuredAlternative: true });
+  recordImagerySource(original, geo, geo);
+  recordImagerySource(alternativeCrop, geo, preferred, getImagerySource(original));
+  expect(getImagerySource(alternativeCrop)).toEqual({ source: 'geoplatform-naip', configuredAlternative: true });
+  expect(JSON.stringify(getImagerySource(alternativeCrop))).not.toContain('https:');
+});
+
 it('keeps aerial provenance through real Hybrid compositing when labels fail', async () => {
   const sat = {}; recordImagerySource(sat, fallback, preferred);
   vi.spyOn(TileImageCache, 'loadTile').mockResolvedValueOnce(sat as HTMLImageElement).mockRejectedValueOnce(Error('labels unavailable'));

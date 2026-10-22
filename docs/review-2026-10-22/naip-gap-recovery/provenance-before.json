@@ -1,0 +1,7 @@
+{
+  "condition": "Controlled actual Rainier crop; storage provenance/hash checks passed, then the real image loader/crop source-report assertion failed before the fix.",
+  "build": "6dc8e46-2026-10-22T16:45:22.519Z",
+  "expectedRenderedSource": "geoplatform-naip",
+  "observedFailure": "Rendered cropped pinned imagery must report its actual GeoPlatform source, not its lookup alias",
+  "fullRouteAccepted": false
+}

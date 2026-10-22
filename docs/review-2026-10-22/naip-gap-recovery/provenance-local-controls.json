@@ -1,0 +1,385 @@
+{
+  "fixture": "synthetic terrain; external sources deliberately unavailable",
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "hudLayout": {
+        "controlsChangedPixels": 0,
+        "footerChangedPixels": 34327,
+        "diagnostics": {
+          "requests": 2,
+          "requestedBytes": 6291456,
+          "visible": true
+        },
+        "counters": {
+          "xrRequestedFoveation": 0,
+          "xrLayerFoveation": null,
+          "xrLayerFoveationSupported": null,
+          "xrFramebufferScaleRequested": 1,
+          "xrLayerType": "none",
+          "xrLayerWidth": null,
+          "xrLayerHeight": null,
+          "xrLayerArrayLength": null,
+          "xrEyeViewports": [],
+          "xrPresenting": false,
+          "xrEnvironmentBlendMode": "none",
+          "xrEyeCount": 0,
+          "drawCalls": 38,
+          "triangles": 7816,
+          "geometries": 31,
+          "textures": 8,
+          "tileCacheEntries": 0,
+          "tileCacheDecodedMB": 0,
+          "resourceCacheHits": 0,
+          "resourceCacheMisses": 154,
+          "resourceCacheWrites": 0,
+          "resourceCacheWriteFailed": false,
+          "imageryPatches": 0,
+          "imageryBatchStatus": "active",
+          "imageryBatchMode": "terrain",
+          "imageryLookupMB": 0.009033203125,
+          "imageryReclippingAvoidedTotal": 0,
+          "imageryBatchedPatches": 0,
+          "imageryBatchPreparationMs": 0,
+          "imageryBatchArrayMB": 0,
+          "imageryBatchGeometryMB": 0,
+          "imageryCoveragePercent": 0,
+          "firstPersonViewSamples": 0,
+          "firstPersonHighResSamples": 0,
+          "firstPersonViewMinZoom": 0,
+          "firstPersonViewMeanZoom": 0,
+          "firstPersonLocalSurfaceRays": 0,
+          "firstPersonBaseSurfaceRays": 0,
+          "baseTerrainCellXM": 46.9,
+          "baseTerrainCellZM": 46.9,
+          "baseDemZoom": 0,
+          "regionalBaseDemZoom": 0,
+          "regionalBaseTiles": 0,
+          "baseElevationSource": "unavailable",
+          "localElevationSource": "unavailable",
+          "localElevationSampleSpacingM": 0,
+          "residentUSGSRasterMB": 0,
+          "visibleLocalDemZoom": 0,
+          "visibleLocalCellXM": 0,
+          "visibleLocalCellZM": 0,
+          "regionalDemEnabled": true,
+          "visibleLocalRegionalTiles": 0,
+          "visibleLocalAwsTiles": 0,
+          "imageryInFlight": 0,
+          "imageryTargetZoom": 17,
+          "imageryFocusSource": "center",
+          "imageryDesiredTiles": 90,
+          "imageryVisiblePatches": 0,
+          "imageryVisibleBySource": {},
+          "imageryVisibleFineBySource": {},
+          "imageryVisibleAlternativeSources": 0,
+          "imageryCreatedTotal": 0,
+          "imageryDisposedTotal": 0,
+          "imageryBudgetEvictionsTotal": 0,
+          "imageryVisibleBudgetEvictionsTotal": 0,
+          "imageryDesiredBudgetEvictionsTotal": 0,
+          "tileCacheFailures": 99,
+          "localTerrainChunks": 0,
+          "localTerrainFocusChangesTotal": 0,
+          "qualityProfile": "desktop-high",
+          "viewMode": "diorama",
+          "playbackMode": "tour",
+          "playbackSpeed": 1,
+          "isPlaying": false,
+          "followRoute": false,
+          "routeProgress": 0.4,
+          "hudVisible": true,
+          "hudUploadRequestsTotal": 2,
+          "hudUploadBytesRequestedTotal": 6291456,
+          "textureStyle": "satellite",
+          "imageryProvider": "public-naip",
+          "routeName": "Diorama tour fixture"
+        },
+        "hiddenUploadRequests": 0
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.0014834269608684945
+      },
+      "xrFollow": {
+        "startedFollowing": true,
+        "upcomingGroundHint": true,
+        "targetError": 0.0008662800678297528,
+        "modelMoved": 0.5185360350889554,
+        "cameraMoved": 0,
+        "cameraTurned": 0,
+        "modelTurned": 0,
+        "modelRescaled": 0,
+        "terrainFollowsHiker": true,
+        "pausedHintCleared": true,
+        "spatialStopped": true,
+        "spatialStarted": true,
+        "manualStopped": true
+      },
+      "clearance": {
+        "obstructed": {
+          "minimum": -0.20999999158694208,
+          "camera": [
+            -0.010587231319791088,
+            0.0093658775536829,
+            -0.8020575664984728
+          ],
+          "active": false
+        },
+        "cleared": {
+          "minimum": 0.00536718718979273,
+          "camera": [
+            -0.010587231319791085,
+            0.491937109186608,
+            -0.8020575664984728
+          ],
+          "active": true
+        }
+      },
+      "xmlImport": {
+        "name": "Prefixed & encoded",
+        "segments": 2,
+        "points": 4,
+        "hr": 144,
+        "cad": 82,
+        "waypoint": "Camp <Upper> & East",
+        "preservedOnError": true,
+        "importError": "error"
+      },
+      "landmarks": {
+        "shared": true,
+        "list": [
+          {
+            "name": "Trailhead (Loop)",
+            "progress": 0
+          },
+          {
+            "name": "Camp (Upper)",
+            "progress": 0.14239307647845603
+          },
+          {
+            "name": "Camp (Lower)",
+            "progress": 0.14787174123544253
+          },
+          {
+            "name": "High Point",
+            "progress": 0.5035712470660862
+          },
+          {
+            "name": "Finish",
+            "progress": 1
+          }
+        ]
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "6dc8e46-modified-2026-10-22T16:53:59.627Z",
+        "sha": "6dc8e4634ac2e63b873a3f2cc34800c9b0d8af3c",
+        "shortSha": "6dc8e46",
+        "branch": "main",
+        "dirty": true,
+        "builtAt": "2026-10-22T16:53:59.627Z",
+        "label": "TrekViewer 1.0.0 • 6dc8e46 (modified)"
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "progress": 0.4,
+      "spatial": {
+        "mode": "recorded",
+        "speed": 20
+      },
+      "hudLayout": {
+        "controlsChangedPixels": 0,
+        "footerChangedPixels": 34327,
+        "diagnostics": {
+          "requests": 2,
+          "requestedBytes": 6291456,
+          "visible": true
+        },
+        "counters": {
+          "xrRequestedFoveation": 0,
+          "xrLayerFoveation": null,
+          "xrLayerFoveationSupported": null,
+          "xrFramebufferScaleRequested": 1,
+          "xrLayerType": "none",
+          "xrLayerWidth": null,
+          "xrLayerHeight": null,
+          "xrLayerArrayLength": null,
+          "xrEyeViewports": [],
+          "xrPresenting": false,
+          "xrEnvironmentBlendMode": "none",
+          "xrEyeCount": 0,
+          "drawCalls": 39,
+          "triangles": 7880,
+          "geometries": 32,
+          "textures": 8,
+          "tileCacheEntries": 0,
+          "tileCacheDecodedMB": 0,
+          "resourceCacheHits": 0,
+          "resourceCacheMisses": 143,
+          "resourceCacheWrites": 0,
+          "resourceCacheWriteFailed": false,
+          "imageryPatches": 0,
+          "imageryBatchStatus": "active",
+          "imageryBatchMode": "terrain",
+          "imageryLookupMB": 0.009033203125,
+          "imageryReclippingAvoidedTotal": 0,
+          "imageryBatchedPatches": 0,
+          "imageryBatchPreparationMs": 0,
+          "imageryBatchArrayMB": 0,
+          "imageryBatchGeometryMB": 0,
+          "imageryCoveragePercent": 0,
+          "firstPersonViewSamples": 0,
+          "firstPersonHighResSamples": 0,
+          "firstPersonViewMinZoom": 0,
+          "firstPersonViewMeanZoom": 0,
+          "firstPersonLocalSurfaceRays": 0,
+          "firstPersonBaseSurfaceRays": 0,
+          "baseTerrainCellXM": 46.9,
+          "baseTerrainCellZM": 46.9,
+          "baseDemZoom": 0,
+          "regionalBaseDemZoom": 0,
+          "regionalBaseTiles": 0,
+          "baseElevationSource": "unavailable",
+          "localElevationSource": "unavailable",
+          "localElevationSampleSpacingM": 0,
+          "residentUSGSRasterMB": 0,
+          "visibleLocalDemZoom": 0,
+          "visibleLocalCellXM": 0,
+          "visibleLocalCellZM": 0,
+          "regionalDemEnabled": true,
+          "visibleLocalRegionalTiles": 0,
+          "visibleLocalAwsTiles": 0,
+          "imageryInFlight": 0,
+          "imageryTargetZoom": 16,
+          "imageryFocusSource": "center",
+          "imageryDesiredTiles": 28,
+          "imageryVisiblePatches": 0,
+          "imageryVisibleBySource": {},
+          "imageryVisibleFineBySource": {},
+          "imageryVisibleAlternativeSources": 0,
+          "imageryCreatedTotal": 0,
+          "imageryDisposedTotal": 0,
+          "imageryBudgetEvictionsTotal": 0,
+          "imageryVisibleBudgetEvictionsTotal": 0,
+          "imageryDesiredBudgetEvictionsTotal": 0,
+          "tileCacheFailures": 37,
+          "localTerrainChunks": 0,
+          "localTerrainFocusChangesTotal": 0,
+          "qualityProfile": "desktop-high",
+          "viewMode": "diorama",
+          "playbackMode": "tour",
+          "playbackSpeed": 1,
+          "isPlaying": false,
+          "followRoute": false,
+          "routeProgress": 0.4,
+          "hudVisible": true,
+          "hudUploadRequestsTotal": 2,
+          "hudUploadBytesRequestedTotal": 6291456,
+          "textureStyle": "satellite",
+          "imageryProvider": "public-naip",
+          "routeName": "Diorama tour fixture"
+        },
+        "hiddenUploadRequests": 0
+      },
+      "following": {
+        "active": true,
+        "targetError": 0.0003122581648736623
+      },
+      "xrFollow": {
+        "startedFollowing": true,
+        "upcomingGroundHint": true,
+        "targetError": 0.0008663149220839723,
+        "modelMoved": 1.3604648635217316,
+        "cameraMoved": 0,
+        "cameraTurned": 0,
+        "modelTurned": 0,
+        "modelRescaled": 0,
+        "terrainFollowsHiker": true,
+        "pausedHintCleared": true,
+        "spatialStopped": true,
+        "spatialStarted": true,
+        "manualStopped": true
+      },
+      "clearance": {
+        "obstructed": {
+          "minimum": -0.20999999158694208,
+          "camera": [
+            -0.010587231319791088,
+            0.0093658775536829,
+            -0.8020575664984728
+          ],
+          "active": false
+        },
+        "cleared": {
+          "minimum": 0.005367187189793503,
+          "camera": [
+            -0.010587231319791082,
+            0.49193710918660727,
+            -0.8020575664984733
+          ],
+          "active": true
+        }
+      },
+      "xmlImport": {
+        "name": "Prefixed & encoded",
+        "segments": 2,
+        "points": 4,
+        "hr": 144,
+        "cad": 82,
+        "waypoint": "Camp <Upper> & East",
+        "preservedOnError": true,
+        "importError": "error"
+      },
+      "landmarks": {
+        "shared": true,
+        "list": [
+          {
+            "name": "Trailhead (Loop)",
+            "progress": 0
+          },
+          {
+            "name": "Camp (Upper)",
+            "progress": 0.14239307647845603
+          },
+          {
+            "name": "Camp (Lower)",
+            "progress": 0.14787174123544253
+          },
+          {
+            "name": "High Point",
+            "progress": 0.5035712470660862
+          },
+          {
+            "name": "Finish",
+            "progress": 1
+          }
+        ]
+      },
+      "overflow": false,
+      "pageErrors": [],
+      "build": {
+        "id": "6dc8e46-modified-2026-10-22T16:53:59.627Z",
+        "sha": "6dc8e4634ac2e63b873a3f2cc34800c9b0d8af3c",
+        "shortSha": "6dc8e46",
+        "branch": "main",
+        "dirty": true,
+        "builtAt": "2026-10-22T16:53:59.627Z",
+        "label": "TrekViewer 1.0.0 • 6dc8e46 (modified)"
+      }
+    }
+  ]
+}

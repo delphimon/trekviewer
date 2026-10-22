@@ -20,9 +20,10 @@ export function imagerySourceId(url: string): ImagerySourceId {
   return 'other';
 }
 
-export function recordImagerySource(image: object, url: string, configuredFirstURL: string): void {
+export function recordImagerySource(image: object, url: string, configuredFirstURL: string, supplied?: Readonly<ImagerySourceInfo>): void {
   // Keep fixed labels only; URLs may contain optional-provider credentials.
-  images.set(image, Object.freeze({ source: imagerySourceId(url), configuredAlternative: url !== configuredFirstURL }));
+  images.set(image, Object.freeze({ source: supplied?.source ?? imagerySourceId(url),
+    configuredAlternative: !!supplied?.configuredAlternative || url !== configuredFirstURL }));
 }
 export function getImagerySource(image: unknown): Readonly<ImagerySourceInfo> | undefined {
   return image !== null && typeof image === 'object' ? images.get(image) : undefined;

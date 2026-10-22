@@ -1,5 +1,5 @@
 import type { ImageryProvider } from './providers/ImageryProvider.ts';
-import { recordImagerySource } from './ImagerySource.ts';
+import { recordImagerySource, getImagerySource } from './ImagerySource.ts';
 import { PersistentResourceCache, persistentResourceAllowed, readBoundedBlob } from './PersistentResourceCache.ts';
 import { OfflineStore, offlineSourceAllowed } from '../offline/OfflineStore.ts';
 import { isSwissImageryURL, isCompleteSwissImage } from './providers/SwissImagery.ts';
@@ -384,6 +384,7 @@ export class TileImageCache {
               ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation, provider.id, requestSignal)
               : await this.loadImageWithTimeout(url, provider.requestTimeoutMs ?? timeoutMs, requestSignal);
             if (requestSignal.aborted || generation !== this.generation) throw new DOMException('Tile load aborted', 'AbortError');
+            const suppliedSource = getImagerySource(img);
             if (region) {
               if (region.x + region.width > img.width || region.y + region.height > img.height) throw new Error('Incomplete source raster dimensions');
               const canvas = document.createElement('canvas'); canvas.width = region.width; canvas.height = region.height;
@@ -393,7 +394,7 @@ export class TileImageCache {
               img = canvas;
             }
             if (provider.isTileUsable && !provider.isTileUsable(img, url)) throw new Error('Imagery has incomplete source coverage');
-            recordImagerySource(img, url, configuredFirstURL);
+            recordImagerySource(img, url, configuredFirstURL, suppliedSource);
             if (generation === this.generation) this.set(key, img);
             return img;
           } catch (err) {
@@ -544,7 +545,11 @@ export class TileImageCache {
       const cached = await PersistentResourceCache.read(url);
       if (controller.signal.aborted) throw new Error('Image load aborted');
       if (cached) {
-        try { return await decode(cached); }
+        try {
+          const image = await decode(cached);
+          recordImagerySource(image, OfflineStore.sourceUrlFor(cached) ?? url, url);
+          return image;
+        }
         catch (error) { if (controller.signal.aborted) throw error; void PersistentResourceCache.remove(url); }
       }
       const response = await fetch(url, { signal: controller.signal, credentials: 'omit' });

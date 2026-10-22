@@ -17,6 +17,8 @@ const helper = path.resolve(out, 'helper'), entry = path.resolve(out, 'entry.ts'
 fs.writeFileSync(entry, `export { OfflineStore, hashOfflineBlob } from ${JSON.stringify(path.resolve('src/offline/OfflineStore.ts'))};
 export { OfflineDownloads } from ${JSON.stringify(path.resolve('src/offline/OfflineDownloads.ts'))};
 export { PersistentResourceCache } from ${JSON.stringify(path.resolve('src/terrain/PersistentResourceCache.ts'))};
+export { TileImageCache } from ${JSON.stringify(path.resolve('src/terrain/TileImageCache.ts'))};
+export { getImagerySource } from ${JSON.stringify(path.resolve('src/terrain/ImagerySource.ts'))};
 export { planOfflineRoute, sha256 } from ${JSON.stringify(path.resolve('src/offline/OfflinePlan.ts'))};
 export { GPXParser } from ${JSON.stringify(path.resolve('src/gpx/GPXParser.ts'))};
 export { disposeTerrainJobs } from ${JSON.stringify(path.resolve('src/terrain/TerrainJobs.ts'))};

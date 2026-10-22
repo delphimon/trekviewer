@@ -38,13 +38,19 @@ export async function checkNaipGapStorage(page, reportFile) {
         const blob = await h.PersistentResourceCache.read(url);
         assert(blob && await h.hashOfflineBlob(blob) === samples[1].sha256, 'Each current alias must resolve pinned exact alternate bytes with temporary caching disabled');
       }
+      const provider = { id: 'controlled-pinned-naip-source', displayName: 'Controlled real NAIP crop', attribution: '', maxZoom: 19,
+        getTileUrls: () => resource.urls, getTileImageRegion: () => ({ x: 0, y: 0, width: 256, height: 256 }) };
+      const cropped = await h.TileImageCache.loadTile(provider, 17, 0, 0);
+      const renderedSource = h.getImagerySource(cropped);
+      assert(renderedSource?.source === 'geoplatform-naip' && renderedSource.configuredAlternative === true, 'Rendered cropped pinned imagery must report its actual GeoPlatform source, not its lookup alias');
+      assert(h.getImagerySource(await h.TileImageCache.loadTile(provider, 17, 0, 0)) === renderedSource, 'Decoded tile cache must retain actual source reporting');
       await h.PersistentResourceCache.clear(); await h.OfflineDownloads.start(plan);
       const after = await h.PersistentResourceCache.read(resource.urls[0]);
       assert(after && await h.hashOfflineBlob(after) === samples[1].sha256 && requests.length === 2, 'Temporary clear and ready resume must retain the exact original without source requests');
       return { condition: 'One real Rainier crop under a controlled identity, actual production IndexedDB/Canvas/worker helper. No full-route or native acceptance.',
         primaryMissingCoverageRejected: true, originalAlternateSha256: samples[1].sha256,
         originalAlternateBytes: blobs[1].size, approvedSourceIndicesRequested: requests,
-        originalProvenancePreserved: true, pinnedAliasesWithNetworkDisabled: resource.urls.length, temporaryClearRetainsAlternate: true };
+        originalProvenancePreserved: true, renderedSource, pinnedAliasesWithNetworkDisabled: resource.urls.length, temporaryClearRetainsAlternate: true };
     } finally {
       window.fetch = nativeFetch; h.PersistentResourceCache.setEnabled(true);
       await h.OfflineDownloads.withLock(() => h.OfflineStore.remove(plan.id));
