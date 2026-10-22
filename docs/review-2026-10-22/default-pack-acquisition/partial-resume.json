@@ -1,0 +1,23 @@
+{
+  "condition": "Real partial Rainier prefix; complete packs and offline full tours not yet accepted",
+  "checkedAt": "2026-10-22T15:15:34.287Z",
+  "routeId": "rainier-emmons",
+  "planId": "rainier-emmons-high-public-v1-0e1942e8741f0b47",
+  "paused": {
+    "validated": 120,
+    "total": 5337,
+    "originalSourceBytes": 222097644,
+    "storedSourceBytes": 173969619,
+    "state": "paused"
+  },
+  "resumed": {
+    "validated": 195,
+    "state": "acquiring",
+    "originalSourceBytes": 360415194
+  },
+  "retainedBodiesVerified": 120,
+  "retainedBodyBytes": 222097644,
+  "changedOriginalHashes": 0,
+  "rewrittenOriginalBodies": 0,
+  "proofSha256": "8e607f31f7394d746f5bfada9d2432e82634294804fd23fd70283a8d6f516fd9"
+}

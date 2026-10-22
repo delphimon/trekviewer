@@ -4,6 +4,8 @@ Rainier and Enchantments remain the default downloads. This checkpoint adds a de
 
 ## User flow and preparation
 
+**October 22 follow-up:** real default acquisition has started. PC preparation now has bounded transient retries, durable progress/owner records, a pause file and a sequential two-route command. See [actual acquisition and recovery evidence](../review-2026-10-22/DEFAULT_PACK_ACQUISITION.md); the earlier inventory-only and controlled-fixture results below remain historical, not full-pack acceptance.
+
 In Settings, choose **Import route pack** and select the prepared `.trekpack.tar` file. Playback must be paused and VR/MR exited. Pause, playback, XR entry and page exit stop preparation; reselect the same file to resume. Valid committed sources are retained. A pack becomes ready only after all current-plan sources pass hash and coverage checks and publication commits atomically. An already-ready pack is kept; remove it explicitly before importing a replacement under the same plan identity. Temporary-cache clearing retains downloaded/imported packs.
 
 The developer preparation command uses Node (reproduced on 24.21.0), the existing Playwright/Edge validation tools, and the production elevation-worker/Canvas validators. It has no acquisition side effect by default:

@@ -43,11 +43,16 @@ try {
   const result = await writeOfflineRouteArchive(plan, records, files, archive);
   const names = execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', ['-tf', archive], { encoding: 'utf8', windowsHide: true }).trim().split(/\r?\n/);
   assert.deepEqual(names, ['trekviewer-pack.json', 'sources/000000.bin.gz', 'sources/000001.bin', 'sources/000002.bin']);
+  const paused = path.join(out, 'paused-must-not-publish.tar'), controller = new AbortController(); let checkpoints = 0;
+  await assert.rejects(() => writeOfflineRouteArchive(plan, records, files, paused, controller.signal, () => {
+    if (++checkpoints === 2) controller.abort(); controller.signal.throwIfAborted();
+  }), error => error.name === 'AbortError');
+  assert.equal(checkpoints, 2); assert.equal(fs.existsSync(paused), false); assert.ok(fs.statSync(paused + '.partial').size > 0);
   const failed = path.join(out, 'damaged-source-must-not-publish.tar'), damaged = Buffer.from(fs.readFileSync(files[0])); damaged[0] ^= 1; fs.writeFileSync(files[0], damaged);
   await assert.rejects(() => writeOfflineRouteArchive(plan, records, files, failed), /Cached source changed/);
   assert.equal(fs.existsSync(failed), false);
   const report = { condition: 'Three real public-source components under an explicitly controlled fixture identity. Not a full Rainier or Enchantments pack. Actual PC producer, production browser validators, lazy file header check, independent system tar listing and damaged-source publication rejection.',
-    plan, archive, ...result, names, damagedSourceRejected: true };
+    plan, archive, ...result, names, damagedSourceRejected: true, pausedArchiveNotPublished: true };
   fs.writeFileSync(path.join(root, 'latest.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ passed: true, archiveBytes: result.archiveBytes, names, out }));
 } finally { await validator.close(); }

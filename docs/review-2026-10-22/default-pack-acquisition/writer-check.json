@@ -1,0 +1,13 @@
+{
+  "condition": "Three real public-source components under an explicitly controlled fixture identity. Not a full Rainier or Enchantments pack. Actual PC producer, production browser validators, lazy file header check, independent system tar listing and damaged-source publication rejection.",
+  "archiveBytes": 3150336,
+  "originalSourceBytes": 3147543,
+  "names": [
+    "trekviewer-pack.json",
+    "sources/000000.bin.gz",
+    "sources/000001.bin",
+    "sources/000002.bin"
+  ],
+  "damagedSourceRejected": true,
+  "pausedArchiveNotPublished": true
+}
