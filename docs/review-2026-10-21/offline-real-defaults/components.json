@@ -1,0 +1,622 @@
+{
+  "generatedAt": "2026-10-22T02:46:45.391Z",
+  "appBuild": {
+    "id": "f6f1150-2026-10-22T02:10:39.650Z",
+    "sha": "f6f115096da03b87544b107235f3141e25bbe9ee",
+    "shortSha": "f6f1150",
+    "branch": "main",
+    "dirty": false,
+    "builtAt": "2026-10-22T02:10:39.650Z",
+    "label": "TrekViewer 1.0.0 • f6f1150"
+  },
+  "sourceCommit": "62ce16bd2f62425ad709789203f01a6c643e7c59",
+  "condition": "At most eight actual planned sources per default route: full-model overview DEM, first/middle/last local DEM, Z16 overview and Z17/18/19 route imagery. One acquisition/validation lane; approved public sources only, 35 seconds and 32 MiB/DEM or 8 MiB/image per attempt. Node fetch and production browser worker/Canvas validators. Not a complete coverage audit, final pack size, source-native bake, installed APK or native performance test.",
+  "encoding": "Original lossless PNG and zero-tolerance Float32 LERC, without resampling/re-encoding. Local encoded source cache only; no browser pack publication.",
+  "results": [
+    {
+      "id": "rainier-emmons",
+      "planId": "rainier-emmons-high-public-v1-0e1942e8741f0b47",
+      "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+      "totalSources": 5337,
+      "uncompressedBudgetBytes": 18336324288,
+      "samples": [
+        {
+          "label": "overview-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13558603.792478716%2C5915171.256102265%2C-13536827.989979427%2C5928833.5041996855&bboxSR=3857&imageSR=3857&size=1024%2C643&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 1024,
+            "height": 643
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13558603.792478716%2C5915171.256102265%2C-13536827.989979427%2C5928833.5041996855&bboxSR=3857&imageSR=3857&size=1024%2C643&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 2633798,
+            "sha256": "83b6089f2d0a8dd2fe4ade444630725878c03a84abfc6fe4c44395d840f6260e",
+            "elapsedMs": 390.2312999999999,
+            "validation": {
+              "elapsedMs": 72.39999997615814,
+              "coverage": "all raster samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 1024,
+            "height": 643,
+            "validPixelCount": 658432,
+            "maxZerror": 0,
+            "minM": 1139.7044677734375,
+            "maxM": 4392.1640625,
+            "rawFloat32Bytes": 2633728,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "73c94fb70479e6cab903f980c6e46b726b322dca0a0ce7bdb5d95a7be603d4e4"
+          },
+          "gzip": {
+            "bytes": 2283600,
+            "sha256": "66b4c17e5487e6e22c6d850f103b432d8ae931b10b4e00f07dc2098c378b4705",
+            "restoredSha256": "83b6089f2d0a8dd2fe4ade444630725878c03a84abfc6fe4c44395d840f6260e",
+            "compressedMs": 61.90649999999998,
+            "restoredMs": 9.618099999999998,
+            "savedFraction": 0.13296312017854062
+          }
+        },
+        {
+          "label": "first-local-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13547950.601624195%2C5921764.492445233%2C-13546956.131669013%2C5922758.962401953&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 679,
+            "height": 679,
+            "requiredWindow": {
+              "minX": 99,
+              "maxX": 579,
+              "minY": 99,
+              "maxY": 579
+            }
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13547950.601624195%2C5921764.492445233%2C-13546956.131669013%2C5922758.962401953&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 1844234,
+            "sha256": "39f62c159c3a2cc5e1c0430f6356bd310da70a8ca59fa7a7dc2cb6f4b219a8e5",
+            "elapsedMs": 238.2772,
+            "validation": {
+              "elapsedMs": 12.699999988079071,
+              "coverage": "all required support samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 679,
+            "height": 679,
+            "validPixelCount": 461041,
+            "maxZerror": 0,
+            "minM": 1848.4295654296875,
+            "maxM": 2168.19970703125,
+            "rawFloat32Bytes": 1844164,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "28a05df5bea0944c1365a17e5333fdadc8eee6ed2eb0aa58fedbc29693e3ef11"
+          },
+          "gzip": {
+            "bytes": 1510349,
+            "sha256": "6118884eadc3ba82f2fc7214777ee3bb620379ae96916cf8bee63d97463d552d",
+            "restoredSha256": "39f62c159c3a2cc5e1c0430f6356bd310da70a8ca59fa7a7dc2cb6f4b219a8e5",
+            "compressedMs": 40.92420000000001,
+            "restoredMs": 6.409800000000018,
+            "savedFraction": 0.18104264426314665
+          }
+        },
+        {
+          "label": "middle-local-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13543050.341645796%2C5925258.309751773%2C-13542055.473901952%2C5926253.177497159&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 679,
+            "height": 679,
+            "requiredWindow": {
+              "minX": 99,
+              "maxX": 579,
+              "minY": 99,
+              "maxY": 579
+            }
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13543050.341645796%2C5925258.309751773%2C-13542055.473901952%2C5926253.177497159&bboxSR=3857&imageSR=3857&size=679%2C679&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 1844234,
+            "sha256": "d7696647fcb62a41d1321744a6652658d72a40e59a72db40865b8f0399589abc",
+            "elapsedMs": 232.6496000000002,
+            "validation": {
+              "elapsedMs": 17.5,
+              "coverage": "all required support samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 679,
+            "height": 679,
+            "validPixelCount": 461041,
+            "maxZerror": 0,
+            "minM": 1331.188232421875,
+            "maxM": 1569.164306640625,
+            "rawFloat32Bytes": 1844164,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "65fb5074258ea7a0995a686c087bc59b8bb64afbfe0cc36e9d85a5c7b5cfccc0"
+          },
+          "gzip": {
+            "bytes": 1434838,
+            "sha256": "611655dac469b9f26f53198f1ba26afdf3abdbcc96c4f7eac383adebce565d10",
+            "restoredSha256": "d7696647fcb62a41d1321744a6652658d72a40e59a72db40865b8f0399589abc",
+            "compressedMs": 40.723700000000036,
+            "restoredMs": 6.45089999999999,
+            "savedFraction": 0.2219870146629983
+          }
+        },
+        {
+          "label": "last-local-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13538323.873650579%2C5915654.382310786%2C-13537506.073316641%2C5916472.182645578&bboxSR=3857&imageSR=3857&size=559%2C559&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 559,
+            "height": 559,
+            "requiredWindow": {
+              "minX": 218,
+              "maxX": 340,
+              "minY": 99,
+              "maxY": 459
+            }
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13538323.873650579%2C5915654.382310786%2C-13537506.073316641%2C5916472.182645578&bboxSR=3857&imageSR=3857&size=559%2C559&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 1249994,
+            "sha256": "7c5e35af3bae45dbe9fc7c05af15a2fe2e3c652bdb150abb8ba423638bcbfeeb",
+            "elapsedMs": 154.01839999999993,
+            "validation": {
+              "elapsedMs": 10.5,
+              "coverage": "all required support samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 559,
+            "height": 559,
+            "validPixelCount": 312481,
+            "maxZerror": 0,
+            "minM": 1529.9586181640625,
+            "maxM": 2058.513916015625,
+            "rawFloat32Bytes": 1249924,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "f0c97684c3f309851968f1d5e3e5539227ebb789a9885610cd1d4ec7a58395fb"
+          },
+          "gzip": {
+            "bytes": 1004137,
+            "sha256": "cfc08a5332d7817d1ea2f5627a3a103107557c5d4e1c2a3ef7f2e7d5cecd6b97",
+            "restoredSha256": "7c5e35af3bae45dbe9fc7c05af15a2fe2e3c652bdb150abb8ba423638bcbfeeb",
+            "compressedMs": 27.673000000000002,
+            "restoredMs": 4.7257999999999925,
+            "savedFraction": 0.19668654409541164
+          }
+        },
+        {
+          "label": "imagery-z16",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 256,
+            "height": 256
+          },
+          "accepted": {
+            "url": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 101377,
+            "sha256": "0a6adf3cb57040d3b43e35ec857cd5d67ba371a0d55d81a0e4c071ffa5027c3c",
+            "elapsedMs": 21.376700000000255,
+            "validation": {
+              "elapsedMs": 5.800000011920929,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        },
+        {
+          "label": "imagery-z17",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13542195.427228106%2C5925398.432666862%2C-13540972.434775542%2C5926621.425119426&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13542195.427228106%2C5925398.432666862%2C-13540972.434775542%2C5926621.425119426&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 1024,
+            "height": 1024
+          },
+          "accepted": {
+            "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13542195.427228106%2C5925398.432666862%2C-13540972.434775542%2C5926621.425119426&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+            "cached": true,
+            "passed": true,
+            "bytes": 2057337,
+            "sha256": "ab275d8eb8ef10a794c6cd57be259520a9e1ca42a9844610270556cb370b570b",
+            "elapsedMs": 259.81830000000036,
+            "validation": {
+              "elapsedMs": 27.099999964237213,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        },
+        {
+          "label": "imagery-z18",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 1024,
+            "height": 1024
+          },
+          "accepted": {
+            "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13553813.855527453%2C5918671.974177768%2C-13553202.359301172%2C5919283.470404049&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+            "cached": true,
+            "passed": true,
+            "bytes": 1081488,
+            "sha256": "23012927e69e776b3bc600e5b76467d7c69be74fd500a8393a4600c96ffbf028",
+            "elapsedMs": 142.54239999999982,
+            "validation": {
+              "elapsedMs": 19.799999952316284,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        },
+        {
+          "label": "imagery-z19",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13541278.182888685%2C5926009.928893145%2C-13540972.434775542%2C5926315.677006286&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13541278.182888685%2C5926009.928893145%2C-13540972.434775542%2C5926315.677006286&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 1024,
+            "height": 1024
+          },
+          "accepted": {
+            "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13541278.182888685%2C5926009.928893145%2C-13540972.434775542%2C5926315.677006286&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+            "cached": true,
+            "passed": true,
+            "bytes": 1005107,
+            "sha256": "533ce96ebd0cc56caca94a4673e1a824e7561571a5976be36a18a5d3fd0bfb09",
+            "elapsedMs": 134.49350000000004,
+            "validation": {
+              "elapsedMs": 18.400000035762787,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        }
+      ],
+      "sourceBytes": 11817569,
+      "terrainSourceBytes": 7572260,
+      "terrainGzipBytes": 6232924,
+      "imagerySourceBytes": 4245309
+    },
+    {
+      "id": "enchantments-dragontail",
+      "planId": "enchantments-dragontail-high-public-v1-2a6fdcedbeb7f776",
+      "routeHash": "2a6fdcedbeb7f776253cb4b37056db530748d4207f630a68277119f649de4ad9",
+      "totalSources": 8177,
+      "uncompressedBudgetBytes": 27761599009,
+      "samples": [
+        {
+          "label": "overview-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13457273.30493893%2C6016695.419911562%2C-13432055.338373067%2C6035003.950538517&bboxSR=3857&imageSR=3857&size=1024%2C744&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 1024,
+            "height": 744
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13457273.30493893%2C6016695.419911562%2C-13432055.338373067%2C6035003.950538517&bboxSR=3857&imageSR=3857&size=1024%2C744&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 3047494,
+            "sha256": "52f09eb584c2e945fb117db94bb3637788e7523e6894c250e55a35df83cfcce0",
+            "elapsedMs": 398.6005,
+            "validation": {
+              "elapsedMs": 25.900000035762787,
+              "coverage": "all raster samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 1024,
+            "height": 744,
+            "validPixelCount": 761856,
+            "maxZerror": 0,
+            "minM": 338.2677307128906,
+            "maxM": 2693.43603515625,
+            "rawFloat32Bytes": 3047424,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "1cad749c3a0feca1d507a05442aee9629cfca5ca7be6a8304129bc0e5297ee23"
+          },
+          "gzip": {
+            "bytes": 2628994,
+            "sha256": "c5183dd6da1bde1f6ee70118d86da3f0952f75517287dd82b4497c6d93af19f0",
+            "restoredSha256": "52f09eb584c2e945fb117db94bb3637788e7523e6894c250e55a35df83cfcce0",
+            "compressedMs": 67.79329999999999,
+            "restoredMs": 10.201300000000003,
+            "savedFraction": 0.13732594715526925
+          }
+        },
+        {
+          "label": "first-local-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13444902.516009979%2C6025473.690391419%2C-13443893.498556871%2C6026482.707846148&bboxSR=3857&imageSR=3857&size=681%2C681&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 681,
+            "height": 681,
+            "requiredWindow": {
+              "minX": 99,
+              "maxX": 581,
+              "minY": 99,
+              "maxY": 581
+            }
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13444902.516009979%2C6025473.690391419%2C-13443893.498556871%2C6026482.707846148&bboxSR=3857&imageSR=3857&size=681%2C681&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 1855114,
+            "sha256": "1b3af6e6deed4d77a0ecca8b1532b722eb7db4ea0463bf1d681357c072467c13",
+            "elapsedMs": 243.3386999999998,
+            "validation": {
+              "elapsedMs": 15.300000011920929,
+              "coverage": "all required support samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 681,
+            "height": 681,
+            "validPixelCount": 463761,
+            "maxZerror": 0,
+            "minM": 1920.685546875,
+            "maxM": 2342.35546875,
+            "rawFloat32Bytes": 1855044,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "33befd5100aa22e4d5e88625684e397dcc5a609d13ac5e1da17c2005aa9fc139"
+          },
+          "gzip": {
+            "bytes": 1511589,
+            "sha256": "0a9cd75b4335e196243de83111d11dc48e93bd53621c86ca04c6dfadc40fb37e",
+            "restoredSha256": "1b3af6e6deed4d77a0ecca8b1532b722eb7db4ea0463bf1d681357c072467c13",
+            "compressedMs": 41.36070000000001,
+            "restoredMs": 6.211999999999989,
+            "savedFraction": 0.18517729907703784
+          }
+        },
+        {
+          "label": "middle-local-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13438511.220110463%2C6029741.102552412%2C-13437501.704572894%2C6030750.618091606&bboxSR=3857&imageSR=3857&size=681%2C681&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 681,
+            "height": 681,
+            "requiredWindow": {
+              "minX": 99,
+              "maxX": 581,
+              "minY": 99,
+              "maxY": 581
+            }
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13438511.220110463%2C6029741.102552412%2C-13437501.704572894%2C6030750.618091606&bboxSR=3857&imageSR=3857&size=681%2C681&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 1855114,
+            "sha256": "305b45c380b16a198d7aa98f03033cff6f65a1391878fe3d63f57db18e0173e6",
+            "elapsedMs": 220.48039999999946,
+            "validation": {
+              "elapsedMs": 12.699999988079071,
+              "coverage": "all required support samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 681,
+            "height": 681,
+            "validPixelCount": 463761,
+            "maxZerror": 0,
+            "minM": 436.4245910644531,
+            "maxM": 891.3804931640625,
+            "rawFloat32Bytes": 1855044,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "22e30055e951a5a9833365096609c2ba6cd34989cc1f1b4a8f7f3fef64267119"
+          },
+          "gzip": {
+            "bytes": 1480924,
+            "sha256": "ec2ad01cbba11cc7dd9a5b874b322ffd36137e820ceb2fac4ce20ab12f630378",
+            "restoredSha256": "305b45c380b16a198d7aa98f03033cff6f65a1391878fe3d63f57db18e0173e6",
+            "compressedMs": 45.023900000000026,
+            "restoredMs": 6.398500000000013,
+            "savedFraction": 0.20170728052292208
+          }
+        },
+        {
+          "label": "last-local-dem",
+          "resource": {
+            "kind": "elevation",
+            "urls": [
+              "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13433583.593838844%2C6017389.162060148%2C-13433019.556346936%2C6017953.1995523395&bboxSR=3857&imageSR=3857&size=381%2C381&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false"
+            ],
+            "width": 381,
+            "height": 381,
+            "requiredWindow": {
+              "minX": 129,
+              "maxX": 251,
+              "minY": 99,
+              "maxY": 281
+            }
+          },
+          "accepted": {
+            "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=image&bbox=-13433583.593838844%2C6017389.162060148%2C-13433019.556346936%2C6017953.1995523395&bboxSR=3857&imageSR=3857&size=381%2C381&format=lerc&pixelType=F32&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&interpolation=RSP_BilinearInterpolation&compressionTolerance=0&mosaicRule=%7B%22mosaicMethod%22%3A%22esriMosaicAttribute%22%2C%22sortField%22%3A%22Best%22%2C%22sortValue%22%3A%220%22%2C%22ascending%22%3Atrue%2C%22mosaicOperation%22%3A%22MT_FIRST%22%7D&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 580714,
+            "sha256": "aa823bbbb89365cf0a46af535710c12b381533cfb2d3711686046eb87bfd817d",
+            "elapsedMs": 72.05379999999968,
+            "validation": {
+              "elapsedMs": 7.699999988079071,
+              "coverage": "all required support samples valid"
+            }
+          },
+          "elevation": {
+            "pixelType": "F32",
+            "width": 381,
+            "height": 381,
+            "validPixelCount": 145161,
+            "maxZerror": 0,
+            "minM": 590.2102661132812,
+            "maxM": 836.6791381835938,
+            "rawFloat32Bytes": 580644,
+            "originalEncodingOverheadBytes": 70,
+            "float32Sha256": "eef642e28642b822ce9a8d3613b923c1c965fdb84e31818fe0a60ef6f182f9c4"
+          },
+          "gzip": {
+            "bytes": 467415,
+            "sha256": "b04783db0e72d552ae7e74f26f3adc8ae1984b5f15d89c02d35acfde58a3d1bc",
+            "restoredSha256": "aa823bbbb89365cf0a46af535710c12b381533cfb2d3711686046eb87bfd817d",
+            "compressedMs": 13.264799999999923,
+            "restoredMs": 1.9324000000000296,
+            "savedFraction": 0.19510292501988935
+          }
+        },
+        {
+          "label": "imagery-z16",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 256,
+            "height": 256
+          },
+          "accepted": {
+            "url": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=256%2C256&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false",
+            "cached": true,
+            "passed": true,
+            "bytes": 144120,
+            "sha256": "ba8cdbdd69a3e2e0d788126395cba5db79c751ba1da29a35e5b1f6dfa974e010",
+            "elapsedMs": 23.010299999999916,
+            "validation": {
+              "elapsedMs": 3.199999988079071,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        },
+        {
+          "label": "imagery-z17",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13450470.993285894%2C6028129.79868214%2C-13449248.000833333%2C6029352.791134702&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13450470.993285894%2C6028129.79868214%2C-13449248.000833333%2C6029352.791134702&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 1024,
+            "height": 1024
+          },
+          "accepted": {
+            "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13450470.993285894%2C6028129.79868214%2C-13449248.000833333%2C6029352.791134702&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+            "cached": true,
+            "passed": true,
+            "bytes": 1960888,
+            "sha256": "9f8e24ae594db00fc8fde3f06755ebc0a66e31707cb689b510811ad76e6edc78",
+            "elapsedMs": 244.10900000000038,
+            "validation": {
+              "elapsedMs": 24.900000035762787,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        },
+        {
+          "label": "imagery-z18",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 1024,
+            "height": 1024
+          },
+          "accepted": {
+            "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13447413.512154488%2C6020791.8439667635%2C-13446802.015928207%2C6021403.340193044&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+            "cached": true,
+            "passed": true,
+            "bytes": 1762860,
+            "sha256": "2342f25d56afafeba3dfbd4447ba9a90b314d5608e795b524dccd3bfab20b911",
+            "elapsedMs": 211.72469999999976,
+            "validation": {
+              "elapsedMs": 21.799999952316284,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        },
+        {
+          "label": "imagery-z19",
+          "resource": {
+            "kind": "image",
+            "urls": [
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13437629.572533986%2C6031187.279813547%2C-13437323.824420845%2C6031493.027926687&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+              "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?f=image&bbox=-13437629.572533986%2C6031187.279813547%2C-13437323.824420845%2C6031493.027926687&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll"
+            ],
+            "width": 1024,
+            "height": 1024
+          },
+          "accepted": {
+            "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?f=image&bbox=-13437629.572533986%2C6031187.279813547%2C-13437323.824420845%2C6031493.027926687&bboxSR=3857&imageSR=3857&size=1024%2C1024&format=png32&transparent=true&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&renderingRule=%7B%22rasterFunction%22%3A%22NaturalColor%22%7D&noData=0&noDataInterpretation=esriNoDataMatchAll",
+            "cached": true,
+            "passed": true,
+            "bytes": 1058008,
+            "sha256": "70e0305b5b39f61fc5568301c79d9b84828a6df00fc511ef32d7d5ce9d667e43",
+            "elapsedMs": 129.8104000000003,
+            "validation": {
+              "elapsedMs": 16.899999976158142,
+              "coverage": "all alpha pixels opaque"
+            }
+          }
+        }
+      ],
+      "sourceBytes": 12264312,
+      "terrainSourceBytes": 7338436,
+      "terrainGzipBytes": 6088922,
+      "imagerySourceBytes": 4925876
+    }
+  ],
+  "passed": true,
+  "validatedBytes": 24081881,
+  "inputSha256": "cd953fdb17412e803cb127357db3552f22eabfb84021985f79da64fe4b878b96",
+  "compressionCondition": "Node gzip level 6 for the eight real LERC samples. Decompression is bounded to each original byte length and every restored byte/SHA-256 matches. PNGs remain untouched. Timings are local preparation observations, not Quest read/decode performance. Gzip components are ignored local preparation artifacts, not ready renderer packs or a portable import format.",
+  "sizeCondition": "Exactly sixteen selected sources, not representative proof of every source or the complete model. No extrapolation to a guaranteed archive size; existing full inventories and uncompressed budgets remain unchanged. Complete coverage, source-native baking, archive import and multi-GB/native acceptance remain open."
+}
