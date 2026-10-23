@@ -1,0 +1,38 @@
+{
+  "missingArchives": {
+    "exitCode": 2,
+    "state": "unfinished",
+    "results": [],
+    "pending": [
+      "rainier-emmons",
+      "enchantments-dragontail"
+    ],
+    "sourceState": "preparing"
+  },
+  "invalidPublicationWithStaleCertificate": {
+    "condition": "Isolated controlled fixture presented as Rainier, with a deliberately stale success certificate. Child current-plan verification must reject; no production pack is accepted.",
+    "exitCode": 2,
+    "state": "unfinished",
+    "results": [
+      {
+        "routeId": "rainier-emmons",
+        "state": "failed",
+        "error": "Archive verifier exited 1"
+      }
+    ],
+    "pending": [
+      "enchantments-dragontail"
+    ],
+    "staleCertificateNotTrusted": true,
+    "lockReleased": true
+  },
+  "pause": {
+    "state": "paused",
+    "lockReleased": true,
+    "pending": [
+      "rainier-emmons",
+      "enchantments-dragontail"
+    ],
+    "sourceQueueUntouched": true
+  }
+}

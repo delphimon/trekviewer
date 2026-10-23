@@ -17,7 +17,7 @@ node --experimental-transform-types scripts/verify-offline-route-pack.mjs --rout
 
 The command refuses a partial filename and only builds plans for the two supported bundled routes. Use `--out <directory>` to select report output; the default is `.review-cache/verified-route-packs`. An exclusive per-route verification lock prevents competing verification commands in that output directory. Progress JSON is advisory and uses the existing Windows sharing-lock recovery; the final `.verified.json` report is a required write. Errors and cancellation publish no new success report and release the lock. An abrupt process kill may still require manual lock-owner review.
 
-SIGINT/SIGTERM or `--stop-file <path>` cancel the operation. Existing archive/source files are untouched. Verification currently restarts from the first source after interruption; it does not persist a resumable verification prefix or import data into browser storage. It is not automatically added to the already-running acquisition queue. Run it after each complete file becomes available, before full installed-pack import/tour acceptance.
+SIGINT/SIGTERM or `--stop-file <path>` cancel the operation. Existing archive/source files are untouched. Verification currently restarts from the first source after interruption; it does not persist a resumable verification prefix or import data into browser storage. A [separate post-processing watcher](PACK_VERIFICATION_QUEUE.md) can now run this check automatically as complete default archives appear, without restarting acquisition. Full installed-pack import/tour acceptance follows independently.
 
 ## Evidence and limits
 

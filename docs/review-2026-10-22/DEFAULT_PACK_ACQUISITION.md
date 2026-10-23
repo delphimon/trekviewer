@@ -6,6 +6,8 @@
 
 **Completed-file follow-up:** [pre-transfer file verification](PACK_FILE_VERIFICATION.md) can independently verify a finished default archive against its current full plan, production body validators and a streaming SHA-256 digest. It does not import data, download sources or restart the current queue. Complete packs and full offline tours remain pending.
 
+**Automatic verification follow-up:** the [separate verification watcher](PACK_VERIFICATION_QUEUE.md) is now attached to the running source queue. It waits for completed files and consistent publication inventories, verifies available routes one at a time and records current-plan results without trusting a stale success report after failure. Its pause marker and ownership are separate from acquisition.
+
 Rainier and Enchantments are being acquired locally, in that order, with the current complete High public-source inventories. Neither complete archive nor a complete real-route offline tour is accepted yet. The website remains the previously measured `fad1dc2-2026-10-22T03:52:42.030Z` build; this checkpoint changes PC preparation tools and evidence, without changing rendering or publishing unfinished packs.
 
 The drive had 358,122,856,448 bytes free before acquisition. The first Rainier attempt retained 39 validated sequential sources before source 40 failed with the previous generic response error. A separate header check of that same request subsequently returned HTTP 200, `application/octet-stream`, and 1,844,234 encoded bytes for its 679 × 679 DEM. The original response status was not captured, so its cause is unresolved; this is not evidence of a coverage or size defect.

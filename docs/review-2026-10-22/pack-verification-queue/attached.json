@@ -1,0 +1,57 @@
+{
+  "condition": "Verification watcher attached without restarting the running acquisition queue. Waiting state and empty results are not completed-pack verification.",
+  "watcher": {
+    "pid": 55860,
+    "started": "2026-10-23T02:17:08.727Z",
+    "updated": "2026-10-23T02:18:38.886Z",
+    "state": "waiting-archives",
+    "results": [],
+    "pending": [
+      "rainier-emmons",
+      "enchantments-dragontail"
+    ],
+    "acquisitionState": "preparing",
+    "waiting": [
+      {
+        "routeId": "rainier-emmons",
+        "reason": "Waiting for the completed archive and inventory"
+      },
+      {
+        "routeId": "enchantments-dragontail",
+        "reason": "Waiting for the completed archive and inventory"
+      }
+    ]
+  },
+  "acquisitionQueue": {
+    "pid": 20732,
+    "started": "2026-10-22T22:56:35.011Z",
+    "updated": "2026-10-22T22:56:35.014Z",
+    "state": "preparing",
+    "sourceConcurrency": 2,
+    "results": [],
+    "route": "rainier-emmons"
+  },
+  "rainier": {
+    "routeId": "rainier-emmons",
+    "planId": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+    "pid": 53624,
+    "state": "acquiring",
+    "validated": 4417,
+    "total": 5337,
+    "sourceConcurrency": 2,
+    "validationConcurrency": 1,
+    "activeSourceTasks": 1,
+    "peakSourceTasks": 2,
+    "activeValidationJobs": 0,
+    "peakValidationJobs": 1,
+    "originalSourceBytes": 4814200178,
+    "storedSourceBytes": 4602252698,
+    "retainedSources": 2436,
+    "downloadedSources": 1981,
+    "requestedAliases": 1998,
+    "firstRequestedIndex": 2435,
+    "elapsedSeconds": 12092.584,
+    "updated": "2026-10-23T02:18:09.574Z"
+  },
+  "sourceQueueRestarted": false
+}
