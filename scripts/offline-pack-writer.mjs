@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { openOfflinePackFile } from './offline-pack-file.mjs';
 import { archiveInventoryHash, archiveSourceName, tarHeader, tarPaddedSize, PACK_MANIFEST_NAME, PACK_MANIFEST_LIMIT,
   inspectOfflineArchive } from '../src/offline/OfflineArchive.ts';
 
@@ -31,7 +32,8 @@ export async function writeOfflineRouteArchive(plan, records, files, final, sign
     fs.writeFileSync(fd, new Uint8Array(1024)); fs.fsyncSync(fd);
   } finally { fs.closeSync(fd); }
   assert.equal(fs.statSync(partial).size, exactBytes);
-  await inspectOfflineArchive(await fs.openAsBlob(partial), signal);
+  const indexFile = openOfflinePackFile(partial);
+  try { await inspectOfflineArchive(indexFile, signal); } finally { indexFile.close(); }
   checkpoint(); fs.renameSync(partial, final);
   return { archiveBytes: exactBytes, originalSourceBytes: records.reduce((n, r) => n + r.bytes, 0), manifestSha256: sha(json) };
 }

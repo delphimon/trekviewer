@@ -32,7 +32,7 @@ export async function acquireOfflineResource(resource, signal, options) {
     const bytes = await options.readRetained(url);
     if (!bytes) continue;
     try { await options.validate(bytes); }
-    catch (error) { signal?.throwIfAborted(); options.onFailure?.(url, error, true); continue; }
+    catch (error) { signal?.throwIfAborted(); options.onFailure?.(url, error, true, 'validation'); continue; }
     return accepted(url, bytes, true);
   }
   if (!options.download) return undefined;
@@ -40,14 +40,33 @@ export async function acquireOfflineResource(resource, signal, options) {
     signal?.throwIfAborted();
     let bytes;
     try { bytes = await options.download(url); }
-    catch (error) { signal?.throwIfAborted(); options.health?.failed(url, error); options.onFailure?.(url, error, false); continue; }
+    catch (error) { signal?.throwIfAborted(); options.health?.failed(url, error); options.onFailure?.(url, error, false, 'download'); continue; }
     signal?.throwIfAborted();
     try { await options.validate(bytes); }
-    catch (error) { signal?.throwIfAborted(); options.onFailure?.(url, error, false); continue; }
+    catch (error) { signal?.throwIfAborted(); options.onFailure?.(url, error, false, 'validation'); continue; }
     options.health?.succeeded(url);
     return accepted(url, bytes, false);
   }
   return undefined;
+}
+
+/** After normal per-URL retries are exhausted, keep the current source window
+ * and give a transient service outage two bounded recovery opportunities.
+ * Coverage/permanent failures alone, disk errors and cancellation never retry. */
+export async function acquireOfflineResourceWithRetry(resource, signal, options) {
+  const sleep = options.sleepResourceRetry ?? ((ms, signal) => delay(ms, undefined, { signal }));
+  for (let round = 0; round < 3; round++) {
+    signal?.throwIfAborted(); let transient = false;
+    const result = await acquireOfflineResource(resource, signal, { ...options, onFailure(url, error, retained, stage) {
+      if (!retained && stage === 'download' && temporary(error)) transient = true;
+      options.onFailure?.(url, error, retained, stage);
+    } });
+    if (result || !transient || round === 2) return result;
+    signal?.throwIfAborted();
+    const delayMs = round === 0 ? 120000 : 300000;
+    await options.onRetryResource?.({ round: round + 1, nextRound: round + 2, delayMs });
+    await sleep(delayMs, signal);
+  }
 }
 
 /** Retry transport/service failures only. Invalid or oversized source bodies

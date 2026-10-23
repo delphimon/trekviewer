@@ -1,0 +1,20 @@
+{
+  "planId": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+  "routeId": "rainier-emmons",
+  "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+  "inventorySha256": "a1afd42ff813193d26a5a5739de4803eaa791a3c2a6cf8e6e98dbe32cacfd290",
+  "archiveBytes": 5500797440,
+  "manifestSha256": "2d3d6faf84a35389e712881066a9fbaf09ac3077ac11df4839daff67b3a122a6",
+  "sources": 5337,
+  "checked": 5337,
+  "originalSourceBytes": 5706785778,
+  "storedSourceBytes": 5494838298,
+  "lastSourceOffset": 5499400704,
+  "sourceIndexCounts": {
+    "0": 3137,
+    "1": 2196,
+    "2": 4
+  },
+  "recoveredAt": "2026-10-23T03:13:51.286Z",
+  "condition": "Recovered a fully assembled local producer archive using bounded 64-bit file reads, current-plan provenance and all stored/original hashes. No source acquisition, pixel/height changes or re-encoding. Independent native-browser coverage verification and import acceptance follow."
+}

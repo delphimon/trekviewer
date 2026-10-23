@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { openOfflinePreparationValidator } from './offline-preparation-validator.mjs';
-import { acquireOfflineSource, acquireOfflineResource, OfflineSourceHealth } from './offline-pack-acquisition.mjs';
+import { acquireOfflineSource, acquireOfflineResourceWithRetry, OfflineSourceHealth } from './offline-pack-acquisition.mjs';
 import { writePackProgress } from './offline-pack-progress.mjs';
 import { orderedOfflineSources, offlineValidationLane, offlineSourceConcurrency } from './offline-pack-pipeline.mjs';
 const sourceRoot = new URL('../src/', import.meta.url).href;
@@ -71,13 +71,17 @@ else {
   const progressFile = path.join(output, id + '.progress.json'), started = Date.now();
   let validated = 0, originalSourceBytes = 0, storedSourceBytes = 0, retainedSources = 0, downloadedSources = 0, requestedAliases = 0, firstRequestedIndex;
   let activeSourceTasks = 0, peakSourceTasks = 0, activeValidationJobs = 0, peakValidationJobs = 0;
+  let progressWrites = Promise.resolve();
   const progress = async (state, extra = {}) => {
     const value = { routeId: id, planId: plan.id, pid: process.pid, state, validated, total: plan.resources.length,
       sourceConcurrency, validationConcurrency: 1,
       activeSourceTasks, peakSourceTasks, activeValidationJobs, peakValidationJobs,
       originalSourceBytes, storedSourceBytes, retainedSources, downloadedSources, requestedAliases, firstRequestedIndex,
       elapsedSeconds: (Date.now() - started) / 1000, updated: new Date().toISOString(), ...extra };
-    await writePackProgress(progressFile, value);
+    // A source's delayed-retry status can overlap the ordered writer or the
+    // second source task. Keep the shared .partial/rename writer exclusive.
+    progressWrites = progressWrites.then(() => writePackProgress(progressFile, value));
+    await progressWrites;
   };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   const free = (bytes, directory = output) => {
@@ -96,7 +100,7 @@ else {
       checkpoint();
       const limit = (resource.kind === 'image' ? 8 : 32) * 1024 * 1024;
       assert.ok(resource.urls.every(offlineSourceAllowed));
-      const accepted = await acquireOfflineResource(resource, signal, {
+      const accepted = await acquireOfflineResourceWithRetry(resource, signal, {
         health,
         readRetained(url) {
           const meta = metadata(url);
@@ -124,6 +128,11 @@ else {
           fs.writeFileSync(path.join(bodies, sha(url) + '.json'), JSON.stringify({ url, bytes: bytes.length, sha256: sha(bytes) }) + '\n');
         },
         onFailure: (url, error, retained) => console.error(JSON.stringify({ index, source: resource.urls.indexOf(url), retained, error: error.message })),
+        onRetryResource: async retry => {
+          checkpoint();
+          console.error(JSON.stringify({ index, resourceRetry: retry }));
+          await progress('retrying-source', { sourceIndex: index, ...retry });
+        },
       });
       checkpoint();
       assert.ok(accepted, `Source ${index + 1} unavailable or invalid. Completed sources remain cached; retry to resume.`);

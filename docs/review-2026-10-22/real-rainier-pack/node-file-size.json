@@ -1,0 +1,12 @@
+{
+  "platform": "win32",
+  "node": "v24.21.0",
+  "statBytes": 5500797440,
+  "nodeFileBlobBytes": 1205830144,
+  "correctedReaderBytes": 5500797440,
+  "observedWrapBytes": 4294967296,
+  "indexedSources": 5337,
+  "lastSourceOffset": 5499400704,
+  "indexPassed": true,
+  "sourceBodiesModified": false
+}

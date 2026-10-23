@@ -1,0 +1,21 @@
+{
+  "phase": "verified",
+  "archiveBytes": 5500797440,
+  "sources": 5337,
+  "validated": 5337,
+  "originalSourceBytes": 5706785778,
+  "storedSourceBytes": 5494838298,
+  "elevationSources": 523,
+  "imagerySources": 4814,
+  "maxSourceBytes": 2633798,
+  "lastSourceOffset": 5499400704,
+  "inventorySha256": "a1afd42ff813193d26a5a5739de4803eaa791a3c2a6cf8e6e98dbe32cacfd290",
+  "externalRequests": 0,
+  "nativeFileHandle": true,
+  "planId": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+  "routeId": "rainier-emmons",
+  "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+  "archiveSha256": "61e7db01374e65c724002cc57d64a56e0de9f8796a35ad41c08efda2c6ba3b25",
+  "verifiedAt": "2026-10-23T03:19:03.792Z",
+  "condition": "PC pre-transfer verification using a native browser File, current-plan provenance, all stored/original hashes, decompression and production source coverage. Not a browser installation, offline tour or native acceptance."
+}

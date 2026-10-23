@@ -1,0 +1,51 @@
+{
+  "paused": {
+    "id": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+    "routeId": "rainier-emmons",
+    "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+    "name": "Mount Rainier via Emmons",
+    "state": "paused",
+    "total": 5337,
+    "completed": 138,
+    "bytes": 255293856,
+    "estimatedBytes": 18336324288,
+    "message": "Paused. Resume downloading or reselect the pack file to keep completed sources.",
+    "updated": 1792725569172
+  },
+  "ready": {
+    "id": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+    "routeId": "rainier-emmons",
+    "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+    "name": "Mount Rainier via Emmons",
+    "state": "ready",
+    "total": 5337,
+    "completed": 5337,
+    "bytes": 5706785778,
+    "estimatedBytes": 18336324288,
+    "message": "High satellite • full surrounding terrain • through Z19",
+    "updated": 1792725821036
+  },
+  "retainedAcrossBrowserRestart": true,
+  "stagedInvisible": true,
+  "prefixRewriteRequests": 0,
+  "totalAssetPutRequests": 5337,
+  "temporaryClearRetainedPack": true,
+  "storageBefore": {
+    "quota": 10746239277,
+    "usage": 8821037,
+    "usageDetails": {
+      "caches": 8806656,
+      "indexedDB": 5971,
+      "serviceWorkerRegistrations": 8410
+    }
+  },
+  "storageAfter": {
+    "quota": 16473633873,
+    "usage": 5736215633,
+    "usageDetails": {
+      "caches": 9032192,
+      "indexedDB": 5727175031,
+      "serviceWorkerRegistrations": 8410
+    }
+  }
+}
