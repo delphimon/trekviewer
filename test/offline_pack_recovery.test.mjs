@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { expect, it } from 'vitest';
 import { writeOfflineRouteArchive } from '../scripts/offline-pack-writer.mjs';
-import { inspectAssembledArchive } from '../scripts/offline-pack-recovery.mjs';
+import { inspectAssembledArchive, inspectPublishedArchive } from '../scripts/offline-pack-recovery.mjs';
 import { archiveRequestProvenance, inspectOfflineArchive } from '../src/offline/OfflineArchive.ts';
 import { openOfflinePackFile } from '../scripts/offline-pack-file.mjs';
 
@@ -52,5 +52,34 @@ it('cancels between bounded bodies without publishing or deleting the assembled 
     const controller = new AbortController(); let count = 0;
     await expect(inspectAssembledArchive(file, plan, controller.signal, () => { count++; controller.abort(); })).rejects.toHaveProperty('name', 'AbortError');
     expect(count).toBe(1); expect(fs.existsSync(file)).toBe(true);
+  });
+});
+
+it('rechecks a completed publication without rewriting the archive or metadata', async () => {
+  await fixture(async (file, plan) => {
+    const report = await inspectAssembledArchive(file, plan);
+    const inventory = { ...report, complete: true }, before = fs.statSync(file, { bigint: true });
+    const value = await inspectPublishedArchive(file, plan, inventory);
+    expect(value.checked).toBe(2); expect(value.manifestSha256).toBe(report.manifestSha256);
+    expect(fs.statSync(file, { bigint: true }).mtimeNs).toBe(before.mtimeNs);
+    expect(inventory).toEqual({ ...report, complete: true });
+  });
+});
+it('refuses incomplete, stale or mismatched existing publication metadata', async () => {
+  await fixture(async (file, plan) => {
+    const inventory = { ...await inspectAssembledArchive(file, plan), complete: true };
+    for (const changed of [{ complete: false }, { routeId: 'other' }, { planId: 'stale' }, { routeHash: 'b'.repeat(64) },
+      { inventorySha256: 'b'.repeat(64) }, { sources: 1 }, { archiveBytes: 2048 }, { manifestSha256: 'b'.repeat(64) }, { originalSourceBytes: 1 }]) {
+      await expect(inspectPublishedArchive(file, plan, { ...inventory, ...changed })).rejects.toThrow();
+    }
+  });
+});
+it('never reuses a publication whose same-sized source body was corrupted', async () => {
+  await fixture(async (file, plan) => {
+    const inventory = { ...await inspectAssembledArchive(file, plan), complete: true };
+    const reader = openOfflinePackFile(file); let offset;
+    try { offset = (await inspectOfflineArchive(reader)).offsets[1]; } finally { reader.close(); }
+    const fd = fs.openSync(file, 'r+'); try { fs.writeSync(fd, new Uint8Array([0]), 0, 1, offset); } finally { fs.closeSync(fd); }
+    await expect(inspectPublishedArchive(file, plan, inventory)).rejects.toThrow('stored hash');
   });
 });

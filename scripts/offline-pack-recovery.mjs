@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import assert from 'node:assert/strict';
 import { openOfflinePackFile } from './offline-pack-file.mjs';
 import { inspectOfflineArchive, offlineArchiveSource } from '../src/offline/OfflineArchive.ts';
 
@@ -26,4 +27,18 @@ export async function inspectAssembledArchive(file, plan, signal, onProgress = (
     }
     signal?.throwIfAborted(); return report;
   } finally { reader.close(); }
+}
+
+/** Reuse a published file only after checking the current contract and every
+ * stored/original payload. This does not replace production coverage validation. */
+export async function inspectPublishedArchive(file, plan, inventory, signal, onProgress) {
+  assert.equal(inventory.complete, true, 'Existing archive lacks complete publication metadata');
+  assert.equal(inventory.routeId, plan.routeId, 'Existing archive route differs');
+  assert.equal(inventory.planId, plan.id, 'Existing archive plan differs');
+  assert.equal(inventory.routeHash, plan.routeHash, 'Existing archive GPX differs');
+  const report = await inspectAssembledArchive(file, plan, signal, onProgress);
+  for (const key of ['inventorySha256', 'archiveBytes', 'manifestSha256', 'sources', 'originalSourceBytes']) {
+    assert.equal(inventory[key], report[key], `Existing archive publication mismatch: ${key}`);
+  }
+  return report;
 }

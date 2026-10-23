@@ -54,3 +54,19 @@ Run `node scripts/check-real-offline-route.mjs` from the repository root after p
 Enchantments stopped at sources 283 and 509 after exhausting HTTP 502/504 retries. All completed originals were retained. The resumed queue has passed both requests without lowering DEM resolution or relaxing required coverage. If normal per-URL retries exhaust on a transient download failure, preparation now keeps its ordered prefix and waits **two minutes, then five minutes**, for at most two additional resource cycles. Invalid coverage/decoder errors, permanent responses, longer service-requested waits, disk failures and cancellation do not receive those retries. Progress writes are serialized across both source tasks and the ordered writer.
 
 The independent verification watcher has reverified the same Rainier archive hash and waits for Enchantments publication. Current progress files identify the live acquisition state; an active queue is not completed Enchantments acceptance. Both full default packs and installed/native tests remain required for the broader delivery milestone.
+
+## Reusing completed archives when resuming the queue
+
+Previously, restarting the default preparation queue always marked an existing Rainier file `existing-archive-requires-review`, even after successful full-file/browser acceptance. This left the preparation queue unfinished when only the second route needed acquisition. The queue now invokes a read-only recheck of an existing published archive and reports `complete` with `reused: true` only after that check succeeds.
+
+The recheck uses the current GPX and full inventory, original request provenance, every stored/original source hash, bounded gzip decompression, exact manifest hash and publication byte/count totals. It shares the route's exclusive preparation lock, honors cancellation and never rewrites the archive, its publication inventory or its retained source bodies. Missing/stale/damaged files remain failures; another route can still proceed. Production source-coverage verification remains the separate verifier's responsibility, and reuse does not establish browser/native acceptance.
+
+To recheck Rainier alone without any downloads:
+
+```powershell
+node --experimental-transform-types scripts/build-offline-route-pack.mjs --route rainier-emmons --reuse-existing
+```
+
+The normal default queue automatically chooses this mode for an existing final file. Explicit reuse rejects `--download`; the queue forwards download flags only when acquiring a missing archive. An actual [queue check](real-rainier-pack/reuse-queue.json) reads the complete real Rainier file through a temporary same-volume hard link, reuses all 5,337 sources and preserves archive modification time/publication metadata. The temporary link is then removed. The absent Enchantments fixture remains inventory-only and the overall test queue correctly exits unfinished; it does not borrow the live partial acquisition or claim a complete second pack.
+
+[Command checks](real-rainier-pack/reuse-commands.json) cover conflicting acquisition flags, an existing owner, a deliberate pause and oversized publication metadata. The full Rainier archive fingerprint still equals its independent verification fingerprint after these checks. Three added regressions cover unchanged successful reuse, stale/incomplete publication fields and same-sized payload corruption. The complete suite passes **831 Windows tests with five skips**. The live Enchantments downloader is not restarted to adopt this queue change; its older parent status can still mention Rainier's historical review requirement. Final files, current verification and actual browser results remain the completion evidence.

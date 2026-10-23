@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "name": "reuse rejects simultaneous acquisition",
+      "exitCode": 1
+    },
+    {
+      "name": "reuse preserves another owner",
+      "exitCode": 1
+    },
+    {
+      "name": "reuse honors pause before reading an archive",
+      "exitCode": 2
+    },
+    {
+      "name": "reuse bounds metadata and preserves failed inputs",
+      "exitCode": 1
+    }
+  ],
+  "archiveSha256": "61e7db01374e65c724002cc57d64a56e0de9f8796a35ad41c08efda2c6ba3b25",
+  "archiveHashMatchesIndependentVerification": true
+}

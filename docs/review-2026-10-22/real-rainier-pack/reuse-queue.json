@@ -1,0 +1,23 @@
+{
+  "condition": "Actual default queue rechecks the complete real Rainier archive through a temporary same-volume hard link; absent Enchantments data remains inventory-only. No download option, no source validator/browser, no overwrite or invented second-route completion.",
+  "queueExit": 2,
+  "state": "unfinished",
+  "results": [
+    {
+      "route": "rainier-emmons",
+      "state": "complete",
+      "code": 0,
+      "reused": true,
+      "archiveBytes": 5500797440,
+      "originalSourceBytes": 5706785778
+    },
+    {
+      "route": "enchantments-dragontail",
+      "state": "inventory-only",
+      "code": 2,
+      "reused": false
+    }
+  ],
+  "archiveMtimeUnchanged": true,
+  "publicationMetadataUnchanged": true
+}

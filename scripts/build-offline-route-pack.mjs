@@ -11,6 +11,7 @@ import { openOfflinePreparationValidator } from './offline-preparation-validator
 import { acquireOfflineSource, acquireOfflineResourceWithRetry, OfflineSourceHealth } from './offline-pack-acquisition.mjs';
 import { writePackProgress } from './offline-pack-progress.mjs';
 import { orderedOfflineSources, offlineValidationLane, offlineSourceConcurrency } from './offline-pack-pipeline.mjs';
+import { inspectPublishedArchive } from './offline-pack-recovery.mjs';
 const sourceRoot = new URL('../src/', import.meta.url).href;
 registerHooks({ load(url, context, nextLoad) {
   if (url.startsWith(sourceRoot) && url.endsWith('.json')) return { format: 'module', shortCircuit: true,
@@ -25,18 +26,47 @@ const { writeOfflineRouteArchive } = await import('./offline-pack-writer.mjs');
 const args = process.argv.slice(2), options = new Map();
 for (let i = 0; i < args.length; i++) {
   const key = args[i];
-  assert.ok(['--route', '--cache', '--out', '--download', '--identity', '--stop-file', '--source-concurrency'].includes(key), `Unknown option ${key}`);
-  if (key === '--download' || key === '--identity') options.set(key, true);
+  assert.ok(['--route', '--cache', '--out', '--download', '--identity', '--reuse-existing', '--stop-file', '--source-concurrency'].includes(key), `Unknown option ${key}`);
+  if (['--download', '--identity', '--reuse-existing'].includes(key)) options.set(key, true);
   else { assert.ok(args[i + 1] && !args[i + 1].startsWith('--'), `Missing ${key} value`); options.set(key, args[++i]); }
 }
 const id = options.get('--route'); assert.ok(DEFAULT_OFFLINE_ROUTES.includes(id), 'Choose --route rainier-emmons or enchantments-dragontail');
 const sourceConcurrency = offlineSourceConcurrency(options.get('--source-concurrency'));
 const cache = path.resolve(options.get('--cache') ?? '.review-cache/prepared-route-packs'), bodies = path.join(cache, 'bodies');
 const output = path.resolve(options.get('--out') ?? '.review-cache/prepared-route-packs/output');
-fs.mkdirSync(bodies, { recursive: true }); fs.mkdirSync(output, { recursive: true });
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const route = JSON.parse(fs.readFileSync('public/routes/manifest.json', 'utf8')).find(r => r.id === id);
 const xml = fs.readFileSync('public' + route.file, 'utf8').replace(/\r\n?/g, '\n'), plan = planOfflineRoute(GPXParser.parse(xml), id, sha(xml));
+if (options.has('--reuse-existing')) {
+  assert.ok(!options.has('--download'), '--reuse-existing does not allow --download');
+  const lock = path.join(output, id + '.prepare.lock'), fd = fs.openSync(lock, 'wx');
+  fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, routeId: id, phase: 'checking-existing', started: new Date().toISOString() }));
+  const controller = new AbortController(), stop = () => controller.abort();
+  const stopFile = options.has('--stop-file') ? path.resolve(options.get('--stop-file')) : undefined;
+  const checkpoint = () => { if (stopFile && fs.existsSync(stopFile)) stop(); controller.signal.throwIfAborted(); };
+  const poll = stopFile ? setInterval(() => { if (fs.existsSync(stopFile)) stop(); }, 250) : undefined; poll?.unref();
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  const progressFile = path.join(output, id + '.reuse.progress.json');
+  try {
+    checkpoint();
+    const file = path.join(output, id + '.trekpack.tar'), metadataFile = path.join(output, id + '.inventory.json');
+    assert.ok(fs.lstatSync(file).isFile(), 'Existing archive must be a regular file');
+    const stat = fs.lstatSync(metadataFile); assert.ok(stat.isFile() && stat.size <= 64 * 1024, 'Invalid bounded publication metadata');
+    const inventory = JSON.parse(fs.readFileSync(metadataFile));
+    const report = await inspectPublishedArchive(file, plan, inventory, controller.signal, async value => {
+      checkpoint();
+      if (value.checked % 32 === 0 || value.checked === value.sources) await writePackProgress(progressFile,
+        { phase: 'checking-existing', ...value, pid: process.pid, updated: new Date().toISOString() });
+    });
+    checkpoint();
+    await writePackProgress(progressFile, { phase: 'prepared-existing', ...report, pid: process.pid, updated: new Date().toISOString() });
+    console.log(JSON.stringify({ complete: true, reused: true, ...report, file }));
+  } catch (error) {
+    await writePackProgress(progressFile, { phase: controller.signal.aborted ? 'paused' : 'failed', error: error.message, pid: process.pid });
+    if (controller.signal.aborted) process.exitCode = 2; else throw error;
+  } finally { clearInterval(poll); fs.closeSync(fd); fs.unlinkSync(lock); process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); }
+} else {
+fs.mkdirSync(bodies, { recursive: true }); fs.mkdirSync(output, { recursive: true });
 assert.ok(!fs.existsSync(path.join(output, id + '.trekpack.tar')), 'Output already exists; choose another --out directory');
 const oldProbe = fs.existsSync(path.join(cache, 'probe.json')) ? JSON.parse(fs.readFileSync(path.join(cache, 'probe.json'), 'utf8')) : null;
 const known = new Map(oldProbe?.results.flatMap(r => r.samples.flatMap(s => s.attempts.filter(a => a.passed).map(a => [a.url, a]))) ?? []);
@@ -168,4 +198,5 @@ else {
   } catch (error) {
     await progress(controller.signal.aborted ? 'paused' : 'failed', { error: error.message }); throw error;
   } finally { clearInterval(pausePoll); await validator?.close(); fs.closeSync(lockFd); fs.unlinkSync(lock); process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); }
+}
 }

@@ -36,24 +36,24 @@ try {
   await status('starting');
   for (const route of routes) {
     if (fs.existsSync(stopFile)) { await status('paused'); process.exitCode = 2; break; }
-    // Keep completed outputs intact. Reimporting still performs full validation;
-    // this queue does not silently trust or replace a pre-existing archive.
-    if (fs.existsSync(path.join(output, route + '.trekpack.tar'))) {
-      results.push({ route, state: 'existing-archive-requires-review' }); process.exitCode = 1; continue;
-    }
-    await status('preparing', { route });
+    // Recheck the current plan, provenance and all stored/original hashes.
+    // Existing archive bodies/publication metadata are never overwritten.
+    const existing = fs.existsSync(path.join(output, route + '.trekpack.tar'));
+    await status(existing ? 'checking-existing' : 'preparing', { route });
     const childArgs = ['--experimental-transform-types', fileURLToPath(new URL('./build-offline-route-pack.mjs', import.meta.url)),
       '--route', route, '--cache', cache, '--out', output, '--stop-file', stopFile, '--source-concurrency', String(sourceConcurrency)];
-    for (const flag of ['--download', '--identity']) if (options.has(flag)) childArgs.push(flag);
+    if (existing) childArgs.push('--reuse-existing');
+    else for (const flag of ['--download', '--identity']) if (options.has(flag)) childArgs.push(flag);
     const child = spawn(process.execPath, childArgs, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     const outputLines = createInterface({ input: child.stdout });
     outputLines.on('line', line => { console.log(line); });
     child.stderr.on('data', bytes => process.stderr.write(bytes));
     const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
     const inventoryFile = path.join(output, route + '.inventory.json');
-    const inventory = fs.existsSync(inventoryFile) ? JSON.parse(fs.readFileSync(inventoryFile, 'utf8')) : null;
+    let inventory;
+    try { if (fs.statSync(inventoryFile).size <= 64 * 1024) inventory = JSON.parse(fs.readFileSync(inventoryFile, 'utf8')); } catch { /* A failed source must not prevent checking the other route. */ }
     const complete = code === 0 && inventory?.complete === true && fs.existsSync(path.join(output, route + '.trekpack.tar'));
-    results.push({ route, state: complete ? 'complete' : options.has('--download') ? 'unfinished' : 'inventory-only', code,
+    results.push({ route, state: complete ? 'complete' : existing ? 'existing-archive-requires-review' : options.has('--download') ? 'unfinished' : 'inventory-only', code, reused: existing && complete,
       archiveBytes: complete ? inventory.archiveBytes : undefined, originalSourceBytes: complete ? inventory.originalSourceBytes : undefined });
     if (!complete) process.exitCode = code || 1;
     // An unavailable route does not prevent attempting the other default route.
