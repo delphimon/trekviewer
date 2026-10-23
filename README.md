@@ -60,6 +60,8 @@ Only a completely validated pack becomes ready for offline rendering. Complete m
 
 Settings also provides **Import route pack** for prepared `.trekpack.tar` files. Copy a prepared archive to the target device, import it with playback paused and VR/MR exited, and reselect the same file after interruption to resume. Imported sources retain their original pixels/heights. The [portable-pack guide](docs/review-2026-10-21/PORTABLE_ROUTE_PACKS.md) includes the PC preparation commands, exact format, storage requirements and current acceptance limits. No complete Rainier or Enchantments archive is bundled into the website/APK by this checkpoint.
 
+The [current PC acquisition guide](docs/review-2026-10-22/DEFAULT_PACK_ACQUISITION.md) covers bounded downloads, retained originals and pause/resume. Before transferring a complete archive, use the [prepared-file verifier](docs/review-2026-10-22/PACK_FILE_VERIFICATION.md) to check current-plan provenance, all source hashes/coverage and a streaming archive fingerprint without downloading sources again. This check is separate from full browser import and offline tour acceptance.
+
 ---
 
 ## 🖐️ Controls & Mixed Reality Interactions

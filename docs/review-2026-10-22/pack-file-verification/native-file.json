@@ -1,0 +1,33 @@
+{
+  "verification": {
+    "phase": "verified",
+    "archiveBytes": 3150336,
+    "sources": 3,
+    "validated": 3,
+    "originalSourceBytes": 3147543,
+    "storedSourceBytes": 3144863,
+    "elevationSources": 1,
+    "imagerySources": 2,
+    "maxSourceBytes": 2057337,
+    "lastSourceOffset": 2067456,
+    "inventorySha256": "e884e8decbf15b89ddd46a415fdc575f04b024309803b6000e617539ed5c4266",
+    "externalRequests": 0,
+    "nativeFileHandle": true,
+    "planId": "controlled-archive-fixture-v1",
+    "routeId": "controlled-archive-fixture",
+    "routeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "archiveSha256": "ba526f2866707bb54428f05f563bc68dc663e3a2c75182232486cadebda7f4d2",
+    "verifiedAt": "2026-10-23T00:05:11.64Z",
+    "condition": "PC pre-transfer verification using a native browser File, current-plan provenance, all stored/original hashes, decompression and production source coverage. Not a browser installation, offline tour or native acceptance."
+  },
+  "corruptFileRejected": true,
+  "wrongRevisionRejected": true,
+  "pausedAtValidatedSources": 1,
+  "independentTarNames": [
+    "trekviewer-pack.json",
+    "sources/000000.bin.gz",
+    "sources/000001.bin",
+    "sources/000002.bin"
+  ],
+  "archiveByteParity": true
+}

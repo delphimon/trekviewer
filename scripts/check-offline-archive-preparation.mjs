@@ -10,6 +10,7 @@ import { openOfflinePreparationValidator } from './offline-preparation-validator
 import { acquireOfflineResource, acquireOfflineSource } from './offline-pack-acquisition.mjs';
 import { orderedOfflineSources, offlineValidationLane } from './offline-pack-pipeline.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
+import { verifyOfflineRoutePack } from './offline-pack-verification.mjs';
 const sourceRoot = new URL('../src/', import.meta.url).href;
 registerHooks({ load(url, context, nextLoad) {
   if (url.startsWith(sourceRoot) && url.endsWith('.json')) return { format: 'module', shortCircuit: true,
@@ -17,7 +18,7 @@ registerHooks({ load(url, context, nextLoad) {
   return nextLoad(url, context);
 } });
 const { writeOfflineRouteArchive } = await import('./offline-pack-writer.mjs');
-const { archiveRequestProvenance } = await import('../src/offline/OfflineArchive.ts');
+const { archiveRequestProvenance, archiveInventoryHash, tarHeader, tarPaddedSize, archiveSourceName, PACK_MANIFEST_NAME } = await import('../src/offline/OfflineArchive.ts');
 const root = path.resolve('.review-cache/portable-packs/preparation-fixture');
 const out = path.join(root, String(Date.now())); fs.mkdirSync(out, { recursive: true });
 const probeRoot = path.resolve('.review-cache/offline-real-defaults'), probe = JSON.parse(fs.readFileSync(path.join(probeRoot, 'probe.json'), 'utf8'));
@@ -77,6 +78,53 @@ try {
   const { archive, files, records, ...result } = runs[1];
   const names = execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', ['-tf', archive], { encoding: 'utf8', windowsHide: true }).trim().split(/\r?\n/);
   assert.deepEqual(names, ['trekviewer-pack.json', 'sources/000000.bin.gz', 'sources/000001.bin', 'sources/000002.bin']);
+  const nativeFileVerification = await verifyOfflineRoutePack(validator, archive, plan);
+  assert.equal(nativeFileVerification.validated, 3); assert.equal(nativeFileVerification.externalRequests, 0);
+  assert.equal(nativeFileVerification.archiveSha256, result.archiveSha256);
+  await assert.rejects(() => verifyOfflineRoutePack(validator, archive, { ...plan, routeHash: 'b'.repeat(64) }), /does not match/);
+  const corruptArchive = path.join(out, 'corrupt-native-file.tar'), corruptBytes = fs.readFileSync(archive);
+  // First original starts after the manifest and its following source header.
+  const manifestSize = parseInt(corruptBytes.subarray(124, 136).toString().replace(/\0.*$/s, '').trim(), 8);
+  corruptBytes[512 + tarPaddedSize(manifestSize) + 512 + 17] ^= 1; fs.writeFileSync(corruptArchive, corruptBytes);
+  await assert.rejects(() => verifyOfflineRoutePack(validator, corruptArchive, plan), /stored hash/);
+  const cancelVerification = new AbortController(); let verifiedBeforePause = 0;
+  await assert.rejects(() => verifyOfflineRoutePack(validator, archive, plan, { signal: cancelVerification.signal,
+    onProgress(value) { verifiedBeforePause = value.validated; if (value.validated === 1) cancelVerification.abort(); },
+  }), /aborted|AbortError/i);
+  assert.equal(verifiedBeforePause, 1);
+  let largeFilePreflight;
+  if (process.argv.includes('--large-file')) {
+    // A deliberately invalid body fixture proves native File header/index reads
+    // beyond 4 GiB. It must fail the first body hash, never claim source coverage.
+    const largeResources = Array.from({ length: 130 }, (_, index) => {
+      const url = new URL(input[0].resource.urls[0]); url.searchParams.set('controlled_large_file_fixture', String(index));
+      return { kind: 'elevation', width: 2, height: 2, urls: [url.href] };
+    });
+    const largePlan = { ...plan, id: 'controlled-large-file-negative-v1', resources: largeResources };
+    const largeRecords = await Promise.all(largeResources.map(async (resource, index) => ({ index, sourceIndex: 0,
+      encoding: 'identity', bytes: 32 * 1024 * 1024, storedBytes: 32 * 1024 * 1024,
+      sha256: '0'.repeat(64), storedSha256: '0'.repeat(64), ...await archiveRequestProvenance(resource.urls[0]) })));
+    const manifest = Buffer.from(JSON.stringify({ format: 'trekviewer-route-pack', version: 1, planId: largePlan.id,
+      routeId: largePlan.routeId, routeHash: largePlan.routeHash, inventorySha256: await archiveInventoryHash(largePlan), records: largeRecords }));
+    const largeFile = path.join(out, 'large-native-file-negative.tar');
+    const total = 512 + tarPaddedSize(manifest.length) + largeRecords.reduce((sum, r) => sum + 512 + r.storedBytes, 0) + 1024;
+    const space = fs.statfsSync(out, { bigint: true });
+    assert.ok(space.bavail * space.bsize > BigInt(total) + 512n * 1024n * 1024n, 'Not enough disk space for the optional large-file fixture');
+    const largeFd = fs.openSync(largeFile, 'wx');
+    try {
+      fs.ftruncateSync(largeFd, total); fs.writeSync(largeFd, tarHeader(PACK_MANIFEST_NAME, manifest.length), 0, 512, 0);
+      fs.writeSync(largeFd, manifest, 0, manifest.length, 512); let offset = 512 + tarPaddedSize(manifest.length);
+      for (const record of largeRecords) { fs.writeSync(largeFd, tarHeader(archiveSourceName(record), record.storedBytes), 0, 512, offset); offset += 512 + record.storedBytes; }
+      fs.fsyncSync(largeFd);
+    } finally { fs.closeSync(largeFd); }
+    let indexed;
+    await assert.rejects(() => verifyOfflineRoutePack(validator, largeFile, largePlan, {
+      onProgress(value) { if (value.phase === 'indexed') indexed = value; },
+    }), /stored hash/);
+    assert.equal(indexed.archiveBytes, total); assert.ok(indexed.lastSourceOffset > 2 ** 32);
+    largeFilePreflight = { ...indexed, nativeFileHandle: true, firstBodyHashRejected: true,
+      condition: 'Actual local File larger than 4 GiB with valid bounded headers and deliberately invalid source bodies. Native browser index reads cross 32-bit offsets; body verification rejects it. Not a complete source pack or native-headset test.' };
+  }
   const paused = path.join(out, 'paused-must-not-publish.tar'), controller = new AbortController(); let checkpoints = 0;
   await assert.rejects(() => writeOfflineRouteArchive(plan, records, files, paused, controller.signal, () => {
     if (++checkpoints === 2) controller.abort(); controller.signal.throwIfAborted();
@@ -86,7 +134,9 @@ try {
   await assert.rejects(() => writeOfflineRouteArchive(plan, records, files, failed), /Cached source changed/);
   assert.equal(fs.existsSync(failed), false);
   const report = { condition: 'Three real public-source components under an explicitly controlled fixture identity. Controlled delayed source responses, no external requests or public-service speed claim. One/two source lanes, one production browser validator, byte-identical ordered archives, lazy file header check, independent system tar listing and damaged-source publication rejection. Not a full Rainier or Enchantments pack.',
-    plan, archive, ...result, pipelineRuns: runs.map(({ files, archive, records, ...r }) => r), identicalArchiveBytes: true, names, damagedSourceRejected: true, pausedArchiveNotPublished: true };
+    plan, archive, ...result, pipelineRuns: runs.map(({ files, archive, records, ...r }) => r), identicalArchiveBytes: true, names, damagedSourceRejected: true, pausedArchiveNotPublished: true,
+    nativeFileVerification, nativeCorruptFileRejected: true, nativeWrongRevisionRejected: true,
+    nativeVerificationPausedAt: verifiedBeforePause, largeFilePreflight };
   fs.writeFileSync(path.join(root, 'latest.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ passed: true, archiveBytes: result.archiveBytes, names, out }));
 } finally { await validator.close(); }

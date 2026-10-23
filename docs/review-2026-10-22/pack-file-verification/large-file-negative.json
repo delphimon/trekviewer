@@ -1,0 +1,16 @@
+{
+  "phase": "indexed",
+  "archiveBytes": 4362200576,
+  "sources": 130,
+  "validated": 0,
+  "originalSourceBytes": 0,
+  "storedSourceBytes": 0,
+  "elevationSources": 0,
+  "imagerySources": 0,
+  "maxSourceBytes": 0,
+  "lastSourceOffset": 4328645120,
+  "inventorySha256": "d14b6831c5d4ca749257b02cedf2b7c64943580a9d2d85b5a507441c1fd7a499",
+  "nativeFileHandle": true,
+  "firstBodyHashRejected": true,
+  "condition": "Actual local File larger than 4 GiB with valid bounded headers and deliberately invalid source bodies. Native browser index reads cross 32-bit offsets; body verification rejects it. Not a complete source pack or native-headset test."
+}

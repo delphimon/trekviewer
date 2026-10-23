@@ -1,0 +1,8 @@
+{
+  "condition": "Controlled three-source file presented as the current complete Rainier plan. CLI rejects before source validation; no default pack is accepted.",
+  "expectedExit": 1,
+  "revisionRejected": true,
+  "verifiedReportAbsent": true,
+  "lockReleased": true,
+  "phase": "failed"
+}
