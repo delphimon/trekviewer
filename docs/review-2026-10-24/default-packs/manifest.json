@@ -1,0 +1,40 @@
+{
+  "format": "trekviewer-prepared-pack-catalog",
+  "version": 1,
+  "reviewDate": "2026-10-24",
+  "condition": "Local prepared archives and PC offline acceptance; not a deployed download catalog, installed APK or native acceptance.",
+  "packs": [
+    {
+      "routeId": "rainier-emmons",
+      "planId": "rainier-emmons-high-public-v2-0e1942e8741f0b47",
+      "routeHash": "0e1942e8741f0b477995b2364d9f1186ae9f5a09b05f3fe13b1201dfc5b4260a",
+      "inventorySha256": "a1afd42ff813193d26a5a5739de4803eaa791a3c2a6cf8e6e98dbe32cacfd290",
+      "archiveName": "rainier-emmons.trekpack.tar",
+      "archiveBytes": 5500797440,
+      "originalSourceBytes": 5706785778,
+      "archiveSha256": "61e7db01374e65c724002cc57d64a56e0de9f8796a35ad41c08efda2c6ba3b25",
+      "elevationSources": 523,
+      "imagerySources": 4814,
+      "coverage": "full-model",
+      "maxZoom": 19,
+      "pcOfflineTourPassed": true,
+      "pcZ19InspectionPassed": true
+    },
+    {
+      "routeId": "enchantments-dragontail",
+      "planId": "enchantments-dragontail-high-public-v2-2a6fdcedbeb7f776",
+      "routeHash": "2a6fdcedbeb7f776253cb4b37056db530748d4207f630a68277119f649de4ad9",
+      "inventorySha256": "b4f79c2cd58443f7783e85ec73451385a643b6b4787d0f23be0139298c95dcfb",
+      "archiveName": "enchantments-dragontail.trekpack.tar",
+      "archiveBytes": 10388030464,
+      "originalSourceBytes": 10690405069,
+      "archiveSha256": "8a20084c7337ee10f46a2ea5ac3638fab172ae8bc1d27010368bb891a6850428",
+      "elevationSources": 793,
+      "imagerySources": 7384,
+      "coverage": "full-model",
+      "maxZoom": 19,
+      "pcOfflineTourPassed": true,
+      "pcZ19InspectionPassed": true
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "phase": "verified",
+  "archiveBytes": 10388030464,
+  "sources": 8177,
+  "validated": 8177,
+  "originalSourceBytes": 10690405069,
+  "storedSourceBytes": 10378940952,
+  "elevationSources": 793,
+  "imagerySources": 7384,
+  "maxSourceBytes": 3047494,
+  "lastSourceOffset": 10386814464,
+  "inventorySha256": "b4f79c2cd58443f7783e85ec73451385a643b6b4787d0f23be0139298c95dcfb",
+  "externalRequests": 0,
+  "nativeFileHandle": true,
+  "planId": "enchantments-dragontail-high-public-v2-2a6fdcedbeb7f776",
+  "routeId": "enchantments-dragontail",
+  "routeHash": "2a6fdcedbeb7f776253cb4b37056db530748d4207f630a68277119f649de4ad9",
+  "archiveSha256": "8a20084c7337ee10f46a2ea5ac3638fab172ae8bc1d27010368bb891a6850428",
+  "verifiedAt": "2026-10-23T05:52:19.517Z",
+  "condition": "PC pre-transfer verification using a native browser File, current-plan provenance, all stored/original hashes, decompression and production source coverage. Not a browser installation, offline tour or native acceptance."
+}

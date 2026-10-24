@@ -1,0 +1,43 @@
+{
+  "condition": "Real complete route file, native production file input, actual persistent IndexedDB, pause/browser restart/resume without prefix rewrites, temporary-cache clear, cold network-disabled PWA startup and full desktop High tour. PC browser evidence; not headset/APK/native performance acceptance.",
+  "build": "4d0a5f0-2026-10-22T20:47:14.831Z",
+  "routeId": "enchantments-dragontail",
+  "archiveSha256": "8a20084c7337ee10f46a2ea5ac3638fab172ae8bc1d27010368bb891a6850428",
+  "cold": {
+    "build": "App shell saved for offline startup. Route data downloads separately.",
+    "controlled": true,
+    "session": {
+      "activeRouteId": "enchantments-dragontail",
+      "terrainQuality": "dem",
+      "qualityProfile": "quest-high"
+    },
+    "dem": {
+      "source": "USGS 3DEP best available (public domain)",
+      "isRealDEM": true
+    }
+  },
+  "tour": {
+    "samples": 180,
+    "fineAtHikerSamples": 180,
+    "renderedCellM": {
+      "min": 4.997602461764728,
+      "max": 4.997602461764738
+    },
+    "requestedSourceGridSpacingM": {
+      "min": 1.0007813787467592,
+      "max": 1.0013413133777052
+    },
+    "endProgress": 1,
+    "cameraTravelSceneUnits": 1.930241370392915,
+    "drawCallsPCMono": {
+      "min": 38,
+      "max": 128
+    },
+    "imageryTargetZoom": {
+      "min": 13,
+      "max": 15
+    }
+  },
+  "offlineExternalAttempts": 0,
+  "errors": []
+}

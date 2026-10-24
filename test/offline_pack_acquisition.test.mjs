@@ -130,3 +130,31 @@ it('tries a cooled source when the healthy alias has no usable coverage', async 
   expect(calls).toEqual([aliases[1], aliases[0]]); expect(actual.sourceIndex).toBe(0);
   expect(health.order(aliases)).toEqual(aliases);
 });
+it('extends repeated service outages through a bounded cooldown without removing any aliases', () => {
+  let now = 0; const health = new OfflineSourceHealth(() => now), failed = new TypeError('Transport failed');
+  for (const wait of [120000, 240000, 480000, 960000, 1800000, 1800000]) {
+    health.failed(aliases[0], failed);
+    now += wait - 1; expect(health.order(aliases)).toEqual([aliases[1], aliases[0]]);
+    now++; expect(health.order(aliases)).toEqual(aliases);
+  }
+});
+it('retains outage history through an isolated success and resets it after sustained validated recovery', () => {
+  let now = 0; const health = new OfflineSourceHealth(() => now), failed = new TypeError('Transport failed');
+  health.failed(aliases[0], failed); health.succeeded(aliases[0]); expect(health.order(aliases)).toEqual(aliases);
+  health.failed(aliases[0], failed); now += 120000;
+  expect(health.order(aliases)).toEqual([aliases[1], aliases[0]]);
+  for (let i = 0; i < 3; i++) health.succeeded(aliases[0]);
+  health.failed(aliases[0], failed); now += 120000; expect(health.order(aliases)).toEqual(aliases);
+});
+it('keeps exact approved bodies while avoiding repeated failed-service probes across a long queue', async () => {
+  let now = 0, primary = 0; const health = new OfflineSourceHealth(() => now), body = Buffer.from('exact alternative body');
+  for (let index = 0; index < 1000; index++) {
+    const result = await acquireOfflineResource(resource, undefined, {
+      health, readRetained: () => undefined,
+      download: async url => { if (url === aliases[0]) { primary++; throw new TypeError('Transport failed'); } return body; },
+      validate: async bytes => expect(bytes).toBe(body), save: () => {},
+    });
+    expect(result.bytes).toBe(body); expect(result.sourceIndex).toBe(1); now += 1000;
+  }
+  expect(primary).toBe(4); // Fixed two-minute cooldown would probe nine times.
+});

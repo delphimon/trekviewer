@@ -1,0 +1,137 @@
+{
+  "condition": "Cold network-disabled normal High diorama inspection of ground 500 m beside three real route positions, outside the overview beacon, requiring the Z19 tile at the actual center terrain ray hit. Same persistent imported pack; no synthetic sources, hidden markers or renderer/quality-budget changes. PC browser evidence, not native comfort/performance acceptance.",
+  "build": "4d0a5f0-2026-10-22T20:47:14.831Z",
+  "routeId": "enchantments-dragontail",
+  "cold": {
+    "build": "App shell saved for offline startup. Route data downloads separately.",
+    "controlled": true,
+    "session": {
+      "activeRouteId": "enchantments-dragontail",
+      "terrainQuality": "dem",
+      "qualityProfile": "quest-high"
+    },
+    "dem": {
+      "source": "USGS 3DEP best available (public domain)",
+      "isRealDEM": true
+    }
+  },
+  "checkpoints": [
+    {
+      "progress": 0.15,
+      "cameraDistanceSceneUnits": 0.0069999999999999585,
+      "inspectedGeo": {
+        "lat": 47.500357274518684,
+        "lon": -120.83613082077648
+      },
+      "focusSource": "center",
+      "targetZoom": 19,
+      "viewZ19ReadyMs": 864,
+      "settledMs": 6086,
+      "coveragePercent": 100,
+      "pending": 0,
+      "inFlight": 0,
+      "visibleByZoom": [
+        [
+          13,
+          20
+        ],
+        [
+          19,
+          216
+        ],
+        [
+          18,
+          90
+        ],
+        [
+          17,
+          19
+        ]
+      ],
+      "visibleFineBySource": {
+        "geoplatform-naip": 325
+      },
+      "renderedCellM": {
+        "x": 4.991145260316993,
+        "z": 4.997602461764738
+      },
+      "requestedSourceGridSpacingM": 1.0007813787496203
+    },
+    {
+      "progress": 0.5,
+      "cameraDistanceSceneUnits": 0.007,
+      "inspectedGeo": {
+        "lat": 47.48030800126847,
+        "lon": -120.78439744040571
+      },
+      "focusSource": "center",
+      "targetZoom": 19,
+      "viewZ19ReadyMs": 232,
+      "settledMs": 9501,
+      "coveragePercent": 100,
+      "pending": 0,
+      "inFlight": 0,
+      "visibleByZoom": [
+        [
+          19,
+          244
+        ],
+        [
+          18,
+          91
+        ],
+        [
+          17,
+          24
+        ]
+      ],
+      "visibleFineBySource": {
+        "geoplatform-naip": 359
+      },
+      "renderedCellM": {
+        "x": 4.991145260316993,
+        "z": 4.997602461764738
+      },
+      "requestedSourceGridSpacingM": 1.0007813787496518
+    },
+    {
+      "progress": 0.85,
+      "cameraDistanceSceneUnits": 0.0069999999999999585,
+      "inspectedGeo": {
+        "lat": 47.514891411325515,
+        "lon": -120.71266916204348
+      },
+      "focusSource": "center",
+      "targetZoom": 19,
+      "viewZ19ReadyMs": 474,
+      "settledMs": 15242,
+      "coveragePercent": 100,
+      "pending": 0,
+      "inFlight": 0,
+      "visibleByZoom": [
+        [
+          19,
+          248
+        ],
+        [
+          18,
+          87
+        ],
+        [
+          17,
+          20
+        ]
+      ],
+      "visibleFineBySource": {
+        "geoplatform-naip": 355
+      },
+      "renderedCellM": {
+        "x": 4.991145260316993,
+        "z": 4.997602461764738
+      },
+      "requestedSourceGridSpacingM": 1.0007813787487998
+    }
+  ],
+  "offlineExternalAttempts": 0,
+  "errors": []
+}

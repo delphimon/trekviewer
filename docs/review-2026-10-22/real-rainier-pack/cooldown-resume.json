@@ -1,0 +1,13 @@
+{
+  "condition": "Actual paused Enchantments prefix revalidated through the production source validators after adaptive cooldown restart; all retained original hashes and modification times compared with the pre-restart snapshot. No source body changes or precision/coverage reductions.",
+  "retainedPrefix": 3448,
+  "checkedOriginalFiles": 3448,
+  "checkedOriginalBytes": 3413234016,
+  "changedHashes": 0,
+  "rewrittenOriginals": 0,
+  "resumedValidated": 3448,
+  "retainedSources": 3448,
+  "firstRequestedIndex": 3448,
+  "sourceConcurrency": 2,
+  "validationConcurrency": 1
+}

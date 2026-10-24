@@ -5,17 +5,27 @@ function temporary(error) {
   return error.retryable ?? (error instanceof TypeError || error.name === 'TimeoutError');
 }
 
-/** Only reorder the resource's existing approved aliases. A failed export
- * service cools down across requests; no source is removed from the fallback. */
+/** Only reorder existing approved aliases. Repeated exhausted service failures
+ * cool down for 2/4/8/16/30 minutes; every source remains a fallback. */
 export class OfflineSourceHealth {
   constructor(now = Date.now, cooldownMs = 120000) { this.now = now; this.cooldownMs = cooldownMs; this.failures = new Map(); }
   key(url) { const u = new URL(url); return u.origin + u.pathname; }
   order(urls) {
     const now = this.now();
-    return [...urls].sort((a, b) => Number((this.failures.get(this.key(a)) ?? 0) > now) - Number((this.failures.get(this.key(b)) ?? 0) > now));
+    return [...urls].sort((a, b) => Number((this.failures.get(this.key(a))?.until ?? 0) > now) - Number((this.failures.get(this.key(b))?.until ?? 0) > now));
   }
-  failed(url, error) { if (temporary(error)) this.failures.set(this.key(url), this.now() + this.cooldownMs); }
-  succeeded(url) { this.failures.delete(this.key(url)); }
+  failed(url, error) {
+    if (!temporary(error)) return;
+    const key = this.key(url), previous = this.failures.get(key);
+    const delayMs = Math.min(previous ? previous.delayMs * 2 : this.cooldownMs, 30 * 60 * 1000);
+    this.failures.set(key, { until: this.now() + delayMs, delayMs, successes: 0 });
+  }
+  succeeded(url) {
+    const key = this.key(url), previous = this.failures.get(key); if (!previous) return;
+    // One successful response restores priority; require sustained recovery
+    // before forgetting repeated outages, so a flapping service stays bounded.
+    if (++previous.successes >= 3) this.failures.delete(key); else previous.until = 0;
+  }
 }
 
 /** Validate every retained alias before doing any network work. A cached

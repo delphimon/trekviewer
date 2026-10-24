@@ -1,0 +1,51 @@
+{
+  "paused": {
+    "id": "enchantments-dragontail-high-public-v2-2a6fdcedbeb7f776",
+    "routeId": "enchantments-dragontail",
+    "routeHash": "2a6fdcedbeb7f776253cb4b37056db530748d4207f630a68277119f649de4ad9",
+    "name": "Enchantments and Dragontail",
+    "state": "paused",
+    "total": 8177,
+    "completed": 129,
+    "bytes": 240502086,
+    "estimatedBytes": 27761599009,
+    "message": "Paused. Resume downloading or reselect the pack file to keep completed sources.",
+    "updated": 1792734769948
+  },
+  "ready": {
+    "id": "enchantments-dragontail-high-public-v2-2a6fdcedbeb7f776",
+    "routeId": "enchantments-dragontail",
+    "routeHash": "2a6fdcedbeb7f776253cb4b37056db530748d4207f630a68277119f649de4ad9",
+    "name": "Enchantments and Dragontail",
+    "state": "ready",
+    "total": 8177,
+    "completed": 8177,
+    "bytes": 10690405069,
+    "estimatedBytes": 27761599009,
+    "message": "High satellite • full surrounding terrain • through Z19",
+    "updated": 1792735340520
+  },
+  "retainedAcrossBrowserRestart": true,
+  "stagedInvisible": true,
+  "prefixRewriteRequests": 0,
+  "totalAssetPutRequests": 8177,
+  "temporaryClearRetainedPack": true,
+  "storageBefore": {
+    "quota": 16473603702,
+    "usage": 5736185462,
+    "usageDetails": {
+      "caches": 9036544,
+      "indexedDB": 5727140508,
+      "serviceWorkerRegistrations": 8410
+    }
+  },
+  "storageAfter": {
+    "quota": 27197588398,
+    "usage": 16460170158,
+    "usageDetails": {
+      "caches": 9036544,
+      "indexedDB": 16451125204,
+      "serviceWorkerRegistrations": 8410
+    }
+  }
+}

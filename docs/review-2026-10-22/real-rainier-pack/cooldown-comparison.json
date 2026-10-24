@@ -1,0 +1,16 @@
+{
+  "condition": "Controlled source scheduling with a real retained original public imagery body and production acquisition logic. One-second simulated request cadence, primary exhaustion and always-valid approved alternative. No external requests or wall-time/native performance claim; pixel coverage was established separately during actual acquisition.",
+  "bodyBytes": 1748194,
+  "bodySha256": "7e47e549a42a9031c1c88d9cf243efbdc927a9e8dcb5c7662091ba1b5b77edd7",
+  "fixed": {
+    "sources": 1000,
+    "accepted": 1000,
+    "primaryProbes": 9
+  },
+  "adaptive": {
+    "sources": 1000,
+    "accepted": 1000,
+    "primaryProbes": 4
+  },
+  "externalRequests": 0
+}

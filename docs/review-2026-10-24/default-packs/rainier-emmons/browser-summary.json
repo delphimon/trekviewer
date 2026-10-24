@@ -1,0 +1,43 @@
+{
+  "condition": "Real complete route file, native production file input, actual persistent IndexedDB, pause/browser restart/resume without prefix rewrites, temporary-cache clear, cold network-disabled PWA startup and full desktop High tour. PC browser evidence; not headset/APK/native performance acceptance.",
+  "build": "4d0a5f0-2026-10-22T20:47:14.831Z",
+  "routeId": "rainier-emmons",
+  "archiveSha256": "61e7db01374e65c724002cc57d64a56e0de9f8796a35ad41c08efda2c6ba3b25",
+  "cold": {
+    "build": "App shell saved for offline startup. Route data downloads separately.",
+    "controlled": true,
+    "session": {
+      "activeRouteId": "rainier-emmons",
+      "terrainQuality": "dem",
+      "qualityProfile": "quest-high"
+    },
+    "dem": {
+      "source": "USGS 3DEP best available (public domain)",
+      "isRealDEM": true
+    }
+  },
+  "tour": {
+    "samples": 180,
+    "fineAtHikerSamples": 180,
+    "renderedCellM": {
+      "min": 4.979242090119025,
+      "max": 4.979242090119044
+    },
+    "requestedSourceGridSpacingM": {
+      "min": 1.001130925238471,
+      "max": 1.001172925099646
+    },
+    "endProgress": 1,
+    "cameraTravelSceneUnits": 1.9106806201416808,
+    "drawCallsPCMono": {
+      "min": 46,
+      "max": 92
+    },
+    "imageryTargetZoom": {
+      "min": 13,
+      "max": 15
+    }
+  },
+  "offlineExternalAttempts": 0,
+  "errors": []
+}

@@ -1,0 +1,17 @@
+{
+  "condition": "Read-only bounded streaming SHA-256 recheck of both retained complete archives against their independent native-file verification certificates; file metadata unchanged during hashing.",
+  "results": [
+    {
+      "routeId": "rainier-emmons",
+      "archiveBytes": 5500797440,
+      "archiveSha256": "61e7db01374e65c724002cc57d64a56e0de9f8796a35ad41c08efda2c6ba3b25",
+      "matchesIndependentVerification": true
+    },
+    {
+      "routeId": "enchantments-dragontail",
+      "archiveBytes": 10388030464,
+      "archiveSha256": "8a20084c7337ee10f46a2ea5ac3638fab172ae8bc1d27010368bb891a6850428",
+      "matchesIndependentVerification": true
+    }
+  ]
+}
