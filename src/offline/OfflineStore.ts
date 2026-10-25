@@ -104,7 +104,7 @@ export class OfflineStore {
       const request = tx.objectStore('assets').get(offlineAssetKey(packId, resource)); request.onsuccess = () => done(request.result);
     });
   }
-  public static async save(pack: OfflinePackState, resource: OfflineResource, sourceUrl: string, blob: Blob, sha256: string): Promise<void> {
+  public static async save(pack: OfflinePackState, resource: OfflineResource, sourceUrl: string, blob: Blob, sha256: string, notify = true): Promise<void> {
     if (!resource.urls.length || resource.urls.some(url => !offlineSourceAllowed(url)) || !offlineSourceAllowed(sourceUrl) || !sameOfflineSource(sourceUrl, resource.urls)
       || !blob.size || blob.size > 32 * 1024 * 1024 || !/^[a-f0-9]{64}$/.test(sha256)) throw Error('Invalid offline source');
     await this.transaction<void>(['assets', 'packs'], 'readwrite', tx => {
@@ -112,7 +112,8 @@ export class OfflineStore {
         sourceUrl, blob, bytes: blob.size, sha256 } satisfies OfflineAsset);
       tx.objectStore('packs').put(pack);
     });
-    this.notify();
+    if (notify) this.notify();
+    else this.readyIds = undefined;
   }
   public static async publish(plan: OfflinePlan, completed: number, bytes: number): Promise<void> {
     if (completed !== plan.resources.length) throw Error('Incomplete offline pack');
@@ -144,7 +145,7 @@ export class OfflineStore {
       });
       if (!asset) return null;
       if (!offlineSourceAllowed(asset.sourceUrl) || !sameOfflineSource(asset.sourceUrl, asset.urls)
-        || asset.blob.size !== asset.bytes || await hashOfflineBlob(asset.blob) !== asset.sha256) { await this.invalidate(url); return null; }
+        || asset.blob.size !== asset.bytes || !/^[a-f0-9]{64}$/.test(asset.sha256)) { await this.invalidate(url); return null; }
       this.suppliedSources.set(asset.blob, asset.sourceUrl);
       this.hits++; return asset.blob;
     } catch { this.readyIds = undefined; return null; }

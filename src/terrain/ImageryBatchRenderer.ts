@@ -10,7 +10,7 @@ const PAGE_GEOMETRY_BYTES = IMAGERY_BATCH_LIMITS.verticesPerPage * 32 + IMAGERY_
 
 interface Page {
   zoom: number; width: number; height: number;
-  mesh: THREE.BatchedMesh; texture: THREE.DataArrayTexture;
+  mesh?: THREE.BatchedMesh; texture: THREE.DataArrayTexture;
   arrayBytes: number; vertices: number; indices: number;
   slots: Set<number>;
 }
@@ -73,7 +73,7 @@ export class ImageryBatchRenderer {
         || patch.mesh.material !== entry.material || patch.texture.version !== entry.textureVersion) {
         this.remove(key, entry);
       } else {
-        if (this.directSurface) continue;
+        if (this.directSurface || !entry.page.mesh) continue;
         entry.page.mesh.setVisibleAt(entry.instanceId, patch.mesh.visible);
         patch.mesh.updateMatrix();
         if (!entry.matrix.equals(patch.mesh.matrix)) {
@@ -145,8 +145,8 @@ export class ImageryBatchRenderer {
     const width = image.width, height = image.height;
     if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) return false;
     const geometry = patch.mesh.geometry, vertices = this.directSurface ? 0 : geometry.attributes.position.count, indices = this.directSurface ? 0 : geometry.index!.count;
-    let page = this.pages.find(p => p.zoom === patch.zoom && p.width === width && p.height === height
-      && p.mesh.renderOrder === patch.mesh.renderOrder
+    let page = this.pages.find(p => (this.directSurface || (p.zoom === patch.zoom && p.mesh?.renderOrder === patch.mesh.renderOrder))
+      && p.width === width && p.height === height
       && p.texture.anisotropy === patch.texture.anisotropy && p.slots.size < IMAGERY_BATCH_LIMITS.layers
       && p.vertices + vertices <= IMAGERY_BATCH_LIMITS.verticesPerPage && p.indices + indices <= IMAGERY_BATCH_LIMITS.indicesPerPage);
     if (!page) {
@@ -169,7 +169,7 @@ export class ImageryBatchRenderer {
       ctx.drawImage(image, 0, 0);
       const pixels = ctx.getImageData(0, 0, width, height).data;
       let instanceId: number;
-      if (this.directSurface) {
+      if (this.directSurface || !page.mesh) {
         instanceId = 0; while (page.slots.has(instanceId)) instanceId++;
         geometryId = -1;
       } else {
@@ -180,7 +180,7 @@ export class ImageryBatchRenderer {
       (page.texture.image.data as Uint8Array).set(pixels, instanceId * width * height * 4);
       page.texture.addLayerUpdate(instanceId); page.texture.needsUpdate = true;
       patch.mesh.updateMatrix();
-      if (!this.directSurface) { page.mesh.setMatrixAt(instanceId, patch.mesh.matrix); page.mesh.setVisibleAt(instanceId, patch.mesh.visible); }
+      if (!this.directSurface && page.mesh) { page.mesh.setMatrixAt(instanceId, patch.mesh.matrix); page.mesh.setVisibleAt(instanceId, patch.mesh.visible); }
       page.slots.add(instanceId);
       page.vertices += vertices; page.indices += indices;
       const material = patch.mesh.material as THREE.MeshStandardMaterial;
@@ -196,7 +196,7 @@ export class ImageryBatchRenderer {
       this.uploads++;
       return true;
     } catch {
-      if (geometryId !== undefined && geometryId >= 0) page.mesh.deleteGeometry(geometryId);
+      if (geometryId !== undefined && geometryId >= 0 && page.mesh) page.mesh.deleteGeometry(geometryId);
       this.unreadable.add(image); this.failures++;
       return false;
     }
@@ -204,7 +204,7 @@ export class ImageryBatchRenderer {
 
   private remove(key: string, entry: Entry): void {
     this.beforeRelease?.(entry.patch);
-    if (!this.directSurface) {
+    if (!this.directSurface && entry.page.mesh) {
       entry.page.mesh.deleteGeometry(entry.geometryId);
       entry.page.vertices -= entry.geometry.attributes.position.count;
       entry.page.indices -= entry.geometry.index!.count;
@@ -229,28 +229,34 @@ export class ImageryBatchRenderer {
     const texture = new THREE.DataArrayTexture(new Uint8Array(width * height * IMAGERY_BATCH_LIMITS.layers * 4), width, height, IMAGERY_BATCH_LIMITS.layers);
     texture.colorSpace = THREE.SRGBColorSpace; texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = true; texture.anisotropy = patch.texture.anisotropy;
-    const material = (patch.mesh.material as THREE.MeshStandardMaterial).clone();
-    material.visible = true; material.map = texture;
-    material.customProgramCacheKey = () => 'imagery-array-batch-v1';
-    material.onBeforeCompile = shader => {
-      shader.vertexShader = 'flat varying float vImageryLayer;\n' + shader.vertexShader;
-      shader.vertexShader = shader.vertexShader.replace('#include <batching_vertex>', '#include <batching_vertex>\nvImageryLayer = getIndirectIndex(gl_DrawID);');
-      shader.fragmentShader = 'flat varying float vImageryLayer;\n' + shader.fragmentShader;
-      shader.fragmentShader = shader.fragmentShader.replace('#include <map_pars_fragment>', 'uniform highp sampler2DArray map;');
-      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', 'diffuseColor *= texture(map, vec3(vMapUv, vImageryLayer));');
-    };
-    const mesh = new THREE.BatchedMesh(IMAGERY_BATCH_LIMITS.layers, IMAGERY_BATCH_LIMITS.verticesPerPage, IMAGERY_BATCH_LIMITS.indicesPerPage, material);
-    // Culling happens per member in BatchedMesh, including an ArrayCamera's eyes.
-    mesh.frustumCulled = false; mesh.renderOrder = patch.mesh.renderOrder;
-    mesh.visible = !this.directSurface;
-    this.group.add(mesh);
+    let mesh: THREE.BatchedMesh | undefined;
+    if (!this.directSurface) {
+      const material = (patch.mesh.material as THREE.MeshStandardMaterial).clone();
+      material.visible = true; material.map = texture;
+      material.customProgramCacheKey = () => 'imagery-array-batch-v1';
+      material.onBeforeCompile = shader => {
+        shader.vertexShader = 'flat varying float vImageryLayer;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace('#include <batching_vertex>', '#include <batching_vertex>\nvImageryLayer = getIndirectIndex(gl_DrawID);');
+        shader.fragmentShader = 'flat varying float vImageryLayer;\n' + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_pars_fragment>', 'uniform highp sampler2DArray map;');
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', 'diffuseColor *= texture(map, vec3(vMapUv, vImageryLayer));');
+      };
+      mesh = new THREE.BatchedMesh(IMAGERY_BATCH_LIMITS.layers, IMAGERY_BATCH_LIMITS.verticesPerPage, IMAGERY_BATCH_LIMITS.indicesPerPage, material);
+      // Culling happens per member in BatchedMesh, including an ArrayCamera's eyes.
+      mesh.frustumCulled = false; mesh.renderOrder = patch.mesh.renderOrder;
+      mesh.visible = true;
+      this.group.add(mesh);
+    }
     const page: Page = { zoom: patch.zoom, width, height, mesh, texture, arrayBytes, vertices: 0, indices: 0, slots: new Set() };
     this.pages.push(page);
     return page;
   }
 
   private destroyPage(page: Page): void {
-    this.group.remove(page.mesh); page.mesh.dispose();
-    (page.mesh.material as THREE.Material).dispose(); page.texture.dispose();
+    if (page.mesh) {
+      this.group.remove(page.mesh); page.mesh.dispose();
+      (page.mesh.material as THREE.Material).dispose();
+    }
+    page.texture.dispose();
   }
 }

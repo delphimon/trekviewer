@@ -66,6 +66,8 @@ export class DesktopOverlay {
   private scrubberCurDist!: HTMLElement;
   private canvasChart!: HTMLCanvasElement;
   private statusBanner!: HTMLElement;
+  private onWindowDragOver?: (e: DragEvent) => void;
+  private onWindowDrop?: (e: DragEvent) => void;
 
   constructor(container: HTMLElement, callbacks: OverlayCallbacks) {
     this.container = container;
@@ -100,28 +102,38 @@ export class DesktopOverlay {
 
   private statusTimeout: number | null = null;
 
-  public showStatus(message: string, isError: boolean = false): void {
+  public showStatus(
+    message: string,
+    isError: boolean = false,
+    state?: 'loading' | 'ready' | 'error',
+    progress?: number | null
+  ): void {
     if (this.statusTimeout) {
       clearTimeout(this.statusTimeout);
       this.statusTimeout = null;
     }
 
+    const effectiveError = isError || state === 'error';
     const textEl = document.getElementById('statusText') || this.statusBanner;
     textEl.textContent = message;
     this.statusBanner.style.display = 'flex';
 
-    if (isError) {
+    if (effectiveError) {
       this.statusBanner.classList.add('status-error');
     } else {
       this.statusBanner.classList.remove('status-error');
     }
 
-    // Extract percentage if present in message (e.g. "(45%)")
+    // Extract percentage if present in message (e.g. "(45%)") or use structured progress
     const match = message.match(/\((\d+)%\)/);
     const fillEl = document.getElementById('statusProgressFill');
     const barEl = document.getElementById('statusProgressBar');
     if (fillEl && barEl) {
-      if (match) {
+      if (typeof progress === 'number' && Number.isFinite(progress)) {
+        barEl.style.display = 'block';
+        const pct = Math.round(Math.max(0, Math.min(1, progress <= 1 ? progress : progress / 100)) * 100);
+        fillEl.style.width = `${pct}%`;
+      } else if (match) {
         barEl.style.display = 'block';
         fillEl.style.width = `${match[1]}%`;
       } else if (message.includes('Downloading') || message.includes('Building')) {
@@ -132,22 +144,25 @@ export class DesktopOverlay {
     }
 
     const spinner = this.statusBanner.querySelector('.status-spinner') as HTMLElement;
-    const isDone = !isError && (
-      message.toLowerCase().includes('ready') ||
-      message.includes('Loaded:') ||
-      message.includes('active') ||
-      message.includes('complete')
+    const isDone = !effectiveError && (
+      state === 'ready' ||
+      (state === undefined && (
+        message.toLowerCase().includes('ready') ||
+        message.includes('Loaded:') ||
+        message.includes('active') ||
+        message.includes('complete')
+      ))
     );
 
     if (spinner) {
-      spinner.style.display = (isDone || isError) ? 'none' : 'inline-block';
+      spinner.style.display = (isDone || effectiveError) ? 'none' : 'inline-block';
     }
 
     if (isDone) {
       this.statusTimeout = window.setTimeout(() => {
         this.statusBanner.style.display = 'none';
       }, 2500);
-    } else if (isError) {
+    } else if (effectiveError) {
       this.statusTimeout = window.setTimeout(() => {
         this.statusBanner.style.display = 'none';
       }, 6000);
@@ -168,10 +183,16 @@ export class DesktopOverlay {
     this.updateFitAvailability();
     this.statsTitle.textContent = track.name;
 
-    const warningsPill = (track.warnings && track.warnings.length > 0)
-      ? ` <span class="data-quality-pill" title="${track.warnings.join(' • ')}" style="display:inline-block;padding:2px 8px;font-size:11px;background:rgba(245,158,11,0.2);color:#f59e0b;border:1px solid rgba(245,158,11,0.4);border-radius:12px;margin-left:6px;cursor:help;">⚠ Data Notes (${track.warnings.length})</span>`
-      : '';
-    this.statsSubtitle.innerHTML = `High Point: ${Math.round(track.maxElevation)} m (${Math.round(track.maxElevation * 3.28084)} ft) • Total Vert: +${Math.round(track.elevationGain)} m${warningsPill}`;
+    this.statsSubtitle.textContent = `High Point: ${Math.round(track.maxElevation)} m (${Math.round(track.maxElevation * 3.28084)} ft) • Total Vert: +${Math.round(track.elevationGain)} m`;
+    if (track.warnings && track.warnings.length > 0) {
+      const pill = document.createElement('span');
+      pill.className = 'data-quality-pill';
+      pill.title = track.warnings.join(' • ');
+      pill.style.cssText = 'display:inline-block;padding:2px 8px;font-size:11px;background:rgba(245,158,11,0.2);color:#f59e0b;border:1px solid rgba(245,158,11,0.4);border-radius:12px;margin-left:6px;cursor:help;';
+      pill.textContent = `⚠ Data Notes (${track.warnings.length})`;
+      this.statsSubtitle.appendChild(document.createTextNode(' '));
+      this.statsSubtitle.appendChild(pill);
+    }
 
     const distKm = (track.totalDistance / 1000).toFixed(1);
     const distMi = (track.totalDistance * 0.000621371).toFixed(1);
@@ -675,8 +696,8 @@ export class DesktopOverlay {
     });
 
     // Drag and Drop GPX onto window (with 25 MB pre-read guard)
-    window.addEventListener('dragover', (e) => e.preventDefault());
-    window.addEventListener('drop', (e) => {
+    this.onWindowDragOver = (e: DragEvent) => e.preventDefault();
+    this.onWindowDrop = (e: DragEvent) => {
       e.preventDefault();
       const file = e.dataTransfer?.files[0];
       if (file && file.name.toLowerCase().endsWith('.gpx')) {
@@ -694,7 +715,9 @@ export class DesktopOverlay {
         };
         reader.readAsText(file);
       }
-    });
+    };
+    window.addEventListener('dragover', this.onWindowDragOver);
+    window.addEventListener('drop', this.onWindowDrop);
 
     // WebXR Buttons
     document.getElementById('btnEnterVR')?.addEventListener('click', () => {
@@ -1076,6 +1099,14 @@ export class DesktopOverlay {
 
   public dispose(): void {
     this.offlineDownloads.dispose();
+    if (this.onWindowDragOver) {
+      window.removeEventListener('dragover', this.onWindowDragOver);
+      this.onWindowDragOver = undefined;
+    }
+    if (this.onWindowDrop) {
+      window.removeEventListener('drop', this.onWindowDrop);
+      this.onWindowDrop = undefined;
+    }
     if (this.statusTimeout) {
       window.clearTimeout(this.statusTimeout);
       this.statusTimeout = null;

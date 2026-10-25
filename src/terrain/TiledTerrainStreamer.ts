@@ -56,7 +56,17 @@ export class TiledTerrainStreamer {
 
   public get activeChunks(): readonly LocalTerrainChunk[] { return [...this.chunks.values()]; }
   public get chunkRadiusM(): number { return this.profile.localTerrainRadiusM; }
-  public get activeVisibleChunk(): LocalTerrainChunk | null { return this.chunks.values().next().value ?? null; }
+  public get activeVisibleChunk(): LocalTerrainChunk | null {
+    if (this.focusTileId) {
+      const focused = this.chunks.get(this.focusTileId);
+      if (focused?.mesh.visible) return focused;
+    }
+    let latest: LocalTerrainChunk | null = null;
+    for (const chunk of this.chunks.values()) {
+      if (chunk.mesh.visible) latest = chunk;
+    }
+    return latest ?? (this.chunks.values().next().value ?? null);
+  }
   public getViewMode(): ViewMode { return this.mode; }
   public getTabletopFocusGeo(): { lat: number; lon: number } | null { return this.focus; }
   public getTabletopFocusChangesTotal(): number { return this.focusChanges; }

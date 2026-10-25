@@ -111,11 +111,12 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
     };
 
     (globalThis as any).document = {
+      createTextNode: (text: string) => ({ textContent: text }),
       createElement: (tag: string) => {
         if (tag === 'canvas') {
           return {
             width: 1024,
-            height: 680,
+            height: 768,
             getContext: () => mockCtx,
           };
         }
@@ -144,6 +145,9 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
               toggle: vi.fn(),
             },
             addEventListener: vi.fn(),
+            appendChild: vi.fn(),
+            querySelector: vi.fn(() => ({ style: {}, disabled: false, textContent: '', classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() } })),
+            querySelectorAll: vi.fn(() => []),
             textContent: '',
             value: '0',
             files: [],

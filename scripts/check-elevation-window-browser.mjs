@@ -5,8 +5,9 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import * as Lerc from 'lerc';
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const chromium = resolveChromium();
 const base = process.env.TREK_WINDOW_URL ?? 'https://127.0.0.1:4217/';
 const out = process.env.TREK_WINDOW_OUT ?? '.review-cache/terrain-footprint/worker-local.json';
 const build = JSON.parse(fs.readFileSync('dist/build-info.json', 'utf8'));
@@ -26,7 +27,7 @@ try {
       server.stdout.on('data', data => { if (data.toString().includes('4217')) { clearTimeout(timer); resolve(); } }); server.on('error', reject);
     });
   }
-  browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
+  browser = await chromium.launch(resolveLaunchOptions({ args: ['--ignore-certificate-errors'] }));
   const page = await browser.newPage({ ignoreHTTPSErrors: true });
   await page.goto(base + 'build-info.json', { waitUntil: 'domcontentloaded' });
   const actual = await page.evaluate(async () => (await fetch('build-info.json', { cache: 'no-store' })).json()); assert.equal(actual.id, build.id);

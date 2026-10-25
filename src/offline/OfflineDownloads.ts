@@ -24,8 +24,12 @@ export async function validateOfflineResource(resource: OfflineResource, blob: B
     if ((w ? decoded.requiredValidCount : decoded.validCount) !== count) throw Error('Elevation source has missing terrain coverage.');
   } else {
     const header = new DataView(await blob.slice(0, 24).arrayBuffer());
-    if (header.byteLength < 24 || header.getUint32(0) !== 0x89504e47 || header.getUint32(4) !== 0x0d0a1a0a
-      || header.getUint32(16) !== resource.width || header.getUint32(20) !== resource.height) throw Error('Unexpected imagery dimensions or format.');
+    const isPng = header.byteLength >= 24 && header.getUint32(0) === 0x89504e47 && header.getUint32(4) === 0x0d0a1a0a;
+    const isJpeg = header.byteLength >= 4 && header.getUint16(0) === 0xffd8 && (header.getUint8(2) === 0xff);
+    if (!isPng && !isJpeg) throw Error('Unexpected imagery dimensions or format.');
+    if (isPng && (header.getUint32(16) !== resource.width || header.getUint32(20) !== resource.height)) {
+      throw Error('Unexpected imagery dimensions or format.');
+    }
     const image = await createImageBitmap(blob);
     try {
       if (image.width !== resource.width || image.height !== resource.height) throw Error('Unexpected imagery dimensions.');
@@ -78,7 +82,7 @@ export class OfflineDownloads {
           message: `${source?.message ?? 'Downloading'} • ${persisted ? 'storage persistence granted' : 'browser may reclaim storage'}`, updated: Date.now() };
         await OfflineStore.putState(state);
         try {
-          let verified = 0, verifiedBytes = 0;
+          let verified = 0, verifiedBytes = 0, lastNotifyAt = performance.now();
           for (let position = 0; position < plan.resources.length; position++) {
             const resource = plan.resources[position];
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
@@ -123,7 +127,10 @@ export class OfflineDownloads {
             const next = { ...state, completed: state.completed + Number(!retained), bytes: state.bytes + blob.size - (retained?.bytes ?? 0), updated: Date.now() };
             await requireOfflineCapacity(blob.size);
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
-            await OfflineStore.save(next, resource, sourceUrl, blob, await hashOfflineBlob(blob));
+            const now = performance.now();
+            const shouldNotify = position === plan.resources.length - 1 || verified % 16 === 0 || now - lastNotifyAt >= 250;
+            if (shouldNotify) lastNotifyAt = now;
+            await OfflineStore.save(next, resource, sourceUrl, blob, await hashOfflineBlob(blob), shouldNotify);
             state = next;
           }
           if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');

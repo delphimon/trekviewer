@@ -192,6 +192,9 @@ export class DioramaBase {
     group.name = 'ScaleBar';
 
     const barLength = widthM > 8000 ? 2000 : 1000;
+    const labelText = barLength >= 1000 ? `${barLength / 1000} km` : `${barLength} m`;
+    group.userData = { scaleMeters: barLength, label: labelText };
+
     const barGeo = new THREE.BoxGeometry(barLength, 3, 8);
     const barMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
     const bar = new THREE.Mesh(barGeo, barMat);
@@ -205,6 +208,36 @@ export class DioramaBase {
     cap2.position.x = barLength;
     group.add(cap1);
     group.add(cap2);
+
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      if (ctx && typeof ctx.fillText === 'function') {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = 'bold 28px Inter, system-ui, sans-serif';
+        ctx.fillStyle = '#38bdf8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, canvas.width / 2, canvas.height / 2);
+
+        const labelTex = new THREE.CanvasTexture(canvas);
+        const labelMat = new THREE.SpriteMaterial({
+          map: labelTex,
+          transparent: true,
+          depthTest: false,
+        });
+        const labelSprite = new THREE.Sprite(labelMat);
+        labelSprite.name = 'ScaleBarLabel';
+        const labelWidth = Math.max(160, barLength * 0.25);
+        labelSprite.scale.set(labelWidth, labelWidth * 0.25, 1);
+        labelSprite.position.set(barLength / 2, 28, 0);
+        labelSprite.raycast = () => {};
+        group.add(labelSprite);
+      }
+    }
 
     return group;
   }
@@ -614,9 +647,16 @@ export class DioramaBase {
     const lower = name.toLowerCase().trim();
     for (const child of wpGroup.children) {
       const wp = child.userData?.waypoint as GPXWaypoint | undefined;
-      if (wp && (wp.name.toLowerCase().trim() === lower || wp.name.toLowerCase().includes(lower))) {
+      if (wp && wp.name.toLowerCase().trim() === lower) {
         this.onSelectWaypoint(baseGroup, child);
-        break;
+        return;
+      }
+    }
+    for (const child of wpGroup.children) {
+      const wp = child.userData?.waypoint as GPXWaypoint | undefined;
+      if (wp && wp.name.toLowerCase().includes(lower)) {
+        this.onSelectWaypoint(baseGroup, child);
+        return;
       }
     }
   }
@@ -630,6 +670,7 @@ export class DioramaBase {
     for (const child of wpGroup.children) {
       if (child.userData && typeof child.userData.baseY === 'number') {
         child.position.y = child.userData.baseY * factor + 8;
+        this.updateConnectorLineHeight(child, child.userData.baseY, factor);
       }
     }
   }
@@ -658,7 +699,36 @@ export class DioramaBase {
         if (!child.userData) child.userData = {};
         child.userData.baseY = sampleY;
         child.position.y = sampleY * factor + 8;
+        this.updateConnectorLineHeight(child, sampleY, factor, elevationSampler);
       }
     }
+  }
+
+  private static updateConnectorLineHeight(
+    pin: THREE.Object3D,
+    baseY: number,
+    factor: number,
+    elevationSampler?: (x: number, z: number) => number
+  ): void {
+    const uData = pin.userData;
+    if (!uData || uData.isOnRoute || !uData.projection || !uData.rawLocalPos) return;
+    const connLine = pin.getObjectByName('WaypointConnectorLine') as THREE.Line | null;
+    if (!connLine) return;
+    const posAttr = connLine.geometry.attributes.position as THREE.BufferAttribute | undefined;
+    if (!posAttr || posAttr.count < 2) return;
+    let routeY = uData.projection.visualPosition.y;
+    if (elevationSampler) {
+      const sampledRouteY = elevationSampler(uData.projection.visualPosition.x, uData.projection.visualPosition.z);
+      if (Number.isFinite(sampledRouteY)) {
+        routeY = sampledRouteY;
+      }
+    }
+    posAttr.setXYZ(
+      1,
+      uData.projection.visualPosition.x - uData.rawLocalPos.x,
+      (routeY - baseY) * factor,
+      uData.projection.visualPosition.z - uData.rawLocalPos.z
+    );
+    posAttr.needsUpdate = true;
   }
 }

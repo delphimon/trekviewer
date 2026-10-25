@@ -330,8 +330,14 @@ export class TerrainGenerator {
 
     // Procedural Fallback Topo Texture for instant interactivity
     onProgress?.('Generating topographic texture...', 0.85);
+    const topoBounds: GeoBounds = {
+      ...terrainGeoBounds,
+      minEle: Math.min(bounds.minEle, terrainGeoBounds.minEle ?? bounds.minEle),
+      maxEle: Math.max(bounds.maxEle, terrainGeoBounds.maxEle ?? bounds.maxEle),
+      elevationSpan: Math.max(100, Math.max(bounds.maxEle, terrainGeoBounds.maxEle ?? bounds.maxEle) - Math.min(bounds.minEle, terrainGeoBounds.minEle ?? bounds.minEle)),
+    };
     const topoTexture = await TextureProvider.generateTopoTextureAsync(
-      bounds,
+      topoBounds,
       tileGrid,
       (lat: number, lon: number) => {
         if (regionalGrid) {

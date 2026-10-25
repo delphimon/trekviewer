@@ -116,10 +116,12 @@ export function readGPXXML(xml: string, fallbackName?: string) {
         else if (field === 'ele') { point.ele ??= Number(value); point.rawEle = point.ele; }
         else if (field === 'hr' || field === 'cad') point[field] ??= Number(value);
       } else if (owner.waypoint) {
-        if (field === 'ele') owner.waypoint.ele = Number(value);
-        else if (field === 'name' || field === 'desc' || field === 'sym') owner.waypoint[field] = value;
+        if (field === 'ele') {
+          const n = Number(value);
+          if (Number.isFinite(n)) owner.waypoint.ele = n;
+        } else if (field === 'name' || field === 'desc' || field === 'sym') owner.waypoint[field] = value;
       }
-      if (field === 'name') {
+      if (field === 'name' && owner.kind !== 'wpt') {
         firstName ||= value;
         if (owner.kind === 'trk') trackName ||= value;
       }

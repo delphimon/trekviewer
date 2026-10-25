@@ -583,62 +583,61 @@ export class TrekViewerApp {
       this.session.setPlayback(state.isPlaying);
     });
 
-    // 2. Re-create and mount Spatial HUD for this track
+    // 2. Update or create Spatial HUD for this track
     if (this.spatialHUD) {
-      if (this.xrManager) {
-        this.xrManager.setSpatialHUD(null);
+      this.spatialHUD.setTrack(track, this.routeLandmarks);
+      this.spatialHUD.setHorizonLocked(this.horizonLocked);
+      if (!this.spatialHUD.group.parent) {
+        this.sceneManager.scene.add(this.spatialHUD.group);
       }
-      this.sceneManager.scene.remove(this.spatialHUD.group);
-      this.spatialHUD.dispose();
-      this.spatialHUD = null;
+    } else {
+      this.spatialHUD = new SpatialHUD(track, {
+        onSetHorizonLocked: (locked) => this.setHorizonLocked(locked),
+        onResetHorizon: () => this.resetHorizon(),
+        onTogglePlay: () => this.togglePlay(),
+        onToggleViewMode: () => this.toggleViewMode(),
+        onToggleTexture: () => {
+          const cur = this.session.getState().textureStyle;
+          const next: TextureStyle =
+            cur === 'satellite'
+              ? 'hybrid'
+              : cur === 'hybrid'
+              ? 'topo'
+              : 'satellite';
+          this.setTextureStyle(next);
+        },
+        onToggleTrailColor: () => {
+          const cur = this.session.getState().trailColorMode;
+          const next: TrailColorMode =
+            cur === 'solid'
+              ? 'grade'
+              : cur === 'grade'
+              ? 'speed'
+              : cur === 'speed'
+              ? 'elevation'
+              : 'solid';
+          this.setTrailColorMode(next);
+        },
+        onSetVerticalExaggeration: (factor) => this.session.setVerticalExaggeration(factor),
+        onReset: () => this.resetPosition(),
+        onExitMR: () => this.exitMR(),
+        onScrub: (progress) => {
+          this.flyoverController?.setProgress(progress);
+          this.session.setProgress(progress);
+        },
+        onSetSpeed: (speed) => this.session.setSpeed(speed),
+        onSetPlaybackMode: (mode) => this.session.setPlaybackMode(mode),
+        onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
+        onFocusHiker: () => this.focusOnHiker(),
+        onToggleFollowRoute: () => this.toggleFollowRoute(),
+        onDockHUD: (side) => this.dockHUD(side),
+        onSelectWaypoint: (name, lat, lon, progress) => this.jumpToWaypoint(name, lat, lon, progress),
+      }, this.sceneManager.renderer.xr.isPresenting, this.routeLandmarks);
+      this.spatialHUD.setHorizonLocked(this.horizonLocked);
+      this.sceneManager.scene.add(this.spatialHUD.group);
     }
 
-    this.spatialHUD = new SpatialHUD(track, {
-      onSetHorizonLocked: (locked) => this.setHorizonLocked(locked),
-      onResetHorizon: () => this.resetHorizon(),
-      onTogglePlay: () => this.togglePlay(),
-      onToggleViewMode: () => this.toggleViewMode(),
-      onToggleTexture: () => {
-        const cur = this.session.getState().textureStyle;
-        const next: TextureStyle =
-          cur === 'satellite'
-            ? 'hybrid'
-            : cur === 'hybrid'
-            ? 'topo'
-            : 'satellite';
-        this.setTextureStyle(next);
-      },
-      onToggleTrailColor: () => {
-        const cur = this.session.getState().trailColorMode;
-        const next: TrailColorMode =
-          cur === 'solid'
-            ? 'grade'
-            : cur === 'grade'
-            ? 'speed'
-            : cur === 'speed'
-            ? 'elevation'
-            : 'solid';
-        this.setTrailColorMode(next);
-      },
-      onSetVerticalExaggeration: (factor) => this.session.setVerticalExaggeration(factor),
-      onReset: () => this.resetPosition(),
-      onExitMR: () => this.exitMR(),
-      onScrub: (progress) => {
-        this.flyoverController?.setProgress(progress);
-        this.session.setProgress(progress);
-      },
-      onSetSpeed: (speed) => this.session.setSpeed(speed),
-      onSetPlaybackMode: (mode) => this.session.setPlaybackMode(mode),
-      onStepSeconds: (secs) => this.flyoverController?.stepSeconds(secs),
-      onFocusHiker: () => this.focusOnHiker(),
-      onToggleFollowRoute: () => this.toggleFollowRoute(),
-      onDockHUD: (side) => this.dockHUD(side),
-      onSelectWaypoint: (name, lat, lon, progress) => this.jumpToWaypoint(name, lat, lon, progress),
-    }, this.sceneManager.renderer.xr.isPresenting, this.routeLandmarks);
-    this.spatialHUD.setHorizonLocked(this.horizonLocked);
-
     // Position Spatial HUD docked comfortably to the left (leaving center mountain view completely open)
-    this.sceneManager.scene.add(this.spatialHUD.group);
     this.dockHUD(this.currentHUDDockSide);
 
     // Register SpatialHUD with XRManager for laser raycasting and clicks
@@ -1109,6 +1108,7 @@ export class TrekViewerApp {
 
   private setHorizonLocked(locked: boolean): void {
     this.horizonLocked = locked;
+    this.session.setHorizonLocked(locked);
     saveHorizonLock(locked);
     this.xrManager.setHorizonLocked(locked);
     this.overlay.setHorizonLocked(locked);

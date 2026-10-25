@@ -27,6 +27,7 @@ export interface TrekSessionState {
   playbackSpeed: number;
   playbackMode: PlaybackMode;
   followRoute: boolean;
+  horizonLocked: boolean;
   progress: number;
   currentDistance: number;
   currentElevation: number;
@@ -74,6 +75,7 @@ export class TrekSession {
       playbackSpeed: 1.0,
       playbackMode: 'tour',
       followRoute: false,
+      horizonLocked: true,
       progress: 0,
       currentDistance: 0,
       currentElevation: 0,
@@ -200,6 +202,12 @@ export class TrekSession {
 
   public setFollowRoute(followRoute: boolean): void {
     this.setState({ followRoute });
+  }
+
+  public setHorizonLocked(horizonLocked: boolean): void {
+    if (this.state.horizonLocked !== horizonLocked) {
+      this.setState({ horizonLocked });
+    }
   }
 
   public setViewMode(viewMode: ViewMode): void {

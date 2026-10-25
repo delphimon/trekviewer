@@ -1,10 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
+const chromium = resolveChromium();
 const base = process.env.TREK_STABILITY_URL ?? 'https://127.0.0.1:4215/';
 const out = process.env.TREK_STABILITY_OUT ?? '.review-cache/terrain-stability';
 const expected = JSON.parse(fs.readFileSync('dist/build-info.json', 'utf8'));
@@ -20,7 +19,7 @@ try {
       server.stdout.on('data', data => { if (data.toString().includes('4215')) { clearTimeout(timer); resolve(); } }); server.on('error', reject);
     });
   }
-  browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
+  browser = await chromium.launch(resolveLaunchOptions({ args: ['--ignore-certificate-errors'] }));
   const page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: 1000, height: 800 }, userAgent: 'TrekViewer desktop live-source audit (Quest geometry budget)' });
   const errors = [], glErrors = [], requests = new Map();
   page.on('pageerror', () => errors.push('Page exception'));

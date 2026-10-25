@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
-import { createRequire } from 'node:module';
 import { build } from 'vite';
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
 
 /** PC preparation uses the same bounded browser worker/Canvas validators as the
  * installed app. This loopback harness never launches or queries a headset. */
@@ -27,8 +27,8 @@ export { disposeTerrainJobs } from ${JSON.stringify(path.resolve('src/terrain/Te
   const close = async () => { await browser?.close(); await new Promise(resolve => server.close(resolve)); };
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const require = createRequire(import.meta.url), { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-    browser = await chromium.launch({ executablePath: process.env.TREK_EDGE_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
+    const chromium = resolveChromium();
+    browser = await chromium.launch(resolveLaunchOptions());
     const page = await browser.newPage(), origin = `http://127.0.0.1:${server.address().port}`;
     let blockedRequests = 0, archiveBusy = false, reportProgress;
     await page.route('**/*', route => {

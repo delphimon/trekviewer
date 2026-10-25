@@ -1,6 +1,7 @@
 export interface ElevationStatsOptions {
   windowMeters?: number; // Rolling distance window half-width in meters (default: 30m)
   hysteresisMeters?: number; // Minimum vertical climb/descent threshold in meters (default: 5.0m)
+  trackExtrema?: boolean; // Track peak/trough extrema before direction reversals
 }
 
 export interface ElevationStatsResult {
@@ -65,15 +66,69 @@ export function calculateElevationStats(
   let elevationLoss = 0;
   let lastClimbEle = smoothedEles[0];
 
-  for (let i = 1; i < n; i++) {
-    const dFromLast = smoothedEles[i] - lastClimbEle;
-    if (Math.abs(dFromLast) >= hysteresisM) {
-      if (dFromLast > 0) {
-        elevationGain += dFromLast;
+  if (options.trackExtrema) {
+    let direction: -1 | 0 | 1 = 0;
+    let extremum = smoothedEles[0];
+    for (let i = 1; i < n; i++) {
+      const ele = smoothedEles[i];
+      if (direction === 0) {
+        const diff = ele - lastClimbEle;
+        if (Math.abs(diff) >= hysteresisM) {
+          if (diff > 0) {
+            elevationGain += diff;
+            direction = 1;
+          } else {
+            elevationLoss += Math.abs(diff);
+            direction = -1;
+          }
+          lastClimbEle = ele;
+          extremum = ele;
+        }
+      } else if (direction === 1) {
+        if (ele >= extremum) {
+          if (ele - lastClimbEle >= hysteresisM) {
+            elevationGain += ele - lastClimbEle;
+            lastClimbEle = ele;
+          }
+          extremum = ele;
+        } else if (extremum - ele >= hysteresisM) {
+          if (extremum > lastClimbEle) {
+            elevationGain += extremum - lastClimbEle;
+          }
+          elevationLoss += extremum - ele;
+          lastClimbEle = ele;
+          extremum = ele;
+          direction = -1;
+        }
       } else {
-        elevationLoss += Math.abs(dFromLast);
+        if (ele <= extremum) {
+          if (lastClimbEle - ele >= hysteresisM) {
+            elevationLoss += lastClimbEle - ele;
+            lastClimbEle = ele;
+          }
+          extremum = ele;
+        } else if (ele - extremum >= hysteresisM) {
+          if (extremum < lastClimbEle) {
+            elevationLoss += lastClimbEle - extremum;
+          }
+          elevationGain += ele - extremum;
+          lastClimbEle = ele;
+          extremum = ele;
+          direction = 1;
+        }
       }
-      lastClimbEle = smoothedEles[i];
+    }
+  } else {
+    for (let i = 1; i < n; i++) {
+      const dFromLast = smoothedEles[i] - lastClimbEle;
+      if (Math.abs(dFromLast) >= hysteresisM) {
+        if (dFromLast > 0) {
+          elevationGain += dFromLast;
+        } else {
+          elevationLoss += Math.abs(dFromLast);
+        }
+        lastClimbEle = smoothedEles[i];
+      }
     }
   }
 

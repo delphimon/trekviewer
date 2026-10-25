@@ -6,8 +6,8 @@ import { createRequire } from 'node:module';
 import { installResourceCacheAudit } from './resource-cache-audit.mjs';
 import { installTerrainIndexAudit } from './terrain-index-audit.mjs';
 import { installTerrainPlanAudit } from './terrain-plan-audit.mjs';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
+const chromium = resolveChromium();
 const base = process.env.TREK_LIVE_BATCH_URL ?? 'https://127.0.0.1:4212/';
 const out = process.env.TREK_LIVE_BATCH_OUT ?? '.review-cache/live-imagery-batch';
 const expectedDist = process.env.TREK_LIVE_BATCH_EXPECTED_DIST ?? 'dist';
@@ -28,7 +28,7 @@ try {
       server.stdout.on('data', data => { if (data.toString().includes('4212')) { clearTimeout(timer); resolve(); } }); server.on('error', reject);
     });
   }
-  browser = await chromium.launch({ executablePath: process.env.TREK_EDGE_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
+  browser = await chromium.launch(resolveLaunchOptions({ args: ['--ignore-certificate-errors'] }));
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1000, height: 800 }, userAgent: 'TrekViewer desktop live-source audit (Quest geometry budget)' });
   const page = await context.newPage(), errors = [], glErrors = [];
   if (process.env.TREK_INDEX_AUDIT === '1') await page.addInitScript(installTerrainIndexAudit);

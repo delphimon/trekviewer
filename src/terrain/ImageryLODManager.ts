@@ -226,14 +226,27 @@ export function getViewMetrics(
 /** Sample each actual eye projection, including off-axis/asymmetric XR frusta.
  * WebXRManager supplies eye matrixWorld directly; do not recompute it here.
  */
-export function getTerrainViewRays(camera: THREE.Camera, offsets: readonly (readonly [number, number])[]): THREE.Raycaster[] {
+export function getTerrainViewRays(camera: THREE.Camera, offsets: readonly (readonly [number, number])[], pool?: THREE.Raycaster[]): THREE.Raycaster[] {
   const eyes = (camera as THREE.ArrayCamera).cameras;
-  return offsets.flatMap(([x, y]) => (eyes?.length ? eyes : [camera]).map(eye => {
-    const origin = new THREE.Vector3().setFromMatrixPosition(eye.matrixWorld);
-    const direction = new THREE.Vector3(x, y, .5)
-      .applyMatrix4(eye.projectionMatrixInverse).transformDirection(eye.matrixWorld);
-    return new THREE.Raycaster(origin, direction);
-  }));
+  const cameras = eyes?.length ? eyes : [camera];
+  const total = offsets.length * cameras.length;
+  const result = pool ?? [];
+  result.length = total;
+  let index = 0;
+  for (const [x, y] of offsets) {
+    for (const eye of cameras) {
+      let raycaster = result[index];
+      if (!raycaster) {
+        raycaster = new THREE.Raycaster();
+        result[index] = raycaster;
+      }
+      raycaster.ray.origin.setFromMatrixPosition(eye.matrixWorld);
+      raycaster.ray.direction.set(x, y, .5)
+        .applyMatrix4(eye.projectionMatrixInverse).transformDirection(eye.matrixWorld);
+      index++;
+    }
+  }
+  return result;
 }
 
 /**
@@ -967,6 +980,8 @@ export class ImageryLODManager {
   private readonly evalWorldPos = new THREE.Vector3();
   private readonly evalWorldQuat = new THREE.Quaternion();
   private readonly terrainRaycast = new TerrainRaycast();
+  private readonly detailRayPool: THREE.Raycaster[] = [];
+  private readonly firstPersonRayPool: THREE.Raycaster[] = [];
 
   // View mode and 1:1 trail following state (Section 11 & 12)
   private viewMode: ViewMode = 'diorama';
@@ -1216,7 +1231,7 @@ export class ImageryLODManager {
       (obj as THREE.Mesh).isMesh && obj.visible && (obj === base || obj.name === 'LocalHighResTerrainMesh')) ?? [base];
     getViewMetrics(camera, renderer); // Refresh the desktop/representative world pose.
     const points: DetailFocus[] = [];
-    for (const ray of getTerrainViewRays(camera, DETAIL_VIEW_OFFSETS)) {
+    for (const ray of getTerrainViewRays(camera, DETAIL_VIEW_OFFSETS, this.detailRayPool)) {
       const hit = this.terrainRaycast.closest(ray, surfaces);
       if (!hit) continue;
       this.detailViewDistance ??= ray.ray.origin.distanceTo(hit.point);
@@ -2161,7 +2176,7 @@ export class ImageryLODManager {
         (obj === terrainMesh || obj.name === 'LocalHighResTerrainMesh')) || [terrainMesh];
       getViewMetrics(camera, renderer);
       const offsets = [0, -0.55, 0.55].flatMap(x => [0, -0.35].map(y => [x, y] as const));
-      for (const ray of getTerrainViewRays(camera, offsets)) {
+      for (const ray of getTerrainViewRays(camera, offsets, this.firstPersonRayPool)) {
         const hit = this.terrainRaycast.closest(ray, surfaces);
         if (!hit) continue;
         if (hit.mesh.name === 'LocalHighResTerrainMesh') this.firstPersonLocalSurfaceRays++;
@@ -2187,11 +2202,7 @@ export class ImageryLODManager {
     ], innerZoom) : [];
     const candidates = broadHigh ? computeBroadDetailTiles(
       { lat: hikerLat, lon: hikerLon }, innerZoom, this.maxPatches - 32, this.options.terrainGeoBounds, detailPoints
-    ) : this.qualityProfile.name === 'quest-high' && innerZoom >= 19
-      ? computeFirstPersonStableLODTiles(
-          hikerLat, hikerLon, innerZoom, this.maxPatches, this.options.terrainGeoBounds
-        )
-      : computeFirstPersonCoherentLODTiles(
+    ) : computeFirstPersonCoherentLODTiles(
           hikerLat, hikerLon, forwardLat, forwardLon, innerZoom,
           this.maxPatches, this.options.terrainGeoBounds,
           behindLat, behindLon, corridorPoints
@@ -2536,11 +2547,16 @@ export class ImageryLODManager {
           // Keep the scheduler slot through preparation: at most maxConcurrency
           // decoded images/jobs can wait on the single terrain worker.
           let prepared: { data: SurfacePatchData; revision: number } | undefined;
-          if (canMount() && this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
+          let geometry: THREE.BufferGeometry | undefined;
+          if (canMount() && this.terrainImagery) {
+            geometry = this.buildLightweightBoundsGeometry(next.zoom, next.x, next.y);
+            this.staleDirectPatches.add(next.key);
+            this.directReprojectionsAvoided++;
+          } else if (canMount() && this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
             do { prepared = await this.prepareStreamedPatch(next, pending); }
             while (prepared && prepared.revision !== this.surfaceRevision);
+            if (prepared) geometry = createPromotedPatchGeometry(prepared.data);
           }
-          const geometry = prepared ? createPromotedPatchGeometry(prepared.data) : undefined;
           if (this.pendingRequests.get(next.key) !== pending) {
             geometry?.dispose();
             return;
@@ -2727,6 +2743,37 @@ export class ImageryLODManager {
     if (this.patches.size > this.maxPatches) {
       this.evictFurthestPatch();
     }
+  }
+
+  private buildLightweightBoundsGeometry(zoom: number, x: number, y: number): THREE.BufferGeometry {
+    const tb = tileBounds(x, y, zoom);
+    const { centerLat, centerLon } = this.options.terrainGeoBounds;
+    const p0 = geoToLocalMeters(tb.nw.lat, tb.nw.lon, 0, centerLat, centerLon, 0);
+    const p1 = geoToLocalMeters(tb.se.lat, tb.se.lon, 0, centerLat, centerLon, 0);
+    const minX = Math.min(p0.x, p1.x), maxX = Math.max(p0.x, p1.x);
+    const minZ = Math.min(p0.z, p1.z), maxZ = Math.max(p0.z, p1.z);
+    const sampleY = (lx: number, lz: number) => {
+      const h = this.options.elevationSampler ? this.options.elevationSampler(lx, lz) : 0;
+      return (Number.isFinite(h) ? h : 0) * this.verticalExaggeration + 0.04;
+    };
+    const y00 = sampleY(minX, minZ), y10 = sampleY(maxX, minZ);
+    const y01 = sampleY(minX, maxZ), y11 = sampleY(maxX, maxZ);
+    const minY = Math.min(y00, y10, y01, y11), maxY = Math.max(y00, y10, y01, y11);
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array([
+      minX, y00, minZ,
+      maxX, y10, minZ,
+      minX, y01, maxZ,
+      maxX, y11, maxZ,
+    ]);
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 1, 1, 1, 0, 0, 1, 0]), 2));
+    geo.setIndex([0, 2, 1, 1, 2, 3]);
+    geo.boundingBox = new THREE.Box3(new THREE.Vector3(minX, minY - 50, minZ), new THREE.Vector3(maxX, maxY + 50, maxZ));
+    geo.boundingSphere = new THREE.Sphere();
+    geo.boundingBox.getBoundingSphere(geo.boundingSphere);
+    return geo;
   }
 
   private buildPatchGeometry(zoom: number, x: number, y: number): THREE.BufferGeometry {

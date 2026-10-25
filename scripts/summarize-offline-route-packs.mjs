@@ -1,16 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
+const chromium = resolveChromium();
 const root = process.env.TREK_PACK_ESTIMATE_OUT ?? '.review-cache/offline-packs';
 const inventoryPath = path.join(root, 'inventory.json'), input = fs.readFileSync(inventoryPath), inventory = JSON.parse(input);
 assert.equal(inventory.results.length, 8);
 let browser;
 try {
-  browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
+  browser = await chromium.launch(resolveLaunchOptions());
   const page = await browser.newPage();
   for (const route of inventory.results) {
     assert.equal(route.samples.length, 3, `Missing bounded samples for ${route.id}`);

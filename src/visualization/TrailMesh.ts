@@ -222,7 +222,31 @@ export class TrailMesh {
     const finishPos = new THREE.Vector3(lastTele.position.x, finishGroundY * initialExaggeration + 8.0, lastTele.position.z);
     const finishBeacon = this.createPin(finishPos, 0xf59e0b, finishLabel, scaleFactor);
     group.add(finishBeacon);
-    const summitBeacon = finishBeacon;
+
+    let summitTele = lastTele;
+    let summitGroundY = finishGroundY;
+    let summitBeacon = finishBeacon;
+    if (!isSummit && track.points.length > 0) {
+      let peakPt = track.points[0];
+      for (let i = 1; i < track.points.length; i++) {
+        if (track.points[i].ele > peakPt.ele) {
+          peakPt = track.points[i];
+        }
+      }
+      if (Math.abs(peakPt.distanceFromStart - routeGeometry.totalDistance) > 100) {
+        summitTele = routeGeometry.getTelemetryAtDistance(peakPt.distanceFromStart);
+        summitGroundY = summitTele.position.y;
+        if (currentElevationSampler) {
+          const sampled = currentElevationSampler(summitTele.position.x, summitTele.position.z);
+          if (!isNaN(sampled)) {
+            summitGroundY = sampled;
+          }
+        }
+        const summitPos = new THREE.Vector3(summitTele.position.x, summitGroundY * initialExaggeration + 8.0, summitTele.position.z);
+        summitBeacon = this.createPin(summitPos, 0xf59e0b, 'SUMMIT', scaleFactor);
+        group.add(summitBeacon);
+      }
+    }
 
     // Radiant Hiker Marker
     let currentExaggeration = initialExaggeration;
@@ -264,19 +288,29 @@ export class TrailMesh {
       applyColorsToGeo(firstPersonGeo, mode);
     };
 
+    let currentViewMode: ViewMode = 'diorama';
+    const pendingFirstPersonNormals = new Set<number>();
+
     const setViewMode = (mode: ViewMode) => {
+      currentViewMode = mode;
       if (mode === 'first-person') {
+        if (pendingFirstPersonNormals.size > 0) {
+          firstPersonVertexIndex.updateNormals(Array.from(pendingFirstPersonNormals));
+          pendingFirstPersonNormals.clear();
+        }
         trailMesh.geometry = firstPersonGeo;
         trailMesh.material = firstPersonMat;
         hikerMarker.visible = false;
         startBeacon.visible = false;
         finishBeacon.visible = false;
+        summitBeacon.visible = false;
       } else {
         trailMesh.geometry = dioramaGeo;
         trailMesh.material = dioramaMat;
         hikerMarker.visible = true;
         startBeacon.visible = true;
         finishBeacon.visible = true;
+        summitBeacon.visible = true;
       }
     };
 
@@ -288,9 +322,12 @@ export class TrailMesh {
       }
       dioramaVertexIndex.updatePositions(dioramaVertexIndex.verticesIn());
 
-      // Update start and finish beacons with constant +8.0 offset
+      // Update start, finish, and summit beacons with constant +8.0 offset
       startBeacon.position.y = startGroundY * factor + 8.0;
       finishBeacon.position.y = finishGroundY * factor + 8.0;
+      if (summitBeacon !== finishBeacon) {
+        summitBeacon.position.y = summitGroundY * factor + 8.0;
+      }
 
       // Update hiker marker position with terrain elevation
       const telemetry = routeGeometry.getTelemetryAtProgress(currentProgress);
@@ -359,7 +396,17 @@ export class TrailMesh {
       }
       if (fpChanged) {
         firstPersonVertexIndex.updatePositions(changedFP);
-        firstPersonVertexIndex.updateNormals(changedFP);
+        if (currentViewMode === 'first-person') {
+          if (pendingFirstPersonNormals.size > 0) {
+            for (const v of changedFP) pendingFirstPersonNormals.add(v);
+            firstPersonVertexIndex.updateNormals(Array.from(pendingFirstPersonNormals));
+            pendingFirstPersonNormals.clear();
+          } else {
+            firstPersonVertexIndex.updateNormals(changedFP);
+          }
+        } else {
+          for (const v of changedFP) pendingFirstPersonNormals.add(v);
+        }
       }
 
       // 3. Reproject start beacon
@@ -376,7 +423,7 @@ export class TrailMesh {
         }
       }
 
-      // 4. Reproject finish beacon
+      // 4. Reproject finish and summit beacons
       const finishX = lastTele.position.x;
       const finishZ = lastTele.position.z;
       if (
@@ -387,6 +434,21 @@ export class TrailMesh {
         if (!isNaN(finishSampled)) {
           finishGroundY = finishSampled;
           finishBeacon.position.y = finishGroundY * currentExaggeration + 8.0;
+        }
+      }
+
+      if (summitBeacon !== finishBeacon) {
+        const summitX = summitTele.position.x;
+        const summitZ = summitTele.position.z;
+        if (
+          !bounds ||
+          (summitX >= bounds.minX && summitX <= bounds.maxX && summitZ >= bounds.minZ && summitZ <= bounds.maxZ)
+        ) {
+          const summitSampled = sampler(summitX, summitZ);
+          if (!isNaN(summitSampled)) {
+            summitGroundY = summitSampled;
+            summitBeacon.position.y = summitGroundY * currentExaggeration + 8.0;
+          }
         }
       }
 

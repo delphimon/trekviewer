@@ -38,17 +38,26 @@ export class SurfaceVertexIndex {
     }
   }
 
-  /** Elevation-only changes expand conservative bounds without rescanning the entire ribbon. */
+  /** Elevation-only changes expand conservative bounds without rescanning the entire ribbon, or recompute when all vertices change. */
   public updatePositions(changedVertices: readonly number[]): void {
     const position = this.geometry.attributes.position;
     const box = this.geometry.boundingBox!;
-    let changed = false;
-    for (const vertex of changedVertices) {
-      const y = position.getY(vertex);
-      box.min.y = Math.min(box.min.y, y); box.max.y = Math.max(box.max.y, y);
-      changed = true;
+    if (changedVertices.length === 0) return;
+    if (changedVertices.length >= position.count) {
+      let minY = Infinity, maxY = -Infinity;
+      for (const vertex of changedVertices) {
+        const y = position.getY(vertex);
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+      box.min.y = minY;
+      box.max.y = maxY;
+    } else {
+      for (const vertex of changedVertices) {
+        const y = position.getY(vertex);
+        box.min.y = Math.min(box.min.y, y); box.max.y = Math.max(box.max.y, y);
+      }
     }
-    if (!changed) return;
     box.getBoundingSphere(this.geometry.boundingSphere!);
     markChangedSpan(position as THREE.BufferAttribute, changedVertices);
   }
@@ -123,13 +132,67 @@ export class SurfaceVertexIndex {
   }
 }
 
-/** One merged span bounds upload calls and retains every change made before the next render. */
+/** Multi-span upload bounds GPU buffer transfers while coalescing nearby changes (up to 4 disjoint ranges). */
 function markChangedSpan(attribute: THREE.BufferAttribute, vertices: Iterable<number>): void {
-  let first = Infinity, last = -1;
-  for (const vertex of vertices) { first = Math.min(first, vertex); last = Math.max(last, vertex); }
-  if (last < 0) return;
-  let start = first * attribute.itemSize, end = (last + 1) * attribute.itemSize;
-  for (const range of attribute.updateRanges) { start = Math.min(start, range.start); end = Math.max(end, range.start + range.count); }
-  attribute.clearUpdateRanges(); attribute.addUpdateRange(start, end - start);
+  const itemSize = attribute.itemSize;
+  const mergeGap = 64 * itemSize;
+  const maxRanges = 4;
+  const sorted = Array.from(vertices).sort((a, b) => a - b);
+  if (sorted.length === 0) return;
+
+  const rawSpans: Array<[number, number]> = [];
+  for (const range of attribute.updateRanges) {
+    if (range.count > 0) {
+      rawSpans.push([range.start, range.start + range.count]);
+    }
+  }
+  let curStart = sorted[0] * itemSize;
+  let curEnd = (sorted[0] + 1) * itemSize;
+  for (let i = 1; i < sorted.length; i++) {
+    const s = sorted[i] * itemSize;
+    const e = (sorted[i] + 1) * itemSize;
+    if (s - curEnd <= mergeGap) {
+      if (e > curEnd) curEnd = e;
+    } else {
+      rawSpans.push([curStart, curEnd]);
+      curStart = s;
+      curEnd = e;
+    }
+  }
+  rawSpans.push([curStart, curEnd]);
+  rawSpans.sort((a, b) => a[0] - b[0]);
+
+  const merged: Array<[number, number]> = [];
+  for (const span of rawSpans) {
+    if (merged.length === 0) {
+      merged.push([span[0], span[1]]);
+    } else {
+      const prev = merged[merged.length - 1];
+      if (span[0] - prev[1] <= mergeGap) {
+        if (span[1] > prev[1]) prev[1] = span[1];
+      } else {
+        merged.push([span[0], span[1]]);
+      }
+    }
+  }
+
+  while (merged.length > maxRanges) {
+    let bestIdx = 0;
+    let bestGap = Infinity;
+    for (let i = 0; i < merged.length - 1; i++) {
+      const gap = merged[i + 1][0] - merged[i][1];
+      if (gap < bestGap) {
+        bestGap = gap;
+        bestIdx = i;
+      }
+    }
+    merged[bestIdx][1] = Math.max(merged[bestIdx][1], merged[bestIdx + 1][1]);
+    merged.splice(bestIdx + 1, 1);
+  }
+
+  attribute.clearUpdateRanges();
+  for (const [start, end] of merged) {
+    attribute.addUpdateRange(start, end - start);
+  }
   attribute.needsUpdate = true;
 }

@@ -99,7 +99,6 @@ export class TerrainImageryMaterial {
         Object.assign(shader.uniforms, this.uniforms);
         shader.vertexShader = 'varying vec2 vTerrainTileCoord; uniform vec4 terrainGrid;\n' + shader.vertexShader;
         shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\nvTerrainTileCoord = vec2(uv.x, 1.0 - uv.y) * terrainGrid.xy + terrainGrid.zw;');
-        shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.y += 0.04;');
         shader.fragmentShader = this.fragmentPrefix() + shader.fragmentShader;
         shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
           vec4 terrainTexel = vec4(1.0);
@@ -122,10 +121,6 @@ export class TerrainImageryMaterial {
           diffuseColor *= terrainTexel;
         `);
         shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (terrainTilePresent) roughnessFactor = 0.9;');
-        // Legacy imagery patches do not receive shadows; retain ordinary
-        // terrain shadows where no streamed tile is available.
-        shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>',
-          THREE.ShaderChunk.lights_fragment_begin.replaceAll('&& receiveShadow', '&& receiveShadow && !terrainTilePresent'));
       };
       material.needsUpdate = true;
     }

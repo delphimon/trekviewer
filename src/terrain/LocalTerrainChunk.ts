@@ -19,6 +19,13 @@ export interface TerrainChunkData {
   maxDiffFromBase: number;
 }
 
+export interface TerrainChunkEdgeFlags {
+  west: boolean;
+  east: boolean;
+  north: boolean;
+  south: boolean;
+}
+
 export interface LocalTerrainChunkOptions {
   localGrid: ElevationGrid;
   centerLat: number;
@@ -35,6 +42,7 @@ export interface LocalTerrainChunkOptions {
   mapTexture?: THREE.Texture | null;
   baseMeshGrid?: TerrainGridLayout;
   layout?: TerrainGridLayout & { bounds: TerrainSurfaceBounds };
+  outerEdges?: TerrainChunkEdgeFlags;
   /** Transfers ownership of the prepared arrays to this chunk. */
   preparedData?: TerrainChunkData;
 }
@@ -53,6 +61,16 @@ function hasLocalElevationDetail(grid: ElevationGrid): boolean {
   return grid.isRealDEM && (grid.rasterBounds
     ? Number.isFinite(grid.sampleSpacingMeters) && grid.sampleSpacingMeters! > 0 && grid.sampleSpacingMeters! <= 10
     : grid.zoom >= 14);
+}
+
+/** Retain scalar grid metadata after height sampling while releasing multi-MB raster arrays. */
+function summarizeElevationGrid(grid: ElevationGrid): ElevationGrid {
+  if (!grid || ((!grid.data || grid.data.length === 0) && (!grid.tileValidity || grid.tileValidity.length === 0))) return grid;
+  return {
+    ...grid,
+    data: new Float32Array(0),
+    tileValidity: new Uint8Array(0),
+  };
 }
 
 export class LocalTerrainChunk {
@@ -83,6 +101,7 @@ export class LocalTerrainChunk {
   public readonly geometry: THREE.PlaneGeometry;
   public readonly material: THREE.MeshStandardMaterial;
   private unscaledHeights: Float32Array;
+  private rawLocalHeights: Float32Array;
   private segments: number;
   private segmentsX: number;
   private segmentsZ: number;
@@ -94,6 +113,7 @@ export class LocalTerrainChunk {
   private uvGridKey: string = '';
   private baseSampler?: (x: number, z: number) => number;
   private preserveParentEdges: boolean;
+  private outerEdges: TerrainChunkEdgeFlags;
 
   public static async createAsync(options: LocalTerrainChunkOptions, base?: TerrainSurfaceData, signal?: AbortSignal): Promise<LocalTerrainChunk> {
     if (typeof Worker === 'undefined' || !base) return new LocalTerrainChunk(options);
@@ -122,8 +142,9 @@ export class LocalTerrainChunk {
 
   constructor(options: LocalTerrainChunkOptions) {
     this.baseSampler = options.baseElevationSampler;
-    this.preserveParentEdges = !!(options.layout || options.baseMeshGrid);
-    this.currentGrid = options.localGrid;
+    this.preserveParentEdges = !!(options.layout || options.baseMeshGrid || options.outerEdges);
+    this.outerEdges = options.outerEdges ?? { west: true, east: true, north: true, south: true };
+    this.currentGrid = summarizeElevationGrid(options.localGrid);
     this.isRealHighRes = hasLocalElevationDetail(options.localGrid);
     this.centerLat = options.centerLat;
     this.centerLon = options.centerLon;
@@ -189,6 +210,7 @@ export class LocalTerrainChunk {
     const vertexCount = posAttr.count;
     this.totalVertices = vertexCount;
     this.unscaledHeights = prepared?.heights ?? new Float32Array(vertexCount);
+    this.rawLocalHeights = prepared ? new Float32Array(prepared.heights) : new Float32Array(vertexCount);
     this.fallbackCount = 0;
     this.maxDiffFromBase = 0;
 
@@ -219,6 +241,7 @@ export class LocalTerrainChunk {
         this.fallbackCount++;
       }
 
+      this.rawLocalHeights[i] = hLocal;
       let h = hLocal;
       if (options.baseElevationSampler && isHighResValid) {
         const t = this.baseBlendWeight(vx, vz);
@@ -321,7 +344,12 @@ export class LocalTerrainChunk {
   }
 
   private baseBlendWeight(x: number, z: number): number {
-    const edgeDistance = Math.min(this.widthM / 2 - Math.abs(x), this.depthM / 2 - Math.abs(z));
+    let edgeDistance = Infinity;
+    if (this.outerEdges.west) edgeDistance = Math.min(edgeDistance, x + this.widthM / 2);
+    if (this.outerEdges.east) edgeDistance = Math.min(edgeDistance, this.widthM / 2 - x);
+    if (this.outerEdges.north) edgeDistance = Math.min(edgeDistance, z + this.depthM / 2);
+    if (this.outerEdges.south) edgeDistance = Math.min(edgeDistance, this.depthM / 2 - z);
+    if (!Number.isFinite(edgeDistance)) return 0;
     const margin = Math.max(1, Math.min(this.widthM, this.depthM) * 0.5 * this.blendMargin);
     const t = Math.max(0, Math.min(1, 1 - edgeDistance / margin));
     return t * t * (3 - 2 * t);
@@ -335,7 +363,11 @@ export class LocalTerrainChunk {
       const normals = this.geometry.attributes.normal;
       for (let row = 0; row <= this.segmentsZ; row++) {
         for (let col = 0; col <= this.segmentsX; col++) {
-          if (row !== 0 && row !== this.segmentsZ && col !== 0 && col !== this.segmentsX) continue;
+          const onNorth = row === 0 && this.outerEdges.north;
+          const onSouth = row === this.segmentsZ && this.outerEdges.south;
+          const onWest = col === 0 && this.outerEdges.west;
+          const onEast = col === this.segmentsX && this.outerEdges.east;
+          if (!onNorth && !onSouth && !onWest && !onEast) continue;
           const i = row * (this.segmentsX + 1) + col;
           const x = this.localCenter.x + posAttr.getX(i), z = this.localCenter.z + posAttr.getZ(i);
           const dx = (this.baseSampler(x + 1, z) - this.baseSampler(x - 1, z)) * this.currentExaggeration;
@@ -344,7 +376,50 @@ export class LocalTerrainChunk {
           normals.setXYZ(i, -dx / length, 2 / length, -dz / length);
         }
       }
+      normals.needsUpdate = true;
     }
+  }
+
+  public getOuterEdges(): TerrainChunkEdgeFlags {
+    return { ...this.outerEdges };
+  }
+
+  public setOuterEdges(edges: TerrainChunkEdgeFlags): boolean {
+    if (this.isDisposed) return false;
+    if (
+      this.outerEdges.west === edges.west &&
+      this.outerEdges.east === edges.east &&
+      this.outerEdges.north === edges.north &&
+      this.outerEdges.south === edges.south
+    ) {
+      return false;
+    }
+    this.preserveParentEdges = true;
+    this.outerEdges = { ...edges };
+    if (!this.baseSampler) return true;
+    const posAttr = this.geometry.attributes.position;
+    const vertexCount = posAttr.count;
+    this.maxDiffFromBase = 0;
+    for (let i = 0; i < vertexCount; i++) {
+      const vx = posAttr.getX(i);
+      const vz = posAttr.getZ(i);
+      const sceneX = this.localCenter.x + vx;
+      const sceneZ = this.localCenter.z + vz;
+      const hBase = this.baseSampler(sceneX, sceneZ);
+      const hLocal = this.rawLocalHeights[i];
+      const t = this.baseBlendWeight(vx, vz);
+      const h = (1 - t) * hLocal + t * hBase;
+      const diff = Math.abs(h - hBase);
+      if (diff > this.maxDiffFromBase) this.maxDiffFromBase = diff;
+      this.unscaledHeights[i] = h;
+      posAttr.setY(i, h * this.currentExaggeration);
+    }
+    posAttr.needsUpdate = true;
+    this.geometry.computeVertexNormals();
+    this.applyParentEdgeNormals();
+    this.geometry.computeBoundingBox();
+    this.geometry.computeBoundingSphere();
+    return true;
   }
 
   public outlineMesh?: THREE.LineSegments;
@@ -357,7 +432,7 @@ export class LocalTerrainChunk {
     baseElevationSampler?: (localX: number, localZ: number) => number
   ): void {
     if (this.isDisposed) return;
-    this.currentGrid = newGrid;
+    this.currentGrid = summarizeElevationGrid(newGrid);
     if (baseElevationSampler) this.baseSampler = baseElevationSampler;
     this.isRealHighRes = hasLocalElevationDetail(newGrid);
 
@@ -390,6 +465,7 @@ export class LocalTerrainChunk {
         this.fallbackCount++;
       }
 
+      this.rawLocalHeights[i] = hLocal;
       let h = hLocal;
       if (baseElevationSampler && isHighResValid) {
         const t = this.baseBlendWeight(vx, vz);
@@ -407,6 +483,7 @@ export class LocalTerrainChunk {
 
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
+    this.applyParentEdgeNormals();
     this.geometry.computeBoundingBox();
     this.geometry.computeBoundingSphere();
 
@@ -503,6 +580,7 @@ export class LocalTerrainChunk {
     }
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
+    this.applyParentEdgeNormals();
     this.geometry.computeBoundingBox();
     this.geometry.computeBoundingSphere();
 

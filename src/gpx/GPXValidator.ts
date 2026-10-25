@@ -102,6 +102,26 @@ export class GPXValidator {
         const d = haversineDistance(prevPoint.lat, prevPoint.lon, pt.lat, pt.lon);
         if (d > 50000) {
           jumpCount++;
+          // If the very first point was an isolated startup glitch and pt agrees with rawPoints[i + 1], replace sanitized[0]
+          if (sanitized.length === 1 && i + 1 < rawPoints.length) {
+            const nextPt = rawPoints[i + 1];
+            const dFromCurrentToNext = haversineDistance(pt.lat, pt.lon, nextPt.lat, nextPt.lon);
+            if (dFromCurrentToNext < 25000) {
+              const replacementFirst: RawTrackPoint = {
+                lat: pt.lat,
+                lon: pt.lon,
+                ele,
+                rawEle: pt.rawEle !== undefined ? pt.rawEle : (ele !== undefined ? ele : undefined),
+                elevationProvenance: ele !== undefined ? 'gpx' : undefined,
+                time: validTime,
+                hr: pt.hr,
+                cad: pt.cad,
+              };
+              sanitized[0] = replacementFirst;
+              prevPoint = replacementFirst;
+              continue;
+            }
+          }
           // Exclude single isolated pathological telemetry glitch
           if (i + 1 < rawPoints.length) {
             const nextPt = rawPoints[i + 1];
@@ -116,6 +136,7 @@ export class GPXValidator {
         // Check timestamp monotonicity
         if (prevPoint.time && validTime && validTime.getTime() < prevPoint.time.getTime()) {
           nonMonotonicTimeCount++;
+          validTime = prevPoint.time;
         }
       }
 

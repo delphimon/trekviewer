@@ -305,7 +305,7 @@ export class GPXParser {
 
     // Snap waypoints with missing elevations to DEM
     const finalizedWaypoints = waypoints.map((wp) => {
-      if (wp.ele === undefined && demElevationSampler) {
+      if ((wp.ele === undefined || !Number.isFinite(wp.ele)) && demElevationSampler) {
         const demEle = demElevationSampler(wp.lat, wp.lon);
         if (demEle !== undefined && !isNaN(demEle) && isFinite(demEle)) {
           return { ...wp, ele: demEle };

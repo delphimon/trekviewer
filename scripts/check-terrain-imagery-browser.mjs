@@ -2,9 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
+const chromium = resolveChromium();
 const base = process.env.TREK_TERRAIN_IMAGERY_URL ?? 'https://127.0.0.1:4213/';
 const out = process.env.TREK_TERRAIN_IMAGERY_OUT ?? '.review-cache/direct-terrain/controlled';
 const expected = JSON.parse(fs.readFileSync('dist/build-info.json', 'utf8'));
@@ -17,7 +16,7 @@ try {
       server.stdout.on('data', d => { if (d.toString().includes('4213')) { clearTimeout(timer); resolve(); } }); server.on('error', reject);
     });
   }
-  browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
+  browser = await chromium.launch(resolveLaunchOptions({ args: ['--ignore-certificate-errors'] }));
   const page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: 800, height: 600 } });
   const errors = [], shaderErrors = [];
   page.on('pageerror', error => errors.push(String(error)));

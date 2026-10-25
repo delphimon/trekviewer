@@ -26,6 +26,10 @@ export class FlyoverController {
   private navigationYaw: number | null = null;
   private readonly navigationOffset = new THREE.Vector3();
   private readonly viewerAnchor = new THREE.Vector3();
+  private readonly _scratchForward = new THREE.Vector3();
+  private readonly _scratchPivot = new THREE.Vector3();
+  private readonly _scratchUpAxis = new THREE.Vector3(0, 1, 0);
+  private readonly _scratchLookTarget = new THREE.Vector3();
   private viewerHeading: number = 0;
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
   private elevationSampler?: (x: number, z: number) => number;
@@ -59,7 +63,7 @@ export class FlyoverController {
   public recenterViewer(camera: THREE.Camera): void {
     camera.getWorldPosition(this.viewerAnchor);
     this.viewerAnchor.y = 0;
-    const forward = new THREE.Vector3();
+    const forward = this._scratchForward;
     camera.getWorldDirection(forward);
     this.viewerHeading = Math.atan2(-forward.x, -forward.z);
     this.navigationYaw = null;
@@ -71,10 +75,10 @@ export class FlyoverController {
     }
     this.navigationYaw += radians;
     if (camera) {
-      const pivot = new THREE.Vector3();
+      const pivot = this._scratchPivot;
       camera.getWorldPosition(pivot);
       pivot.y = 0;
-      this.viewerAnchor.sub(pivot).applyAxisAngle(new THREE.Vector3(0, 1, 0), radians).add(pivot);
+      this.viewerAnchor.sub(pivot).applyAxisAngle(this._scratchUpAxis, radians).add(pivot);
     }
   }
 
@@ -220,9 +224,11 @@ export class FlyoverController {
         if (this.viewMode === 'first-person') {
           // Accelerated tabletop playback must not become high-speed locomotion.
           const maxProgress = previousProgress + delta * 1.4 / Math.max(this.track.totalDistance, 1);
-          this.progress = Math.min(this.progress, maxProgress, 1);
-          this.playbackTime = this.progressToTime(this.progress);
-          this.isPlaying = this.progress < 1;
+          if (this.progress > maxProgress) {
+            this.progress = Math.min(maxProgress, 1);
+            this.playbackTime = this.progressToTime(this.progress);
+          }
+          this.isPlaying = this.progress < 1 && this.playbackTime < this.totalPlaybackSeconds;
         }
       }
 
@@ -263,7 +269,11 @@ export class FlyoverController {
       } else if (camera) {
         // Desktop fallback: place camera at eye level (+2m above trail) looking forward (Section 7)
         camera.position.set(pos.x, groundY + 2.0, pos.z);
-        const lookTarget = new THREE.Vector3(pos.x, groundY, pos.z).add(forward.clone().multiplyScalar(40)).add(new THREE.Vector3(0, 1.2, 0));
+        const lookTarget = this._scratchLookTarget.set(
+          pos.x + forward.x * 40,
+          groundY + forward.y * 40 + 1.2,
+          pos.z + forward.z * 40
+        );
         camera.lookAt(lookTarget);
       }
     }

@@ -106,8 +106,8 @@ it('does not dispatch HUD actions while a controller grip owns the terrain', () 
 
 it('requires chart-origin capture and keeps a second pointer from dragging or releasing it', () => {
   const hud: any = Object.create(SpatialHUD.prototype);
-  hud.canvas = { width: 1024, height: 680 }; hud.callbacks = { onScrub: vi.fn() };
-  hud.interactiveAreas = []; hud.drawHUD = vi.fn(); hud.isDraggingScrubber = false; hud.scrubPointer = null;
+  hud.canvas = { width: 1024, height: 768 }; hud.callbacks = { onScrub: vi.fn() };
+  hud.interactiveAreas = []; hud.allLandmarksSorted = []; hud.drawHUD = vi.fn(); hud.isDraggingScrubber = false; hud.scrubPointer = null;
   const uv = new THREE.Vector2(0.5, 0.6);
   hud.onPointerDrag(uv, 'left'); expect(hud.callbacks.onScrub).not.toHaveBeenCalled();
   hud.onPointerClick(uv, 'left');

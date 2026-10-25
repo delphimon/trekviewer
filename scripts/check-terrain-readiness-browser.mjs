@@ -2,9 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+import { resolveChromium, resolveLaunchOptions } from './playwright-launch.mjs';
+const chromium = resolveChromium();
 const directory = process.env.TREK_READINESS_DIST ?? 'dist';
 const out = process.env.TREK_READINESS_OUT ?? '.review-cache/terrain-readiness';
 const baseline = process.env.TREK_READINESS_BASELINE === '1';
@@ -23,7 +22,7 @@ try {
       server.on('error', reject);
     });
   }
-  browser = await chromium.launch({ executablePath: process.env.TREK_EDGE_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true, args: ['--ignore-certificate-errors'] });
+  browser = await chromium.launch(resolveLaunchOptions({ args: ['--ignore-certificate-errors'] }));
   const page = await browser.newPage({ ignoreHTTPSErrors: true, userAgent: 'TrekViewer desktop fixture (Quest budget)' });
   const errors = [], workerFallbackWarnings = [];
   let workers = 0;

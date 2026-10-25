@@ -54,11 +54,12 @@ fs.writeFileSync(entry, `export { OfflineStore } from ${JSON.stringify(path.reso
 await build({ configFile: false, logLevel: 'error', build: { outDir: helperRoot, emptyOutDir: true, target: 'esnext',
   lib: { entry, formats: ['iife'], name: 'TrekRealOffline', fileName: () => 'helper.js' } } });
 const helper = fs.readFileSync(path.join(helperRoot, 'helper.js'), 'utf8');
-const require = createRequire(import.meta.url), { chromium } = require(process.env.TREK_PLAYWRIGHT_MODULE ?? 'C:/Users/andre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { resolveChromium, resolveLaunchOptions } = await import('./playwright-launch.mjs');
+const chromium = resolveChromium();
 async function boot(offline = false) {
   checkpoint();
-  context = await chromium.launchPersistentContext(profile, { executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true,
-    viewport: { width: 1100, height: 820 }, userAgent: 'TrekViewer PC offline acceptance (Quest geometry budget)' });
+  context = await chromium.launchPersistentContext(profile, resolveLaunchOptions({
+    viewport: { width: 1100, height: 820 }, userAgent: 'TrekViewer PC offline acceptance (Quest geometry budget)' }));
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
     return url.origin === origin || ['data:', 'blob:'].includes(url.protocol) ? route.continue() : route.abort();

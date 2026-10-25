@@ -113,8 +113,9 @@ export class SpatialHUD {
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.minFilter = THREE.LinearFilter;
+    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
+    this.texture.generateMipmaps = true;
 
     // Preserve canvas aspect and existing target sizes when adding the horizon row.
     const geo = new THREE.PlaneGeometry(0.8, 0.8 * this.canvas.height / this.canvas.width);
@@ -149,13 +150,29 @@ export class SpatialHUD {
     this.drawHUD();
   }
 
+  public setTrack(track: TrackStats, landmarks: readonly RouteLandmark[] = resolveRouteLandmarks(track)): void {
+    this.track = track;
+    this.allLandmarksSorted = landmarks;
+    this.cachedElevationSamples = GPXParser.sampleElevationProfile(track.points, 140);
+    this.currentProgress = 0;
+    this.currentElevation = track.points[0]?.ele || track.minElevation;
+    this.currentPoint = track.points[0] ?? null;
+    this.isDraggingScrubber = false;
+    this.scrubPointer = null;
+    this.hoveredAreaId = null;
+    this.staticDirty = true;
+    this.dynamicDirty = true;
+    this.setupInteractiveAreas();
+    this.drawHUD();
+  }
+
   public isHoveringDragHandle(): boolean {
     return this.hoveredAreaId === 'hud-drag';
   }
 
   private statusTimeout: number | null = null;
 
-  public showStatus(message: string, progress?: number): void {
+  public showStatus(message: string, progress?: number, state?: 'loading' | 'ready' | 'error'): void {
     if (this.statusTimeout) {
       clearTimeout(this.statusTimeout);
       this.statusTimeout = null;
@@ -174,13 +191,17 @@ export class SpatialHUD {
     }
     this.drawHUD();
 
+    const isDone = state === 'ready' || (
+      state === undefined && (
+        message.includes('active') ||
+        message.includes('Loaded:') ||
+        message.includes('ready') ||
+        message.includes('complete')
+      )
+    );
+
     // Automatically dismiss completed / active status messages after 2.5s
-    if (
-      message.includes('active') ||
-      message.includes('Loaded:') ||
-      message.includes('ready') ||
-      message.includes('complete')
-    ) {
+    if (isDone) {
       this.statusTimeout = window.setTimeout(() => {
         this.clearStatus();
       }, 2500);
@@ -285,8 +306,8 @@ export class SpatialHUD {
         id: 'hud-drag',
         x: 360,
         y: 8,
-        w: 304,
-        h: 36,
+        w: 280,
+        h: 30,
         action: () => {},
       },
       // Quick Dock side button (Left / Center / Right)
@@ -566,7 +587,7 @@ export class SpatialHUD {
     }
 
     // Check chart hover
-    if (!foundId && pt.x >= 35 && pt.x <= 989 && pt.y >= 195 && pt.y <= 385) {
+    if (!foundId && pt.x >= 35 && pt.x <= 989 && pt.y >= 190 && pt.y <= 395) {
       foundId = 'chart-scrub';
     }
 
@@ -611,6 +632,28 @@ export class SpatialHUD {
     if (pt.x >= 35 && pt.x <= 989 && pt.y >= 190 && pt.y <= 395) {
       if (this.scrubPointer !== null && this.scrubPointer !== pointerId) return false;
       const chartWidth = 918; // 989 - 35 - 36
+      if (this.callbacks.onSelectWaypoint && this.allLandmarksSorted.length > 0) {
+        const minE = this.track.minElevation;
+        const maxE = this.track.maxElevation;
+        const spanE = Math.max(maxE - minE, 10);
+        let bestLm: RouteLandmark | null = null;
+        let bestDistSq = 14 * 14;
+        for (const lm of this.allLandmarksSorted) {
+          const lx = 53 + lm.progress * chartWidth;
+          const normH = (lm.ele - minE) / spanE;
+          const ly = 195 + 190 - 24 - normH * (190 - 48);
+          const distSq = (pt.x - lx) * (pt.x - lx) + (pt.y - ly) * (pt.y - ly);
+          if (distSq <= bestDistSq) {
+            bestDistSq = distSq;
+            bestLm = lm;
+          }
+        }
+        if (bestLm) {
+          this.callbacks.onSelectWaypoint(bestLm.name, bestLm.lat, bestLm.lon, bestLm.progress);
+          this.drawHUD();
+          return true;
+        }
+      }
       const progress = Math.min(Math.max((pt.x - 53) / chartWidth, 0), 1);
       this.isDraggingScrubber = true;
       this.scrubPointer = pointerId;
@@ -625,7 +668,7 @@ export class SpatialHUD {
   public onPointerDrag(uv: THREE.Vector2, pointerId: string = 'default'): void {
     if (!this.isDraggingScrubber || this.scrubPointer !== pointerId) return;
     const pt = this.uvToCanvas(uv);
-    if (pt.y >= 170 && pt.y <= 405) {
+    if (pt.y >= 190 && pt.y <= 395) {
       const chartWidth = 918;
       const progress = Math.min(Math.max((pt.x - 53) / chartWidth, 0), 1);
       this.callbacks.onScrub(progress);

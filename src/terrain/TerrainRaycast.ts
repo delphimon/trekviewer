@@ -14,9 +14,9 @@ export interface TerrainHit {
  */
 export class TerrainRaycast {
   private readonly boxVersions = new WeakMap<THREE.BufferGeometry, { position: THREE.BufferAttribute; version: number }>();
+  private readonly inverseMatrices = new WeakMap<THREE.Mesh, { elements: Float32Array; inverse: THREE.Matrix4 }>();
   // Grid traversal is synchronous. Reuse its workspace across surfaces and rays,
   // but always return an owned point so later queries cannot change saved hits.
-  private readonly inverseWorld = new THREE.Matrix4();
   private readonly localRay = new THREE.Ray();
   private readonly boxRange = new THREE.Vector2();
   private readonly start = new THREE.Vector3();
@@ -55,7 +55,7 @@ export class TerrainRaycast {
       geometry.computeBoundingBox();
       this.boxVersions.set(geometry, { position: positions, version: positions.version });
     }
-    const localRay = this.localRay.copy(raycaster.ray).applyMatrix4(this.inverseWorld.copy(mesh.matrixWorld).invert());
+    const localRay = this.localRay.copy(raycaster.ray).applyMatrix4(this.getInverseWorld(mesh));
     const range = intersectBoxRange(localRay, geometry.boundingBox!, this.boxRange);
     if (!range) return null;
 
@@ -170,6 +170,27 @@ export class TerrainRaycast {
     if (!hits.length) return null;
     const hit = hits.reduce((best, current) => current.distance < best.distance ? current : best);
     return { point: hit.point, distance: hit.distance, mesh };
+  }
+
+  private getInverseWorld(mesh: THREE.Mesh): THREE.Matrix4 {
+    const worldElements = mesh.matrixWorld.elements;
+    let cached = this.inverseMatrices.get(mesh);
+    if (!cached) {
+      const elements = new Float32Array(16);
+      elements.set(worldElements);
+      const inverse = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+      cached = { elements, inverse };
+      this.inverseMatrices.set(mesh, cached);
+      return inverse;
+    }
+    for (let i = 0; i < 16; i++) {
+      if (cached.elements[i] !== worldElements[i]) {
+        cached.elements.set(worldElements);
+        cached.inverse.copy(mesh.matrixWorld).invert();
+        break;
+      }
+    }
+    return cached.inverse;
   }
 }
 
