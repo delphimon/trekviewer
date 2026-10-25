@@ -87,11 +87,19 @@ export class TextureProvider {
     if (runtime) return runtime.ionToken;
     const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
     const procEnv = typeof globalThis !== 'undefined' ? (globalThis as any).process?.env : undefined;
-    return (
+    const envToken = (
       (metaEnv?.VITE_CESIUM_ION_TOKEN as string | undefined) ||
       (procEnv?.VITE_CESIUM_ION_TOKEN as string | undefined) ||
       (procEnv?.CESIUM_ION_TOKEN as string | undefined)
     );
+    if (envToken) return envToken;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('trekviewer-cesium-token');
+        if (stored && stored.trim().length > 10) return stored.trim();
+      } catch {}
+    }
+    return undefined;
   }
 
   public static getEnvProviderSetting(): 'auto' | 'esri' | 'cesium-bing' {
@@ -156,6 +164,11 @@ export class TextureProvider {
     this.initialized = false;
     this.fallbackReason = undefined;
     this.initPromise = null;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('trekviewer-cesium-token');
+      } catch {}
+    }
   }
 
   /**

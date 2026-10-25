@@ -20,7 +20,7 @@ export interface OverlayCallbacks {
   onToggleFollowRoute?: () => void;
   onScrub: (progress: number) => void;
   onSetTextureStyle: (style: TextureStyle) => void;
-  onSetSatelliteProvider?: (provider: 'auto' | 'esri' | 'cesium-bing') => void;
+  onSetSatelliteProvider?: (provider: 'auto' | 'esri' | 'cesium-bing', token?: string) => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
   onSetVerticalExaggeration?: (val: number) => void;
   onSelectWaypoint?: (name: string, lat: number, lon: number, progress?: number) => void;
@@ -496,6 +496,15 @@ export class DesktopOverlay {
                 <option value="cesium-bing">Bing Aerial (Cesium Ion Token)</option>
               </select>
             </label>
+            <div id="cesiumTokenContainer" class="cesium-token-container" style="display: none; margin-top: 8px;">
+              <label class="comfort-option" style="margin-bottom: 4px;">Cesium Ion Access Token
+                <div style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
+                  <input type="password" id="cesiumTokenInput" class="styled-input" placeholder="Paste Cesium Ion token..." style="flex: 1; padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.2);" />
+                  <button id="btnSaveCesiumToken" class="btn btn-sm" style="padding: 4px 8px; font-size: 11px;">Apply</button>
+                </div>
+              </label>
+              <p class="trek-meta" style="font-size: 10px; opacity: 0.75; margin-top: 2px;">Stored locally in your browser. Needs read permission for Asset 2 (Bing Maps Aerial).</p>
+            </div>
             <p id="satelliteProviderAttribution" class="trek-meta" role="status" aria-live="polite">Esri World Imagery • up to Z19</p>
 
             <h3>Trail Colors</h3>
@@ -665,7 +674,26 @@ export class DesktopOverlay {
     });
     document.getElementById('satelliteProviderSelect')?.addEventListener('change', (event) => {
       const val = (event.target as HTMLSelectElement).value as 'auto' | 'esri' | 'cesium-bing';
-      this.callbacks.onSetSatelliteProvider?.(val);
+      this.updateCesiumTokenVisibility(val);
+      const tokenInput = document.getElementById('cesiumTokenInput') as HTMLInputElement | null;
+      const token = tokenInput ? tokenInput.value.trim() : undefined;
+      this.callbacks.onSetSatelliteProvider?.(val, token);
+    });
+    const tokenInput = document.getElementById('cesiumTokenInput') as HTMLInputElement | null;
+    const btnSaveCesium = document.getElementById('btnSaveCesiumToken');
+    const applyCesiumToken = () => {
+      const token = tokenInput ? tokenInput.value.trim() : '';
+      if (token && typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('trekviewer-cesium-token', token); } catch {}
+      }
+      this.callbacks.onSetSatelliteProvider?.('cesium-bing', token);
+    };
+    btnSaveCesium?.addEventListener('click', applyCesiumToken);
+    tokenInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyCesiumToken();
+      }
     });
     // Route Selection
     const select = document.getElementById('routeSelect') as HTMLSelectElement;
@@ -917,8 +945,23 @@ export class DesktopOverlay {
   public setSatelliteProvider(provider: 'auto' | 'esri' | 'cesium-bing', attributionText?: string): void {
     const select = document.getElementById('satelliteProviderSelect') as HTMLSelectElement | null;
     if (select) select.value = provider;
+    this.updateCesiumTokenVisibility(provider);
+    const tokenInput = document.getElementById('cesiumTokenInput') as HTMLInputElement | null;
+    if (tokenInput && !tokenInput.value && typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('trekviewer-cesium-token');
+        if (stored) tokenInput.value = stored;
+      } catch {}
+    }
     const attrEl = document.getElementById('satelliteProviderAttribution');
     if (attrEl && attributionText) attrEl.textContent = attributionText;
+  }
+
+  private updateCesiumTokenVisibility(provider: string): void {
+    const container = document.getElementById('cesiumTokenContainer');
+    if (container) {
+      container.style.display = provider === 'cesium-bing' ? 'block' : 'none';
+    }
   }
 
   public setTextureStyle(style: TextureStyle): void {

@@ -11,6 +11,7 @@ import { runTerrainJob, disposeTerrainJobs } from '../src/terrain/TerrainJobs.ts
 import { sampleTerrainSurface } from '../src/terrain/TerrainGrid.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
 import { TerrainRaycast } from '../src/terrain/TerrainRaycast.ts';
+import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -298,4 +299,26 @@ it('keeps hidden HUD state dirty without rasterization and meets angular sizing 
   const scale = hud.group.scale.x;
   expect(2 * Math.atan(0.8 * 58 / 1024 * scale / (2 * 1.49)) * 180 / Math.PI).toBeCloseTo(2.7);
   expect(0.8 * 10 / 1024 * scale).toBeGreaterThanOrEqual(0.012);
+});
+
+it('resolves Cesium Ion token from localStorage and resets cleanly', async () => {
+  const store = new Map<string, string>();
+  const mockLocalStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, val: string) => store.set(key, val),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+  };
+  vi.stubGlobal('localStorage', mockLocalStorage);
+
+  try {
+    store.set('trekviewer-cesium-token', 'my-custom-browser-cesium-token-123456');
+    expect(TextureProvider.getEnvToken()).toBe('my-custom-browser-cesium-token-123456');
+
+    TextureProvider.resetForTesting();
+    expect(store.has('trekviewer-cesium-token')).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+    TextureProvider.resetForTesting();
+  }
 });

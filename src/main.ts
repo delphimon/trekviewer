@@ -289,8 +289,8 @@ export class TrekViewerApp {
         this.session.setProgress(progress);
       },
       onSetTextureStyle: (style) => this.setTextureStyle(style),
-      onSetSatelliteProvider: (provider) => {
-        void this.setSatelliteProvider(provider);
+      onSetSatelliteProvider: (provider, token) => {
+        void this.setSatelliteProvider(provider, token);
       },
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
       onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
@@ -306,7 +306,8 @@ export class TrekViewerApp {
     const storedProvider = (typeof localStorage !== 'undefined' ? localStorage.getItem('trekviewer-satellite-provider') : null) as 'auto' | 'esri' | 'cesium-bing' | null;
     const initialSatelliteProvider = storedProvider || (TextureProvider.getEnvProviderSetting() === 'auto' ? 'esri' : TextureProvider.getEnvProviderSetting());
     if (storedProvider || initialSatelliteProvider === 'esri') {
-      void TextureProvider.setSatelliteProvider(initialSatelliteProvider);
+      const storedToken = typeof localStorage !== 'undefined' ? localStorage.getItem('trekviewer-cesium-token') ?? undefined : undefined;
+      void TextureProvider.setSatelliteProvider(initialSatelliteProvider, storedToken);
     }
     this.overlay.setSatelliteProvider(
       TextureProvider.getSatelliteProviderSetting(),
@@ -1278,11 +1279,19 @@ export class TrekViewerApp {
     this.session.setTextureStyle(style);
   }
 
-  public async setSatelliteProvider(provider: 'auto' | 'esri' | 'cesium-bing'): Promise<void> {
+  public async setSatelliteProvider(provider: 'auto' | 'esri' | 'cesium-bing', token?: string): Promise<void> {
     try {
       localStorage.setItem('trekviewer-satellite-provider', provider);
+      if (token !== undefined) {
+        if (token.trim().length > 0) {
+          localStorage.setItem('trekviewer-cesium-token', token.trim());
+        } else {
+          localStorage.removeItem('trekviewer-cesium-token');
+        }
+      }
     } catch {}
-    const success = await TextureProvider.setSatelliteProvider(provider);
+    const resolvedToken = token || (typeof localStorage !== 'undefined' ? localStorage.getItem('trekviewer-cesium-token') ?? undefined : undefined);
+    const success = await TextureProvider.setSatelliteProvider(provider, resolvedToken);
     TileImageCache.clear();
     const style = this.session.getState().textureStyle;
     const bounds = this.currentTrack?.bounds;
@@ -1293,7 +1302,11 @@ export class TrekViewerApp {
       await this.activeTrek.setTextureStyle(style, true);
     }
     const displayName = TextureProvider.getActiveSatelliteProvider().displayName;
-    this.overlay.showStatus(`Satellite provider: ${displayName}`, !success && provider !== 'auto', success ? 'ready' : 'error');
+    const fallbackReason = TextureProvider.getProviderInitState().fallbackReason;
+    const statusMsg = fallbackReason && provider !== 'auto'
+      ? `Satellite provider fallback: ${fallbackReason}`
+      : `Satellite provider: ${displayName}`;
+    this.overlay.showStatus(statusMsg, !success && provider !== 'auto', success ? 'ready' : 'error');
   }
 
   private setTrailColorMode(mode: TrailColorMode): void {
