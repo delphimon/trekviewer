@@ -7,6 +7,7 @@ import { ImageryBatchRenderer } from '../src/terrain/ImageryBatchRenderer.ts';
 import { ImageryLODManager, type ImageryPatch } from '../src/terrain/ImageryLODManager.ts';
 import { OfflineStore } from '../src/offline/OfflineStore.ts';
 import { planOfflineRoute } from '../src/offline/OfflinePlan.ts';
+import { OfflineDownloadsPanel } from '../src/offline/OfflineDownloadsPanel.ts';
 import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 import { RouteGeometry } from '../src/visualization/RouteGeometry.ts';
 import { SurfaceVertexIndex } from '../src/visualization/SurfaceVertexIndex.ts';
@@ -88,19 +89,38 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     chunk.dispose();
   });
 
-  it('2. TiledTerrainStreamer.activeVisibleChunk returns the most recently prioritized visible chunk', () => {
+  it('2. TiledTerrainStreamer.activeVisibleChunk returns the most recently prioritized visible chunk and computes neighbor outerEdges', () => {
     const streamer: any = Object.create(TiledTerrainStreamer.prototype);
-    const chunkOld = { mesh: { visible: true }, id: 'old' };
-    const chunkNew = { mesh: { visible: true }, id: 'new' };
+    const setOuterEdges0 = vi.fn().mockReturnValue(true);
+    const setOuterEdges1 = vi.fn().mockReturnValue(true);
+    const chunkOld = { mesh: { visible: true }, id: 'old', setOuterEdges: setOuterEdges0 };
+    const chunkNew = { mesh: { visible: true }, id: 'new', setOuterEdges: setOuterEdges1 };
     streamer.chunks = new Map([
-      ['0:0', chunkOld],
-      ['1:1', chunkNew],
+      ['2:3', chunkOld],
+      ['3:3', chunkNew],
     ]);
     streamer.focusTileId = null;
     expect(streamer.activeVisibleChunk).toBe(chunkNew);
 
-    streamer.focusTileId = '0:0';
+    streamer.focusTileId = '2:3';
     expect(streamer.activeVisibleChunk).toBe(chunkOld);
+
+    // Tile 2:3 has visible neighbor 3:3 to its east; tile 3:3 has visible neighbor 2:3 to its west
+    expect(streamer.computeOuterEdgesForTile('2:3')).toEqual({
+      north: true,
+      south: true,
+      east: false,
+      west: true,
+    });
+    expect(streamer.computeOuterEdgesForTile('3:3')).toEqual({
+      north: true,
+      south: true,
+      east: true,
+      west: false,
+    });
+    expect(streamer.syncNeighborOuterEdges()).toBe(true);
+    expect(setOuterEdges0).toHaveBeenCalledWith({ north: true, south: true, east: false, west: true });
+    expect(setOuterEdges1).toHaveBeenCalledWith({ north: true, south: true, east: true, west: false });
   });
 
   it('3. TerrainImageryMaterial preserves shadow receiving and avoids +0.04m vertex elevation shift', () => {
@@ -234,6 +254,13 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     expect(v3Plan.maxZoom).toBe(18);
     expect(v3Plan.resources.length).toBeLessThan(v2Plan.resources.length);
     expect(v3Plan.estimatedBytes).toBeLessThan(v2Plan.estimatedBytes);
+
+    // OfflineDownloadsPanel getSelectedMode defaults to full-v2 and switches to corridor-v3 when selected
+    const panel: any = Object.create(OfflineDownloadsPanel.prototype);
+    panel.modeSelect = { value: 'full-v2' };
+    expect(panel.getSelectedMode()).toBe('full-v2');
+    panel.modeSelect.value = 'corridor-v3';
+    expect(panel.getSelectedMode()).toBe('corridor-v3');
   });
 
   it('8. FlyoverController advances across stationary GPS points in first-person mode without freezing', () => {

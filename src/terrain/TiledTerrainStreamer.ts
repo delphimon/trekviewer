@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
 import { ElevationTileService, type ElevationGrid } from './ElevationTiles.ts';
-import { LocalTerrainChunk } from './LocalTerrainChunk.ts';
+import { LocalTerrainChunk, type TerrainChunkEdgeFlags } from './LocalTerrainChunk.ts';
 import type { LocalTerrainStreamerOptions } from './LocalTerrainStreamer.ts';
 import type { QualityProfile } from './QualityProfile.ts';
 import { QualityProfileManager, terrainDetailPolicy } from './QualityProfile.ts';
@@ -66,6 +66,34 @@ export class TiledTerrainStreamer {
       if (chunk.mesh.visible) latest = chunk;
     }
     return latest ?? (this.chunks.values().next().value ?? null);
+  }
+  public computeOuterEdgesForTile(id: string): TerrainChunkEdgeFlags {
+    const parts = id.split(':');
+    const col = Number(parts[0]);
+    const row = Number(parts[1]);
+    if (!Number.isInteger(col) || !Number.isInteger(row)) {
+      return { north: true, south: true, east: true, west: true };
+    }
+    const isVisible = (neighborId: string): boolean => {
+      const c = this.chunks.get(neighborId);
+      return Boolean(c && c.mesh.visible);
+    };
+    return {
+      north: !isVisible(`${col}:${row - 1}`),
+      south: !isVisible(`${col}:${row + 1}`),
+      east: !isVisible(`${col + 1}:${row}`),
+      west: !isVisible(`${col - 1}:${row}`),
+    };
+  }
+  public syncNeighborOuterEdges(): boolean {
+    let anyUpdated = false;
+    for (const [id, chunk] of this.chunks.entries()) {
+      if (!chunk.mesh.visible) continue;
+      if (chunk.setOuterEdges(this.computeOuterEdgesForTile(id))) {
+        anyUpdated = true;
+      }
+    }
+    return anyUpdated;
   }
   public getViewMode(): ViewMode { return this.mode; }
   public getTabletopFocusGeo(): { lat: number; lon: number } | null { return this.focus; }

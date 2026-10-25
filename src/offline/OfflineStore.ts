@@ -125,7 +125,9 @@ export class OfflineStore {
         if (count.result !== completed) { tx.abort(); return; }
         tx.objectStore('packs').put({ id: plan.id, routeId: plan.routeId, routeHash: plan.routeHash, name: plan.name,
           state: 'ready', total: completed, completed, bytes, estimatedBytes: plan.estimatedBytes,
-          message: 'High satellite • full surrounding terrain • through Z19', updated: Date.now() } satisfies OfflinePackState);
+          message: plan.version === 3
+            ? `High satellite • trail corridor • through Z${plan.maxZoom ?? 18}`
+            : 'High satellite • full surrounding terrain • through Z19', updated: Date.now() } satisfies OfflinePackState);
       };
     });
     this.notify();

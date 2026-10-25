@@ -1,7 +1,7 @@
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { readBoundedBlob } from '../terrain/PersistentResourceCache.ts';
-import { DEFAULT_OFFLINE_ROUTES, planOfflineRoute, sha256, type OfflinePlan } from './OfflinePlan.ts';
+import { DEFAULT_OFFLINE_ROUTES, planOfflineRoute, sha256, type OfflinePlan, type OfflinePlanOptions } from './OfflinePlan.ts';
 import { OfflineDownloads } from './OfflineDownloads.ts';
 import { OfflineStore } from './OfflineStore.ts';
 import { registerOfflineShell } from './OfflineShell.ts';
@@ -22,6 +22,7 @@ export class OfflineDownloadsPanel {
   private pause: HTMLButtonElement;
   private importer: HTMLButtonElement;
   private filePicker: HTMLInputElement;
+  private modeSelect: HTMLSelectElement | null = null;
   private manifest: RouteManifestItem[] = [];
   private changed = () => { if (!this.timer) this.timer = setTimeout(() => { this.timer = undefined; void this.refresh(); }, 250); };
   private pageHide = () => OfflineDownloads.pause();
@@ -30,6 +31,7 @@ export class OfflineDownloadsPanel {
       <p class="trek-meta">Public USGS / GeoPlatform NAIP imagery and 3DEP elevation, with full surrounding terrain in High. Rainier and Enchantments are selected by default. Downloads can be several GB and require this tab to stay open. Play or entering VR/MR pauses preparation.</p>
       <label class="comfort-option"><span>Mount Rainier — Emmons</span><input type="checkbox" data-offline-route="rainier-emmons" checked /></label>
       <label class="comfort-option"><span>Enchantments &amp; Dragontail</span><input type="checkbox" data-offline-route="enchantments-dragontail" checked /></label>
+      <label class="comfort-option"><span>Coverage</span><select data-offline-mode><option value="full-v2">Full terrain (through Z19)</option><option value="corridor-v3">Trail corridor (through Z18)</option></select></label>
       <div class="btn-group"><button class="btn btn-sm" data-offline-action="prepare">Estimate selected</button><button class="btn btn-sm" data-offline-action="download" disabled>Download selected</button><button class="btn btn-sm" data-offline-action="pause" disabled>Pause</button></div>
       <button class="btn btn-sm" data-offline-action="import">Import route pack</button><input type="file" data-offline-file accept=".tar,application/x-tar" hidden />
       <p class="trek-meta">Import a prepared route .tar file without downloading its sources again. Reselect the same file to resume an interrupted import.</p>
@@ -40,9 +42,12 @@ export class OfflineDownloadsPanel {
     this.message = root.querySelector('[data-offline-message]')!; this.states = root.querySelector('[data-offline-states]')!;
     this.prepare = root.querySelector('[data-offline-action="prepare"]')!; this.download = root.querySelector('[data-offline-action="download"]')!; this.pause = root.querySelector('[data-offline-action="pause"]')!;
     this.importer = root.querySelector('[data-offline-action="import"]')!; this.filePicker = root.querySelector('[data-offline-file]')!;
-    root.querySelectorAll<HTMLInputElement>('[data-offline-route]').forEach(input => input.addEventListener('change', () => {
+    this.modeSelect = root.querySelector<HTMLSelectElement>('[data-offline-mode]');
+    const onSelectionChange = () => {
       this.plans = []; this.download.disabled = true; this.message.textContent = 'Selection changed. Estimate storage again.';
-    }));
+    };
+    root.querySelectorAll<HTMLInputElement>('[data-offline-route]').forEach(input => input.addEventListener('change', onSelectionChange));
+    if (this.modeSelect) this.modeSelect.onchange = onSelectionChange;
     this.prepare.onclick = () => { void this.preparePlans(); };
     this.download.onclick = () => { void this.downloadPlans(); };
     this.pause.onclick = () => OfflineDownloads.pause();
@@ -52,7 +57,10 @@ export class OfflineDownloadsPanel {
     registerOfflineShell(); void this.refresh();
   }
   public setManifest(manifest: RouteManifestItem[]): void { this.manifest = manifest; }
-  private async loadPlan(id: string, signal?: AbortSignal): Promise<OfflinePlan> {
+  private getSelectedMode(): NonNullable<OfflinePlanOptions['mode']> {
+    return this.modeSelect?.value === 'corridor-v3' ? 'corridor-v3' : 'full-v2';
+  }
+  private async loadPlan(id: string, signal?: AbortSignal, modeOverride?: NonNullable<OfflinePlanOptions['mode']>): Promise<OfflinePlan> {
     if (!DEFAULT_OFFLINE_ROUTES.some(route => route === id)) throw Error('This pack route is not supported.');
     const route = this.manifest.find(route => route.id === id); if (!route) throw Error('Route list is not ready. Try again.');
     const response = await fetch(resolveAssetUrl(route.file), { signal });
@@ -60,7 +68,8 @@ export class OfflineDownloadsPanel {
     const hash = await sha256(new TextEncoder().encode(xml.replace(/\r\n?/g, '\n')).buffer), expected = OfflineStore.bundledHash(id);
     if (expected && hash !== expected) throw Error('Route files changed. Close TrekViewer tabs and reopen before downloading.');
     if (signal?.aborted || this.disposed) throw new DOMException('Preparation paused', 'AbortError');
-    return planOfflineRoute(GPXParser.parse(xml), id, hash);
+    const mode = modeOverride ?? this.getSelectedMode();
+    return planOfflineRoute(GPXParser.parse(xml), id, hash, { mode });
   }
   private async preparePlans(): Promise<void> {
     if (this.preparing || OfflineDownloads.busy()) return;
@@ -103,7 +112,9 @@ export class OfflineDownloadsPanel {
     let importedId: string | undefined;
     try {
       await OfflineDownloads.prepare(async signal => {
-        const index = await inspectOfflineArchive(file, signal), plan = await this.loadPlan(index.manifest.routeId, signal);
+        const index = await inspectOfflineArchive(file, signal);
+        const mode = index.manifest.planId.includes('-v3-') ? 'corridor-v3' : 'full-v2';
+        const plan = await this.loadPlan(index.manifest.routeId, signal, mode);
         importedId = plan.id;
         return { plan, source: await offlineArchiveSource(file, index, plan, signal) };
       });
@@ -116,6 +127,7 @@ export class OfflineDownloadsPanel {
   private controls(): void {
     const busy = this.running || OfflineDownloads.busy() || this.preparing;
     this.prepare.disabled = busy; this.download.disabled = busy || !this.plans.length; this.pause.disabled = !this.running; this.importer.disabled = busy;
+    if (this.modeSelect) this.modeSelect.disabled = busy;
     this.root.querySelectorAll<HTMLInputElement>('[data-offline-route]').forEach(input => { input.disabled = busy; });
   }
   private async refresh(): Promise<void> {
