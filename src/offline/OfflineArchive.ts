@@ -1,6 +1,6 @@
 import { readBoundedBlob } from '../terrain/PersistentResourceCache.ts';
 import { sha256, type OfflinePlan } from './OfflinePlan.ts';
-import { hashOfflineBlob, type OfflineAsset } from './OfflineStore.ts';
+import { hashOfflineBlob, OfflineStore, type OfflineAsset } from './OfflineStore.ts';
 import { offlineSourceIdentity } from './OfflineSourceIdentity.ts';
 
 export const PACK_MANIFEST_NAME = 'trekviewer-pack.json';
@@ -139,4 +139,58 @@ export async function offlineArchiveSource(file: Blob, index: ArchiveIndex, plan
     paused(signal);
     return { blob, sourceUrl: sourceUrls[position] };
   } };
+}
+
+/**
+ * Assemble a portable USTAR `.tar` route pack Blob directly from a committed pack in `OfflineStore`
+ * without copying stored Blob payloads in memory.
+ */
+export async function exportOfflineArchive(plan: OfflinePlan, signal?: AbortSignal): Promise<Blob> {
+  paused(signal);
+  const state = await OfflineStore.state(plan.id);
+  if (!state || state.state !== 'ready') throw Error('Offline pack is not ready for export.');
+  const records: ArchiveRecord[] = [];
+  const bodies: Blob[] = [];
+  for (let index = 0; index < plan.resources.length; index++) {
+    paused(signal);
+    const resource = plan.resources[index];
+    const asset = await OfflineStore.stored(plan.id, resource);
+    if (!asset || asset.blob.size !== asset.bytes || !hashPattern.test(asset.sha256)) {
+      throw Error(`Pack source ${index + 1} is missing or invalid in storage.`);
+    }
+    const sourceId = offlineSourceIdentity(asset.sourceUrl);
+    const foundIdx = resource.urls.findIndex(u => u === asset.sourceUrl || offlineSourceIdentity(u) === sourceId);
+    if (foundIdx < 0) throw Error(`Pack source ${index + 1} does not match the current route plan.`);
+    const provenance = await archiveRequestProvenance(asset.sourceUrl);
+    records.push({
+      index,
+      sourceIndex: foundIdx,
+      encoding: 'identity',
+      bytes: asset.bytes,
+      sha256: asset.sha256,
+      storedBytes: asset.bytes,
+      storedSha256: asset.sha256,
+      ...provenance,
+    });
+    bodies.push(asset.blob);
+  }
+  paused(signal);
+  const manifest: ArchiveManifest = {
+    format: 'trekviewer-route-pack',
+    version: 1,
+    planId: plan.id,
+    routeId: plan.routeId,
+    routeHash: plan.routeHash,
+    inventorySha256: await archiveInventoryHash(plan),
+    records,
+  };
+  const json = new Blob([JSON.stringify(manifest)]);
+  const pad = (len: number) => new Uint8Array(tarPaddedSize(len) - len);
+  const parts: BlobPart[] = [tarHeader(PACK_MANIFEST_NAME, json.size), json, pad(json.size)];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    parts.push(tarHeader(archiveSourceName(r), r.storedBytes), bodies[i], pad(r.storedBytes));
+  }
+  parts.push(new Uint8Array(1024));
+  return new Blob(parts, { type: 'application/x-tar' });
 }

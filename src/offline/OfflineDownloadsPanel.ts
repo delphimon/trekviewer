@@ -5,7 +5,7 @@ import { DEFAULT_OFFLINE_ROUTES, planOfflineRoute, sha256, type OfflinePlan, typ
 import { OfflineDownloads } from './OfflineDownloads.ts';
 import { OfflineStore } from './OfflineStore.ts';
 import { registerOfflineShell } from './OfflineShell.ts';
-import { inspectOfflineArchive, offlineArchiveSource } from './OfflineArchive.ts';
+import { exportOfflineArchive, inspectOfflineArchive, offlineArchiveSource } from './OfflineArchive.ts';
 import type { RouteManifestItem } from '../gpx/TrackTypes.ts';
 
 const size = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${(bytes / 1e6).toFixed(1)} MB`;
@@ -141,10 +141,34 @@ export class OfflineDownloadsPanel {
         line.textContent = `${row.name}: ${state} • ${row.completed}/${row.total} sources • ${size(row.bytes)}. ${row.message} `;
         const remove = document.createElement('button'); remove.className = 'btn btn-sm'; remove.textContent = 'Remove pack'; remove.disabled = this.running || OfflineDownloads.busy();
         remove.onclick = () => { void OfflineDownloads.withLock(() => OfflineStore.remove(row.id)).catch(error => { this.message.textContent = String(error.message); }); };
+        if (row.state === 'ready' && OfflineStore.compatible(row)) {
+          const exp = document.createElement('button'); exp.className = 'btn btn-sm'; exp.textContent = 'Export pack'; exp.disabled = this.running || OfflineDownloads.busy();
+          exp.onclick = () => { void this.exportArchive(row.id, row.routeId); };
+          line.appendChild(exp);
+        }
         line.appendChild(remove); this.states.appendChild(line);
       }
       this.controls();
     } catch (error) { if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Offline storage unavailable.'; }
+  }
+  private async exportArchive(packId: string, routeId: string): Promise<void> {
+    if (this.running || this.preparing || OfflineDownloads.busy()) return;
+    this.running = true; this.controls(); this.message.textContent = 'Preparing route pack export…';
+    try {
+      const mode = packId.includes('-v3-') ? 'corridor-v3' : 'full-v2';
+      const plan = await this.loadPlan(routeId, undefined, mode);
+      const blob = await exportOfflineArchive(plan);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = `${packId}.tar`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      if (!this.disposed) this.message.textContent = `Exported ${plan.name} (${size(blob.size)}).`;
+    } catch (error) {
+      if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Export failed.';
+    } finally {
+      this.running = false; if (!this.disposed) this.controls();
+    }
   }
   public dispose(): void {
     this.disposed = true; OfflineDownloads.pause(); if (this.timer) clearTimeout(this.timer);

@@ -5,9 +5,11 @@ import { TiledTerrainStreamer } from '../src/terrain/TiledTerrainStreamer.ts';
 import { TerrainImageryMaterial } from '../src/terrain/TerrainImageryMaterial.ts';
 import { ImageryBatchRenderer } from '../src/terrain/ImageryBatchRenderer.ts';
 import { ImageryLODManager, type ImageryPatch } from '../src/terrain/ImageryLODManager.ts';
-import { OfflineStore } from '../src/offline/OfflineStore.ts';
-import { planOfflineRoute } from '../src/offline/OfflinePlan.ts';
+import { OfflineStore, hashOfflineBlob } from '../src/offline/OfflineStore.ts';
+import { planOfflineRoute, type OfflinePlan } from '../src/offline/OfflinePlan.ts';
 import { OfflineDownloadsPanel } from '../src/offline/OfflineDownloadsPanel.ts';
+import { offlineGeographicKey } from '../src/offline/OfflineSourceIdentity.ts';
+import { exportOfflineArchive, inspectOfflineArchive, offlineArchiveSource } from '../src/offline/OfflineArchive.ts';
 import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 import { RouteGeometry } from '../src/visualization/RouteGeometry.ts';
 import { SurfaceVertexIndex } from '../src/visualization/SurfaceVertexIndex.ts';
@@ -208,9 +210,14 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     (terrainMesh.material as THREE.Material).dispose();
   });
 
-  it('6. OfflineStore.read skips per-tile SHA-256 digest hashing while preserving size and allowlist checks', async () => {
-    const url = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export';
+  it('6. OfflineStore.read skips per-tile SHA-256 digest hashing, indexes geographic keys, and exports portable .tar archives', async () => {
+    const url = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?bbox=-13547950.402958488%2C5918272.071436257%2C-13546956.33033472%2C5919266.14406156&bboxSR=3857&imageSR=3857&size=512%2C512';
+    const altServiceUrl = 'https://imagery.geoplatform.gov/iipp/rest/services/NAIP/NAIP_plus/ImageServer/exportImage?bbox=-13547950.402958488%2C5918272.071436258%2C-13546956.33033472%2C5919266.14406156&bboxSR=3857&imageSR=3857&size=512%2C512';
+    expect(offlineGeographicKey(url)).toBe('geo:image:3857:-13547950.403,5918272.071,-13546956.330,5919266.144:512,512');
+    expect(offlineGeographicKey(altServiceUrl)).toBe(offlineGeographicKey(url));
+
     const blob = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' });
+    const sha = await hashOfflineBlob(blob);
     vi.spyOn(OfflineStore, 'available').mockReturnValue(true);
     (OfflineStore as any).readyIds = Promise.resolve(new Set(['pack-1']));
     vi.spyOn(OfflineStore as any, 'transaction').mockResolvedValue({
@@ -219,7 +226,7 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
       urls: [url],
       sourceUrl: url,
       bytes: 4,
-      sha256: 'a'.repeat(64),
+      sha256: sha,
       blob,
     });
     const digestSpy = vi.spyOn(crypto.subtle, 'digest');
@@ -227,6 +234,48 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     const result = await OfflineStore.read(url);
     expect(result).toBe(blob);
     expect(digestSpy).not.toHaveBeenCalled();
+
+    // Verify exportOfflineArchive round-trips a ready pack into a valid USTAR .tar Blob
+    const miniPlan: OfflinePlan = {
+      id: 'pack-1',
+      routeId: 'rainier-emmons',
+      routeHash: 'a'.repeat(64),
+      name: 'Rainier Mini',
+      version: 2,
+      coverage: 'full-model',
+      maxZoom: 19,
+      estimatedBytes: 4,
+      resources: [{ kind: 'image', width: 512, height: 512, urls: [url] }],
+    };
+    vi.spyOn(OfflineStore, 'state').mockResolvedValue({
+      id: 'pack-1',
+      routeId: 'rainier-emmons',
+      name: 'Rainier Mini',
+      routeHash: 'a'.repeat(64),
+      state: 'ready',
+      total: 1,
+      completed: 1,
+      bytes: 4,
+      estimatedBytes: 4,
+      message: 'Ready',
+      updated: Date.now(),
+    });
+    vi.spyOn(OfflineStore, 'stored').mockResolvedValue({
+      key: 'pack-1\n' + url,
+      packId: 'pack-1',
+      urls: [url],
+      sourceUrl: url,
+      bytes: 4,
+      sha256: sha,
+      blob,
+    });
+    const tarBlob = await exportOfflineArchive(miniPlan);
+    const archiveIndex = await inspectOfflineArchive(tarBlob);
+    expect(archiveIndex.manifest.planId).toBe('pack-1');
+    const archiveSource = await offlineArchiveSource(tarBlob, archiveIndex, miniPlan);
+    const loaded = await archiveSource.load(0, new AbortController().signal);
+    expect(loaded.sourceUrl).toBe(url);
+    expect(loaded.blob.size).toBe(4);
     (OfflineStore as any).readyIds = undefined;
   });
 
