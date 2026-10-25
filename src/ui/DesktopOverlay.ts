@@ -7,6 +7,7 @@ import { PersistentResourceCache } from '../terrain/PersistentResourceCache.ts';
 import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from '../gpx/RouteLandmarks.ts';
 import { OfflineDownloadsPanel } from '../offline/OfflineDownloadsPanel.ts';
+import { getBuildDisplayInfo } from '../utils/BuildInfo.ts';
 
 export interface OverlayCallbacks {
   onSelectRoute: (item: RouteManifestItem) => void;
@@ -19,6 +20,7 @@ export interface OverlayCallbacks {
   onToggleFollowRoute?: () => void;
   onScrub: (progress: number) => void;
   onSetTextureStyle: (style: TextureStyle) => void;
+  onSetSatelliteProvider?: (provider: 'auto' | 'esri' | 'cesium-bing') => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
   onSetVerticalExaggeration?: (val: number) => void;
   onSelectWaypoint?: (name: string, lat: number, lon: number, progress?: number) => void;
@@ -410,6 +412,7 @@ export class DesktopOverlay {
   }
 
   private createDOM(): void {
+    const buildInfo = getBuildDisplayInfo();
     this.container.innerHTML = `
       <div class="app-ui">
         <!-- Top Navigation & Controls Bar -->
@@ -417,7 +420,10 @@ export class DesktopOverlay {
           <div class="logo-group">
             <span class="logo-icon">⛰️</span>
             <div>
-              <h1 class="logo-title">TrekViewer 3D</h1>
+              <div class="logo-title-row" style="display:flex;align-items:center;gap:8px;">
+                <h1 class="logo-title">TrekViewer 3D</h1>
+                <span id="appVersionBadge" class="version-badge" title="${buildInfo.fullBadge}">${buildInfo.shortBadge}</span>
+              </div>
               <span class="logo-subtitle">Meta Quest 3 Alpine Visualizer</span>
             </div>
           </div>
@@ -481,6 +487,16 @@ export class DesktopOverlay {
               <button id="btnHybridTex" class="btn btn-sm">🏷️ Hybrid</button>
               <button id="btnTopoTex" class="btn btn-sm">🗺️ Topo</button>
             </div>
+
+            <h3>Satellite &amp; Aerial Source</h3>
+            <label class="comfort-option">Source
+              <select id="satelliteProviderSelect" class="styled-select">
+                <option value="esri">Esri World Imagery (Maxar Z19 Global — Free Personal)</option>
+                <option value="auto">USGS NAIP + HRO / Swisstopo (Public Gov)</option>
+                <option value="cesium-bing">Bing Aerial (Cesium Ion Token)</option>
+              </select>
+            </label>
+            <p id="satelliteProviderAttribution" class="trek-meta" role="status" aria-live="polite">Esri World Imagery • up to Z19</p>
 
             <h3>Trail Colors</h3>
             <div class="btn-group">
@@ -556,6 +572,12 @@ export class DesktopOverlay {
               <li><strong>B / Y Button:</strong> Play / Pause Flyover</li>
               <li><strong>Trigger:</strong> Laser pointer select</li>
             </ul>
+          </div>
+
+          <!-- Version & Build Info Panel Section -->
+          <div id="panelBuildInfo" class="panel-build-info" title="${buildInfo.id}">
+            <span class="panel-build-label">Version &amp; Build:</span>
+            <code class="panel-build-badge">${buildInfo.fullBadge}</code>
           </div>
         </aside>
 
@@ -640,6 +662,10 @@ export class DesktopOverlay {
     });
     document.getElementById('comfortVignette')?.addEventListener('change', (event) => {
       this.callbacks.onSetComfort?.({ vignette: (event.target as HTMLInputElement).checked });
+    });
+    document.getElementById('satelliteProviderSelect')?.addEventListener('change', (event) => {
+      const val = (event.target as HTMLSelectElement).value as 'auto' | 'esri' | 'cesium-bing';
+      this.callbacks.onSetSatelliteProvider?.(val);
     });
     // Route Selection
     const select = document.getElementById('routeSelect') as HTMLSelectElement;
@@ -886,6 +912,13 @@ export class DesktopOverlay {
       const f = parseFloat(btn.getAttribute('data-exag') || '1');
       DesktopOverlay.setButtonPressed(btn, Math.abs(f - factor) < 0.05);
     });
+  }
+
+  public setSatelliteProvider(provider: 'auto' | 'esri' | 'cesium-bing', attributionText?: string): void {
+    const select = document.getElementById('satelliteProviderSelect') as HTMLSelectElement | null;
+    if (select) select.value = provider;
+    const attrEl = document.getElementById('satelliteProviderAttribution');
+    if (attrEl && attributionText) attrEl.textContent = attributionText;
   }
 
   public setTextureStyle(style: TextureStyle): void {

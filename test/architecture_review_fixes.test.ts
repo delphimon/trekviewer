@@ -23,6 +23,12 @@ import { TrekSession } from '../src/core/TrekSession.ts';
 import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import type { ElevationGrid } from '../src/terrain/ElevationTiles.ts';
 import type { TrackStats } from '../src/gpx/TrackTypes.ts';
+import { getBuildDisplayInfo, APP_VERSION } from '../src/utils/BuildInfo.ts';
+import { DesktopOverlay } from '../src/ui/DesktopOverlay.ts';
+import { persistentResourceAllowed } from '../src/terrain/PersistentResourceCache.ts';
+import { imagerySourceId } from '../src/terrain/ImagerySource.ts';
+import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
+import { TileImageCache } from '../src/terrain/TileImageCache.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -526,5 +532,185 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     expect(TextureProvider.getAttributionForStyle('satellite', nepalBounds)).toContain('Global overview only (Z15 ~10 m; fine aerial unavailable)');
     expect(TextureProvider.getAttributionForStyle('satellite', nepalBounds)).not.toContain('USGS / USDA NAIP');
     expect(TextureProvider.getAttributionForStyle('topo', nepalBounds)).toContain('(US coverage only)');
+  });
+
+  it('16. BuildDisplayInfo and version badges render visibly on both desktop panel and 3D spatial HUD', () => {
+    const info = getBuildDisplayInfo();
+    expect(info.version).toBe(APP_VERSION);
+    expect(info.shortBadge).toContain(`v${APP_VERSION}`);
+    expect(info.fullBadge).toContain(`v${APP_VERSION} • build`);
+    expect(info.shortSha).toBeDefined();
+
+    // Verify 2D Desktop overlay DOM renders version badge & panel footer
+    const elements = new Map<string, any>();
+    const mockCtx = {
+      clearRect: vi.fn(), fillRect: vi.fn(), fillText: vi.fn(), strokeText: vi.fn(),
+      beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+      moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(),
+      measureText: () => ({ width: 50 }), roundRect: vi.fn(), drawImage: vi.fn(),
+      setLineDash: vi.fn(), createLinearGradient: () => ({ addColorStop: vi.fn() }),
+      getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+    };
+    (globalThis as any).window = {
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      clearTimeout: vi.fn(), setTimeout: vi.fn(() => 1),
+    };
+    (globalThis as any).document = {
+      createTextNode: (text: string) => ({ textContent: text }),
+      createElement: (tag: string) => {
+        if (tag === 'canvas') return { width: 280, height: 60, getContext: () => mockCtx };
+        return {
+          style: {}, classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
+          appendChild: vi.fn(), addEventListener: vi.fn(), setAttribute: vi.fn(),
+          getAttribute: () => null,
+        };
+      },
+      getElementById: (id: string) => {
+        if (!elements.has(id)) {
+          elements.set(id, {
+            id, style: {}, classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
+            addEventListener: vi.fn(), appendChild: vi.fn(),
+            querySelector: () => ({ style: {}, classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() } }),
+            querySelectorAll: () => [],
+          });
+        }
+        return elements.get(id);
+      },
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    };
+
+    const container = { innerHTML: '', addEventListener: vi.fn(), querySelector: vi.fn(() => null), querySelectorAll: vi.fn(() => []) } as any;
+    new DesktopOverlay(container, {
+      onSelectRoute: vi.fn(),
+      onUploadGPX: vi.fn(),
+      onEnterXR: vi.fn(),
+      onToggleViewMode: vi.fn(),
+      onTogglePlay: vi.fn(),
+      onSetSpeed: vi.fn(),
+      onScrub: vi.fn(),
+      onSetTextureStyle: vi.fn(),
+      onSetTrailColorMode: vi.fn(),
+    });
+
+    expect(container.innerHTML).toContain('id="appVersionBadge"');
+    expect(container.innerHTML).toContain(info.shortBadge);
+    expect(container.innerHTML).toContain(info.fullBadge);
+    expect(container.innerHTML).toContain('id="panelBuildInfo"');
+
+    // Verify 3D Spatial HUD renders version text in static layer
+    const hud = Object.create(SpatialHUD.prototype);
+    hud.staticCtx = mockCtx;
+    hud.staticCanvas = { width: 1024, height: 768 };
+    hud.canvas = { width: 1024, height: 768 };
+    hud.track = { name: 'Rainier Emmons Glacier', timingType: 'recorded', warnings: [] };
+    hud.cachedElevationSamples = [];
+    (SpatialHUD.prototype as any).renderStaticLayer.call(hud);
+
+    expect(mockCtx.fillText).toHaveBeenCalledWith(
+      expect.stringContaining(info.shortBadge),
+      expect.any(Number),
+      expect.any(Number)
+    );
+  });
+
+  it('17. Best available satellite and elevation sources: caching, classification, selection, and Z14 DEM', async () => {
+    // 1. PersistentResourceCache allows Esri World Imagery tiles
+    const esriUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/15/100/200';
+    const esriUrl2 = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/18/500/600';
+    expect(persistentResourceAllowed(esriUrl)).toBe(true);
+    expect(persistentResourceAllowed(esriUrl2)).toBe(true);
+
+    // 2. ImagerySource classifies esri and bing tiles
+    expect(imagerySourceId(esriUrl)).toBe('esri-world');
+    expect(imagerySourceId('https://ecn.t1.tiles.virtualearth.net/tiles/a123.jpeg?g=1')).toBe('bing-aerial');
+
+    // 3. DesktopOverlay contains satellite source selector with esri, auto, cesium-bing
+    const elements = new Map<string, any>();
+    const mockCtx = {
+      clearRect: vi.fn(), fillRect: vi.fn(), fillText: vi.fn(), strokeText: vi.fn(),
+      beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+      moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(),
+      measureText: () => ({ width: 50 }), roundRect: vi.fn(), drawImage: vi.fn(),
+      setLineDash: vi.fn(), createLinearGradient: () => ({ addColorStop: vi.fn() }),
+      getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+    };
+    (globalThis as any).window = {
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      clearTimeout: vi.fn(), setTimeout: vi.fn(() => 1),
+    };
+    (globalThis as any).document = {
+      createTextNode: (text: string) => ({ textContent: text }),
+      createElement: (tag: string) => {
+        if (tag === 'canvas') return { width: 280, height: 60, getContext: () => mockCtx };
+        return {
+          style: {}, classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
+          appendChild: vi.fn(), addEventListener: vi.fn(), setAttribute: vi.fn(),
+          getAttribute: () => null,
+        };
+      },
+      getElementById: (id: string) => {
+        if (!elements.has(id)) {
+          elements.set(id, {
+            id, style: {}, classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
+            addEventListener: vi.fn(), appendChild: vi.fn(),
+            querySelector: () => ({ style: {}, classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() } }),
+            querySelectorAll: () => [],
+          });
+        }
+        return elements.get(id);
+      },
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    };
+
+    const container = { innerHTML: '', addEventListener: vi.fn(), querySelector: vi.fn(() => null), querySelectorAll: vi.fn(() => []) } as any;
+    const onSetSatelliteProvider = vi.fn();
+    const overlay = new DesktopOverlay(container, {
+      onSelectRoute: vi.fn(),
+      onUploadGPX: vi.fn(),
+      onEnterXR: vi.fn(),
+      onToggleViewMode: vi.fn(),
+      onTogglePlay: vi.fn(),
+      onSetSpeed: vi.fn(),
+      onScrub: vi.fn(),
+      onSetTextureStyle: vi.fn(),
+      onSetSatelliteProvider,
+      onSetTrailColorMode: vi.fn(),
+    });
+
+    expect(container.innerHTML).toContain('id="satelliteProviderSelect"');
+    expect(container.innerHTML).toContain('value="esri"');
+    expect(container.innerHTML).toContain('value="auto"');
+    expect(container.innerHTML).toContain('value="cesium-bing"');
+
+    overlay.setSatelliteProvider('esri', 'Esri World Imagery • up to Z19');
+    expect(elements.get('satelliteProviderSelect')?.value).toBe('esri');
+    expect(elements.get('satelliteProviderAttribution')?.textContent).toBe('Esri World Imagery • up to Z19');
+
+    // 4. ElevationTileService selects zoom 14 when route fits within 25 tiles
+    vi.spyOn(TileImageCache, 'loadTile').mockResolvedValue({
+      width: 256,
+      height: 256,
+      naturalWidth: 256,
+      naturalHeight: 256,
+    } as any);
+
+    const smallBounds = {
+      minLat: 46.85,
+      maxLat: 46.88,
+      minLon: 8.20,
+      maxLon: 8.24,
+      centerLat: 46.865,
+      centerLon: 8.22,
+      minEle: 1500,
+      maxEle: 2800,
+      elevationSpan: 1300,
+      widthMeters: 3000,
+      depthMeters: 3300,
+    };
+    const grid = await ElevationTileService.fetchElevationGrid(smallBounds, 0.05);
+    expect(grid).not.toBeNull();
+    expect(grid!.zoom).toBe(14);
   });
 });

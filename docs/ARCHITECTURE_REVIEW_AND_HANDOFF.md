@@ -8,7 +8,7 @@ This document records the comprehensive first-principles code and architecture r
 
 ## 1. Executive Summary of Completed Architectural Improvements (Phases 1–11)
 
-All findings from the first-principles architecture review have been implemented and verified across 143 Vitest suites (853 tests) and TypeScript/Vite production builds:
+All findings from the first-principles architecture review have been implemented and verified across 143 Vitest suites (856 tests) and TypeScript/Vite production builds:
 
 ### Phase 1 & Phase 7: Terrain Streaming, DEM Memory Lifecycle & Seam Blending
 - **Fixed 256–512 MB DEM Raster Retention Leak ([`LocalTerrainChunk.ts`](../src/terrain/LocalTerrainChunk.ts))**: Added `summarizeElevationGrid(grid)` so `LocalTerrainChunk` strips multi-megabyte `Float32Array` (`data`) and `Uint8Array` (`tileValidity`) arrays from `this.currentGrid` immediately after sampling vertex heights while retaining all scalar metadata (`minElevation`, `maxElevation`, `width`, `height`, `isRealDEM`, `source`, `quality`).
@@ -39,6 +39,28 @@ All findings from the first-principles architecture review have been implemented
 - **DOM Security & Listener Cleanup ([`DesktopOverlay.ts`](../src/ui/DesktopOverlay.ts), [`style.css`](../src/style.css))**: Replaced `innerHTML` interpolation of GPX warnings with `textContent` and safe DOM nodes, cleaned up `window` `dragover`/`drop` listeners in `dispose()`, added structured `state` and `progress` parameters to `showStatus`, and scoped `user-select: none` to interactive controls.
 - **Spatial HUD Mipmaps, Route Reuse & Chart Landmark Clicks ([`SpatialHUD.ts`](../src/ui/SpatialHUD.ts), [`main.ts`](../src/main.ts))**: Enabled trilinear mipmaps (`THREE.LinearMipmapLinearFilter`, `generateMipmaps = true`) on the VR `SpatialHUD` texture, reused a single `SpatialHUD` instance across route switches via `setTrack()`, unified chart hover/click/drag Y-bounds (`190..395`), and added click hit-testing for landmark pins on the VR elevation chart.
 - **Centralized `horizonLocked` Session State ([`TrekSession.ts`](../src/core/TrekSession.ts))**: Added `horizonLocked: boolean` and `setHorizonLocked(locked)` to `TrekSession`.
+
+### Phase 12: Version & Build Numbering, Best Available Terrain DEM & Satellite Sources
+- **Visible Version & Build Badges on Desktop & VR Panels ([`BuildInfo.ts`](../src/utils/BuildInfo.ts), [`DesktopOverlay.ts`](../src/ui/DesktopOverlay.ts), [`SpatialHUD.ts`](../src/ui/SpatialHUD.ts), [`style.css`](../src/style.css))**:
+  - Created `BuildInfo.ts` extracting `__APP_BUILD_INFO__` (Vite build provenance: `v1.0.0`, `shortSha`, `builtAt`, `dirty`, `shortBadge`, `fullBadge`).
+  - Added `#appVersionBadge` in the top bar and `#panelBuildInfo` at the bottom of the Settings panel (`#trekSettings`).
+  - Added a matching top-right version badge pill (`v1.0.0 • <shortSha>`) and header subtitle version in the 3D VR/MR `SpatialHUD`.
+- **Runtime Satellite & Aerial Source Selector ([`DesktopOverlay.ts`](../src/ui/DesktopOverlay.ts), [`main.ts`](../src/main.ts), [`TextureProvider.ts`](../src/terrain/TextureProvider.ts))**:
+  - Added `#satelliteProviderSelect` in `#trekSettings` letting users switch at runtime between:
+    - **`esri`**: Esri World Imagery (Maxar Vivid 0.3m–0.5m / Earthstar / USDA NAIP global CDN through Zoom 19 — Free for Personal/Non-commercial use with attribution).
+    - **`auto`**: USGS NAIP Plus + HRO / Swisstopo / EOxCloudless (Public Domain & Open Gov).
+    - **`cesium-bing`**: Bing Maps Aerial via Cesium Ion.
+  - Stored user preference in `localStorage['trekviewer-satellite-provider']` and updated live attribution upon switching.
+- **Enhanced Swiss 10cm SWISSIMAGE Integration ([`ImageryProvider.ts`](../src/terrain/providers/ImageryProvider.ts))**:
+  - `EsriWorldImageryProvider` at Z16–Z19 prioritizes Swisstopo SWISSIMAGE 10cm orthophotography inside Switzerland with seamless fallback to Esri World Imagery on partial border tiles.
+- **Resilient USGS 3DEP 1m DEM & Finer Z14 AWS Terrarium Fallback ([`ElevationTiles.ts`](../src/terrain/ElevationTiles.ts))**:
+  - `fetchElevationGrid` retries USGS 3DEP with core-route `requiredBounds` if the outer 25% margin contains `NoData`, preserving lossless 1m float32 terrain whenever the route itself is covered.
+  - For international routes using tile-based DEM (Alps, Dolomites, Himalayas, Andes, New Zealand), starts at Zoom 14 (~7.6m grid spacing) whenever the route fits within the 25-tile budget.
+- **Device Caching & Provenance Tracking ([`PersistentResourceCache.ts`](../src/terrain/PersistentResourceCache.ts), [`ImagerySource.ts`](../src/terrain/ImagerySource.ts))**:
+  - Allowed unkeyed Esri World Imagery CDN tiles in IndexedDB device cache (`persistentResourceAllowed`).
+  - Classified `'esri-world'` and `'bing-aerial'` in `ImagerySource.ts`.
+- **Faster USGS ImageServer Failover ([`PublicImageryProvider.ts`](../src/terrain/providers/PublicImageryProvider.ts))**:
+  - Reduced `requestTimeoutMs` from `35_000` ms to `12_000` ms so unresponsive `USGSNAIPPlus` ImageServer exports fail over to working mirrors 3x faster.
 
 ### Phase 6: Portable Verification Scripts & Test Hygiene
 - **Cross-Platform Playwright Launcher ([`scripts/playwright-launch.mjs`](../scripts/playwright-launch.mjs))**: Replaced hardcoded Windows `C:/Users/andre/...` and `msedge.exe` paths across all 11 browser verification scripts in `scripts/` with a shared cross-platform launcher supporting macOS, Linux, and Windows (`PLAYWRIGHT_EXECUTABLE_PATH`, `PLAYWRIGHT_CHANNEL`, or bundled Chromium).

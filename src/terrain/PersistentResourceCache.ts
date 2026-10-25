@@ -24,6 +24,8 @@ export function persistentResourceAllowed(url: string): boolean {
     if (u.hostname === 'basemap.nationalmap.gov') return /^\/arcgis\/rest\/services\/(?:USGSImageryOnly|USGSTopo)\/MapServer\/(?:export|tile\/\d+\/\d+\/\d+)$/.test(p);
     if (u.hostname === 'carto.nationalmap.gov') return p === '/arcgis/rest/services/geonames/MapServer/export';
     if (u.hostname === 'tiles.maps.eox.at') return /^\/wmts\/1\.0\.0\/s2cloudless-2025_3857\/default\/g\/\d+\/\d+\/\d+\.jpg$/.test(p);
+    if ((u.hostname === 'server.arcgisonline.com' || u.hostname === 'services.arcgisonline.com')
+      && /^\/arcgis\/rest\/services\/World_Imagery\/MapServer\/tile\/\d+\/\d+\/\d+$/i.test(p)) return true;
     if (u.hostname === 's3.amazonaws.com') return /^\/elevation-tiles-prod\/terrarium\/\d+\/\d+\/\d+\.png$/.test(p);
   } catch { /* Invalid URLs do not enter persistent storage. */ }
   return false;

@@ -126,14 +126,25 @@ export class ElevationTileService {
       const maxLon = bounds.maxLon + lonMargin;
 
       if (this.bestAvailableEnabled) {
-        const best = await fetchBestAvailableElevation({ minLat, maxLat, minLon, maxLon }, 5, signal);
+        let best = await fetchBestAvailableElevation({ minLat, maxLat, minLon, maxLon }, 5, signal);
+        if (!best && hasUSGSElevationCoverage(bounds)) {
+          // If the outer margin had NoData, check if the core route footprint has 100% valid coverage
+          best = await fetchBestAvailableElevation(
+            { minLat, maxLat, minLon, maxLon },
+            5,
+            signal,
+            { minLat: bounds.minLat, maxLat: bounds.maxLat, minLon: bounds.minLon, maxLon: bounds.maxLon },
+            false
+          );
+        }
         if (best) { onProgress?.(1, 1); return best; }
       }
 
       const latSpan = maxLat - minLat;
-      let zoom = 12;
+      let zoom = 14;
       if (latSpan > 0.4) zoom = 11;
-      if (latSpan < 0.1) zoom = 13;
+      else if (latSpan > 0.25) zoom = 12;
+      else if (latSpan > 0.12) zoom = 13;
 
       const minTile = latLonToTile(maxLat, minLon, zoom);
       const maxTile = latLonToTile(minLat, maxLon, zoom);

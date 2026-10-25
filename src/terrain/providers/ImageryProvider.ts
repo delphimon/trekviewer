@@ -1,3 +1,11 @@
+import { tileBounds } from '../../gpx/Coordinates.ts';
+import {
+  inSwissImageryEnvelope,
+  isCompleteSwissImage,
+  isSwissImageryURL,
+  SWISS_IMAGE_TILES,
+} from './SwissImagery.ts';
+
 export interface ImageryProvider {
   readonly id: string;
   readonly displayName: string;
@@ -21,10 +29,26 @@ export class EsriWorldImageryProvider implements ImageryProvider {
   readonly maxZoom = 19;
 
   getTileUrls(zoom: number, x: number, y: number): string[] {
-    return [
+    const esriUrls = [
       `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`,
       `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`,
     ];
+    if (zoom >= 16 && zoom <= 19) {
+      const bounds = tileBounds(x, y, zoom);
+      const lat = (bounds.nw.lat + bounds.se.lat) / 2;
+      const lon = (bounds.nw.lon + bounds.se.lon) / 2;
+      if (inSwissImageryEnvelope(lat, lon)) {
+        return [`${SWISS_IMAGE_TILES}${zoom}/${x}/${y}.png`, ...esriUrls];
+      }
+    }
+    return esriUrls;
+  }
+
+  isTileUsable?(image: CanvasImageSource, sourceUrl: string): boolean {
+    if (isSwissImageryURL(sourceUrl)) {
+      return isCompleteSwissImage(image);
+    }
+    return true;
   }
 }
 

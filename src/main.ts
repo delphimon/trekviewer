@@ -289,6 +289,9 @@ export class TrekViewerApp {
         this.session.setProgress(progress);
       },
       onSetTextureStyle: (style) => this.setTextureStyle(style),
+      onSetSatelliteProvider: (provider) => {
+        void this.setSatelliteProvider(provider);
+      },
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
       onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
       onSelectWaypoint: (name, lat, lon, progress) => this.jumpToWaypoint(name, lat, lon, progress),
@@ -300,6 +303,15 @@ export class TrekViewerApp {
     });
     this.overlay.setQualityProfile(initialProfile.name);
     this.overlay.setHorizonLocked(this.horizonLocked);
+    const storedProvider = (typeof localStorage !== 'undefined' ? localStorage.getItem('trekviewer-satellite-provider') : null) as 'auto' | 'esri' | 'cesium-bing' | null;
+    const initialSatelliteProvider = storedProvider || (TextureProvider.getEnvProviderSetting() === 'auto' ? 'esri' : TextureProvider.getEnvProviderSetting());
+    if (storedProvider || initialSatelliteProvider === 'esri') {
+      void TextureProvider.setSatelliteProvider(initialSatelliteProvider);
+    }
+    this.overlay.setSatelliteProvider(
+      TextureProvider.getSatelliteProviderSetting(),
+      TextureProvider.getAttributionForStyle(this.session.getState().textureStyle)
+    );
     if (typeof ResizeObserver !== 'undefined') {
       this.layoutObserver = new ResizeObserver(this.onResize);
       for (const selector of ['.top-bar', '.player-bar']) {
@@ -1264,6 +1276,24 @@ export class TrekViewerApp {
 
   private async setTextureStyle(style: TextureStyle): Promise<void> {
     this.session.setTextureStyle(style);
+  }
+
+  public async setSatelliteProvider(provider: 'auto' | 'esri' | 'cesium-bing'): Promise<void> {
+    try {
+      localStorage.setItem('trekviewer-satellite-provider', provider);
+    } catch {}
+    const success = await TextureProvider.setSatelliteProvider(provider);
+    TileImageCache.clear();
+    const style = this.session.getState().textureStyle;
+    const bounds = this.currentTrack?.bounds;
+    const attribution = TextureProvider.getAttributionForStyle(style, bounds);
+    this.session.setAttribution(attribution);
+    this.overlay.setSatelliteProvider(provider, attribution);
+    if (this.activeTrek) {
+      await this.activeTrek.setTextureStyle(style, true);
+    }
+    const displayName = TextureProvider.getActiveSatelliteProvider().displayName;
+    this.overlay.showStatus(`Satellite provider: ${displayName}`, !success && provider !== 'auto', success ? 'ready' : 'error');
   }
 
   private setTrailColorMode(mode: TrailColorMode): void {

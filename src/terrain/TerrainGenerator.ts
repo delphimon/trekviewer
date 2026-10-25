@@ -54,7 +54,7 @@ export interface TerrainResult {
   baseMeshGrid?: TerrainGridLayout;
   baseSurfaceData?: TerrainSurfaceData;
   sampleRenderedSurfaceY: (localX: number, localZ: number) => number;
-  setTextureStyle: (style: TextureStyle) => Promise<void>;
+  setTextureStyle: (style: TextureStyle, forceRefresh?: boolean) => Promise<void>;
   setVerticalExaggeration: (factor: number) => void;
   getVerticalExaggeration?: () => number;
   localChunk?: LocalTerrainChunk | null;
@@ -446,10 +446,13 @@ export class TerrainGenerator {
       onProgress?.('Satellite imagery ready.', 1);
     }).catch(() => { /* Procedural topo remains available. */ });
 
-    const setTextureStyle = async (style: TextureStyle): Promise<void> => {
+    const setTextureStyle = async (style: TextureStyle, forceRefresh: boolean = false): Promise<void> => {
       if (isDisposed) return;
       currentActiveStyle = style;
       const generation = ++textureRequestGeneration;
+      if (forceRefresh) {
+        imagery.invalidateStyle(style);
+      }
       const cached = imagery.peek(style);
       if (cached) applyTexture(cached);
       else {

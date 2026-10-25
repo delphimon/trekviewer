@@ -4,6 +4,7 @@ import { GPXParser } from '../gpx/GPXParser.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { playbackPresentation, type PlaybackMode } from '../visualization/PlaybackPresentation.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from '../gpx/RouteLandmarks.ts';
+import { getBuildDisplayInfo } from '../utils/BuildInfo.ts';
 
 export interface SpatialHUDCallbacks {
   onTogglePlay: () => void;
@@ -750,13 +751,31 @@ export class SpatialHUD {
       ctx.fillText(`⚠️ Data Notes`, pillX + 10, 51);
     }
 
-    // Subtitle with Timing Type
+    // Subtitle with Timing Type & Version
+    const buildInfo = getBuildDisplayInfo();
     const isRecorded = this.track.timingType === 'recorded';
     const isMixed = this.track.timingType === 'mixed';
     const timeLabel = isRecorded ? 'GPS Timed' : isMixed ? 'Mixed Timing' : 'Est. Pace';
     ctx.fillStyle = '#38bdf8';
     ctx.font = '600 15px sans-serif';
-    ctx.fillText(`⛰️ Meta Quest 3 • 3D Trek Explorer • ${timeLabel}`, 40, 84);
+    ctx.fillText(`⛰️ Meta Quest 3 • 3D Trek Explorer • ${timeLabel} • ${buildInfo.shortBadge}`, 40, 84);
+
+    // Top Right Version / Build Pill
+    const versionText = buildInfo.shortBadge;
+    ctx.font = 'bold 12px ui-monospace, Menlo, Monaco, Consolas, monospace';
+    const versionWidth = ctx.measureText(versionText).width;
+    const vPillW = Math.max(90, versionWidth + 18);
+    const vPillX = w - 40 - vPillW;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+    ctx.beginPath();
+    ctx.roundRect(vPillX, 34, vPillW, 26, 6);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#7dd3fc';
+    ctx.fillText(versionText, vPillX + 9, 51);
 
     // Top Drag Handle Bar on HUD
     ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';

@@ -1559,8 +1559,8 @@ export class ImageryLODManager {
     return new Map(this.refinementGroups);
   }
 
-  public async setTextureStyle(style: TextureStyle): Promise<void> {
-    if (this.isDisposed || this.currentTextureStyle === style) return;
+  public async setTextureStyle(style: TextureStyle, forceRefresh: boolean = false): Promise<void> {
+    if (this.isDisposed || (!forceRefresh && this.currentTextureStyle === style)) return;
     this.currentTextureStyle = style;
     this.currentGeneration++;
 

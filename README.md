@@ -4,7 +4,7 @@ Meta Quest 3 Alpine GPX Trek Visualizer in WebXR, focused on tabletop dioramas a
 
 The [October 19 diorama tour checkpoint](docs/review-2026-10-19/DIORAMA_TOUR.md) adds a 90-second route tour, alternate track timing and optional desktop camera follow. In XR, tour playback animates the hiker on the anchored model. New first-person development and native acceptance are deferred while the diorama experience is improved; the existing 1:1 mode remains available.
 
-The [October 25 architecture review and agent handoff guide](docs/ARCHITECTURE_REVIEW_AND_HANDOFF.md) documents the 11-phase architecture, memory, rendering, offline storage, security, and test improvements completed across the codebase, along with build, verification, and deployment instructions for developers and autonomous agents.
+The [October 25 architecture review and agent handoff guide](docs/ARCHITECTURE_REVIEW_AND_HANDOFF.md) documents the 12-phase architecture, memory, rendering, offline storage, security, version display, satellite/DEM source upgrades, and test improvements (143 suites, 856 tests) completed across the codebase, along with build, verification, and deployment instructions for developers and autonomous agents.
 
 The [current completion plan](docs/COMPLETION_PLAN.md) tracks the remaining fidelity, native performance and usability acceptance work. The [October 16 state review](docs/review-2026-10-16/STATE_REVIEW.md) distinguishes implemented/browser-tested features from unresolved headset requirements, including High's inherited fixed-foveation setting. Dated implementation reports below remain historical evidence.
 

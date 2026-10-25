@@ -1,6 +1,6 @@
 /** Service provenance only: neither catalog dataset identity nor native resolution. */
 export type ImagerySourceId = 'usgs-naip-plus' | 'geoplatform-naip' | 'usgs-naip'
-  | 'usgs-overview' | 'eox-global' | 'swissimage' | 'other';
+  | 'usgs-overview' | 'eox-global' | 'swissimage' | 'esri-world' | 'bing-aerial' | 'other';
 export interface ImagerySourceInfo { source: ImagerySourceId; configuredAlternative: boolean }
 const images = new WeakMap<object, Readonly<ImagerySourceInfo>>();
 
@@ -16,6 +16,9 @@ export function imagerySourceId(url: string): ImagerySourceId {
     if (parsed.hostname === 'imagery.geoplatform.gov' && service.startsWith('/iipp/rest/services/naip/naip_plus/imageserver/')) return 'geoplatform-naip';
     if (parsed.hostname === 'basemap.nationalmap.gov' && service.startsWith('/arcgis/rest/services/usgsimageryonly/mapserver/')) return 'usgs-overview';
     if (parsed.hostname === 'tiles.maps.eox.at' && service.startsWith('/wmts/1.0.0/s2cloudless-2025_3857/')) return 'eox-global';
+    if ((parsed.hostname === 'server.arcgisonline.com' || parsed.hostname === 'services.arcgisonline.com')
+      && service.startsWith('/arcgis/rest/services/world_imagery/mapserver/tile/')) return 'esri-world';
+    if (parsed.hostname.endsWith('.virtualearth.net') && service.startsWith('/tiles/')) return 'bing-aerial';
   } catch { /* Unknown or non-URL sources remain explicitly unclassified. */ }
   return 'other';
 }

@@ -144,11 +144,11 @@ export class LoadedTrek {
     this.flyoverController.setElevationSampler?.(sampler);
   }
 
-  public async setTextureStyle(style: TextureStyle): Promise<void> {
+  public async setTextureStyle(style: TextureStyle, forceRefresh?: boolean): Promise<void> {
     if (this._isDisposed) return;
     await Promise.all([
-      this.terrainResult.setTextureStyle(style),
-      this.imageryLOD.setTextureStyle(style),
+      forceRefresh ? this.terrainResult.setTextureStyle(style, true) : this.terrainResult.setTextureStyle(style),
+      forceRefresh ? this.imageryLOD.setTextureStyle(style, true) : this.imageryLOD.setTextureStyle(style),
     ]);
   }
 

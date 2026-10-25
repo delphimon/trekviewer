@@ -21,6 +21,14 @@ export class TerrainImagery {
 
   public peek(style: TextureStyle): THREE.CanvasTexture | null { return this.entries.get(style)?.texture ?? null; }
 
+  public invalidateStyle(style: TextureStyle): void {
+    const entry = this.entries.get(style);
+    if (entry) {
+      this.entries.delete(style);
+      if (entry.texture) this.release(entry.texture);
+    }
+  }
+
   public acquire(style: TextureStyle, fallback: CanvasImageSource): Promise<THREE.CanvasTexture | null> {
     if (this.disposed || this.lifetime.signal.aborted) return Promise.resolve(null);
     const existing = this.entries.get(style);
