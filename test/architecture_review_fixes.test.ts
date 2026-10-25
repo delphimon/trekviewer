@@ -20,6 +20,7 @@ import { GPXValidator } from '../src/gpx/GPXValidator.ts';
 import { calculateElevationStats } from '../src/gpx/ElevationStats.ts';
 import { SpatialHUD } from '../src/ui/SpatialHUD.ts';
 import { TrekSession } from '../src/core/TrekSession.ts';
+import { TextureProvider } from '../src/terrain/TextureProvider.ts';
 import type { ElevationGrid } from '../src/terrain/ElevationTiles.ts';
 import type { TrackStats } from '../src/gpx/TrackTypes.ts';
 
@@ -501,5 +502,29 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     expect(hud.onPointerClick(uv, 'left')).toBe(true);
     expect(onSelectWaypoint).toHaveBeenCalledWith('Summit Peak', 46.85, -121.75, 0.5);
     expect(onScrub).not.toHaveBeenCalled();
+  });
+
+  it('15. TextureProvider.describeCoverageForBounds and getAttributionForStyle visibly explain regional vs global fallback coverage', () => {
+    TextureProvider.resetForTesting();
+    const nepalBounds = {
+      minLat: 27.95,
+      maxLat: 28.02,
+      minLon: 86.88,
+      maxLon: 86.96,
+      centerLat: 27.985,
+      centerLon: 86.92,
+      widthMeters: 7800,
+      depthMeters: 7800,
+      minEle: 5000,
+      maxEle: 8848,
+      elevationSpan: 3848,
+    };
+    const coverage = TextureProvider.describeCoverageForBounds(nepalBounds);
+    expect(coverage.region).toBe('global-fallback');
+    expect(coverage.fineImageryAvailable).toBe(false);
+    expect(coverage.maxImageryZoom).toBe(15);
+    expect(TextureProvider.getAttributionForStyle('satellite', nepalBounds)).toContain('Global overview only (Z15 ~10 m; fine aerial unavailable)');
+    expect(TextureProvider.getAttributionForStyle('satellite', nepalBounds)).not.toContain('USGS / USDA NAIP');
+    expect(TextureProvider.getAttributionForStyle('topo', nepalBounds)).toContain('(US coverage only)');
   });
 });

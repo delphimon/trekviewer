@@ -10,6 +10,8 @@ import {
 } from './providers/ImageryProvider.ts';
 import { composeImagery, MAX_COMPOSITE_TILES } from './CompositeImagery.ts';
 import { PublicImageryProvider, USGSReferenceProvider } from './providers/PublicImageryProvider.ts';
+import { inSwissImageryEnvelope, SWISS_IMAGE_CREDITS } from './providers/SwissImagery.ts';
+import { hasUSGSElevationCoverage } from './BestAvailableElevation.ts';
 
 export interface TileGridBounds {
   zoom: number;
@@ -235,11 +237,54 @@ export class TextureProvider {
     }
   }
 
+  public static describeCoverageForBounds(bounds: GeoBounds): {
+    region: 'conus' | 'switzerland' | 'global-fallback';
+    maxImageryZoom: number;
+    fineImageryAvailable: boolean;
+    usgsElevationAvailable: boolean;
+    imagerySummary: string;
+    elevationSummary: string;
+  } {
+    const allCONUS = bounds.minLat > 25 && bounds.maxLat < 49 && bounds.minLon > -124 && bounds.maxLon < -67;
+    const isSwiss = !allCONUS && inSwissImageryEnvelope(bounds.centerLat, bounds.centerLon);
+    const usgsElevationAvailable = hasUSGSElevationCoverage(bounds);
+    if (allCONUS) {
+      return {
+        region: 'conus',
+        maxImageryZoom: 19,
+        fineImageryAvailable: true,
+        usgsElevationAvailable,
+        imagerySummary: 'USGS / USDA NAIP + HRO (public domain); USGS overview',
+        elevationSummary: 'USGS 3DEP (~1 m local export / ~5 m High mesh)',
+      };
+    }
+    if (isSwiss) {
+      return {
+        region: 'switzerland',
+        maxImageryZoom: 19,
+        fineImageryAvailable: true,
+        usgsElevationAvailable,
+        imagerySummary: `${SWISS_IMAGE_CREDITS}. Global overview: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0`,
+        elevationSummary: 'Global Mapzen Terrain Tiles fallback (non-US elevation)',
+      };
+    }
+    return {
+      region: 'global-fallback',
+      maxImageryZoom: 15,
+      fineImageryAvailable: false,
+      usgsElevationAvailable,
+      imagerySummary: 'Global overview only (Z15 ~10 m; fine aerial unavailable): EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0',
+      elevationSummary: usgsElevationAvailable
+        ? 'USGS 3DEP (~1 m local export / ~5 m High mesh)'
+        : 'Global Mapzen Terrain Tiles fallback (coarse non-US elevation)',
+    };
+  }
+
   public static getAttributionForStyle(style: string, bounds?: GeoBounds): string {
     if ((style === 'satellite' || style === 'hybrid') && this.activeSatelliteProvider.id === 'public-naip') {
-      // Include a generous guard for the overview tiles surrounding the terrain.
-      const allCONUS = bounds && bounds.minLat > 25 && bounds.maxLat < 49 && bounds.minLon > -124 && bounds.maxLon < -67;
-      const credits = allCONUS ? 'USGS / USDA NAIP + HRO (public domain); USGS overview' : this.activeSatelliteProvider.attribution;
+      const credits = bounds
+        ? this.describeCoverageForBounds(bounds).imagerySummary
+        : this.activeSatelliteProvider.attribution;
       return credits + (this.fallbackReason ? ` (${this.fallbackReason})` : '')
         + (style === 'hybrid' ? ` | ${this.publicReferenceProvider.attribution}` : '');
     }
@@ -257,8 +302,10 @@ export class TextureProvider {
         } else {
           return `Esri World Imagery • up to Z${this.activeSatelliteProvider.maxZoom}${fallbackSuffix} | ${this.referenceOverlayProvider.attribution}`;
         }
-      case 'topo':
-        return `${this.usgsTopoProvider.displayName} • up to Z${this.usgsTopoProvider.maxZoom}`;
+      case 'topo': {
+        const outsideUS = bounds && !hasUSGSElevationCoverage(bounds);
+        return `${this.usgsTopoProvider.displayName} • up to Z${this.usgsTopoProvider.maxZoom}${outsideUS ? ' (US coverage only)' : ''}`;
+      }
       default:
         return 'Map data: Esri, USGS, AWS Open Data';
     }

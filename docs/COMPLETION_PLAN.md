@@ -275,7 +275,7 @@ The [persistent source-cache checkpoint](review-2026-10-17/RESOURCE_CACHE.md) ad
 
 - [ ] Audit bundled routes plus representative imported routes inside/outside supported US coverage. Record the selected dataset, verified native resolution where available, export sample spacing, rendered cell spacing, source date, terms/attribution and fallback reason.
 - [ ] Verify whether higher-detail free regional sources exist for locations currently using the coarse global fallback; add applicable providers with coverage, NoData, response-size, cache and failure guards. Verify terms and endpoint behavior before recommending or integrating a source.
-- [ ] Ensure unavailable coverage is visibly explained and that a coarse fallback is never mislabeled as fine imagery. Keep commercial providers explicit opt-ins.
+- [x] Ensure unavailable coverage is visibly explained (`TextureProvider.describeCoverageForBounds` and `getAttributionForStyle` in `src/terrain/TextureProvider.ts`) and that a coarse fallback is never mislabeled as fine imagery. Keep commercial providers explicit opt-ins.
 
 **Done when:** the supported-route/source matrix is documented and tested, better verified applicable free sources are selected, and remaining geographic limits are clear. No universal native-resolution claim is made for unsurveyed or unaudited regions.
 
