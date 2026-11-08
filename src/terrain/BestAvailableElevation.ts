@@ -94,8 +94,9 @@ export async function fetchBestAvailableElevation(bounds: RasterFootprint, spaci
   const timer = setTimeout(abort, 35_000);
   const cacheGeneration = PersistentResourceCache.getGeneration();
   let cached = false;
+  let cachedBlob: Blob | undefined;
   try {
-    let blob = await PersistentResourceCache.read(request.url); cached = !!blob;
+    let blob = await PersistentResourceCache.read(request.url); cached = !!blob; cachedBlob = blob ?? undefined;
     if ((failures.get(coverageKey) ?? 0) > Date.now()) return null;
     if (!blob && (failures.get(request.url) ?? 0) > Date.now()) return null;
     if (!blob) blob = await readBoundedBlob(await fetch(request.url, { signal: controller.signal }), 32 * 1024 * 1024);
@@ -123,7 +124,7 @@ export async function fetchBestAvailableElevation(bounds: RasterFootprint, spaci
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Elevation cancelled', 'AbortError');
     if (cached) {
-      await PersistentResourceCache.remove(request.url); failures.delete(request.url);
+      await PersistentResourceCache.remove(request.url, cachedBlob); failures.delete(request.url);
       clearTimeout(timer); signal?.removeEventListener('abort', abort);
       return fetchBestAvailableElevation(bounds, spacingMeters, signal, requiredBounds, includeEndpoint);
     }

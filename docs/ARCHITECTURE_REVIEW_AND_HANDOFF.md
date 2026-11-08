@@ -1,5 +1,13 @@
 # TrekViewer 3D — First-Principles Architecture Review, Implementation Record & Agent Handoff Guide
 
+> **Status correction (2026-11-08):** this October record overstated completeness ("100%").
+> A later review found open defects (imagery provider selection reset on reload, HUD
+> finger hit-test geometry, offline pack invalidation on decode errors, XR exit transforms,
+> unused chunk-seam blending, among others). Their fixes and the remaining work are tracked in
+> [REVIEW_FIX_PLAN.md](./REVIEW_FIX_PLAN.md), which supersedes the "pick up next" section
+> below. Note also that the runtime default imagery source is **Public sources (`auto`)**,
+> not Esri; Esri and Bing are explicit choices.
+
 **Updated:** October 25, 2026 (`America/Los_Angeles`)
 
 This document records the comprehensive first-principles code and architecture review of **TrekViewer 3D**, the 11-phase engineering implementation completed across the codebase, and the operational runbook for any developer or autonomous agent continuing work, verifying builds, or deploying the application.

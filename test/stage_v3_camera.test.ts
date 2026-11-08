@@ -1,3 +1,4 @@
+import { SpatialHUD } from '../src/ui/SpatialHUD';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { XRManager } from '../src/core/XRManager';
@@ -204,11 +205,13 @@ describe('Stage V3: First-Person Exaggeration on Route Switch & XR Active Camera
 
       const xrManager = new XRManager(mockSceneManager);
 
-      const mockHUD = {
+      const grabMesh = new THREE.Mesh(); grabMesh.position.y = 0.29;
+      const mockHUD = Object.assign(Object.create(SpatialHUD.prototype), {
         group: new THREE.Group(),
-        grabMesh: new THREE.Mesh(),
+        mesh: new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6)),
+        grabMesh,
         setDockSide: vi.fn(),
-      };
+      });
       xrManager.setSpatialHUD(mockHUD as any);
 
       const lookAtSpy = vi.spyOn(mockHUD.group, 'lookAt');
@@ -223,7 +226,7 @@ describe('Stage V3: First-Person Exaggeration on Route Switch & XR Active Camera
       mockHUD.group.updateMatrixWorld(true);
 
       // Handle area is local y in [0.18, 0.38] -> world Y around 1.25
-      const handleFingerPos = new THREE.Vector3(0, 1.25, -0.6);
+      const handleFingerPos = new THREE.Vector3(0, 1.29, -0.6);
       const isHandled = (xrManager as any).checkHandHUDInteraction(handState, handleFingerPos, true);
 
       expect(isHandled).toBe(true);

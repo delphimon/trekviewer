@@ -75,7 +75,8 @@ export class OfflineDownloads {
           || plan.resources.some(r => !r.urls.length || r.urls.some(url => !offlineSourceAllowed(url)))
           || !OfflineStore.compatible({ routeId: plan.routeId, routeHash: plan.routeHash } as OfflinePackState)) throw Error('Invalid offline download inventory or route revision.');
         const previous = await OfflineStore.state(plan.id);
-        if (previous?.state === 'ready') return;
+        // A ready pack only needs work when the current inventory has sources it lacks.
+        if (previous?.state === 'ready' && await OfflineStore.missingCount(plan) === 0) return;
         const persisted = await navigator.storage.persist?.().catch(() => false);
         let state: OfflinePackState = { id: plan.id, routeId: plan.routeId, routeHash: plan.routeHash, name: plan.name,
           state: 'downloading', total: plan.resources.length, completed: previous?.completed ?? 0, bytes: previous?.bytes ?? 0, estimatedBytes: plan.estimatedBytes,
@@ -88,7 +89,11 @@ export class OfflineDownloads {
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
             const retained = await OfflineStore.stored(plan.id, resource);
             let asset = retained;
-            if (asset && (asset.bytes !== asset.blob.size || asset.sha256 !== await hashOfflineBlob(asset.blob))) asset = undefined;
+            // Saved assets were hashed and validated before their atomic commit. Resume trusts
+            // them (a size check catches truncation) instead of re-hashing and re-decoding
+            // gigabytes before any new byte arrives. Render-time decode failures are hash-checked
+            // individually by OfflineStore.reportDecodeFailure.
+            if (asset && asset.bytes !== asset.blob.size) asset = undefined;
             let blob = asset?.blob, sourceUrl = asset?.sourceUrl ?? '';
             if (source) {
               if (!asset) await requireOfflineCapacity();
@@ -114,14 +119,11 @@ export class OfflineDownloads {
                 finally { clearTimeout(timer); controller.signal.removeEventListener('abort', abort); }
               }
               if (!blob) throw lastError;
-            } else {
-              // Resume verifies bytes AND source coverage before publication.
-              await validateOfflineResource(resource, blob, controller.signal);
             }
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
             verified++; verifiedBytes += blob.size;
             if (asset) {
-              if (verified % 32 === 0) await OfflineStore.putState({ ...state, message: `Checking saved sources (${verified}/${plan.resources.length})…`, updated: Date.now() });
+              if (verified % 256 === 0) await OfflineStore.putState({ ...state, message: `Checking saved sources (${verified}/${plan.resources.length})…`, updated: Date.now() });
               continue; // Verified staged bodies are immutable; do not rewrite gigabytes on resume.
             }
             const next = { ...state, completed: state.completed + Number(!retained), bytes: state.bytes + blob.size - (retained?.bytes ?? 0), updated: Date.now() };

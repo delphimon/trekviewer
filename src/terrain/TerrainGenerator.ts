@@ -451,7 +451,8 @@ export class TerrainGenerator {
       currentActiveStyle = style;
       const generation = ++textureRequestGeneration;
       if (forceRefresh) {
-        imagery.invalidateStyle(style);
+        // A provider switch changes every satellite-derived composite, not only the visible one.
+        for (const affected of new Set<TextureStyle>([style, 'satellite', 'hybrid'])) imagery.invalidateStyle(affected);
       }
       const cached = imagery.peek(style);
       if (cached) applyTexture(cached);
@@ -466,7 +467,7 @@ export class TerrainGenerator {
       if (isDisposed || generation !== textureRequestGeneration || currentActiveStyle !== style) return;
       applyTexture(texture || (style === 'hybrid' ? imagery.peek('satellite') : null) || topoTexture);
       const name = style === 'satellite' ? 'Aerial' : style === 'hybrid' ? 'Hybrid' : 'Topographic';
-      onProgress?.(name + ' view active.', 1);
+      onProgress?.(texture ? `${name} view active.` : `${name} imagery is unavailable right now; showing a fallback map.`, 1);
     };
 
     const setVerticalExaggeration = (factor: number) => {

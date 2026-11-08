@@ -79,7 +79,7 @@ it('retires unused warm terrain before an older tile that was just wanted again'
     ...terrainDetailPolicy(QUALITY_PROFILES['quest-high']), parentCellsPerTile: 8 });
   const layout = plan.tiles[0];
   const chunk = (bounds: any) => ({ mesh: new THREE.Mesh(), totalVertices: layout.vertexCount,
-    currentGrid: { isRealDEM: true }, getSurfaceBounds: () => bounds, dispose: vi.fn() }) as any;
+    currentGrid: { isRealDEM: true }, getSurfaceBounds: () => bounds, setOuterEdges: () => false, dispose: vi.fn() }) as any;
   const recent = chunk(layout.bounds);
   const stale = Array.from({ length: 4 }, (_, i) => chunk({ minX: 20000 + i * 1000, maxX: 21000 + i * 1000, minZ: 0, maxZ: 1000 }));
   (streamer as any).chunks.set(layout.id, recent);
@@ -234,7 +234,7 @@ it.each([true, false])('reserves capacity for the completed large tile only when
     [large.id, { controller: new AbortController(), settled: true, result: Promise.resolve({ grid: available ? { zoom: 15, isRealDEM: true } : null }) }],
   ]);
   for (let i = 0; i < 4; i++) (streamer as any).chunks.set(`old${i}`, {
-    totalVertices: 198000, mesh: new THREE.Mesh(), dispose: vi.fn(),
+    totalVertices: 198000, mesh: new THREE.Mesh(), dispose: vi.fn(), setOuterEdges: () => false,
     getSurfaceBounds: () => ({ minX: 20000 + i * 1000, maxX: 21000 + i * 1000, minZ: 0, maxZ: 1000 }),
   });
   const retire = vi.fn(async (_chunks: LocalTerrainChunk[]) => () => true);
@@ -522,7 +522,7 @@ it('keeps previously loaded detail visible until replacement needs its bounded r
   vi.spyOn(LocalTerrainChunk, 'createAsync').mockImplementation(async options => ({
     mesh: new THREE.Mesh(), totalVertices: (options.layout!.segmentsX + 1) * (options.layout!.segmentsZ + 1),
     setVerticalExaggeration: () => {}, setMapTexture: () => {}, validate: () => ({ isValid: true }), dispose: vi.fn(),
-    getSurfaceBounds: () => options.layout!.bounds,
+    getSurfaceBounds: () => options.layout!.bounds, setOuterEdges: () => false,
   }) as any);
   for (let i = 0; i < 110; i++) { streamer.update(0); await flushBuild(); }
   const old = [...attached]; expect(old.length).toBe(48);

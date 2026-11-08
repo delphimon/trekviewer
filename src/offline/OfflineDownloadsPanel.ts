@@ -3,7 +3,7 @@ import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { readBoundedBlob } from '../terrain/PersistentResourceCache.ts';
 import { DEFAULT_OFFLINE_ROUTES, planOfflineRoute, sha256, type OfflinePlan, type OfflinePlanOptions } from './OfflinePlan.ts';
 import { OfflineDownloads } from './OfflineDownloads.ts';
-import { OfflineStore } from './OfflineStore.ts';
+import { OfflineStore, type OfflinePackState } from './OfflineStore.ts';
 import { registerOfflineShell } from './OfflineShell.ts';
 import { exportOfflineArchive, inspectOfflineArchive, offlineArchiveSource } from './OfflineArchive.ts';
 import type { RouteManifestItem } from '../gpx/TrackTypes.ts';
@@ -23,28 +23,35 @@ export class OfflineDownloadsPanel {
   private importer: HTMLButtonElement;
   private filePicker: HTMLInputElement;
   private modeSelect: HTMLSelectElement | null = null;
+  private persistence: HTMLElement | null = null;
+  /** Missing-source counts for ready packs, keyed by pack id + update time. */
+  private readonly missing = new Map<string, Promise<number>>();
   private manifest: RouteManifestItem[] = [];
   private changed = () => { if (!this.timer) this.timer = setTimeout(() => { this.timer = undefined; void this.refresh(); }, 250); };
   private pageHide = () => OfflineDownloads.pause();
   constructor(private root: HTMLElement, private canPrepare: () => boolean = () => true) {
-    root.innerHTML = `<h3>Offline route downloads</h3>
-      <p class="trek-meta">Public USGS / GeoPlatform NAIP imagery and 3DEP elevation, with full surrounding terrain in High. Rainier and Enchantments are selected by default. Downloads can be several GB and require this tab to stay open. Play or entering VR/MR pauses preparation.</p>
+    root.innerHTML = `<h3>Offline maps</h3>
+      <p class="trek-meta">Save a route's aerial imagery and terrain so it works without a connection. Keep this tab open while downloading; playing the tour or entering VR/MR pauses the download, and Resume continues where it stopped.</p>
       <label class="comfort-option"><span>Mount Rainier — Emmons</span><input type="checkbox" data-offline-route="rainier-emmons" checked /></label>
       <label class="comfort-option"><span>Enchantments &amp; Dragontail</span><input type="checkbox" data-offline-route="enchantments-dragontail" checked /></label>
-      <label class="comfort-option"><span>Coverage</span><select data-offline-mode><option value="full-v2">Full terrain (through Z19)</option><option value="corridor-v3">Trail corridor (through Z18)</option></select></label>
-      <div class="btn-group"><button class="btn btn-sm" data-offline-action="prepare">Estimate selected</button><button class="btn btn-sm" data-offline-action="download" disabled>Download selected</button><button class="btn btn-sm" data-offline-action="pause" disabled>Pause</button></div>
-      <button class="btn btn-sm" data-offline-action="import">Import route pack</button><input type="file" data-offline-file accept=".tar,application/x-tar" hidden />
-      <p class="trek-meta">Import a prepared route .tar file without downloading its sources again. Reselect the same file to resume an interrupted import.</p>
-      <p class="trek-meta" data-offline-message role="status" aria-live="polite">Select routes, then estimate storage before downloading.</p>
+      <label class="comfort-option"><span>Detail</span><select data-offline-mode><option value="corridor-v3">Sharp along the trail (smaller)</option><option value="full-v2">Sharp everywhere (very large)</option></select></label>
+      <div class="btn-group"><button class="btn btn-sm" data-offline-action="prepare">Check size</button><button class="btn btn-sm" data-offline-action="download" disabled>Download</button><button class="btn btn-sm" data-offline-action="pause" disabled>Pause</button></div>
+      <p class="trek-meta" data-offline-persistence role="status"></p>
+      <p class="trek-meta" data-offline-message role="status" aria-live="polite">Choose routes, then check the size before downloading.</p>
       <div data-offline-states></div>
-      <p class="trek-meta">Downloaded packs are separate from the temporary cache. Ready covers normal High satellite viewing; other styles, providers and experimental detail settings may still need a connection. Browser storage can be reclaimed.</p>
+      <details class="offline-advanced"><summary>Import or export a pack file</summary>
+        <button class="btn btn-sm" data-offline-action="import">Import pack file</button><input type="file" data-offline-file accept=".tar,application/x-tar" hidden />
+        <p class="trek-meta">Copy a .trekpack.tar prepared on a computer, then import it here. If an import is interrupted, choose the same file again to continue.</p>
+      </details>
+      <p class="trek-meta">Offline maps cover the default Aerial view. Hybrid, Topo and other imagery sources still need a connection.</p>
       <p id="offlineShellStatus" class="trek-meta" role="status">Saving the app for offline startup…</p>`;
     this.message = root.querySelector('[data-offline-message]')!; this.states = root.querySelector('[data-offline-states]')!;
     this.prepare = root.querySelector('[data-offline-action="prepare"]')!; this.download = root.querySelector('[data-offline-action="download"]')!; this.pause = root.querySelector('[data-offline-action="pause"]')!;
     this.importer = root.querySelector('[data-offline-action="import"]')!; this.filePicker = root.querySelector('[data-offline-file]')!;
     this.modeSelect = root.querySelector<HTMLSelectElement>('[data-offline-mode]');
+    this.persistence = root.querySelector('[data-offline-persistence]');
     const onSelectionChange = () => {
-      this.plans = []; this.download.disabled = true; this.message.textContent = 'Selection changed. Estimate storage again.';
+      this.plans = []; this.download.disabled = true; this.message.textContent = 'Selection changed. Check the size again.';
     };
     root.querySelectorAll<HTMLInputElement>('[data-offline-route]').forEach(input => input.addEventListener('change', onSelectionChange));
     if (this.modeSelect) this.modeSelect.onchange = onSelectionChange;
@@ -54,11 +61,23 @@ export class OfflineDownloadsPanel {
     this.importer.onclick = () => this.filePicker.click();
     this.filePicker.onchange = () => { const file = this.filePicker.files?.[0]; this.filePicker.value = ''; if (file) void this.importArchive(file); };
     OfflineStore.events.addEventListener('change', this.changed); window.addEventListener('pagehide', this.pageHide);
-    registerOfflineShell(); void this.refresh();
+    registerOfflineShell(this.canPrepare); void this.refresh(); void this.updatePersistence(false);
   }
   public setManifest(manifest: RouteManifestItem[]): void { this.manifest = manifest; }
   private getSelectedMode(): NonNullable<OfflinePlanOptions['mode']> {
-    return this.modeSelect?.value === 'corridor-v3' ? 'corridor-v3' : 'full-v2';
+    return this.modeSelect?.value === 'full-v2' ? 'full-v2' : 'corridor-v3';
+  }
+  /** Browsers evict a whole non-persistent origin under pressure, offline maps included. */
+  private async updatePersistence(request: boolean): Promise<void> {
+    const storage = typeof navigator !== 'undefined' ? navigator.storage : undefined;
+    if (!this.persistence || !storage?.persisted) return;
+    let persisted = await storage.persisted().catch(() => false);
+    if (!persisted && request && storage.persist) persisted = await storage.persist().catch(() => false);
+    if (this.disposed || !this.persistence) return;
+    this.persistence.textContent = persisted ? 'Storage is protected: the browser will not clear saved maps on its own.'
+      : request ? '⚠ The browser did not protect storage. It may delete saved maps when the device is low on space. Installing the app usually allows protection.'
+      : '';
+    this.persistence.classList.toggle('status-warning', !persisted && request);
   }
   private async loadPlan(id: string, signal?: AbortSignal, modeOverride?: NonNullable<OfflinePlanOptions['mode']>): Promise<OfflinePlan> {
     if (!DEFAULT_OFFLINE_ROUTES.some(route => route === id)) throw Error('This pack route is not supported.');
@@ -75,7 +94,8 @@ export class OfflineDownloadsPanel {
     if (this.preparing || OfflineDownloads.busy()) return;
     if (!this.canPrepare()) { this.message.textContent = 'Pause playback and leave VR/MR before preparing offline downloads.'; return; }
     this.preparing = true; this.plans = []; this.controls();
-    this.message.textContent = 'Preparing storage estimates…';
+    this.message.textContent = 'Checking sizes…';
+    void this.updatePersistence(true);
     try {
       const selected = [...this.root.querySelectorAll<HTMLInputElement>('[data-offline-route]:checked')].map(el => el.dataset.offlineRoute!);
       if (!selected.length) throw Error('Select at least one route.');
@@ -87,7 +107,12 @@ export class OfflineDownloadsPanel {
       this.plans = plans;
       const estimate = await navigator.storage?.estimate();
       if (this.disposed) return;
-      this.message.textContent = `${plans.map(p => `${p.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}: ${size(p.estimatedBytes)} uncompressed budget`).join(' • ')}. Downloads keep original compressed files; actual sizes appear as sources are saved. This budget is not required free space. Space is checked before each write; a full browser pauses the pack for resume.${estimate?.quota ? ` Available browser storage: ${size(Math.max(0, estimate.quota - (estimate.usage ?? 0)))}.` : ' Browser storage capacity unavailable.'}`;
+      // The plan budget counts raw pixels; saved files are compressed. Past packs averaged
+      // about a third of the budget, so show that as the expected size and keep the budget as a ceiling.
+      const free = estimate?.quota ? Math.max(0, estimate.quota - (estimate.usage ?? 0)) : undefined;
+      this.message.textContent = `${plans.map(p => `${p.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}: about ${size(p.estimatedBytes / 3)} (at most ${size(p.estimatedBytes)})`).join(' • ')}. `
+        + (free !== undefined ? `Free browser storage: ${size(free)}. ` : '')
+        + `${plans.reduce((n, p) => n + p.resources.length, 0).toLocaleString()} map pieces to download. If storage fills up, the download pauses and keeps what it saved.`;
     } catch (error) { if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Could not prepare downloads.'; }
     finally { this.preparing = false; if (!this.disposed) this.controls(); }
   }
@@ -98,7 +123,7 @@ export class OfflineDownloadsPanel {
     try {
       for (const plan of this.plans) {
         if (this.disposed) return;
-        this.message.textContent = `Downloading ${plan.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}. Completed sources survive pause/reload.`;
+        this.message.textContent = `Downloading ${plan.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}. Saved pieces are kept if you pause or reload.`;
         await OfflineDownloads.start(plan);
         if ((await OfflineStore.state(plan.id))?.state !== 'ready') break;
       }
@@ -119,8 +144,8 @@ export class OfflineDownloadsPanel {
         return { plan, source: await offlineArchiveSource(file, index, plan, signal) };
       });
       const state = importedId ? await OfflineStore.state(importedId) : undefined;
-      if (!this.disposed) this.message.textContent = state?.state === 'ready' ? `${state.name} is ready for offline High satellite viewing.`
-        : 'Import paused. Reselect the same pack file to resume; completed sources are kept.';
+      if (!this.disposed) this.message.textContent = state?.state === 'ready' ? `${state.name} is ready to view offline.`
+        : 'Import paused. Choose the same pack file again to continue; imported pieces are kept.';
     } catch (error) { if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Import failed. Reselect the pack file to retry.'; }
     finally { this.running = false; if (!this.disposed) { this.controls(); await this.refresh(); } }
   }
@@ -135,21 +160,48 @@ export class OfflineDownloadsPanel {
       const rows = await OfflineStore.list(); if (this.disposed) return;
       this.states.replaceChildren();
       for (const row of rows.sort((a, b) => b.updated - a.updated)) {
-        const line = document.createElement('p'); line.className = 'trek-meta';
-        const state = !OfflineStore.compatible(row) ? 'Saved older route revision — estimate and download the current route'
-          : row.state === 'downloading' && !OfflineDownloads.busy() ? 'Interrupted — resume' : row.state;
-        line.textContent = `${row.name}: ${state} • ${row.completed}/${row.total} sources • ${size(row.bytes)}. ${row.message} `;
-        const remove = document.createElement('button'); remove.className = 'btn btn-sm'; remove.textContent = 'Remove pack'; remove.disabled = this.running || OfflineDownloads.busy();
-        remove.onclick = () => { void OfflineDownloads.withLock(() => OfflineStore.remove(row.id)).catch(error => { this.message.textContent = String(error.message); }); };
+        const line = document.createElement('p'); line.className = 'trek-meta offline-pack-row';
+        const busy = this.running || OfflineDownloads.busy();
+        const label = document.createElement('strong'); label.textContent = row.name;
+        const status = document.createElement('span');
+        const percent = row.total ? Math.floor((row.completed / row.total) * 100) : 0;
+        status.textContent = !OfflineStore.compatible(row) ? ' — made for an older version of this route. Remove it and download again.'
+          : row.state === 'ready' ? ` — ✓ Ready offline • ${size(row.bytes)}`
+          : row.state === 'downloading' && !OfflineDownloads.busy() ? ` — Interrupted at ${percent}%. Check size, then Download to resume.`
+          : row.state === 'downloading' ? ` — Downloading ${percent}% • ${size(row.bytes)}`
+          : ` — Paused at ${percent}% • ${size(row.bytes)}. ${row.message}`;
+        line.append(label, status);
         if (row.state === 'ready' && OfflineStore.compatible(row)) {
-          const exp = document.createElement('button'); exp.className = 'btn btn-sm'; exp.textContent = 'Export pack'; exp.disabled = this.running || OfflineDownloads.busy();
+          const detail = document.createElement('span'); detail.textContent = ` • ${row.message}`;
+          line.appendChild(detail);
+          void this.reportMissing(row, status);
+          const exp = document.createElement('button'); exp.className = 'btn btn-sm'; exp.textContent = 'Export'; exp.disabled = busy;
           exp.onclick = () => { void this.exportArchive(row.id, row.routeId); };
           line.appendChild(exp);
         }
+        const remove = document.createElement('button'); remove.className = 'btn btn-sm'; remove.textContent = 'Remove'; remove.disabled = busy;
+        remove.onclick = () => {
+          if (!window.confirm(`Delete the offline map for ${row.name} (${size(row.bytes)})? This cannot be undone; you would need to download it again.`)) return;
+          void OfflineDownloads.withLock(() => OfflineStore.remove(row.id)).catch(error => { this.message.textContent = String(error.message); });
+        };
         line.appendChild(remove); this.states.appendChild(line);
       }
       this.controls();
     } catch (error) { if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Offline storage unavailable.'; }
+  }
+  /** Shows "Needs update" when the current app expects sources this ready pack lacks. */
+  private async reportMissing(row: OfflinePackState, status: HTMLElement): Promise<void> {
+    const key = `${row.id}:${row.updated}`;
+    let pending = this.missing.get(key);
+    if (!pending) {
+      pending = this.loadPlan(row.routeId, undefined, row.id.includes('-v3-') ? 'corridor-v3' : 'full-v2')
+        .then(plan => plan.id === row.id ? OfflineStore.missingCount(plan) : 0).catch(() => 0);
+      this.missing.set(key, pending);
+    }
+    const missing = await pending;
+    if (missing > 0 && !this.disposed && status.isConnected) {
+      status.textContent = ` — Needs update: ${missing.toLocaleString()} pieces changed in this app version and will load online. Check size, then Download to fetch them.`;
+    }
   }
   private async exportArchive(packId: string, routeId: string): Promise<void> {
     if (this.running || this.preparing || OfflineDownloads.busy()) return;

@@ -2,7 +2,7 @@ import { deepStrictEqual } from 'node:assert/strict';
 import { expect, it } from 'vitest';
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from '../src/terrain/SurfacePatchGeometry.ts';
-import { buildSurfacePatchGeometry as previous } from '../docs/review-2026-10-13/patches/SurfacePatchGeometry-before.ts';
+import { buildSurfacePatchGeometry as previous } from './fixtures/legacy/SurfacePatchGeometry-before.ts';
 
 const cases = [
   { name: 'whole shared grid', bounds: [-800, 800, -900, 900], holes: false },

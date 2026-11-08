@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
+import { InteractionFeedback, type FeedbackCue } from '../xr/InteractionFeedback.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import type { GeoBounds, ViewMode } from '../gpx/TrackTypes.ts';
 import { DEFAULT_COMFORT, type ComfortPreferences } from '../xr/ComfortPreferences.ts';
@@ -27,6 +28,8 @@ export { ALL_HAND_JOINTS, BONE_CONNECTIONS };
 export interface XRInteractionCallbacks {
   onDioramaManipulation?: () => void;
   onToggleViewMode?: () => void;
+  /** 0..1 while A/X is held toward a view-mode switch; null when released/cancelled. */
+  onViewModeHoldProgress?: (progress: number | null) => void;
   onTogglePlay?: () => void;
   onTurn?: (radians: number) => void;
   onLocomotion?: () => void;
@@ -75,9 +78,12 @@ const _scratchGripPos = new THREE.Vector3();
 const _scratchGripQuat = new THREE.Quaternion();
 const _scratchPlaneNormal = new THREE.Vector3();
 
-export const WAYPOINT_HOVER_RADIUS = 0.08; // 8 cm world radius (within 6-10 cm)
-export const WAYPOINT_TOUCH_RADIUS = 0.035; // 3.5 cm world radius (touch latch engage)
-export const WAYPOINT_REARM_RADIUS = 0.050; // 5.0 cm world radius (rearm hysteresis)
+/** Stepped 1:1 movement per flick (Meta comfort guidance: stepped translations). 1 m made a
+ * 24 km route take ~24,000 flicks. */
+export const FIRST_PERSON_STEP_M = 25;
+export const WAYPOINT_HOVER_RADIUS = 0.04; // 4 cm: small enough not to steal grabs reaching across the model
+export const WAYPOINT_TOUCH_RADIUS = 0.025; // 2.5 cm, index fingertip only (deliberate poke)
+export const WAYPOINT_REARM_RADIUS = 0.035; // 3.5 cm rearm hysteresis (inside the hover radius)
 
 export interface HandState {
   hand: THREE.XRHandSpace;
@@ -104,6 +110,12 @@ export interface HandState {
   directWaypointThisFrame?: boolean;
   indexTipTracked?: boolean;
   hudGrabOffset?: THREE.Vector3;
+  /** Panel-local z of the fingertip on the previous frame while over the HUD (null when away). */
+  hudPrevLocalZ?: number | null;
+  /** True only for a pinch that began while the hand was over the HUD. */
+  hudPinchArmed?: boolean;
+  /** Handedness cached at connect time so a disconnect can release its HUD pointer. */
+  cachedHandedness?: string;
 }
 
 interface ControllerState {
@@ -126,6 +138,9 @@ interface ControllerState {
   needsButtonRelease?: boolean;
   snapTurnLatched?: boolean;
   walkStepLatched?: boolean;
+  /** performance.now() when A/X went down; switching view needs a deliberate hold. */
+  viewHoldStart?: number | null;
+  viewHoldFired?: boolean;
 }
 
 export class XRManager {
@@ -499,9 +514,19 @@ export class XRManager {
 
       hand.addEventListener('connected', (event: any) => {
         state.inputSource = event.data;
+        state.cachedHandedness = event.data?.handedness;
       });
 
       hand.addEventListener('disconnected', () => {
+        // Release any HUD scrub this hand owned, using the handedness it connected with.
+        if (state.isClickingHUD || state.hudPrevLocalZ != null) {
+          this.spatialHUD?.onPointerRelease(`hand_${state.cachedHandedness ?? 'unknown'}`);
+          this.spatialHUD?.onPointerLeave();
+        }
+        state.isClickingHUD = false;
+        state.hudPrevLocalZ = null;
+        state.hudPinchArmed = false;
+        state.hudGrabOffset = undefined;
         state.inputSource = null;
         state.pinchTracker = createPinchTracker();
         state.isPinching = false;
@@ -525,6 +550,12 @@ export class XRManager {
 
     const dt = clampDeltaSeconds(deltaSeconds);
     this.activePointerRay = null;
+    // Three.js updates controller/grip local matrices from the XR pose; refresh world matrices
+    // now so rays and grabs use this frame's pose instead of the previous frame's.
+    for (const ctrl of this.controllers) {
+      ctrl.controller.updateMatrixWorld(true);
+      ctrl.grip.updateMatrixWorld(true);
+    }
 
     // 0. Update Bare Hand Tracking joint data, bone skeleton, and pinch state
     this.updateHandTracking();
@@ -614,7 +645,7 @@ export class XRManager {
             let metersDelta = computeThumbstickWalkDelta(stickY, isTurbo, dt);
             if (this.comfort.movement === 'step') {
               if (Math.abs(stickY) < 0.25) state.walkStepLatched = false;
-              metersDelta = Math.abs(stickY) > 0.65 && !state.walkStepLatched ? -Math.sign(stickY) : 0;
+              metersDelta = Math.abs(stickY) > 0.65 && !state.walkStepLatched ? -Math.sign(stickY) * FIRST_PERSON_STEP_M : 0;
               if (metersDelta !== 0) state.walkStepLatched = true;
             }
             if (metersDelta !== 0) {
@@ -632,15 +663,24 @@ export class XRManager {
             const pan = computeThumbstickPan(stickX, stickY, isTurbo, dt);
             if (pan.dx !== 0 || pan.dz !== 0) {
               this.callbacks.onDioramaManipulation?.();
-              this.sceneManager.dioramaRoot.position.x -= pan.dx;
-              this.sceneManager.dioramaRoot.position.z -= pan.dz;
+              // Head-relative: "push forward" means away from where the user faces, even after
+              // turning around (world X/Z felt inverted when facing the other way).
+              this.getActiveCamera().getWorldDirection(_scratchV3);
+              const yaw = Math.atan2(-_scratchV3.x, -_scratchV3.z);
+              const cos = Math.cos(yaw), sin = Math.sin(yaw);
+              const worldDx = pan.dx * cos + pan.dz * sin;
+              const worldDz = -pan.dx * sin + pan.dz * cos;
+              this.sceneManager.dioramaRoot.position.x -= worldDx;
+              this.sceneManager.dioramaRoot.position.z -= worldDz;
             }
           }
         }
 
         // --- Right Controller: ROTATE & ZOOM ---
         if (source.handedness === 'right' || source.handedness === 'none') {
-          let rotY = computeThumbstickRotation(stickX, dt);
+          // Tabletop: lock to the dominant axis so a diagonal push does not rotate and zoom at once.
+          const rotateAxis = this.currentViewMode !== 'diorama' || Math.abs(stickX) >= Math.abs(stickY);
+          let rotY = rotateAxis ? computeThumbstickRotation(stickX, dt) : 0;
           if (this.currentViewMode === 'first-person' && this.comfort.turning === 'snap') {
             // One 30° turn per deliberate deflection; return to center to re-arm.
             if (Math.abs(stickX) < 0.25) state.snapTurnLatched = false;
@@ -658,7 +698,7 @@ export class XRManager {
             }
           }
           if (this.currentViewMode === 'diorama') {
-            const zoomFactor = computeThumbstickZoomFactor(stickY, dt);
+            const zoomFactor = rotateAxis ? 1.0 : computeThumbstickZoomFactor(stickY, dt);
             if (zoomFactor !== 1.0) {
               this.callbacks.onDioramaManipulation?.();
               const currentScale = this.sceneManager.dioramaRoot.scale.x;
@@ -705,9 +745,25 @@ export class XRManager {
       }
 
       // Button Shortcuts
-      if (b4_primary && !state.prevButtons[4]) {
-        this.triggerHaptic(i, 0.7, 50);
-        this.callbacks.onToggleViewMode?.();
+      // Hold A/X ~0.6 s to switch between tabletop and life-size 1:1. A single tap used to
+      // drop the user into a life-size world instantly, which is jarring and, in passthrough,
+      // hides the real floor.
+      if (b4_primary) {
+        const now = performance.now();
+        if (!state.prevButtons[4]) { state.viewHoldStart = now; state.viewHoldFired = false; this.playFeedback('arm'); }
+        if (!state.viewHoldFired && state.viewHoldStart != null) {
+          const progress = Math.min(1, (now - state.viewHoldStart) / XRManager.VIEW_HOLD_MS);
+          this.callbacks.onViewModeHoldProgress?.(progress);
+          if (progress >= 1) {
+            state.viewHoldFired = true;
+            this.triggerHaptic(i, 0.8, 60);
+            this.callbacks.onViewModeHoldProgress?.(null);
+            this.callbacks.onToggleViewMode?.();
+          }
+        }
+      } else if (state.prevButtons[4]) {
+        if (!state.viewHoldFired) this.callbacks.onViewModeHoldProgress?.(null);
+        state.viewHoldStart = null;
       }
 
       if (b5_secondary && !state.prevButtons[5]) {
@@ -1021,6 +1077,7 @@ export class XRManager {
           } else if (isTouchingDiorama && state.pinchTracker.justPinched) {
             // Stage V1: ONLY grab diorama if virtually touching it AND fresh confirmed pinch edge!
             state.activeInteraction = 'diorama';
+            this.playFeedback('grab');
             state.prevPinchWorldPos.copy(state.pinchWorldPos);
             state.prevWristWorldPos.copy(state.wristWorldPos);
             state.prevWristWorldQuat.copy(state.wristWorldQuat);
@@ -1134,46 +1191,51 @@ export class XRManager {
     const local = _scratchV1.copy(fingerPos);
     hudGroup.worldToLocal(local);
 
-    // 1. Check if user is grabbing the HUD top grab bar / handle
-    const isNearGrabHandle = Math.abs(local.z) < 0.08 && local.y <= 0.335 && (
-      (local.y >= 0.23 && Math.abs(local.x) <= 0.16) ||
-      (local.y >= 0.265 && Math.abs(local.x) <= 0.24)
-    );
-    if ((isNearGrabHandle || state.hudGrabOffset) && isPinching) {
+    // 1. Grab bar above the panel (geometry from SpatialHUD, not duplicated constants).
+    const { halfW, halfH } = this.spatialHUD.getPanelHalfExtents();
+    const handleY = this.spatialHUD.getGrabHandleLocalY();
+    const isNearGrabHandle = Math.abs(local.z) < 0.08 && Math.abs(local.x) <= 0.24
+      && local.y >= halfH - 0.035 && local.y <= handleY + 0.045;
+    const pinchStarted = isPinching && !state.prevPinching;
+    if (isNearGrabHandle && pinchStarted) state.hudGrabOffset = hudGroup.position.clone().sub(fingerPos);
+    if (state.hudGrabOffset && isPinching) {
       const activeCam = this.getActiveCamera();
       activeCam.getWorldPosition(_scratchV3);
-      state.hudGrabOffset ??= hudGroup.position.clone().sub(fingerPos);
       hudGroup.position.copy(fingerPos).add(state.hudGrabOffset);
       this.spatialHUD.group.lookAt(_scratchV3.x, this.spatialHUD.group.position.y, _scratchV3.z);
       return true; // Exclude from diorama grab
     }
 
-    // Spatial HUD mesh is centered at origin; use its actual geometry dimensions.
-    const halfW = 0.40;
-    const halfH = 0.265;
-
-    // Check if fingertip is within 5.5cm of HUD surface and within the card boundaries
-    if (Math.abs(local.z) < 0.055 && Math.abs(local.x) <= halfW && Math.abs(local.y) <= halfH) {
-      // Normalized UV on HUD canvas: u in [0, 1] from left to right, v in [0, 1] from bottom to top
-      const u = (local.x + halfW) / (2 * halfW);
-      const v = (local.y + halfH) / (2 * halfH);
-      const uv = _scratchV2D1.set(u, v);
-
+    // 2. Panel face. The panel's front (+Z) faces the user after lookAt.
+    const uv = Math.abs(local.z) < 0.055 ? this.spatialHUD.localToUV(local, _scratchV2D1) : null;
+    if (uv) {
+      const prevZ = state.hudPrevLocalZ ?? null;
+      state.hudPrevLocalZ = local.z;
       this.spatialHUD.onPointerHover(uv);
 
-      // Click when pinching or when finger pokes deeply into surface (< 1.5cm)
-      const isPoke = local.z < 0.015 && local.z > -0.025;
-      if ((isPinching || isPoke) && !state.isClickingHUD && !(isPinching && state.prevPinching && state.activeInteraction === 'hud')) {
+      // A pinch counts only when it begins over the panel; sweeping a held pinch across
+      // buttons never clicks. A poke counts only when the fingertip arrives from the front
+      // after at least one hover frame, so a hand passing through from behind is ignored.
+      if (pinchStarted) state.hudPinchArmed = true;
+      if (!isPinching) state.hudPinchArmed = false;
+      const POKE_DEPTH = 0.012;
+      const inPokeZone = local.z < POKE_DEPTH && local.z > -0.03;
+      const pokeArrived = inPokeZone && prevZ !== null && prevZ >= POKE_DEPTH;
+      const pressing = (isPinching && state.hudPinchArmed) || (inPokeZone && (state.isClickingHUD || pokeArrived));
+      if (pressing && !state.isClickingHUD) {
         state.isClickingHUD = true;
-        this.spatialHUD.onPointerClick(uv, pointerId);
-      } else if ((isPinching || isPoke) && state.isClickingHUD) {
+        if (this.spatialHUD.onPointerClick(uv, pointerId)) this.playFeedback('press');
+      } else if (pressing && state.isClickingHUD) {
         this.spatialHUD.onPointerDrag(uv, pointerId);
-      } else if (!isPinching && !isPoke) {
+      } else if (!pressing && state.isClickingHUD) {
         state.isClickingHUD = false;
         this.spatialHUD.onPointerRelease(pointerId);
       }
       return true; // Hand is engaged with HUD
     }
+    if (state.hudPrevLocalZ !== null && state.hudPrevLocalZ !== undefined) this.spatialHUD.onPointerLeave();
+    state.hudPrevLocalZ = null;
+    state.hudPinchArmed = false;
     state.isClickingHUD = false;
     this.spatialHUD.onPointerRelease(pointerId);
     return false;
@@ -1206,6 +1268,7 @@ export class XRManager {
 
     let closestPin: THREE.Group | null = null;
     let closestDist = Infinity;
+    let closestIndexDist = Infinity;
 
     for (const child of wpGroup.children) {
       const pin = child as THREE.Group;
@@ -1219,6 +1282,7 @@ export class XRManager {
       if (dist < closestDist) {
         closestDist = dist;
         closestPin = pin;
+        closestIndexDist = distIndex;
       }
     }
 
@@ -1236,8 +1300,9 @@ export class XRManager {
         state.latchedWaypointPin = null;
       }
 
-      // Direct fingertip touch (<= 3.5cm) with latching
-      const isTouch = closestDist <= WAYPOINT_TOUCH_RADIUS;
+      // Deliberate index-fingertip poke (the pinch point brushing past a marker does not select;
+      // that used to jump playback while reaching across the model to grab it).
+      const isTouch = closestIndexDist <= WAYPOINT_TOUCH_RADIUS && !isPinching;
       const isPinchSelect = (isPinching && !state.prevPinching) || (state.pinchTracker?.justPinched ?? false);
 
       if (isTouch) {
@@ -1246,6 +1311,7 @@ export class XRManager {
           state.isTouchingWaypoint = true;
           state.latchedWaypointPin = closestPin;
           DioramaBase.onSelectWaypoint(this.sceneManager.dioramaRoot, closestPin);
+          this.playFeedback('select');
           if (wp) {
             this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
           }
@@ -1256,6 +1322,7 @@ export class XRManager {
         state.isTouchingWaypoint = true;
         state.latchedWaypointPin = closestPin;
         DioramaBase.onSelectWaypoint(this.sceneManager.dioramaRoot, closestPin);
+        this.playFeedback('select');
         if (wp) {
           this.callbacks.onSelectWaypoint?.(wp.name, wp.lat, wp.lon);
         }
@@ -1302,12 +1369,17 @@ export class XRManager {
       );
     } else if (grabs.length === 1) {
       const g = grabs[0];
+      // A bare-hand pinch only moves the model: the hand's pointing direction changes
+      // naturally while sweeping the arm (and jitters ~1°), which made the model swing.
+      // Rotation with hands uses the two-hand "steering wheel". Controllers keep a stable
+      // grip pose, so a controller grab still turns the model with the wrist.
+      const rotate = g.source === 'controller';
       applyOneHandedManipulation(
         this.sceneManager.dioramaRoot,
         g.prevWorldPos,
         g.worldPos,
-        g.prevWristQuat,
-        g.wristQuat,
+        rotate ? g.prevWristQuat : undefined,
+        rotate ? g.wristQuat : undefined,
         this.horizonLocked
       );
     }
@@ -1469,6 +1541,7 @@ export class XRManager {
           const handled = this.spatialHUD!.onPointerClick(hudHit.uv, pointerId);
           if (handled) {
             this.triggerHaptic(controllerIdx, 0.9, 60);
+            this.playFeedback('press');
           }
         } else if (isTriggerDown) {
           this.spatialHUD!.onPointerDrag(hudHit.uv, pointerId);
@@ -1594,6 +1667,13 @@ export class XRManager {
     }
   }
 
+  private readonly feedback = new InteractionFeedback();
+  public static readonly VIEW_HOLD_MS = 600;
+
+  public playFeedback(cue: FeedbackCue): void {
+    this.feedback.play(cue);
+  }
+
   public triggerHaptic(controllerIndex: number, intensity: number, durationMs: number): void {
     const state = this.controllers[controllerIndex];
     const source = state?.inputSource;
@@ -1612,6 +1692,7 @@ export class XRManager {
   public dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    this.feedback.dispose();
 
     this.resetInteractionState();
 

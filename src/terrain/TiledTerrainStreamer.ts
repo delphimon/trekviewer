@@ -85,15 +85,19 @@ export class TiledTerrainStreamer {
       west: !isVisible(`${col - 1}:${row}`),
     };
   }
-  public syncNeighborOuterEdges(): boolean {
-    let anyUpdated = false;
+  /** Blends each visible chunk to the coarse parent only along edges with no visible
+   * high-resolution neighbour. Returns the chunks whose surface changed. */
+  public syncNeighborOuterEdges(): LocalTerrainChunk[] {
+    const updated: LocalTerrainChunk[] = [];
     for (const [id, chunk] of this.chunks.entries()) {
       if (!chunk.mesh.visible) continue;
-      if (chunk.setOuterEdges(this.computeOuterEdgesForTile(id))) {
-        anyUpdated = true;
-      }
+      if (chunk.setOuterEdges(this.computeOuterEdgesForTile(id))) updated.push(chunk);
     }
-    return anyUpdated;
+    return updated;
+  }
+
+  private syncSeams(terrain: { notifySurfaceChange?: (bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) => void }): void {
+    for (const chunk of this.syncNeighborOuterEdges()) terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
   }
   public getViewMode(): ViewMode { return this.mode; }
   public getTabletopFocusGeo(): { lat: number; lon: number } | null { return this.focus; }
@@ -225,6 +229,7 @@ export class TiledTerrainStreamer {
           minX: Math.min(...bounds.map(b => b.minX)), maxX: Math.max(...bounds.map(b => b.maxX)),
           minZ: Math.min(...bounds.map(b => b.minZ)), maxZ: Math.max(...bounds.map(b => b.maxZ)),
         });
+        this.syncSeams(terrain);
       }
     }
     // Publish at most one prepared child per frame. The parent fills every other cell.
@@ -250,6 +255,7 @@ export class TiledTerrainStreamer {
         if (chunk.currentGrid?.preferredSourceRetry) this.recordFailure(id);
         else this.failed.delete(id);
         chunk.mesh.visible = true;
+        this.syncSeams(terrain);
         terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
       }
     }

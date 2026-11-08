@@ -1,6 +1,7 @@
 /* Generated worker: each installed shell version is complete and immutable.
- * Deliberately no skipWaiting()/clients.claim(): updates wait for existing tabs
- * and XR sessions to close. Route packs are independent IndexedDB resources.
+ * Updates never activate on their own (a running XR session must not swap assets).
+ * The page offers "Reload to update", which posts SKIP_WAITING and reloads once the
+ * new worker controls it. Route packs are independent IndexedDB resources.
  */
 const manifest = __TREK_SHELL_MANIFEST__;
 const cacheName = 'trekviewer-shell-' + manifest.id;
@@ -23,6 +24,9 @@ self.addEventListener('install', event => {
     } catch (error) { await caches.delete(cacheName); throw error; }
   })());
 });
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     for (const name of await caches.keys()) if (name.startsWith('trekviewer-shell-') && name !== cacheName) await caches.delete(name);
@@ -31,6 +35,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const request = event.request, url = new URL(request.url), root = new URL(scope);
   if (request.method !== 'GET' || url.origin !== root.origin) return;
+  // Entry-recovery retries exist to bypass a corrupted cached copy: always use the network.
+  if (url.searchParams.has('trekRetry')) return;
   const canonical = url.origin + url.pathname;
   const navigation = request.mode === 'navigate' && (url.pathname === root.pathname || canonical === indexUrl);
   if (!navigation && !paths.has(canonical)) return;

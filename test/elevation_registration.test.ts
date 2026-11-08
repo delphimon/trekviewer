@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { elevationRasterRequest } from '../src/terrain/BestAvailableElevation.ts';
 
 it('preserves the live service sample-centre footprint for a non-square Olympus raster', () => {
-  const capture = JSON.parse(readFileSync('docs/review-2026-10-19/dem-registration/registration.json', 'utf8'));
+  const capture = JSON.parse(readFileSync('test/fixtures/legacy/dem-registration.json', 'utf8'));
   const request = elevationRasterRequest(capture.bounds, 5);
   expect(request).toEqual(capture.request);
   expect(new URL(request.url).searchParams.get('adjustAspectRatio')).toBe('false');

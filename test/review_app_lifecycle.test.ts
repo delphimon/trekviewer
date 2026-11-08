@@ -21,7 +21,7 @@ it.each([false, true])('prioritizes the displayed hiker ground during diorama fo
     updateHikerProgress: update, updateWaypoints: () => {} };
   app.routeLoader = { getActiveTrek: () => trek }; app.session = { getState: () => state };
   app.sceneManager = { camera, dioramaRoot: root, renderer: { xr: { isPresenting, getCamera: () => camera } },
-    updateCameraClipping: () => {}, updateMotionVignette: () => {}, render: () => {} };
+    updateCameraClipping: () => {}, updateMotionVignette: () => {}, setFade: () => {}, render: () => {} };
   app.xrManager = { update: () => {}, getActivePointerRay: () => null }; app.controls = { enabled: false, target: new THREE.Vector3() }; app.comfort = { vignette: false };
   app.dioramaFollow = app.dioramaModelFollow = { update: () => {} }; app.followFocus = new THREE.Vector3(); app.lastTimestamp = performance.now();
   app.animate(performance.now());
@@ -42,7 +42,7 @@ it('grounds the viewer on the new surface before rendering its promotion',()=>{
   const trek:any={terrainResult:{surfaceRevision:1},flyoverController:flyover,imageryLOD:{setActiveInteractionRay:()=>{},update:()=>{},getInspectedGeo:()=>null,getDetailFocusPoints:()=>[]},
     updateHikerProgress:()=>{ground=200;trek.terrainResult.surfaceRevision++;},updateWaypoints:()=>{}};
   app.routeLoader={getActiveTrek:()=>trek};app.session={getState:()=>({viewMode:'first-person'})};
-  app.sceneManager={camera,dioramaRoot:root,renderer:{xr:{isPresenting:true,getCamera:()=>camera}},updateCameraClipping:vi.fn(),updateMotionVignette:()=>{},render:()=>{renderedFeet=ground+root.position.y;}};
+  app.sceneManager={camera,dioramaRoot:root,renderer:{xr:{isPresenting:true,getCamera:()=>camera}},updateCameraClipping:vi.fn(),updateMotionVignette:()=>{},setFade:()=>{},render:()=>{renderedFeet=ground+root.position.y;}};
   app.xrManager={update:()=>{},getActivePointerRay:()=>null};app.controls={enabled:false};app.comfort={vignette:false};app.lastTimestamp=performance.now();
   app.animate(performance.now());
   expect(renderedFeet).toBe(0);
@@ -51,7 +51,7 @@ it('grounds the viewer on the new surface before rendering its promotion',()=>{
 it('keeps a dragged HUD fixed when the headset moves, and explicitly summons it',()=>{
   const camera=new THREE.PerspectiveCamera();camera.position.set(0,1.6,0);
   const app:any=Object.create(TrekViewerApp.prototype);
-  app.sceneManager={camera,renderer:{xr:{isPresenting:true,getCamera:()=>camera}},dioramaRoot:new THREE.Group(),render:vi.fn(),updateCameraClipping:vi.fn(),updateMotionVignette:vi.fn()};
+  app.sceneManager={camera,renderer:{xr:{isPresenting:true,getCamera:()=>camera}},dioramaRoot:new THREE.Group(),render:vi.fn(),updateCameraClipping:vi.fn(),updateMotionVignette:vi.fn(),setFade:vi.fn()};
   app.spatialHUD={group:new THREE.Group(),setDockSide:vi.fn(),setAngularSize:vi.fn(),update:vi.fn()};
   app.session={getState:()=>({viewMode:'first-person'})};app.comfort={vignette:true,panelScale:1};
   app.routeLoader={getActiveTrek:()=>null};

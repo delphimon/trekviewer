@@ -22,6 +22,8 @@ export class SceneManager {
   private targetRotationY: number = 0;
   private onWindowResizeBound: () => void;
   private readonly vignette: THREE.Mesh;
+  /** Full-view black overlay for comfortable XR transitions (fade through black). */
+  private readonly fadeOverlay: THREE.Mesh;
   private terrainExtent = 1000;
   private qualityProfile: QualityProfileName;
   private readonly onXRSessionStartBound = () => this.setQualityProfile(this.qualityProfile);
@@ -73,6 +75,15 @@ export class SceneManager {
     this.vignette.renderOrder = 2000;
     this.vignette.visible = false;
     this.scene.add(this.vignette);
+    this.fadeOverlay = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: { opacity: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false,
+      vertexShader: 'void main(){gl_Position=vec4(position.xy,0.0,1.0);}',
+      fragmentShader: 'uniform float opacity; void main(){gl_FragColor=vec4(0.0,0.0,0.0,opacity);}',
+    }));
+    this.fadeOverlay.frustumCulled = false;
+    this.fadeOverlay.renderOrder = 2001;
+    this.fadeOverlay.visible = false;
+    this.scene.add(this.fadeOverlay);
 
     // 5. Lighting
     this.hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.2);
@@ -185,6 +196,13 @@ export class SceneManager {
       this.terrainExtent * this.dioramaRoot.scale.length());
   }
 
+  /** 0 = clear, 1 = fully black. Only drawn while presenting in XR. */
+  public setFade(opacity: number): void {
+    const value = Math.max(0, Math.min(1, opacity));
+    (this.fadeOverlay.material as THREE.ShaderMaterial).uniforms.opacity.value = value;
+    this.fadeOverlay.visible = this.renderer.xr.isPresenting && value > 0.002;
+  }
+
   public updateMotionVignette(active: boolean, delta: number): void {
     const uniform = (this.vignette.material as THREE.ShaderMaterial).uniforms.strength;
     const target = active ? 0.8 : 0;
@@ -258,6 +276,7 @@ export class SceneManager {
     this.renderer.xr.removeEventListener('sessionstart', this.onXRSessionStartBound);
     disposeObject3D(this.skyMesh);
     disposeObject3D(this.vignette);
+    disposeObject3D(this.fadeOverlay);
     disposeObject3D(this.dioramaRoot);
     this.sunLight.shadow.map?.dispose();
     this.renderer.dispose();

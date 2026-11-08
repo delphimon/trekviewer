@@ -9,7 +9,7 @@ import { elevationRasterRequest } from '../src/terrain/BestAvailableElevation.ts
 
 const out = path.resolve(process.env.TREK_DEM_AUDIT_OUT ?? '.review-cache/dem-registration');
 fs.mkdirSync(out, { recursive: true });
-const native = JSON.parse(fs.readFileSync('docs/review-2026-10-19/native-tabletop/terrain.json', 'utf8'));
+const native = JSON.parse(fs.readFileSync('test/fixtures/legacy/native-tabletop-terrain.json', 'utf8'));
 const t = native.terrainBounds;
 const latMargin = (t.maxLat - t.minLat) * .05, lonMargin = (t.maxLon - t.minLon) * .05;
 const bounds = { minLat: t.minLat - latMargin, maxLat: t.maxLat + latMargin,

@@ -32,7 +32,18 @@ export function offlineGeographicKey(url: string): string | null {
     if (!size || values?.length !== 4 || values.some(v => !Number.isFinite(v) || Math.abs(v) > 3e7)) return null;
     const decimals = bboxSR === '3857' ? 3 : 7;
     const normBbox = values.map(v => v.toFixed(decimals)).join(',');
-    return `geo:${isElevation ? 'elevation' : 'image'}:${bboxSR}:${normBbox}:${size}`;
+    // Mirrors of the same imagery may differ in renderingRule/interpolation, so those stay out.
+    // Parameters that change the output encoding or values must match: a PNG hillshade must
+    // never be served LERC heights. Planner defaults are omitted so keys stored by earlier
+    // versions (for default requests) still match.
+    const defaults: Record<string, string> = isElevation
+      ? { format: 'lerc', pixelType: 'F32', imageSR: '3857', compressionTolerance: '0' }
+      : { format: 'png32', imageSR: '3857' };
+    const extras = ['format', 'pixelType', 'imageSR', 'compressionTolerance', 'lercVersion', 'noData', 'mosaicRule']
+      .map(name => [name, u.searchParams.get(name) ?? defaults[name] ?? ''] as const)
+      .filter(([name, value]) => value !== (defaults[name] ?? ''))
+      .map(([name, value]) => `${name}=${value}`).join('&');
+    return `geo:${isElevation ? 'elevation' : 'image'}:${bboxSR}:${normBbox}:${size}${extras ? `:${extras}` : ''}`;
   } catch {
     return null;
   }

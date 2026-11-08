@@ -118,7 +118,7 @@ describe('Stage V2: Waypoint Touch Latching, Rearm Hysteresis & Elevation Precis
       handState.visualOutline.group.visible = true;
 
       // 1. Move fingertip directly into TOUCH radius (e.g. 2 cm away, <= WAYPOINT_TOUCH_RADIUS 3.5cm)
-      const touchPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.02, 0));
+      const touchPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.015, 0));
       handState.jointPosMap.set('index-finger-tip', touchPos);
       handState.indexTipWorldPos.copy(touchPos);
       handState.pinchWorldPos.copy(touchPos);
@@ -145,7 +145,7 @@ describe('Stage V2: Waypoint Touch Latching, Rearm Hysteresis & Elevation Precis
       }
 
       // 3. Move finger outward to 6.0 cm (>= WAYPOINT_REARM_RADIUS 5.0cm, but <= WAYPOINT_HOVER_RADIUS 8.0cm)
-      const rearmPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.06, 0));
+      const rearmPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.038, 0));
       handState.jointPosMap.set('index-finger-tip', rearmPos);
       handState.indexTipWorldPos.copy(rearmPos);
       handState.pinchWorldPos.copy(rearmPos);

@@ -4,7 +4,7 @@
 
 The 1:1 Quest view should keep visible terrain sharp as the user turns their head, without replacing hundreds of imagery patches or exposing obviously faceted ridgelines. The tabletop view must continue to load arbitrary GPX routes and preserve its current controls.
 
-The stable imagery footprint in build `6b046c5` removed the measured head-turn churn on Enchantments: no incomplete selected-coverage windows, in-flight imagery requests, or new patches after startup in the 90-second run. The same screenshots still show broad soft faces and faceted peaks. The current first-person renderer uses a single visible local DEM chunk inside a full-route base mesh, whose Quest grid targets about 120 m cells. The outer stable imagery footprint is z16. See [the headset profile comparison](review-2026-09-26/QUEST_HEADSET_PROFILES.md).
+The stable imagery footprint in build `6b046c5` removed the measured head-turn churn on Enchantments: no incomplete selected-coverage windows, in-flight imagery requests, or new patches after startup in the 90-second run. The same screenshots still show broad soft faces and faceted peaks. The current first-person renderer uses a single visible local DEM chunk inside a full-route base mesh, whose Quest grid targets about 120 m cells. The outer stable imagery footprint is z16. See the headset profile comparison (historical evidence, removed in the 2026-11-08 cleanup; see git history).
 
 Build `f2d8393` adds a bounded `?terrainGrid=60` experiment. A matched headset run must establish how much of the visible defect is base-mesh undersampling, how much is imagery resolution or DEM source quality, and what additional geometry costs on the headset. It is not the destination architecture.
 

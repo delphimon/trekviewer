@@ -18,7 +18,12 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 function directHUD() {
   const xr: any = Object.create(XRManager.prototype);
   xr.comfort = { ...DEFAULT_COMFORT };
-  xr.spatialHUD = { group: new THREE.Group(), onPointerHover: vi.fn(), onPointerClick: vi.fn(), onPointerDrag: vi.fn(), onPointerRelease: vi.fn() };
+  const grabMesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.02, 0.02)); grabMesh.position.y = 0.29;
+  xr.spatialHUD = Object.assign(Object.create(SpatialHUD.prototype), {
+    group: new THREE.Group(), mesh: new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6)), grabMesh,
+    onPointerHover: vi.fn(), onPointerClick: vi.fn(), onPointerDrag: vi.fn(), onPointerRelease: vi.fn(), onPointerLeave: vi.fn(),
+  });
+  xr.playFeedback = () => {};
   xr.getActiveCamera = () => new THREE.PerspectiveCamera();
   return xr;
 }
@@ -33,8 +38,13 @@ function handState(): any {
 
 it('re-arms direct pokes after fast withdrawal and hidden-panel cancellation', () => {
   const xr = directHUD(), hand: any = { isClickingHUD: false };
-  for (const z of [0, 0.2, 0]) xr.checkHandHUDInteraction(hand, new THREE.Vector3(0, 0, z), false);
+  // A poke must arrive from the front after a hover frame; withdrawing re-arms it.
+  for (const z of [0.04, 0, 0.04, 0]) xr.checkHandHUDInteraction(hand, new THREE.Vector3(0, 0, z), false);
   expect(xr.spatialHUD.onPointerClick).toHaveBeenCalledTimes(2);
+  // Entering straight into the press zone (e.g. from behind the panel) never clicks.
+  const fresh = directHUD(), passing: any = { isClickingHUD: false };
+  for (const z of [-0.02, 0]) fresh.checkHandHUDInteraction(passing, new THREE.Vector3(0, 0, z), false);
+  expect(fresh.spatialHUD.onPointerClick).not.toHaveBeenCalled();
   xr.spatialHUD.group.visible = false;
   xr.checkHandHUDInteraction(hand, new THREE.Vector3(), false);
   expect(hand.isClickingHUD).toBe(false);
@@ -55,7 +65,7 @@ it('keeps a scaled HUD grab stable and captured when the fingertip leaves the ha
 it('dispatches a near hand pinch exactly once when the far ray also intersects the HUD', () => {
   const xr = directHUD(), hand = handState();
   xr.spatialHUD.group.position.z = -0.5;
-  xr.spatialHUD.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.53), new THREE.MeshBasicMaterial());
+  xr.spatialHUD.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), new THREE.MeshBasicMaterial());
   xr.spatialHUD.grabMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1));
   xr.spatialHUD.grabMesh.position.y = 2;
   xr.spatialHUD.group.add(xr.spatialHUD.mesh, xr.spatialHUD.grabMesh);
