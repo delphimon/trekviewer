@@ -83,6 +83,10 @@ export class SpatialHUD {
   private statusProgress: number = 0;
 
   private hoveredAreaId: string | null = null;
+  /** Destructive buttons need a second press within this window (Exit). */
+  private confirmAreaId: string | null = null;
+  private confirmTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly CONFIRM_WINDOW_MS = 3000;
   private interactiveAreas: InteractiveArea[] = [];
   private isDraggingScrubber: boolean = false;
   private scrubPointer: string | null = null;
@@ -327,7 +331,7 @@ export class SpatialHUD {
         y: 25,
         w: 210,
         h: 54,
-        action: () => this.callbacks.onExitMR(),
+        action: () => { if (this.confirmPress('exit-mr')) this.callbacks.onExitMR(); },
       },
 
       // Row 1: Flyover Transport & Speeds (y = 410)
@@ -380,7 +384,8 @@ export class SpatialHUD {
         y: 485,
         w: 180,
         h: 58,
-        action: () => this.callbacks.onToggleViewMode(),
+        // Entering the life-size view needs a second tap; returning to the tabletop does not.
+        action: () => { if (this.currentViewMode !== 'diorama' || this.confirmPress('btn-view')) this.callbacks.onToggleViewMode(); },
       },
       // Focus on Hiker
       {
@@ -608,8 +613,59 @@ export class SpatialHUD {
   /** Maintain a 2.7° button height at the settled dock distance; 10px gaps exceed 12mm. */
   public setAngularSize(distanceM: number, preference: number = 1): void {
     const buttonHeight = 0.8 * 58 / 1024;
-    const scale = Math.max(1.55, 2 * Math.max(0.5, distanceM) * Math.tan(2.7 * Math.PI / 360) / buttonHeight);
+    // Size buttons to Meta's ~2.7° minimum target angle at this distance. (The previous 1.55
+    // floor made the panel at least 1.24 m wide and hid part of the model.)
+    const scale = Math.max(0.9, 2 * Math.max(0.5, distanceM) * Math.tan(2.7 * Math.PI / 360) / buttonHeight);
     this.group.scale.setScalar(Math.min(4, scale) * preference);
+  }
+
+  /** First press arms the button and relabels it; a second press within the window confirms. */
+  private confirmPress(id: string): boolean {
+    if (this.confirmAreaId === id) {
+      this.clearConfirm();
+      return true;
+    }
+    this.clearConfirm();
+    this.confirmAreaId = id;
+    this.confirmTimer = setTimeout(() => { this.clearConfirm(); this.drawHUD(); }, SpatialHUD.CONFIRM_WINDOW_MS);
+    return false;
+  }
+
+  private clearConfirm(): void {
+    if (this.confirmTimer) clearTimeout(this.confirmTimer);
+    this.confirmTimer = null;
+    this.confirmAreaId = null;
+  }
+
+  /** Panel half-size in group-local metres, from the real mesh geometry (used for finger hit-tests). */
+  /**
+   * Draw the panel over everything (no depth test) for the rare case where terrain still sits
+   * between the eye and the panel after it has been lifted as far as is comfortable.
+   */
+  public setAlwaysOnTop(onTop: boolean): void {
+    for (const mesh of [this.mesh, this.grabMesh]) {
+      const material = mesh.material as THREE.Material;
+      if (material.depthTest === !onTop) continue;
+      material.depthTest = !onTop;
+      mesh.renderOrder = onTop ? 1000 : 0;
+    }
+  }
+
+  public getPanelHalfExtents(): { halfW: number; halfH: number } {
+    const params = (this.mesh.geometry as THREE.PlaneGeometry).parameters;
+    return { halfW: params.width / 2, halfH: params.height / 2 };
+  }
+
+  /** Converts a group-local point on the panel plane to canvas UV, or null when outside the panel. */
+  public localToUV(local: THREE.Vector3, target: THREE.Vector2): THREE.Vector2 | null {
+    const { halfW, halfH } = this.getPanelHalfExtents();
+    if (Math.abs(local.x) > halfW || Math.abs(local.y) > halfH) return null;
+    return target.set((local.x + halfW) / (2 * halfW), (local.y + halfH) / (2 * halfH));
+  }
+
+  /** Group-local Y of the grab handle above the panel. */
+  public getGrabHandleLocalY(): number {
+    return this.grabMesh.position.y;
   }
 
   public onPointerClick(uv: THREE.Vector2, pointerId: string = 'default'): boolean {
@@ -984,7 +1040,8 @@ export class SpatialHUD {
 
     // 3. Exit MR Button (Top Right)
     const exitHover = this.hoveredAreaId === 'exit-mr';
-    ctx.fillStyle = exitHover ? '#e11d48' : 'rgba(225, 29, 72, 0.9)';
+    const exitArmed = this.confirmAreaId === 'exit-mr';
+    ctx.fillStyle = exitArmed ? '#f59e0b' : exitHover ? '#e11d48' : 'rgba(225, 29, 72, 0.9)';
     ctx.beginPath();
     ctx.roundRect(780, 25, 210, 54, 14);
     ctx.fill();
@@ -994,7 +1051,7 @@ export class SpatialHUD {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 19px sans-serif';
-    ctx.fillText('🚪 Exit MR / VR', 808, 59);
+    ctx.fillText(exitArmed ? 'Tap again to exit' : '🚪 Exit MR / VR', 808, 59);
 
     // 4. Dynamic Stat 4: CURRENT ELEV
     const colW = (w - 70) / 4;
@@ -1143,7 +1200,7 @@ export class SpatialHUD {
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(this.currentViewMode === 'first-person' ? '⏪ -1 m' : '⏪ -10s', 242, 446);
+    ctx.fillText(this.currentViewMode === 'first-person' ? '⏪ -25 m' : '⏪ -10s', 242, 446);
 
     // Step +10s Button
     const stepFwdHover = this.hoveredAreaId === 'btn-step-fwd';
@@ -1153,7 +1210,7 @@ export class SpatialHUD {
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(this.currentViewMode === 'first-person' ? '+1 m ⏩' : '+10s ⏩', 345, 446);
+    ctx.fillText(this.currentViewMode === 'first-person' ? '+25 m ⏩' : '+10s ⏩', 345, 446);
 
     // Speeds: 1x, 5x, 20x, 60x
     const speeds = playbackPresentation(this.playbackMode, this.currentViewMode, this.isPlaying).speeds;
@@ -1210,7 +1267,7 @@ export class SpatialHUD {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(this.currentViewMode === 'diorama' ? '🚶 1:1 Trail' : '🏔 Diorama', 35 + 90, 521);
+    ctx.fillText(this.confirmAreaId === 'btn-view' ? 'Tap again: life-size' : this.currentViewMode === 'diorama' ? '🚶 1:1 Trail' : '🏔 Diorama', 35 + 90, 521);
 
     // 2. Focus on Hiker (x: 225, w: 180)
     const focusHover = this.hoveredAreaId === 'btn-focus';
@@ -1365,6 +1422,7 @@ export class SpatialHUD {
   }
 
   public dispose(): void {
+    this.clearConfirm();
     if (this.group.parent) {
       this.group.parent.remove(this.group);
     }

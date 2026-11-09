@@ -411,6 +411,48 @@ export class DesktopOverlay {
     ctx.stroke();
   }
 
+  private static readonly TAB_STORAGE_KEY = 'trekviewer-panel-tab';
+
+  /** Tabbed side panel (Route / View / Offline / Help) with arrow-key navigation. */
+  private setupPanelTabs(): void {
+    const tabs = typeof document === 'undefined' ? [] : [...document.querySelectorAll<HTMLButtonElement>('.panel-tab')];
+    if (!tabs.length) return;
+    const select = (name: string, focus = false) => {
+      for (const tab of tabs) {
+        const active = tab.dataset.tab === name;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+        tab.classList.toggle('panel-tab-active', active);
+        if (active && focus) tab.focus();
+      }
+      document.querySelectorAll<HTMLElement>('.panel-tabpanel').forEach(panel => {
+        panel.hidden = panel.dataset.tabpanel !== name;
+      });
+      if (name === 'offline') void this.refreshResourceCacheStatus();
+      try { localStorage.setItem(DesktopOverlay.TAB_STORAGE_KEY, name); } catch { /* optional */ }
+    };
+    let initial = 'route';
+    try {
+      const stored = localStorage.getItem(DesktopOverlay.TAB_STORAGE_KEY);
+      if (stored && tabs.some(tab => tab.dataset.tab === stored)) initial = stored;
+    } catch { /* optional */ }
+    select(initial);
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => select(tab.dataset.tab!));
+      tab.addEventListener('keydown', (event) => {
+        const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        select(tabs[(index + step + tabs.length) % tabs.length].dataset.tab!, true);
+      });
+    });
+  }
+
+  /** Opens a panel tab programmatically (e.g. the Offline tab from a status link). */
+  public showPanelTab(name: 'route' | 'view' | 'offline' | 'help'): void {
+    document.querySelector<HTMLButtonElement>(`.panel-tab[data-tab="${name}"]`)?.click();
+  }
+
   private createDOM(): void {
     const buildInfo = getBuildDisplayInfo();
     this.container.innerHTML = `
@@ -471,16 +513,25 @@ export class DesktopOverlay {
           <p id="statsSubtitle" class="trek-meta">Cascades Mountaineering</p>
           <div id="statsGrid" class="stats-grid"></div>
 
-          <!-- Map & Visualization Options -->
-          <div class="controls-section">
-            <h3>Horizon</h3>
-            <label class="comfort-option"><span>Lock horizon level</span><input id="horizonLocked" type="checkbox" checked /></label>
-            <div class="btn-group">
-              <button id="btnResetHorizon" class="btn btn-sm">Level horizon</button>
-              <button id="btnFitTerrain" class="btn btn-sm" title="Show the whole terrain without changing trail progress" disabled>Fit terrain</button>
+          <div class="panel-tabs" role="tablist" aria-label="Panel sections">
+            <button class="panel-tab" role="tab" id="tab-route" aria-controls="tabpanel-route" data-tab="route">Route</button>
+            <button class="panel-tab" role="tab" id="tab-view" aria-controls="tabpanel-view" data-tab="view">View</button>
+            <button class="panel-tab" role="tab" id="tab-offline" aria-controls="tabpanel-offline" data-tab="offline">Offline</button>
+            <button class="panel-tab" role="tab" id="tab-help" aria-controls="tabpanel-help" data-tab="help">Help</button>
+          </div>
+          <div class="controls-section panel-tabpanel" role="tabpanel" id="tabpanel-route" aria-labelledby="tab-route" data-tabpanel="route">
+            <div class="landmarks-section" id="landmarksSection" style="display:none;">
+              <div class="landmarks-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 style="margin:0;">Key Landmarks</h3>
+                <select id="selectLandmark" class="select-landmark styled-select" style="font-size:12px; padding:4px 8px; max-width:180px;">
+                  <option value="" disabled selected>Jump to Landmark ▾</option>
+                </select>
+              </div>
+              <div class="landmarks-list" id="landmarksList"></div>
             </div>
-            <p class="trek-meta">Keep the model upright while moving, zooming and turning. Level horizon preserves your position and zoom.</p>
-
+            <p class="trek-meta" id="routeTabHint">Pick a landmark to jump there, or click the elevation chart below.</p>
+          </div>
+          <div class="controls-section panel-tabpanel" role="tabpanel" id="tabpanel-view" aria-labelledby="tab-view" data-tabpanel="view" hidden>
             <h3>Visual Style</h3>
             <div class="btn-group">
               <button id="btnSatTex" class="btn btn-sm btn-active">🛰️ Aerial</button>
@@ -491,22 +542,21 @@ export class DesktopOverlay {
             <h3>Satellite &amp; Aerial Source</h3>
             <label class="comfort-option">Source
               <select id="satelliteProviderSelect" class="styled-select">
-                <option value="esri">Esri World Imagery (Maxar Z19 Global — Free Personal)</option>
-                <option value="auto">USGS NAIP + HRO / Swisstopo (Public Gov)</option>
-                <option value="cesium-bing">Bing Aerial (Cesium Ion Token)</option>
+                <option value="auto">Public sources (USGS NAIP, swisstopo, EOX) — default</option>
+                <option value="esri">Esri World Imagery (global, up to Z19)</option>
+                <option value="cesium-bing">Bing Aerial (needs Cesium ion token)</option>
               </select>
             </label>
             <div id="cesiumTokenContainer" class="cesium-token-container" style="display: none; margin-top: 8px;">
               <label class="comfort-option" style="margin-bottom: 4px;">Cesium Ion Access Token
                 <div style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
-                  <input type="password" id="cesiumTokenInput" class="styled-input" placeholder="Paste Cesium Ion token..." style="flex: 1; padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.2);" />
-                  <button id="btnSaveCesiumToken" class="btn btn-sm" style="padding: 4px 8px; font-size: 11px;">Apply</button>
+                  <input type="password" id="cesiumTokenInput" class="styled-input" placeholder="Paste Cesium Ion token..." style="flex: 1; padding: 4px 8px; font-size: 12px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.2);" />
+                  <button id="btnSaveCesiumToken" class="btn btn-sm" style="padding: 4px 8px; font-size: 12px;">Apply</button>
                 </div>
               </label>
-              <p class="trek-meta" style="font-size: 10px; opacity: 0.75; margin-top: 2px;">Stored locally in your browser. Needs read permission for Asset 2 (Bing Maps Aerial).</p>
+              <p class="trek-meta" style="opacity: 0.8; margin-top: 2px;">Stored locally in your browser. Needs read permission for Asset 2 (Bing Maps Aerial).</p>
             </div>
-            <p id="satelliteProviderAttribution" class="trek-meta" role="status" aria-live="polite">Esri World Imagery • up to Z19</p>
-
+            <p id="satelliteProviderAttribution" class="trek-meta" role="status" aria-live="polite"></p>
             <h3>Trail Colors</h3>
             <div class="btn-group">
               <button id="btnColorSolid" class="btn btn-sm btn-active">🧭 Solid</button>
@@ -531,24 +581,21 @@ export class DesktopOverlay {
               <button class="btn btn-sm btn-exag" data-exag="3">3.0x</button>
             </div>
 
+            <h3>Horizon</h3>
+            <label class="comfort-option"><span>Lock horizon level</span><input id="horizonLocked" type="checkbox" checked /></label>
+            <div class="btn-group">
+              <button id="btnResetHorizon" class="btn btn-sm">Level horizon</button>
+              <button id="btnFitTerrain" class="btn btn-sm" title="Show the whole terrain without changing trail progress" disabled>Fit terrain</button>
+            </div>
+            <p class="trek-meta">Keep the model upright while moving, zooming and turning. Level horizon preserves your position and zoom.</p>
             <h3>Quality</h3>
             <div class="btn-group" id="groupQuality">
               <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high" aria-pressed="true">⚡ High</button>
               <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced" aria-pressed="false">🌱 Balanced</button>
             </div>
-            <a href="${resolveAssetUrl('data-sources.html')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:#7dd3fc;font-size:12px;">Data sources &amp; licenses ↗</a>
-
-            <h3>Temporary terrain &amp; imagery cache</h3>
-            <label class="comfort-option"><span>Cache on this device</span><input id="resourceCacheEnabled" type="checkbox" checked /></label>
-            <p class="trek-meta">Reuse original source data on return visits. Up to 256 MiB, refreshed after 7 days. Browser storage may be reclaimed.</p>
-            <button id="btnClearResourceCache" class="btn btn-sm">Clear temporary cache</button>
-            <p id="resourceCacheStatus" class="trek-meta" role="status" aria-live="polite">Data saves automatically as you explore.</p>
-
-            <section id="offlineDownloads" aria-label="Offline route downloads"></section>
-
             <h3>VR Comfort</h3>
             <label class="comfort-option">Movement
-              <select id="comfortMovement" class="styled-select"><option value="walk">Walking pace</option><option value="step">1 m steps</option></select>
+              <select id="comfortMovement" class="styled-select"><option value="walk">Walking pace</option><option value="step">25 m steps</option></select>
             </label>
             <label class="comfort-option">Turning
               <select id="comfortTurning" class="styled-select"><option value="snap">30° snap</option><option value="smooth">Smooth</option></select>
@@ -559,34 +606,42 @@ export class DesktopOverlay {
             <label class="comfort-option"><span>Motion vignette</span><input id="comfortVignette" type="checkbox" checked /></label>
             <p class="trek-meta">Trail entry pauses playback. Use landmarks to jump; walking playback stays at a walking pace.</p>
 
-            <div class="landmarks-section" id="landmarksSection" style="display:none;">
-              <div class="landmarks-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <h3 style="margin:0;">Key Landmarks</h3>
-                <select id="selectLandmark" class="select-landmark styled-select" style="font-size:12px; padding:4px 8px; max-width:180px;">
-                  <option value="" disabled selected>Jump to Landmark ▾</option>
-                </select>
-              </div>
-              <div class="landmarks-list" id="landmarksList"></div>
-            </div>
           </div>
+          <div class="controls-section panel-tabpanel" role="tabpanel" id="tabpanel-offline" aria-labelledby="tab-offline" data-tabpanel="offline" hidden>
+            <section id="offlineDownloads" aria-label="Offline route downloads"></section>
 
+            <h3>Temporary terrain &amp; imagery cache</h3>
+            <label class="comfort-option"><span>Cache on this device</span><input id="resourceCacheEnabled" type="checkbox" checked /></label>
+            <p class="trek-meta">Reuse original source data on return visits. Up to 256 MiB, refreshed after 7 days. Browser storage may be reclaimed.</p>
+            <button id="btnClearResourceCache" class="btn btn-sm">Clear temporary cache</button>
+            <p id="resourceCacheStatus" class="trek-meta" role="status" aria-live="polite">Data saves automatically as you explore.</p>
+
+          </div>
+          <div class="controls-section panel-tabpanel" role="tabpanel" id="tabpanel-help" aria-labelledby="tab-help" data-tabpanel="help" hidden>
           <!-- Meta Quest 3 Controller Help -->
           <div class="controller-help">
             <h3>🎮 Quest 3 Controls</h3>
             <ul>
-              <li><strong>🖐️ Bare Hands:</strong> 2-Hand Pinch to Zoom/Rotate/Move, 1-Hand Pinch to Drag & Turn, Direct Finger Poke HUD</li>
-              <li><strong>Grip:</strong> Grab & reposition 3D diorama in your room</li>
-              <li><strong>Right Thumbstick:</strong> Turn; scale in tabletop; click to hide/summon HUD</li>
-              <li><strong>A / X Button:</strong> Toggle Tabletop MR ⇄ 1:1 Trail</li>
-              <li><strong>B / Y Button:</strong> Play / Pause Flyover</li>
-              <li><strong>Trigger:</strong> Laser pointer select</li>
+              <li><strong>🖐️ One hand:</strong> pinch the model to move it. Pinch a marker to jump there.</li>
+              <li><strong>🖐️🖐️ Two hands:</strong> pinch and pull apart / together to zoom; turn like a steering wheel to rotate.</li>
+              <li><strong>Panel:</strong> point and pinch, or tap buttons with your index finger. Pinch the bar above it to move it.</li>
+              <li><strong>Grip:</strong> grab and move or turn the model</li>
+              <li><strong>Left stick:</strong> move the model (tabletop) / walk the trail (life-size)</li>
+              <li><strong>Right stick:</strong> turn; up/down zooms the tabletop; click to hide or show the panel</li>
+              <li><strong>Hold A / X:</strong> switch between tabletop and life-size trail</li>
+              <li><strong>B / Y:</strong> play / pause the tour</li>
+              <li><strong>Trigger:</strong> point and select</li>
+              <li>In passthrough, the model is placed on your table automatically when Space Setup has one.</li>
             </ul>
           </div>
+
+            <a href="${resolveAssetUrl('data-sources.html')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:#7dd3fc;font-size:12px;">Data sources &amp; licenses ↗</a>
 
           <!-- Version & Build Info Panel Section -->
           <div id="panelBuildInfo" class="panel-build-info" title="${buildInfo.id}">
             <span class="panel-build-label">Version &amp; Build:</span>
             <code class="panel-build-badge">${buildInfo.fullBadge}</code>
+          </div>
           </div>
         </aside>
 
@@ -706,6 +761,7 @@ export class DesktopOverlay {
     const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
     const fileInput = document.getElementById('gpxUploadInput') as HTMLInputElement;
     document.getElementById('btnImportGPX')?.addEventListener('click', () => fileInput.click());
+    this.setupPanelTabs();
     const settingsButton = document.getElementById('btnSettings');
     const settings = document.getElementById('trekSettings');
     const closeSettings = () => {
@@ -1163,8 +1219,8 @@ export class DesktopOverlay {
       metaEl = document.createElement('div');
       metaEl.id = 'desktopAttribution';
       metaEl.className = 'desktop-attribution';
-      metaEl.style.cssText = 'position:fixed;bottom:8px;left:8px;max-width:calc(100vw - 16px);box-sizing:border-box;overflow-wrap:anywhere;font-family:monospace;font-size:10px;color:#94a3b8;background:rgba(15,23,42,0.85);padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);z-index:99999;pointer-events:none;';
-      document.body.appendChild(metaEl);
+      // Lives inside the player bar's flow so it can never cover the elevation chart/scrubber.
+      (document.querySelector('.player-bar') ?? document.body).appendChild(metaEl);
     }
     const qualityLabel = terrainQuality === 'dem' ? 'DEM' : terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';
     const provStr = provenance && (provenance.demPercent > 0 || provenance.interpolatedPercent > 0)

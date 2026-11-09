@@ -51,6 +51,16 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    chunkSizeWarningLimit: 1200,
+    // three.js is ~70% of the app; a separate vendor chunk keeps the app chunk small and lets
+    // browsers keep three.js cached when only app code changes.
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('/node_modules/three/')) return 'three';
+          return undefined;
+        },
+      },
+    },
   },
 });

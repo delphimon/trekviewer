@@ -20,7 +20,28 @@ function exportParams(zoom: number, x: number, y: number): URLSearchParams {
     size: '256,256', format: 'png32', transparent: 'true', interpolation: 'RSP_BilinearInterpolation', adjustAspectRatio: 'false' });
 }
 
-export function isCONUS(lat: number, lon: number): boolean { return lat >= 24 && lat <= 50 && lon >= -125 && lon <= -66; }
+/** Coarse conterminous-US outline (lon, lat): follows the Canadian and Mexican land borders
+ * and runs generously offshore elsewhere. A lat/lon box would include Vancouver, Montreal
+ * and northern Mexico, where NAIP never exists. */
+const CONUS_OUTLINE: readonly (readonly [number, number])[] = [
+  [-125.0, 48.4], [-123.3, 49.0], [-95.15, 49.0], [-94.8, 49.4], [-89.6, 48.0], [-84.8, 46.6],
+  [-82.4, 45.3], [-82.5, 42.6], [-83.1, 42.0], [-79.0, 42.6], [-79.2, 43.5], [-76.5, 44.2],
+  [-74.7, 45.0], [-71.5, 45.0], [-70.8, 45.4], [-70.0, 46.7], [-69.2, 47.45], [-67.8, 47.1],
+  [-67.0, 45.2], [-66.5, 44.5], [-70.0, 40.5], [-75.0, 35.0], [-80.0, 30.5], [-79.8, 24.3],
+  [-82.2, 24.3], [-97.1, 25.9], [-99.5, 27.5], [-101.4, 29.8], [-103.0, 29.0], [-104.5, 29.6],
+  [-106.5, 31.8], [-108.2, 31.78], [-108.2, 31.33], [-111.07, 31.33], [-114.8, 32.5],
+  [-117.12, 32.53], [-118.5, 32.3], [-121.0, 34.0], [-125.5, 40.0],
+];
+
+export function isCONUS(lat: number, lon: number): boolean {
+  if (lat < 24 || lat > 49.5 || lon < -126 || lon > -66) return false;
+  let inside = false;
+  for (let i = 0, j = CONUS_OUTLINE.length - 1; i < CONUS_OUTLINE.length; j = i++) {
+    const [xi, yi] = CONUS_OUTLINE[i], [xj, yj] = CONUS_OUTLINE[j];
+    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
 
 /** No account, key, paid subscription, or implicit commercial-provider fallback. */
 export class PublicImageryProvider implements ImageryProvider {

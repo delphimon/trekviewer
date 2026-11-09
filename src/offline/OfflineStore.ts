@@ -32,6 +32,8 @@ export async function hashOfflineBlob(blob: Blob): Promise<string> {
  * Only completely validated, atomically published packs enter the read path. */
 export class OfflineStore {
   private static readonly suppliedSources = new WeakMap<Blob, string>();
+  /** Which pinned asset supplied a blob, so a decode failure can be checked against that asset only. */
+  private static readonly suppliedAssets = new WeakMap<Blob, { key: string; sha256: string }>();
   private static opening: Promise<IDBDatabase> | undefined;
   private static readyIds: Promise<Set<string>> | undefined;
   private static channel: BroadcastChannel | undefined;
@@ -117,19 +119,42 @@ export class OfflineStore {
     if (notify) this.notify();
     else this.readyIds = undefined;
   }
+  /** Number of the plan's sources that have no saved asset under this pack. A ready pack whose
+   * inventory changed (renderer or provider URL changes) reports the gap instead of looking complete. */
+  public static async missingCount(plan: OfflinePlan): Promise<number> {
+    return this.transaction<number>(['assets'], 'readonly', (tx, done) => {
+      const store = tx.objectStore('assets');
+      let pending = plan.resources.length, missing = 0;
+      if (!pending) { done(0); return; }
+      for (const resource of plan.resources) {
+        const request = store.getKey(offlineAssetKey(plan.id, resource));
+        request.onsuccess = () => { if (request.result === undefined) missing++; if (--pending === 0) done(missing); };
+      }
+    });
+  }
   public static async publish(plan: OfflinePlan, completed: number, bytes: number): Promise<void> {
     if (completed !== plan.resources.length) throw Error('Incomplete offline pack');
-    // Counts are checked against the committed asset index in the same transaction
-    // as the visibility transition. A paused download cannot expose its staging.
+    // Every planned source must be committed in the same transaction as the visibility
+    // transition. Assets left over from an earlier inventory are removed rather than
+    // counted, so a changed plan can still be published.
+    const wanted = new Set(plan.resources.map(resource => offlineAssetKey(plan.id, resource)));
     await this.transaction<void>(['assets', 'packs'], 'readwrite', tx => {
-      const count = tx.objectStore('assets').index('packId').count(plan.id);
-      count.onsuccess = () => {
-        if (count.result !== completed) { tx.abort(); return; }
+      const assets = tx.objectStore('assets');
+      let present = 0;
+      const keys = assets.index('packId').openKeyCursor(plan.id);
+      keys.onsuccess = () => {
+        const cursor = keys.result;
+        if (cursor) {
+          if (wanted.has(String(cursor.primaryKey))) present++; else assets.delete(cursor.primaryKey);
+          cursor.continue();
+          return;
+        }
+        if (present !== completed) { tx.abort(); return; }
         tx.objectStore('packs').put({ id: plan.id, routeId: plan.routeId, routeHash: plan.routeHash, name: plan.name,
           state: 'ready', total: completed, completed, bytes, estimatedBytes: plan.estimatedBytes,
           message: plan.version === 3
-            ? `High satellite • trail corridor • through Z${plan.maxZoom ?? 18}`
-            : 'High satellite • full surrounding terrain • through Z19', updated: Date.now() } satisfies OfflinePackState);
+            ? `Aerial imagery along the trail (up to zoom ${plan.maxZoom ?? 18}) with full terrain shape`
+            : 'Aerial imagery and terrain for the whole model (up to zoom 19)', updated: Date.now() } satisfies OfflinePackState);
       };
     });
     this.notify();
@@ -156,25 +181,41 @@ export class OfflineStore {
       });
       if (!asset) return null;
       if (!offlineSourceAllowed(asset.sourceUrl) || !sameOfflineSource(asset.sourceUrl, asset.urls)
-        || asset.blob.size !== asset.bytes || !/^[a-f0-9]{64}$/.test(asset.sha256)) { await this.invalidate(url); return null; }
+        || asset.blob.size !== asset.bytes || !/^[a-f0-9]{64}$/.test(asset.sha256)) { await this.quarantine(asset.key); return null; }
       this.suppliedSources.set(asset.blob, asset.sourceUrl);
+      this.suppliedAssets.set(asset.blob, { key: asset.key, sha256: asset.sha256 });
       this.hits++; return asset.blob;
     } catch { this.readyIds = undefined; return null; }
   }
-  public static async invalidate(url: string): Promise<void> {
-    if (!this.available() || !offlineSourceAllowed(url)) return;
+  /** Called when a blob this store supplied failed to decode. Decoding can fail for reasons
+   * unrelated to the bytes (timeouts, memory pressure, a worker crash), so the saved asset is
+   * only dropped when its bytes no longer match the hash recorded at download time. Even then
+   * the pack stays usable: every other source keeps rendering offline. */
+  public static async reportDecodeFailure(blob: Blob): Promise<boolean> {
+    const supplied = this.suppliedAssets.get(blob);
+    if (!supplied || !this.available()) return false;
+    let actual: string;
+    try { actual = await hashOfflineBlob(blob); } catch { return false; }
+    if (actual === supplied.sha256) return false;
+    await this.quarantine(supplied.key);
+    return true;
+  }
+
+  /** Removes one damaged asset without pausing its pack; Resume re-downloads just that source. */
+  private static async quarantine(key: string): Promise<void> {
+    if (!this.available()) return;
     await this.transaction<void>(['assets', 'packs'], 'readwrite', tx => {
-      const request = tx.objectStore('assets').index('urls').openCursor(url);
+      const request = tx.objectStore('assets').get(key);
       request.onsuccess = () => {
-        const cursor = request.result; if (!cursor) return;
-        const asset = cursor.value as OfflineAsset;
+        const asset = request.result as OfflineAsset | undefined; if (!asset) return;
         const header = tx.objectStore('packs').get(asset.packId);
         header.onsuccess = () => {
           const state = header.result as OfflinePackState | undefined;
-          if (state) tx.objectStore('packs').put({ ...state, state: 'paused', completed: Math.max(0, state.completed - 1),
-            bytes: Math.max(0, state.bytes - asset.bytes), message: 'A saved source failed validation. Resume to repair.', updated: Date.now() });
+          if (state) tx.objectStore('packs').put({ ...state, completed: Math.max(0, state.completed - 1),
+            bytes: Math.max(0, state.bytes - asset.bytes),
+            message: 'One saved source was damaged and now loads online. Resume to repair it.', updated: Date.now() });
         };
-        cursor.delete(); cursor.continue();
+        tx.objectStore('assets').delete(key);
       };
     });
     this.notify();

@@ -320,10 +320,10 @@ describe('Stage U3: Waypoint Anchoring, Projection & Physical Interaction UX', (
         },
       });
 
-      // Simulate a hand hovering near the waypoint (5 cm away, within 8 cm hover radius)
+      // Simulate a hand hovering near the waypoint (3.5 cm away, within the 4 cm hover radius)
       const handState = (xrManager as any).hands[0];
       handState.visualOutline.group.visible = true;
-      const fingerPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.05, 0));
+      const fingerPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.035, 0));
       handState.jointPosMap.set('index-finger-tip', fingerPos);
       handState.indexTipWorldPos.copy(fingerPos);
       handState.pinchWorldPos.copy(fingerPos);
@@ -335,8 +335,8 @@ describe('Stage U3: Waypoint Anchoring, Projection & Physical Interaction UX', (
       expect(grabsHover.length).toBe(0);
       expect(pin.userData.isHovered).toBe(true);
 
-      // Now move fingertip to touch the marker (2 cm away, within 3.5 cm touch radius)
-      const touchPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.02, 0));
+      // Now move fingertip to touch the marker (1.5 cm away, within the 2.5 cm touch radius)
+      const touchPos = hitWorldPos.clone().add(new THREE.Vector3(0, 0.015, 0));
       handState.jointPosMap.set('index-finger-tip', touchPos);
       handState.indexTipWorldPos.copy(touchPos);
       handState.pinchWorldPos.copy(touchPos);

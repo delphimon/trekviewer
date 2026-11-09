@@ -60,6 +60,25 @@ export class SurfaceVertexIndex {
     }
     box.getBoundingSphere(this.geometry.boundingSphere!);
     markChangedSpan(position as THREE.BufferAttribute, changedVertices);
+    this.syncRibbonPartners(changedVertices);
+  }
+
+  /**
+   * Ribbons store each vertex's opposite edge (`trailPartner`, vertex i ^ 1) so the shader can
+   * narrow the ribbon toward its centre line. Keep that copy in step with changed elevations.
+   */
+  private syncRibbonPartners(changedVertices: readonly number[]): void {
+    const partner = this.geometry.attributes.trailPartner as THREE.BufferAttribute | undefined;
+    if (!partner) return;
+    const position = this.geometry.attributes.position;
+    const touched: number[] = [];
+    for (const vertex of changedVertices) {
+      const other = vertex ^ 1;
+      if (other >= partner.count) continue;
+      partner.setXYZ(other, position.getX(vertex), position.getY(vertex), position.getZ(vertex));
+      touched.push(other);
+    }
+    markChangedSpan(partner, touched);
   }
 
   public verticesIn(bounds?: TerrainSurfaceBounds): number[] {

@@ -14,7 +14,17 @@ function installEntryRecovery(): void {
       message.style.cssText = 'position:fixed;inset:20% 12%;padding:24px;background:#142031;color:#e2e8f0;font:18px system-ui;z-index:999999';
       message.textContent = 'Unable to load TrekViewer. Check your connection and reload. ';
       const reload = document.createElement('button'); reload.textContent = 'Reload TrekViewer'; reload.onclick = () => location.reload();
-      message.appendChild(reload); (document.body ?? document.documentElement).appendChild(message);
+      // A damaged offline copy can keep failing even online: let the user discard it.
+      // Saved offline maps live in IndexedDB and are not touched.
+      const repair = document.createElement('button'); repair.textContent = 'Repair app (re-download it)'; repair.style.marginLeft = '8px';
+      repair.onclick = async () => {
+        try {
+          for (const registration of await navigator.serviceWorker?.getRegistrations?.() ?? []) await registration.unregister();
+          for (const name of await caches.keys()) if (name.startsWith('trekviewer-shell-')) await caches.delete(name);
+        } catch { /* Reload anyway. */ }
+        location.reload();
+      };
+      message.append(reload, repair); (document.body ?? document.documentElement).appendChild(message);
       return;
     }
     setTimeout(() => {
@@ -45,6 +55,16 @@ export function entryIntegrity(): Plugin {
           return `<script>(${installEntryRecovery.toString()})();</script>\n<script${before}src="${src}"${after} data-trek-entry="true" integrity="${integrity}"></script>`;
         });
         if (count !== 1) throw Error(`Expected one application entry, found ${count}`);
+        // Shared chunks (e.g. the three.js vendor chunk) are preloaded; give them the same
+        // integrity protection as the entry so a corrupted response is rejected, not executed.
+        html.source = html.source.replace(/<link\b([^>]*?)rel="modulepreload"([^>]*?)href="([^\"]+\.js)"([^>]*)>/g,
+          (tag, a: string, b: string, href: string, c: string) => {
+            if (/integrity=/.test(tag)) return tag;
+            const chunk = bundle[href.replace(/^\.\//, '').replace(/^\//, '')];
+            if (!chunk || chunk.type !== 'chunk') return tag;
+            const integrity = `sha384-${createHash('sha384').update(chunk.code).digest('base64')}`;
+            return `<link${a}rel="modulepreload"${b}href="${href}"${c} integrity="${integrity}">`;
+          });
       },
     },
   };

@@ -127,7 +127,7 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
       east: true,
       west: false,
     });
-    expect(streamer.syncNeighborOuterEdges()).toBe(true);
+    expect(streamer.syncNeighborOuterEdges().length).toBeGreaterThan(0);
     expect(setOuterEdges0).toHaveBeenCalledWith({ north: true, south: true, east: false, west: true });
     expect(setOuterEdges1).toHaveBeenCalledWith({ north: true, south: true, east: true, west: false });
   });

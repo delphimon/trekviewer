@@ -161,7 +161,7 @@ export class FlyoverController {
   public stepSeconds(seconds: number): void {
     if (this.viewMode === 'first-person') {
       this.pause();
-      this.stepDistanceMeters(Math.sign(seconds));
+      this.stepDistanceMeters(Math.sign(seconds) * 25);
       return;
     }
     if (this.playbackMode === 'tour') {
@@ -195,6 +195,8 @@ export class FlyoverController {
     }
     return pos;
   }
+
+  private smoothedGroundY: number | null = null;
 
   public update(
     deltaSeconds: number,
@@ -248,6 +250,15 @@ export class FlyoverController {
           groundY = sampled;
         }
       }
+      // Smooth small ground changes (terrain detail refining under the viewer used to pop the
+      // whole world up/down). Large changes are steps/jumps and snap, like a teleport.
+      const deltaS = Number.isFinite(deltaSeconds) ? Math.max(0, deltaSeconds) : 0;
+      if (this.smoothedGroundY === null || Math.abs(groundY - this.smoothedGroundY) > 3) {
+        this.smoothedGroundY = groundY;
+      } else {
+        this.smoothedGroundY += (groundY - this.smoothedGroundY) * (1 - Math.exp(-deltaS / 0.12));
+      }
+      groundY = this.smoothedGroundY;
 
       if (isWebXRPresenting && dioramaRoot) {
         // In WebXR: Move dioramaRoot so that trail point is directly under user feet (floor level y=0)

@@ -240,6 +240,21 @@ export class TileImageCache {
     return this.cache.has(key);
   }
 
+  /** Drops one or more imagery providers' decoded tiles, failures and in-flight
+   * requests while keeping every other provider (notably DEM tiles) intact. */
+  public static clearProviders(providerIds: readonly string[]): void {
+    const matches = (key: string) => providerIds.some(id => key.startsWith(`${id}:`));
+    for (const key of [...this.cache.keys()]) {
+      if (!matches(key)) continue;
+      this.totalDecodedBytes = Math.max(0, this.totalDecodedBytes - (this.entryBytes.get(key) ?? 0));
+      this.cache.delete(key); this.entryBytes.delete(key);
+    }
+    for (const [key, request] of [...this.inFlight]) {
+      if (matches(key)) { request.controller.abort(); this.inFlight.delete(key); }
+    }
+    for (const key of [...this.negativeCache.keys()]) if (matches(key)) this.negativeCache.delete(key);
+  }
+
   public static clear(): void {
     this.generation++;
     this.cache.clear();
@@ -406,7 +421,7 @@ export class TileImageCache {
         if (generation !== this.generation) throw lastError;
         this.failureCount++;
         const errMsg = lastError?.message ?? `Failed to load tile ${zoom}/${x}/${y} from ${provider.displayName}`;
-        const retryAfterMs = errMsg.includes('timeout') ? 15000 : 60000;
+        const retryAfterMs = /timed? ?out|timeout/i.test(errMsg) ? 15000 : 60000;
         this.negativeCache.set(key, {
           timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now(),
           retryAfterMs,
@@ -513,7 +528,14 @@ export class TileImageCache {
 
       img.onload = () => {
         cleanup();
-        resolve(img);
+        // `load` fires before the pixels are decoded; without this the browser decodes
+        // synchronously on the main thread at the first texture upload or canvas draw, which
+        // is a visible hitch per tile on Quest. decode() runs off the main thread.
+        const decoded = typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve();
+        void decoded.then(() => {
+          if (signal?.aborted) reject(new Error('Aborted'));
+          else resolve(img);
+        });
       };
 
       img.onerror = (e) => {
@@ -550,7 +572,7 @@ export class TileImageCache {
           recordImagerySource(image, OfflineStore.sourceUrlFor(cached) ?? url, url);
           return image;
         }
-        catch (error) { if (controller.signal.aborted) throw error; void PersistentResourceCache.remove(url); }
+        catch (error) { if (controller.signal.aborted) throw error; void PersistentResourceCache.remove(url, cached); }
       }
       const response = await fetch(url, { signal: controller.signal, credentials: 'omit' });
       const blob = await readBoundedBlob(response, 8 * 1024 * 1024);

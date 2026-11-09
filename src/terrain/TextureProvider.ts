@@ -9,7 +9,7 @@ import {
   EsriReferenceOverlayProvider,
 } from './providers/ImageryProvider.ts';
 import { composeImagery, MAX_COMPOSITE_TILES } from './CompositeImagery.ts';
-import { PublicImageryProvider, USGSReferenceProvider } from './providers/PublicImageryProvider.ts';
+import { PublicImageryProvider, USGSReferenceProvider, isCONUS } from './providers/PublicImageryProvider.ts';
 import { inSwissImageryEnvelope, SWISS_IMAGE_CREDITS } from './providers/SwissImagery.ts';
 import { hasUSGSElevationCoverage } from './BestAvailableElevation.ts';
 
@@ -65,6 +65,24 @@ export class TextureProvider {
   }
 
   private static satelliteProviderSetting: 'auto' | 'esri' | 'cesium-bing' = 'auto';
+  /** Monotonic id of the latest provider request; a slower, superseded request never commits. */
+  private static providerRequestId = 0;
+  public static readonly PROVIDER_STORAGE_KEY = 'trekviewer-satellite-provider';
+
+  /** The user's saved provider choice, or undefined when none/invalid. */
+  public static readStoredProviderSetting(): 'auto' | 'esri' | 'cesium-bing' | undefined {
+    if (typeof localStorage === 'undefined') return undefined;
+    try {
+      const stored = localStorage.getItem(this.PROVIDER_STORAGE_KEY);
+      return stored === 'auto' || stored === 'esri' || stored === 'cesium-bing' ? stored : undefined;
+    } catch { return undefined; }
+  }
+
+  /** Startup preference: a runtime Bing config, then the saved choice, then the build default. */
+  public static resolveInitialProviderSetting(): 'auto' | 'esri' | 'cesium-bing' {
+    if (this.getRuntimeProviderConfig()) return 'cesium-bing';
+    return this.readStoredProviderSetting() ?? this.getEnvProviderSetting();
+  }
 
   public static getSatelliteProviderSetting(): 'auto' | 'esri' | 'cesium-bing' {
     return this.satelliteProviderSetting;
@@ -126,7 +144,12 @@ export class TextureProvider {
     if (this.initPromise) {
       return this.initPromise;
     }
-    const providerSetting = this.getEnvProviderSetting();
+    // An explicit selection already happened; never overwrite it with startup defaults.
+    if (this.initialized) {
+      this.initPromise = Promise.resolve(true);
+      return this.initPromise;
+    }
+    const providerSetting = this.resolveInitialProviderSetting();
     const token = this.getEnvToken();
     this.initPromise = this.setSatelliteProvider(providerSetting, token);
     return this.initPromise;
@@ -159,6 +182,7 @@ export class TextureProvider {
    */
   public static resetForTesting(): void {
     this.satelliteProviderSetting = 'auto';
+    this.providerRequestId++;
     this.activeSatelliteProvider = this.publicSatelliteProvider;
     this.cesiumProvider = null;
     this.initialized = false;
@@ -180,6 +204,7 @@ export class TextureProvider {
     providerType: 'auto' | 'esri' | 'cesium-bing',
     token?: string
   ): Promise<boolean> {
+    const requestId = ++this.providerRequestId;
     this.satelliteProviderSetting = providerType;
 
     if (providerType === 'esri') {
@@ -207,8 +232,11 @@ export class TextureProvider {
     }
 
     try {
-      this.cesiumProvider = new CesiumBingImageryProvider(resolvedToken.trim());
-      const success = await this.cesiumProvider.init();
+      const candidate = new CesiumBingImageryProvider(resolvedToken.trim());
+      const success = await candidate.init();
+      // A newer selection arrived while Bing metadata loaded: leave its state intact.
+      if (requestId !== this.providerRequestId) return false;
+      this.cesiumProvider = candidate;
       if (success) {
         this.activeSatelliteProvider = this.cesiumProvider;
         this.fallbackReason = undefined;
@@ -222,12 +250,19 @@ export class TextureProvider {
         return false;
       }
     } catch (err) {
+      if (requestId !== this.providerRequestId) return false;
       console.warn('[TextureProvider] Error initializing Cesium provider:', err);
       this.fallbackReason = 'Cesium unavailable';
       this.activeSatelliteProvider = this.publicSatelliteProvider;
       this.initialized = true;
       return false;
     }
+  }
+
+  /** Provider ids whose tiles depend on the satellite selection (aerial + label overlays). */
+  public static getSatelliteImageryProviderIds(): string[] {
+    return [this.esriSatelliteProvider.id, this.publicSatelliteProvider.id, 'cesium-bing',
+      this.publicReferenceProvider.id, this.referenceOverlayProvider.id];
   }
 
   public static getActiveSatelliteProvider(): ImageryProvider {
@@ -258,7 +293,9 @@ export class TextureProvider {
     imagerySummary: string;
     elevationSummary: string;
   } {
-    const allCONUS = bounds.minLat > 25 && bounds.maxLat < 49 && bounds.minLon > -124 && bounds.maxLon < -67;
+    // Same outline the imagery provider uses per tile, so credits match what is fetched.
+    const allCONUS = isCONUS(bounds.minLat, bounds.minLon) && isCONUS(bounds.minLat, bounds.maxLon)
+      && isCONUS(bounds.maxLat, bounds.minLon) && isCONUS(bounds.maxLat, bounds.maxLon);
     const isSwiss = !allCONUS && inSwissImageryEnvelope(bounds.centerLat, bounds.centerLon);
     const usgsElevationAvailable = hasUSGSElevationCoverage(bounds);
     if (allCONUS) {

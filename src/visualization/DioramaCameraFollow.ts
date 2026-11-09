@@ -23,9 +23,10 @@ export class DioramaCameraFollow {
   public start(camera: THREE.Camera, target: THREE.Vector3): void {
     this.offset.copy(camera.position).sub(target);
     if (this.offset.lengthSq() < 1e-8) this.offset.set(0, 1, 1);
-    this.offset.setLength(THREE.MathUtils.clamp(this.offset.length(), 0.15, 0.45));
+    // Far enough back to show a stretch of trail around the hiker, not just the marker.
+    this.offset.setLength(THREE.MathUtils.clamp(this.offset.length(), 0.3, 0.8));
     // Keep a raised, oblique inspection view rather than a ground-level camera.
-    this.offset.y = Math.max(0.18, this.offset.y);
+    this.offset.y = Math.max(0.25, this.offset.y);
   }
 
   public update(camera: THREE.Camera, target: THREE.Vector3, focus: THREE.Vector3, delta: number): void {

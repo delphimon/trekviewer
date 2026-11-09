@@ -192,8 +192,10 @@ export class PersistentResourceCache {
     await this.writes;
   }
 
-  public static async remove(url: string): Promise<void> {
-    await OfflineStore.invalidate(url);
+  /** Drops a temporary-cache entry whose bytes failed to decode. Pinned offline packs are never
+   * changed here; pass the failed blob so the offline store can check it against its hash. */
+  public static async remove(url: string, failedBlob?: Blob): Promise<void> {
+    if (failedBlob) await OfflineStore.reportDecodeFailure(failedBlob).catch(() => false);
     if (isSwissImageryURL(url)) {
       const revision = getSwissImageryRevision(); if (!revision) return;
       url += `#swiss-${revision}`;
