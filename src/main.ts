@@ -34,6 +34,7 @@ import { OfflineDownloads } from './offline/OfflineDownloads.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from './gpx/RouteLandmarks.ts';
 import { localMetersToGeo } from './gpx/Coordinates.ts';
 import { TablePlacement } from './xr/TablePlacement.ts';
+import { HUDTerrainClearance } from './xr/HUDTerrainClearance.ts';
 
 /** Plain-language route-load errors (parser messages are kept in the console). */
 export function friendlyRouteError(error: Error): string {
@@ -48,6 +49,7 @@ export function friendlyRouteError(error: Error): string {
 const _scratchV3 = new THREE.Vector3();
 const _scratchHUDDir = new THREE.Vector3();
 const _scratchHUDOffset = new THREE.Vector3();
+const _scratchHUDEye = new THREE.Vector3();
 const _yAxis = new THREE.Vector3(0, 1, 0);
 const _scratchFollowAhead = new THREE.Vector3();
 
@@ -746,6 +748,27 @@ export class TrekViewerApp {
 
   private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
 
+  private readonly hudClearance = new HUDTerrainClearance();
+
+  /**
+   * The panel lives in room space while the terrain moves (1:1 walking/playback, tabletop
+   * moves, view switches), so lift it whenever the ground would cover it, and draw it on top
+   * only if the terrain is too high to clear comfortably.
+   */
+  private updateHUDClearance(force: boolean): void {
+    const hud = this.spatialHUD;
+    if (!hud || !this.hudClearance) return;
+    if (!hud.group.visible || !this.sceneManager.renderer.xr.isPresenting || this.xrManager.isMovingHUD?.()) {
+      if (!hud.group.visible || !this.sceneManager.renderer.xr.isPresenting) hud.setAlwaysOnTop?.(false);
+      return;
+    }
+    const eye = this.sceneManager.renderer.xr.getCamera().getWorldPosition(_scratchHUDEye);
+    const { halfW, halfH } = hud.getPanelHalfExtents();
+    this.hudClearance.update(hud.group, halfW, halfH, eye,
+      (x, z, y) => this.xrManager.surfaceWorldY?.(x, z, y) ?? null, performance.now(), eye.y + 0.05, force);
+    hud.setAlwaysOnTop?.(this.hudClearance.buried);
+  }
+
   private dockHUD(side: 'left' | 'right' | 'center'): void {
     this.currentHUDDockSide = side;
     if (!this.spatialHUD) return;
@@ -773,6 +796,8 @@ export class TrekViewerApp {
     // Level orientation facing user: pure vertical yaw, zero crooked tilt/roll
     this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
     this.spatialHUD.setAngularSize(camPos.distanceTo(this.spatialHUD.group.position), this.comfort.panelScale);
+    this.hudClearance?.reset(this.spatialHUD.group);
+    this.updateHUDClearance(true);
   }
 
   private toggleHUD(): void {
@@ -1414,7 +1439,9 @@ export class TrekViewerApp {
       }
       this.dockHUD(this.currentHUDDockSide);
     }
-    // HUD placement is explicit (mode entry, dock, summon, drag), never head-locked.
+    // HUD placement is explicit (mode entry, dock, summon, drag), never head-locked; it only
+    // rises out of the way when the terrain would cover it.
+    this.updateHUDClearance(false);
 
     // Flush any throttled HUD updates when due
     this.spatialHUD?.update();

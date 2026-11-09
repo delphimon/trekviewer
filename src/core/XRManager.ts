@@ -257,6 +257,30 @@ export class XRManager {
   }
 
 
+  /** True while a hand or controller is carrying the spatial panel by its bar. */
+  public isMovingHUD(): boolean {
+    return this.hands.some(hand => hand.hudGrabOffset !== undefined) || this.controllers.some(ctrl => ctrl.isDraggingHUD);
+  }
+
+  /**
+   * World-space height of the rendered terrain surface at a world X/Z, or null outside the
+   * model footprint or without a sampler. Used to keep the spatial panel out of the ground.
+   */
+  public surfaceWorldY(worldX: number, worldZ: number, worldYHint: number): number | null {
+    const dioramaRoot = this.sceneManager.dioramaRoot;
+    if (!this.dioramaElevationSampler || !dioramaRoot.visible || dioramaRoot.scale.x <= 0) return null;
+    dioramaRoot.updateMatrixWorld();
+    const local = _scratchV1.set(worldX, worldYHint, worldZ);
+    dioramaRoot.worldToLocal(local);
+    if (Math.abs(local.x) > this.dioramaWidthMeters * 0.5 || Math.abs(local.z) > this.dioramaDepthMeters * 0.5) return null;
+    let sample: number;
+    try { sample = this.dioramaElevationSampler(local.x, local.z); } catch { return null; }
+    if (!Number.isFinite(sample)) return null;
+    local.y = sample * this.dioramaVerticalExaggeration;
+    dioramaRoot.localToWorld(local);
+    return local.y;
+  }
+
   public getDioramaProximity(handWorldPos: THREE.Vector3): { isTouching: boolean; proximityFactor: number } {
     if (this.currentViewMode !== 'diorama') return { isTouching: false, proximityFactor: 0 };
     const dioramaRoot = this.sceneManager.dioramaRoot;

@@ -4,7 +4,7 @@ import type { GPXPoint, TrackStats, TrailColorMode, ViewMode } from '../gpx/Trac
 import { RouteGeometry, yawForForwardVector } from './RouteGeometry.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import type { TerrainSurfaceBounds } from '../terrain/TerrainGenerator.ts';
-import { addTrailChevrons } from './TrailChevronMaterial.ts';
+import { addTrailChevrons, TRAIL_ANGULAR_HALF_WIDTH } from './TrailChevronMaterial.ts';
 
 export interface TrailResult {
   group: THREE.Group;
@@ -182,8 +182,14 @@ export class TrailMesh {
       polygonOffsetFactor: -2.0,
       polygonOffsetUnits: -4.0,
     });
-    addTrailChevrons(dioramaMat, ribbonHalfWidth, Math.max(40, ribbonHalfWidth * 14, maxDim / 45));
-    addTrailChevrons(firstPersonMat, 0.35, 4.0);
+    // Built widths are the maximum; the shader narrows the ribbon as the viewer gets closer so
+    // a zoomed-in tabletop or the 1:1 trail is a thin line rather than a band over the terrain.
+    addTrailChevrons(dioramaMat, {
+      builtHalfWidth: ribbonHalfWidth, angularHalfWidth: TRAIL_ANGULAR_HALF_WIDTH, minHalfWidth: 1.0,
+    }, Math.max(40, ribbonHalfWidth * 14, maxDim / 45));
+    addTrailChevrons(firstPersonMat, {
+      builtHalfWidth: 0.35, angularHalfWidth: TRAIL_ANGULAR_HALF_WIDTH, minHalfWidth: 0.05,
+    }, 4.0);
 
     const trailMesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(dioramaGeo, dioramaMat);
     trailMesh.renderOrder = 5;
@@ -589,6 +595,17 @@ export class TrailMesh {
     }
 
     geo.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
+    // Opposite-edge copy (left <-> right) lets the shader narrow the ribbon toward its centre.
+    const partners = new Float32Array(allPositions.length);
+    for (let v = 0; v < allPositions.length / 3; v++) {
+      const other = v ^ 1;
+      partners[v * 3] = allPositions[other * 3];
+      partners[v * 3 + 1] = allPositions[other * 3 + 1];
+      partners[v * 3 + 2] = allPositions[other * 3 + 2];
+    }
+    const partnerAttr = new THREE.Float32BufferAttribute(partners, 3);
+    partnerAttr.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('trailPartner', partnerAttr);
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
     geo.setAttribute('trailCoord', new THREE.Float32BufferAttribute(allTrailCoords, 2));
     geo.setIndex(allIndices);

@@ -96,8 +96,30 @@ export class TiledTerrainStreamer {
     return updated;
   }
 
-  private syncSeams(terrain: { notifySurfaceChange?: (bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) => void }): void {
-    for (const chunk of this.syncNeighborOuterEdges()) terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
+  /** Set when a publish/removal may have changed which edges blend to the parent. */
+  private seamsDirty = false;
+
+  private syncSeams(_terrain?: unknown): void {
+    this.seamsDirty = true;
+  }
+
+  /**
+   * Re-blends at most one chunk's outer edges per frame. Each change recomputes a whole chunk
+   * (heights against the parent plus normals); doing every neighbour in the publish frame
+   * stacked several of those into one long frame. Unchanged chunks return early and are free.
+   */
+  /** @returns true when a chunk was re-blended this frame. */
+  private applyPendingSeam(terrain: { notifySurfaceChange?: (bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) => void }): boolean {
+    if (!this.seamsDirty) return false;
+    for (const [id, chunk] of this.chunks.entries()) {
+      if (!chunk.mesh.visible) continue;
+      if (chunk.setOuterEdges(this.computeOuterEdgesForTile(id))) {
+        terrain.notifySurfaceChange?.(chunk.getSurfaceBounds());
+        return true;
+      }
+    }
+    this.seamsDirty = false;
+    return false;
   }
   public getViewMode(): ViewMode { return this.mode; }
   public getTabletopFocusGeo(): { lat: number; lon: number } | null { return this.focus; }
@@ -232,8 +254,10 @@ export class TiledTerrainStreamer {
         this.syncSeams(terrain);
       }
     }
+    // Seam work and publication alternate so neither stacks onto the other's frame.
+    const reblended = this.applyPendingSeam(terrain);
     // Publish at most one prepared child per frame. The parent fills every other cell.
-    if (this.ready) {
+    if (!reblended && this.ready) {
       const { id, chunk, generation, publish } = this.ready;
       this.ready = null;
       this.nextWorkAt = 0;

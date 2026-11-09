@@ -638,6 +638,19 @@ export class SpatialHUD {
   }
 
   /** Panel half-size in group-local metres, from the real mesh geometry (used for finger hit-tests). */
+  /**
+   * Draw the panel over everything (no depth test) for the rare case where terrain still sits
+   * between the eye and the panel after it has been lifted as far as is comfortable.
+   */
+  public setAlwaysOnTop(onTop: boolean): void {
+    for (const mesh of [this.mesh, this.grabMesh]) {
+      const material = mesh.material as THREE.Material;
+      if (material.depthTest === !onTop) continue;
+      material.depthTest = !onTop;
+      mesh.renderOrder = onTop ? 1000 : 0;
+    }
+  }
+
   public getPanelHalfExtents(): { halfW: number; halfH: number } {
     const params = (this.mesh.geometry as THREE.PlaneGeometry).parameters;
     return { halfW: params.width / 2, halfH: params.height / 2 };

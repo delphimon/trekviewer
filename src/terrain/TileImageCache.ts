@@ -528,7 +528,14 @@ export class TileImageCache {
 
       img.onload = () => {
         cleanup();
-        resolve(img);
+        // `load` fires before the pixels are decoded; without this the browser decodes
+        // synchronously on the main thread at the first texture upload or canvas draw, which
+        // is a visible hitch per tile on Quest. decode() runs off the main thread.
+        const decoded = typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve();
+        void decoded.then(() => {
+          if (signal?.aborted) reject(new Error('Aborted'));
+          else resolve(img);
+        });
       };
 
       img.onerror = (e) => {

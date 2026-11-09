@@ -109,6 +109,35 @@ Legend: `[ ]` todo · `[x]` done · `[~]` partially done (see note) · `[-]` dro
       `test/review_fixes_2026_11.test.ts`. Known flaky under parallel load (pre-existing):
       `route_transaction` atomic swap, `terrain_raycast` boundaries — pass in isolation.
 
+## Phase F — Headset feedback (2026-11-08)
+
+User report after the first Quest run: XR works; loading hitches remain; the trail is too wide
+when zoomed in and in 1:1; the panel is often half buried in the terrain after switching views.
+
+- [x] F1 Trail width follows view distance. The ribbon stores each vertex's opposite edge
+      (`trailPartner`, kept in step by `SurfaceVertexIndex`), and the vertex shader narrows it toward
+      the centre line to about 0.25° across (`TRAIL_ANGULAR_HALF_WIDTH`). It never gets wider than
+      built, with a floor of 1 m local (tabletop) and 5 cm (1:1, about 10 cm at your feet). Chevron
+      spacing drops in power-of-two steps so arrows don't slide while zooming
+      (`TrailChevronMaterial.ts`).
+- [x] F2 Panel kept out of the terrain. `HUDTerrainClearance` checks the terrain under the panel
+      and along the sight lines to its bottom corners every 200 ms (`XRManager.surfaceWorldY`). It
+      raises the panel quickly when covered and lowers it slowly back to where it was docked, up to
+      eye level. Past that it draws the panel on top (`SpatialHUD.setAlwaysOnTop`). Dragging the
+      panel sets a new resting height, and nothing runs while it is held.
+- [x] F3 Loading hitches, from reading the code (no headset trace yet):
+      - imagery tiles are `decode()`d off the main thread before use (`TileImageCache`), so a tile
+        no longer decodes synchronously at its first upload or canvas draw;
+      - seam re-blending (added in A-phase) runs one chunk per frame and replaces that frame's
+        publication, instead of recomputing every neighbour in the publish frame
+        (`TiledTerrainStreamer.applyPendingSeam`).
+- [ ] F4 Headset check of F1–F3. If hitches remain, record `?profile=1` during a load and
+      share the JSON (long tasks + phase timings), or capture a Perfetto trace over USB. Remaining
+      suspects: per-frame `syncRenderer` allocations, full-array mipmap regeneration on every
+      texture-array layer upload (`ImageryBatchRenderer`, 2 per frame), main-thread
+      `computeVertexNormals` in `LocalTerrainChunk` paths without prepared data, and progressive
+      2048² composite re-uploads (`CompositeImagery`).
+
 ## Verification log
 
 - 2026-11-08: `npm run verify` green (144 files / 871 tests, typecheck, build). Browser

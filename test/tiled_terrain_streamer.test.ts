@@ -437,7 +437,8 @@ it('keeps parent coverage through acquisition and publishes one validated tile p
 it('bounds total refinement vertices and reuses stable terrain when focus is stationary', async () => {
   const { streamer } = fixture();
   const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
-  for (let i = 0; i < 40; i++) { streamer.update(0); await flushBuild(); }
+  // Seam re-blending takes its own frames between publications (one chunk per frame).
+  for (let i = 0; i < 120; i++) { streamer.update(0); await flushBuild(); }
   const chunks = streamer.activeChunks;
   const policy = terrainDetailPolicy(QUALITY_PROFILES['quest-high']);
   expect(chunks.length).toBeGreaterThan(1); expect(chunks.length).toBeLessThanOrEqual(policy.maxTiles);
