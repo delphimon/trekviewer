@@ -26,7 +26,7 @@ import { TileImageCache } from './terrain/TileImageCache';
 import { ElevationTileService } from './terrain/ElevationTiles';
 import { QualityProfileManager } from './terrain/QualityProfile';
 import { resolveAssetUrl } from './utils/AssetUrl';
-import { readComfortPreferences, saveComfortPreferences } from './xr/ComfortPreferences.ts';
+import { readComfortPreferences, saveComfortPreferences, STEP_FADE_MS, stepFadeOpacity } from './xr/ComfortPreferences.ts';
 import { disposeTerrainJobs } from './terrain/TerrainJobs.ts';
 import { configureDesktopInspection, fitInspectionBounds, levelHorizon, readHorizonLock, saveHorizonLock } from './core/InspectionView.ts';
 import { GraphicsRecovery } from './core/GraphicsRecovery.ts';
@@ -325,7 +325,10 @@ export class TrekViewerApp {
         if (this.flyoverController) {
           this.flyoverController.pause();
           this.overlay.setPlaying(false);
-          this.flyoverController.stepDistanceMeters(meters);
+          // Step locomotion in XR fades through black and moves at the darkest moment.
+          if (this.comfort.movement === 'step' && this.sceneManager.renderer.xr.isPresenting) {
+            this.stepFade = { elapsedMs: 0, meters, moved: false };
+          } else this.flyoverController.stepDistanceMeters(meters);
         }
       },
       onSelectWaypoint: (name, lat, lon) => this.jumpToWaypoint(name, lat, lon),
@@ -1250,11 +1253,21 @@ export class TrekViewerApp {
     this.viewTransition = { phase: 'out', elapsed: 0, next: nextMode };
   }
 
+  private stepFade: { elapsedMs: number; meters: number; moved: boolean } | null = null;
+
   private updateViewTransition(delta: number): void {
     const t = this.viewTransition;
     if (!t) {
       // While A/X is held, dim slightly as a progress cue for the coming switch.
-      this.sceneManager.setFade(this.viewHoldProgress != null ? 0.35 * this.viewHoldProgress : 0);
+      let fade = this.viewHoldProgress != null ? 0.35 * this.viewHoldProgress : 0;
+      const step = this.stepFade;
+      if (step) {
+        step.elapsedMs += delta * 1000;
+        if (!step.moved && step.elapsedMs >= STEP_FADE_MS / 2) { step.moved = true; this.flyoverController?.stepDistanceMeters(step.meters); }
+        fade = Math.max(fade, stepFadeOpacity(step.elapsedMs));
+        if (step.elapsedMs >= STEP_FADE_MS) this.stepFade = null;
+      }
+      this.sceneManager.setFade(fade);
       return;
     }
     t.elapsed += delta;

@@ -593,9 +593,11 @@ Write the numbers in the commit message.
 
 Implement and unit-test; mark each `[~] needs headset check`.
 
-- [ ] **X1 Comfortable defaults.** `src/xr/ComfortPreferences.ts` `DEFAULT_COMFORT`:
+- [~] **X1 Comfortable defaults.** `src/xr/ComfortPreferences.ts` `DEFAULT_COMFORT`:
   `movement: 'step'`. Existing saved preferences must be respected. Add a 150 ms fade
   through black around each 25 m step using `SceneManager.setFade`.
+  - Note: needs headset check — with no saved settings, the left stick in life-size moves
+    in 25 m steps and each step dips briefly to black (about 150 ms) with no visible jump.
 - [ ] **X2 HUD legibility, interim.** `src/ui/SpatialHUD.ts`: canvas 2048×1536 with all
   layout coordinates scaled ×2 (use a single scale constant, do not hand-edit numbers),
   minimum text size equal to 18 px at the old scale, texture anisotropy 4, and tilt the
