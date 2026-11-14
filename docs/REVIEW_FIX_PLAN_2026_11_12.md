@@ -439,7 +439,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
   `formatSpeed` and use it everywhere numbers are shown: `DesktopOverlay` (stats,
   subtitle, scrubber, legend, landmarks, load status in `main.ts`) and `SpatialHUD`.
   Add the selector to the View tab. Unit-test the formatters.
-- [ ] **U5 Keyboard shortcuts.** Space: play/pause. Left/Right: scrub ±1% (Shift ±5%).
+- [x] **U5 Keyboard shortcuts.** Space: play/pause. Left/Right: scrub ±1% (Shift ±5%).
   `F`: fit terrain. `1`/`2`/`3`: Aerial/Hybrid/Topo. Ignore keys when focus is in an
   `input`, `select` or `textarea`. List them in the Help tab. Remove the listener in
   `dispose()`.

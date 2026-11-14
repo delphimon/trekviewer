@@ -35,6 +35,24 @@ export interface OverlayCallbacks {
   canPrepareOffline?: () => boolean;
 }
 
+export type DesktopShortcut = { type: 'play' } | { type: 'fit' } | { type: 'style'; style: TextureStyle } | { type: 'scrub'; delta: number };
+
+/** Desktop keyboard shortcuts; none while typing in a form field or with Ctrl/Cmd/Alt held. */
+export function desktopShortcut(event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey' | 'target'>): DesktopShortcut | null {
+  const tag = (event.target as { tagName?: string } | null)?.tagName?.toLowerCase();
+  if (tag === 'input' || tag === 'select' || tag === 'textarea' || event.ctrlKey || event.metaKey || event.altKey) return null;
+  switch (event.key) {
+    case ' ': return { type: 'play' };
+    case 'ArrowLeft': return { type: 'scrub', delta: event.shiftKey ? -0.05 : -0.01 };
+    case 'ArrowRight': return { type: 'scrub', delta: event.shiftKey ? 0.05 : 0.01 };
+    case 'f': case 'F': return { type: 'fit' };
+    case '1': return { type: 'style', style: 'satellite' };
+    case '2': return { type: 'style', style: 'hybrid' };
+    case '3': return { type: 'style', style: 'topo' };
+    default: return null;
+  }
+}
+
 export class DesktopOverlay {
   private offlineDownloads: OfflineDownloadsPanel;
   private container: HTMLElement;
@@ -63,6 +81,16 @@ export class DesktopOverlay {
   private chartCssHeight = 96;
   private chartObserver: ResizeObserver | null = null;
   private chartTooltip: HTMLElement | null = null;
+  private readonly onShortcut = (event: KeyboardEvent) => {
+    const action = desktopShortcut(event);
+    if (!action) return;
+    event.preventDefault();
+    const click = (id: string) => { const button = document.getElementById(id) as HTMLButtonElement | null; if (button && !button.disabled) button.click(); };
+    if (action.type === 'play') click('btnPlay');
+    else if (action.type === 'fit') click('btnFitTerrain');
+    else if (action.type === 'style') click(action.style === 'satellite' ? 'btnSatTex' : action.style === 'hybrid' ? 'btnHybridTex' : 'btnTopoTex');
+    else if (this.currentTrack) this.callbacks.onScrub(Math.min(1, Math.max(0, this.currentProgress + action.delta)));
+  };
   private currentElevation = 0;
   private unsubscribeUnits: (() => void) | null = null;
   private chartLandmarks: { x: number; y: number; radius: number; landmark: RouteLandmark }[] = [];
@@ -682,6 +710,13 @@ export class DesktopOverlay {
               <li><strong>Trigger:</strong> point and select</li>
               <li>In passthrough, the model is placed on your table automatically when Space Setup has one.</li>
             </ul>
+            <h3>⌨️ Keyboard</h3>
+            <ul class="help-list">
+              <li><strong>Space:</strong> play / pause</li>
+              <li><strong>← / →:</strong> move 1% along the route (hold Shift for 5%)</li>
+              <li><strong>F:</strong> fit the terrain in view</li>
+              <li><strong>1 / 2 / 3:</strong> Aerial / Hybrid / Topo</li>
+            </ul>
           </div>
 
             <a href="${resolveAssetUrl('data-sources.html')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:#7dd3fc;font-size:12px;">Data sources &amp; licenses ↗</a>
@@ -846,6 +881,7 @@ export class DesktopOverlay {
       document.getElementById(item.dataset.proxy!)?.click();
     }));
     document.getElementById('btnCloseSettings')?.addEventListener('click', () => { closeSettings(); settingsButton?.focus(); });
+    if (typeof window !== 'undefined') window.addEventListener('keydown', this.onShortcut);
     const unitsSelect = document.getElementById('unitsSelect') as HTMLSelectElement | null;
     if (unitsSelect) {
       unitsSelect.value = getUnits();
@@ -1348,6 +1384,7 @@ export class DesktopOverlay {
     this.offlineDownloads.dispose();
     this.chartObserver?.disconnect(); this.chartObserver = null;
     this.unsubscribeUnits?.(); this.unsubscribeUnits = null;
+    if (typeof window !== 'undefined') window.removeEventListener('keydown', this.onShortcut);
     if (this.onWindowDragOver) {
       window.removeEventListener('dragover', this.onWindowDragOver);
       this.onWindowDragOver = undefined;
