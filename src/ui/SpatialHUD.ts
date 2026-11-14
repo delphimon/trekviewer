@@ -966,8 +966,8 @@ export class SpatialHUD {
     // 4. Footer Controller & Hand Gestures Guide
     ctx.fillStyle = '#94a3b8';
     ctx.font = '12px sans-serif';
-    ctx.fillText('🖐️ Hands: 2-Hand Pinch to Zoom / Rotate / Move  •  1-Hand Pinch to Drag & Turn  •  Direct Poke HUD', 45, 688);
-    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  [A/X] 1:1 Mode', 45, 706);
+    ctx.fillText('🖐️ Hands: 1-hand pinch: move · 2 hands: zoom / turn  •  Poke buttons directly', 45, 688);
+    ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  Hold A/X: switch view', 45, 706);
 
     // Compact Attribution & Elevation quality badge
     const qualityLabel = this.terrainQuality === 'dem' ? 'DEM' : this.terrainQuality === 'partial-dem' ? 'partial DEM' : 'approximate';

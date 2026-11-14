@@ -49,7 +49,7 @@ it('preserves the explicit MR choice when passthrough is unsupported', async () 
   await app.enterXR('immersive-ar');
   expect(supported).toHaveBeenCalledTimes(1);
   expect(requestSession).not.toHaveBeenCalled();
-  expect(app.overlay.showStatus).toHaveBeenCalledWith(expect.stringContaining('Choose Enter VR'), true);
+  expect(app.overlay.showStatus).toHaveBeenCalledWith(expect.stringContaining('Choose Enter VR'), true, 'error');
   expect(app.xrEntryPending).toBe(false);
 });
 

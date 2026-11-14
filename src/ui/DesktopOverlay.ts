@@ -147,15 +147,8 @@ export class DesktopOverlay {
     }
 
     const spinner = this.statusBanner.querySelector('.status-spinner') as HTMLElement;
-    const isDone = !effectiveError && (
-      state === 'ready' ||
-      (state === undefined && (
-        message.toLowerCase().includes('ready') ||
-        message.includes('Loaded:') ||
-        message.includes('active') ||
-        message.includes('complete')
-      ))
-    );
+    // Callers say what the message is; without a state it is in-progress work (spinner).
+    const isDone = !effectiveError && state === 'ready';
 
     if (spinner) {
       spinner.style.display = (isDone || effectiveError) ? 'none' : 'inline-block';
@@ -791,7 +784,7 @@ export class DesktopOverlay {
       if (file) {
         if (file.size > MAX_FILE_SIZE_BYTES) {
           const mb = (file.size / (1024 * 1024)).toFixed(1);
-          this.showStatus(`File "${file.name}" exceeds 25 MB limit (${mb} MB).`, true);
+          this.showStatus(`File "${file.name}" exceeds 25 MB limit (${mb} MB).`, true, 'error');
           fileInput.value = '';
           return;
         }
@@ -814,7 +807,7 @@ export class DesktopOverlay {
       if (file && file.name.toLowerCase().endsWith('.gpx')) {
         if (file.size > MAX_FILE_SIZE_BYTES) {
           const mb = (file.size / (1024 * 1024)).toFixed(1);
-          this.showStatus(`File "${file.name}" exceeds 25 MB limit (${mb} MB).`, true);
+          this.showStatus(`File "${file.name}" exceeds 25 MB limit (${mb} MB).`, true, 'error');
           return;
         }
         const reader = new FileReader();

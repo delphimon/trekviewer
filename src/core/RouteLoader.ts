@@ -67,10 +67,8 @@ export class RouteLoader {
   }
 
   private isAbortError(e: any): boolean {
-    return (
-      e?.name === 'AbortError' ||
-      (typeof e?.message === 'string' && e.message.toLowerCase().includes('abort'))
-    );
+    // Only a real cancellation; a stale load is caught separately by isStale().
+    return e?.name === 'AbortError';
   }
 
   public abortActiveLoad(): void {

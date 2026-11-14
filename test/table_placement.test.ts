@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import * as THREE from 'three';
-import { TablePlacement } from '../src/xr/TablePlacement.ts';
+import { TablePlacement, placeInFrontOfViewer } from '../src/xr/TablePlacement.ts';
 import { DioramaBase, plinthBottomDepth } from '../src/visualization/DioramaBase.ts';
 
 function frameWithTable(y: number): XRFrame {
@@ -28,4 +28,14 @@ it('rests the plinth bottom on the detected table instead of sinking it', () => 
   const plinthBottomWorldY = root.position.y - 105 * root.scale.y;
   expect(Math.abs(plinthBottomWorldY - (0.74 + 0.01))).toBeLessThan(0.001);
   expect(root.position.x).toBeCloseTo(0.2); expect(root.position.z).toBeCloseTo(-0.6);
+});
+
+it('places the default tabletop 80 cm ahead of the first viewer pose, facing the viewer', () => {
+  const root = new THREE.Group();
+  const viewer = new THREE.Vector3(1.5, 1.6, 2);
+  const looking = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5, Math.PI / 2, 0, 'YXZ')); // turned left, looking down
+  placeInFrontOfViewer(root, viewer, looking);
+  expect(root.position.x).toBeCloseTo(0.7); expect(root.position.z).toBeCloseTo(2); expect(root.position.y).toBeCloseTo(0.82);
+  const towardViewer = new THREE.Vector3(0, 0, 1).applyEuler(root.rotation);
+  expect(towardViewer.x).toBeCloseTo(1); expect(towardViewer.z).toBeCloseTo(0);
 });

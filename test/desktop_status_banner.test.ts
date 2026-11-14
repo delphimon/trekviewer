@@ -117,19 +117,19 @@ describe('DesktopOverlay Status Banner & Spinner Lifecycle', () => {
 
     // 2. "Satellite imagery ready.": MUST hide spinner and dismiss after 2.5s
     lastTimeoutDelay = null;
-    overlay.showStatus('Satellite imagery ready.', false);
+    overlay.showStatus('Satellite imagery ready.', false, 'ready');
     assert.strictEqual(spinner.style.display, 'none', 'Spinner must hide when satellite imagery is ready');
     assert.strictEqual(lastTimeoutDelay, 2500, 'Must auto-dismiss after 2500ms');
 
     // 3. "Elevation model ready.": MUST hide spinner and dismiss
     lastTimeoutDelay = null;
-    overlay.showStatus('Elevation model ready.', false);
+    overlay.showStatus('Elevation model ready.', false, 'ready');
     assert.strictEqual(spinner.style.display, 'none');
     assert.strictEqual(lastTimeoutDelay, 2500);
 
     // 4. "Loaded: Mount Rainier": MUST hide spinner and dismiss
     lastTimeoutDelay = null;
-    overlay.showStatus('Loaded: Mount Rainier (9.3 mi, +4,600 ft gain)', false);
+    overlay.showStatus('Loaded: Mount Rainier (9.3 mi, +4,600 ft gain)', false, 'ready');
     assert.strictEqual(spinner.style.display, 'none');
     assert.strictEqual(lastTimeoutDelay, 2500);
 
@@ -138,6 +138,12 @@ describe('DesktopOverlay Status Banner & Spinner Lifecycle', () => {
     overlay.showStatus('Failed to load GPX track', true);
     assert.strictEqual(spinner.style.display, 'none', 'Spinner must not spin on error');
     assert.strictEqual(lastTimeoutDelay, 6000);
+
+    // 6. Words like "ready" or "active" no longer end the spinner; only state does.
+    lastTimeoutDelay = null;
+    overlay.showStatus('Waiting for the active imagery source to be ready…');
+    assert.strictEqual(spinner.style.display, 'inline-block');
+    assert.strictEqual(lastTimeoutDelay, null);
 
     overlay.dispose();
   });

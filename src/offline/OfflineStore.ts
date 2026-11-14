@@ -68,6 +68,8 @@ export class OfflineStore {
         done = true; clearTimeout(timer);
         const db = request.result;
         db.onversionchange = () => { db.close(); this.opening = undefined; this.readyIds = undefined; };
+        // The browser can close the connection (storage cleared, device pressure); reopen next time.
+        db.onclose = () => { this.opening = undefined; this.readyIds = undefined; };
         if (typeof BroadcastChannel !== 'undefined' && !this.channel) {
           this.channel = new BroadcastChannel(DATABASE); this.channel.onmessage = () => this.notify(false);
         }
@@ -84,7 +86,9 @@ export class OfflineStore {
       const tx = db.transaction(stores, mode); let value: T;
       const timer = setTimeout(() => { try { tx.abort(); } catch {} }, 30000);
       tx.oncomplete = () => { clearTimeout(timer); resolve(value); };
-      tx.onerror = tx.onabort = () => { clearTimeout(timer); reject(tx.error ?? Error('Offline storage operation failed.')); };
+      // A failed request aborts the transaction; tx.error (e.g. QuotaExceededError) is only
+      // set by then, so settle in onabort rather than in the earlier error event.
+      tx.onabort = () => { clearTimeout(timer); reject(tx.error ?? Error('Offline storage operation failed.')); };
       try { work(tx, result => { value = result; }); } catch (error) { tx.abort(); reject(error); }
     });
   }

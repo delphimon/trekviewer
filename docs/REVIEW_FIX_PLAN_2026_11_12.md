@@ -269,7 +269,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Test: extend `test/offline_shell.test.ts` for a second client receiving
     `controllerchange` with `reloading === false`.
 
-- [ ] **B14 Small confirmed leftovers**
+- [~] **B14 Small confirmed leftovers**
   - `src/ui/SpatialHUD.ts` footer text (search `1-Hand Pinch to Drag & Turn` and
     `[A/X] 1:1 Mode`): change to "1-hand pinch: move · 2 hands: zoom / turn" and
     "Hold A/X: switch view".
@@ -285,6 +285,11 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - `src/main.ts` `sessionstart`: place the diorama relative to the first viewer pose (as
     `pendingHUDDock` does for the panel) instead of
     `position.set(0, 0.82, -0.80)`. **HEADSET**
+  - Note: all five done. Needs headset check — enter MR facing away from the room's
+    origin with no Space Setup table; the model should appear 80 cm ahead of where you look.
+    The OfflineStore `onabort`/`onclose` change was verified by reading the IndexedDB
+    event order; it has no IndexedDB test yet because `fake-indexeddb` (T1) is not installed.
+    `test/xr_availability.test.ts` now expects the explicit `'error'` state argument.
 
 ---
 

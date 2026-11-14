@@ -21,6 +21,18 @@ export interface PlaneCandidate {
   depth: number;
 }
 
+/** Default tabletop spot when no table is found: `distance` metres ahead of the viewer's
+ * horizontal gaze, `height` metres above the floor, turned to face the viewer. */
+export function placeInFrontOfViewer(root: THREE.Object3D, viewerPosition: THREE.Vector3, viewerQuaternion: THREE.Quaternion,
+  distance = 0.80, height = 0.82): void {
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(viewerQuaternion);
+  forward.y = 0;
+  if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+  forward.normalize();
+  root.position.set(viewerPosition.x + forward.x * distance, height, viewerPosition.z + forward.z * distance);
+  root.rotation.set(0, Math.atan2(-forward.x, -forward.z), 0);
+}
+
 const MIN_TABLE_HEIGHT = 0.45;
 const MAX_TABLE_HEIGHT = 1.25;
 const MAX_TABLE_DISTANCE = 2.0;

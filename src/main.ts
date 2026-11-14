@@ -33,7 +33,7 @@ import { PersistentResourceCache } from './terrain/PersistentResourceCache.ts';
 import { OfflineDownloads } from './offline/OfflineDownloads.ts';
 import { resolveRouteLandmarks, type RouteLandmark } from './gpx/RouteLandmarks.ts';
 import { localMetersToGeo } from './gpx/Coordinates.ts';
-import { TablePlacement } from './xr/TablePlacement.ts';
+import { TablePlacement, placeInFrontOfViewer } from './xr/TablePlacement.ts';
 import { HUDTerrainClearance } from './xr/HUDTerrainClearance.ts';
 
 /** Plain-language route-load errors (parser messages are kept in the console). */
@@ -47,6 +47,7 @@ export function friendlyRouteError(error: Error): string {
 }
 
 const _scratchV3 = new THREE.Vector3();
+const _scratchQuat = new THREE.Quaternion();
 const _scratchHUDDir = new THREE.Vector3();
 const _scratchHUDOffset = new THREE.Vector3();
 const _scratchHUDEye = new THREE.Vector3();
@@ -213,9 +214,11 @@ export class TrekViewerApp {
       // A desktop tabletop transform is not meaningful in room space.
       this.savedTabletopTransform = null;
       if (this.currentViewMode === 'diorama') {
-        // Natural tabletop height in room space (82cm above floor, 80cm in front of user)
+        // Natural tabletop height in room space (82cm above floor, 80cm in front of user);
+        // refined to the user's real first pose below, as the HUD dock is.
         this.sceneManager.dioramaRoot.position.set(0, 0.82, -0.80);
         this.sceneManager.dioramaRoot.rotation.set(0, 0, 0);
+        this.pendingDioramaPlacement = true;
       }
       // Look for a real table (Space Setup planes) for a few seconds and anchor the model to it.
       this.tablePlacement.start(performance.now());
@@ -384,13 +387,13 @@ export class TrekViewerApp {
       getCurrentTrailColorMode: () => this.currentTrailColorMode,
       session: this.session,
       onProgress: (msg, progress) => {
-        this.overlay.showStatus(msg);
+        this.overlay.showStatus(msg, false, 'loading');
         this.spatialHUD?.showStatus(msg, progress ?? undefined);
       },
       onError: (err, routeName) => {
         console.error('[TrekViewerApp] Route load error:', err);
         const message = friendlyRouteError(err);
-        this.overlay.showStatus(`Couldn't open ${routeName || 'this route'}: ${message} The previous route is still shown.`, true);
+        this.overlay.showStatus(`Couldn't open ${routeName || 'this route'}: ${message} The previous route is still shown.`, true, 'error');
         this.spatialHUD?.showStatus(`Couldn't open route: ${message}`);
       },
       onTrekCommitted: (newTrek, prevTrek) => {
@@ -482,13 +485,13 @@ export class TrekViewerApp {
       }
       if (state.loadingMessage !== prev.loadingMessage || state.loadingProgress !== prev.loadingProgress) {
         if (state.loadingPhase === 'error') {
-          this.overlay.showStatus(state.loadingMessage, true);
+          this.overlay.showStatus(state.loadingMessage, true, 'error');
           this.spatialHUD?.showStatus(state.loadingMessage);
         } else if (state.loadingPhase === 'ready') {
           this.overlay.clearStatus();
           this.spatialHUD?.clearStatus();
         } else if (state.loadingMessage) {
-          this.overlay.showStatus(state.loadingMessage);
+          this.overlay.showStatus(state.loadingMessage, false, 'loading');
           this.spatialHUD?.showStatus(state.loadingMessage, state.loadingProgress ?? undefined);
         }
       }
@@ -547,7 +550,7 @@ export class TrekViewerApp {
 
   private async initRoutes(): Promise<void> {
     const generation = this.routeSelectionGeneration;
-    this.overlay.showStatus('Connecting to imagery provider…');
+    this.overlay.showStatus('Connecting to imagery provider…', false, 'loading');
     await TextureProvider.waitForInitialization();
     if (this.isDisposed) return;
     try {
@@ -713,7 +716,7 @@ export class TrekViewerApp {
     void this.autoEnterInstalledPWA();
     const distMi = (track.totalDistance * 0.000621371).toFixed(1);
     const gainFt = Math.round(track.elevationGain * 3.28084);
-    this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`);
+    this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`, false, 'ready');
   }
 
   private async loadRouteByFile(url: string, fallbackName: string, routeId?: string): Promise<void> {
@@ -745,6 +748,7 @@ export class TrekViewerApp {
 
 
   private pendingHUDDock = false;
+  private pendingDioramaPlacement = false;
 
   private currentHUDDockSide: 'left' | 'right' | 'center' = 'left';
 
@@ -904,7 +908,7 @@ export class TrekViewerApp {
     this.xrExitPending = true;
     void endXRSessionAfterFrame(session).catch(error => {
       console.warn('Failed to end XR session:', error);
-      if (!this.isDisposed) this.overlay.showStatus('Could not exit VR/MR. Use the headset menu to leave.', true);
+      if (!this.isDisposed) this.overlay.showStatus('Could not exit VR/MR. Use the headset menu to leave.', true, 'error');
     }).finally(() => { this.xrExitPending = false; });
   }
 
@@ -1162,7 +1166,7 @@ export class TrekViewerApp {
     this.session.setProgress(progress, curEle, curDist, curPoint);
     DioramaBase.selectWaypointByName(this.sceneManager.dioramaRoot, name);
 
-    this.overlay.showStatus(`Jumped to: ${name}`);
+    this.overlay.showStatus(`Jumped to: ${name}`, false, 'ready');
     this.spatialHUD?.showStatus(`Jumped to: ${name}`);
   }
 
@@ -1315,12 +1319,12 @@ export class TrekViewerApp {
   private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
     if (this.isDisposed || this.graphicsRecovery?.isSuspended || this.xrEntryPending || this.sceneManager.renderer.xr.isPresenting) return;
     if (!navigator.xr) {
-      this.overlay.showStatus('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!', true);
+      this.overlay.showStatus('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!', true, 'error');
       return;
     }
 
     if (!this.activeTrek) {
-      this.overlay.showStatus('Please wait for the trek to finish loading before entering VR/MR.', false);
+      this.overlay.showStatus('Please wait for the trek to finish loading before entering VR/MR.', false, 'ready');
       return;
     }
 
@@ -1332,7 +1336,7 @@ export class TrekViewerApp {
       if (!isSupported) {
         this.overlay.showStatus(mode === 'immersive-ar'
           ? 'Passthrough is unavailable here. Choose Enter VR to use virtual reality.'
-          : 'VR is unavailable in this browser or device.', true);
+          : 'VR is unavailable in this browser or device.', true, 'error');
         return;
       }
 
@@ -1358,7 +1362,7 @@ export class TrekViewerApp {
     } catch (e: any) {
       if (requestedSession) await requestedSession.end().catch(() => {});
       console.error('Failed to start WebXR session:', e);
-      this.overlay.showStatus(`Could not start WebXR session: ${e.message}`, true);
+      this.overlay.showStatus(`Could not start WebXR session: ${e.message}`, true, 'error');
     } finally {
       this.xrEntryPending = false;
     }
@@ -1432,6 +1436,13 @@ export class TrekViewerApp {
     // Wait for the first valid XR camera pose before docking after session entry.
     if (this.pendingHUDDock && frame?.getViewerPose(this.sceneManager.renderer.xr.getReferenceSpace()!)) {
       this.pendingHUDDock = false;
+      // No table placed yet: put the model in front of where the user actually stands and looks.
+      if (this.pendingDioramaPlacement && this.currentViewMode === 'diorama' && this.tablePlacement.isSearching) {
+        activeCamera.getWorldPosition(_scratchV3);
+        activeCamera.getWorldQuaternion(_scratchQuat);
+        placeInFrontOfViewer(this.sceneManager.dioramaRoot, _scratchV3, _scratchQuat);
+      }
+      this.pendingDioramaPlacement = false;
       // Entering XR during playback keeps the table where it was placed (no automatic follow).
       if (this.currentViewMode === 'first-person') {
         this.flyoverController?.recenterViewer(activeCamera);
