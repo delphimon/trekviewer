@@ -838,4 +838,9 @@ and anything the owner must check.
 - 2026-11-14, Phase N: N1–N4 implemented with unit tests and marked `[~]` — none could be
   browser-checked because the in-app browser pane stayed hidden (the page does not finish
   loading without animation frames). **OWNER N5** (sun position): not started.
+- 2026-11-14, Phase C: C2, C5, C6 done; C4 step 1 done (`ImagerySelection.ts`), steps 2–4
+  left because tests reach into those private members. **OWNER C1**: verified unreachable,
+  deletion (573 lines + `LoadedTrek` test rework) exceeds the size rule — confirm.
+  **OWNER C3** and **C7**: not started (decision items). Deleted tests listed in the C2
+  commit.
 
