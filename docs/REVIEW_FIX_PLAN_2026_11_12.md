@@ -757,4 +757,13 @@ and anything the owner must check.
 - 2026-11-13, Phase W done in code (W1–W3) with unit tests; W1 browser-checked. The W2/W3
   visual run is outstanding (pane hidden, see the Phase W note). Speed resets to 1× on any
   view-mode change so tour/track multipliers never carry into the trail view.
+- 2026-11-13, Phase O done for O1–O4 (all verify-first items confirmed). O1 retries each
+  source 4× and revisits failures; O2 fixes the corridor wording; O3 skips re-reading saved
+  sources on pack-file resume; O4 checks for app updates hourly when shown and blocks
+  reloads during downloads. **OWNER O5** (transcode imagery to WebP/JPEG): the inventory
+  script runs offline but gives tile counts only — 71,730 full-model and 27,091 corridor
+  imagery tiles across the 8 routes (7.3 GB of decoded Float32 elevation); byte sizes need
+  its network probe (`TREK_PACK_SAMPLE=1`), not run. README cites 5.5 GB (Rainier) and
+  10.4 GB (Enchantments) for full packs. Note the script still uses the pre-V1 margin.
+  **OWNER O6** (pack validity from inventory instead of GPX bytes): recorded, not started.
 
