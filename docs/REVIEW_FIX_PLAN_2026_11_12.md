@@ -299,7 +299,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   committed in `src/terrain/TextureProvider.ts` at commit `33a0f92` and later removed.
   The agent must not print it. Add this to the progress log as an owner action: revoke it
   in the Cesium ion dashboard, and restrict the current token by allowed URL.
-- [ ] **S2 Delete the `deploy:gh-pages` script** from `package.json`. It publishes the
+- [x] **S2 Delete the `deploy:gh-pages` script** from `package.json`. It publishes the
   built bundle (which contains the current token) to a repository branch and skips
   typecheck and tests.
 - [ ] **S3 Send the ion token as a header** — *Reported (verify first).*
