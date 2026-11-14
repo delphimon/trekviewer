@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { TrackStats, TrailColorMode } from '../gpx/TrackTypes.ts';
+import type { TrailColorMode } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { TerrainGenerator, type TerrainResult } from '../terrain/TerrainGenerator.ts';
 import { TrailMesh, type TrailResult } from '../visualization/TrailMesh.ts';

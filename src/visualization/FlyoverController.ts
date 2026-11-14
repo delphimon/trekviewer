@@ -34,7 +34,6 @@ export class FlyoverController {
   private totalPlaybackSeconds: number = 60.0;
   private isPlaying: boolean = false;
   private playbackSpeed: number = 1.0; // 1.0 = base nominal duration
-  private baseDurationSeconds: number = 60.0;
   private viewMode: ViewMode = 'diorama';
   private playbackMode: PlaybackMode = 'recorded';
   private navigationYaw: number | null = null;

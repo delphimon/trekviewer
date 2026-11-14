@@ -125,7 +125,7 @@ export async function offlineArchiveSource(file: Blob, index: ArchiveIndex, plan
   paused(signal);
   return { message: 'Importing route pack', async load(position: number, signal: AbortSignal, retained?: OfflineAsset) {
     paused(signal);
-    const r = m.records[position], resource = plan.resources[position];
+    const r = m.records[position];
     // Resume: a saved original that already matches this manifest record (same bytes and
     // hash) was validated and hashed when it was committed. Skip reading the pack member.
     if (retained && retained.bytes === r.bytes && retained.sha256 === r.sha256 && retained.blob.size === r.bytes) {

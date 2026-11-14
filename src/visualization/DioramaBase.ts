@@ -519,7 +519,7 @@ export class DioramaBase {
   public static updateWaypoints(
     baseGroup: THREE.Group,
     camera: THREE.Camera,
-    dioramaScale: number,
+    _dioramaScale: number,
     delta: number,
     desktopViewportHeight?: number,
     lifeSize = false

@@ -29,11 +29,7 @@ export class SceneManager {
   public hemiLight: THREE.HemisphereLight;
   public skyMesh: THREE.Mesh;
 
-  private isPassthroughActive: boolean = false;
   private currentViewMode: ViewMode = 'diorama';
-  private targetScale: number = 1.0;
-  private targetPosition: THREE.Vector3 = new THREE.Vector3();
-  private targetRotationY: number = 0;
   private onWindowResizeBound: () => void;
   private readonly vignette: THREE.Mesh;
   /** Full-view black overlay for comfortable XR transitions (fade through black). */
@@ -133,7 +129,6 @@ export class SceneManager {
   }
 
   public setPassthrough(active: boolean): void {
-    this.isPassthroughActive = active;
     if (active) {
       // Clear background and hide sky so Quest 3 passthrough camera shows through
       this.scene.background = null;

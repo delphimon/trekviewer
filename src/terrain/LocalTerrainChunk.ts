@@ -556,7 +556,7 @@ export class LocalTerrainChunk {
   /**
    * Validates generated chunk vertices for finite heights and sane surface fidelity (Stage X3.1).
    */
-  public validate(baseSampler?: (x: number, z: number) => number): ChunkValidationResult {
+  public validate(_baseSampler?: (x: number, z: number) => number): ChunkValidationResult {
     const posAttr = this.geometry.attributes.position;
     const count = posAttr.count;
     let nanCount = 0;

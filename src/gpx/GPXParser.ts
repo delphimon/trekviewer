@@ -319,7 +319,7 @@ export class GPXParser {
     });
 
     // 3. Derive semantic landmarks from GPS data
-    const landmarks = this.deriveLandmarks(points, bounds, finalizedWaypoints);
+    const landmarks = this.deriveLandmarks(points, finalizedWaypoints);
     if (landmarks.length >= 200) allWarnings.push('Derived landmark display limited to 200 markers. The full track is preserved.');
 
     // Compute elevation provenance stats
@@ -519,7 +519,6 @@ export class GPXParser {
    */
   private static deriveLandmarks(
     points: GPXPoint[],
-    bounds: GeoBounds,
     explicitWaypoints: GPXWaypoint[] = []
   ): GPXWaypoint[] {
     if (points.length < 2) return [];

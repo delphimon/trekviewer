@@ -182,7 +182,6 @@ export class TerrainGenerator {
     const centerLon = terrainGeoBounds.centerLon;
     const widthM = terrainGeoBounds.widthMeters;
     const depthM = terrainGeoBounds.depthMeters;
-    const maxExtent = Math.max(widthM, depthM);
 
     // Shared tile grid covering the entire 3D mesh
     const tileGrid = TextureProvider.getTileGridForBounds(terrainGeoBounds, 0.05);

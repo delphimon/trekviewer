@@ -139,7 +139,7 @@ export class DesktopOverlay {
     const select = document.getElementById('routeSelect') as HTMLSelectElement;
     if (select) {
       select.innerHTML = '';
-      manifest.forEach((m, idx) => {
+      manifest.forEach((m) => {
         const opt = document.createElement('option');
         opt.value = m.id;
         opt.textContent = `${m.name} (${m.region})`;
@@ -950,7 +950,7 @@ export class DesktopOverlay {
         settingsButton?.focus();
       }
     });
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', () => {
       const file = fileInput.files?.[0];
       if (file) {
         if (file.size > MAX_FILE_SIZE_BYTES) {

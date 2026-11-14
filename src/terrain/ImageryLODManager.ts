@@ -28,8 +28,7 @@ import { TileImageCache, TilePriority } from './TileImageCache.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
 import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
-import { tileIntersectsBounds, getPatchSubdivisionSegments, getTileKey, parseTileKey, getParentTileKey, getChildTileKeys, computeCoherentLODTiles, computeFirstPersonCoherentLODTiles, computeFirstPersonStableLODTiles } from './ImagerySelection.ts';
-import type { CoherentTileCandidate } from './ImagerySelection.ts';
+import { tileIntersectsBounds, getPatchSubdivisionSegments, getTileKey, parseTileKey, getParentTileKey, getChildTileKeys, computeCoherentLODTiles, computeFirstPersonCoherentLODTiles } from './ImagerySelection.ts';
 export { tileIntersectsBounds, getPatchSubdivisionSegments, getTileKey, parseTileKey, getParentTileKey, getChildTileKeys, computeCoherentLODTiles, computeFirstPersonCoherentLODTiles, computeFirstPersonStableLODTiles } from './ImagerySelection.ts';
 export type { CoherentTileCandidate } from './ImagerySelection.ts';
 
@@ -1498,7 +1497,6 @@ export class ImageryLODManager {
     this.providerMaxZoom = provider.getMaxZoomForLocation?.(this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon) ?? provider.maxZoom;
 
     const innerZoom = Math.min(this.providerMaxZoom, 19);
-    const midZoom = Math.max(13, innerZoom - 1);
     const broadHigh = this.qualityProfile.name !== 'quest-balanced' && this.maxPatches >= 293;
     this.currentTargetZoom = innerZoom;
     this.calculatedDesiredZoom = innerZoom;
@@ -1858,7 +1856,7 @@ export class ImageryLODManager {
     }
 
     // 3. Admit new groups atomically without withdrawing published coverage.
-    for (const [key, patch] of this.patches.entries()) {
+    for (const key of this.patches.keys()) {
       const parentKey = this.getTileRelations(key).parent;
 
       // Check if patch belongs to a refinement group as a child

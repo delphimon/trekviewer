@@ -711,9 +711,11 @@ code, and list them in the commit message.
     changed; the manager is now 2,509 lines). Steps 2–4 are private class state and
     methods that many existing tests spy on via `(manager as any)`; moving them would
     change those tests beyond imports, so they are left for a dedicated refactor.
-- [ ] **C5 Remove unused code** found by `npx tsc --noEmit --noUnusedLocals
+- [x] **C5 Remove unused code** found by `npx tsc --noEmit --noUnusedLocals
   --noUnusedParameters` (27 errors at review time), then set both options to `true` in
   `tsconfig.json`.
+  - Note: 29 errors fixed; unused public parameters got a `_` prefix. `tsconfig.test.json`
+    turns both flags off for test files (138 unused test imports), so they apply to `src`.
 - [ ] **C6 Remove debug leftovers in `main.ts`**: the `__trekViewerInstances` counter and
   the unconditional build `console.log` (keep it under `?debug=1`).
 - [ ] **C7 OWNER decision, record only:** replace the static singletons

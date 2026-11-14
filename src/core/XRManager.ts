@@ -9,12 +9,9 @@ import { DEFAULT_COMFORT, type ComfortPreferences } from '../xr/ComfortPreferenc
 import {
   ALL_HAND_JOINTS,
   BONE_CONNECTIONS,
-  evaluatePinchState,
   PinchTracker,
   createPinchTracker,
   updatePinchTracker,
-  PINCH_ENGAGE_DISTANCE,
-  PINCH_RELEASE_DISTANCE,
   applyBimanualTransform,
   applyOneHandedManipulation,
   clampDeltaSeconds,
@@ -109,7 +106,6 @@ const _scratchV2 = new THREE.Vector3();
 const _scratchV3 = new THREE.Vector3();
 const _scratchM1 = new THREE.Matrix4();
 const _scratchV2D1 = new THREE.Vector2();
-const _scratchV2D2 = new THREE.Vector2();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchQuatIdentity = new THREE.Quaternion();
 const _scratchScale = new THREE.Vector3();
@@ -120,7 +116,6 @@ const _scratchRayOrigin = new THREE.Vector3();
 const _scratchRayDir = new THREE.Vector3();
 const _scratchGripPos = new THREE.Vector3();
 const _scratchGripQuat = new THREE.Quaternion();
-const _scratchPlaneNormal = new THREE.Vector3();
 
 /** Stepped 1:1 movement per flick (Meta comfort guidance: stepped translations). 1 m made a
  * 24 km route take ~24,000 flicks. */
@@ -238,11 +233,9 @@ export class XRManager {
   }
 
   // Tabletop Diorama Proximity Context
-  private dioramaBounds: GeoBounds | null = null;
   private dioramaWidthMeters: number = 2000;
   private dioramaDepthMeters: number = 2000;
   private dioramaElevationSampler: ((x: number, z: number) => number) | null = null;
-  private dioramaBaseElevation: number = 0;
   private dioramaVerticalExaggeration: number = 1.0;
   private dioramaMaxPeakLocal: number = 800;
   private dioramaPlinthBottomY: number = -105; // Plinth bottom in local diorama coords (-80 - 25 = -105)
@@ -288,13 +281,11 @@ export class XRManager {
     baseElevation: number = bounds.minEle,
     verticalExaggeration: number = 1.0
   ): void {
-    this.dioramaBounds = bounds;
     this.waypointGroup = null; // new route: look the waypoint group up again
     const footprint = terrainFootprint(bounds);
     this.dioramaWidthMeters = footprint.widthMeters;
     this.dioramaDepthMeters = footprint.depthMeters;
     this.dioramaElevationSampler = elevationSampler || null;
-    this.dioramaBaseElevation = baseElevation;
     this.dioramaVerticalExaggeration = verticalExaggeration;
     this.dioramaMaxPeakLocal = Math.max((bounds.maxEle ?? bounds.minEle + 500) - baseElevation, 500);
   }
@@ -1337,7 +1328,7 @@ export class XRManager {
     hudGroup.worldToLocal(local);
 
     // 1. Grab bar above the panel (geometry from SpatialHUD, not duplicated constants).
-    const { halfW, halfH } = this.spatialHUD.getPanelHalfExtents();
+    const { halfH } = this.spatialHUD.getPanelHalfExtents();
     const handleY = this.spatialHUD.getGrabHandleLocalY();
     const isNearGrabHandle = Math.abs(local.z) < 0.08 && Math.abs(local.x) <= 0.24
       && local.y >= halfH - 0.035 && local.y <= handleY + 0.045;

@@ -701,7 +701,7 @@ export class TrekViewerApp {
     this.spatialHUD?.setMetaInfo(attr, newTrek.terrainResult.terrainQuality, newTrek.track.elevationProvenanceStats, newTrek.terrainResult.demGrid?.source);
   }
 
-  private onTrekCommitted(newTrek: LoadedTrek, prevTrek: LoadedTrek | null): void {
+  private onTrekCommitted(newTrek: LoadedTrek, _prevTrek: LoadedTrek | null): void {
     this.session.setFollowRoute(false);
     // The previous route's tabletop scale/position must not be applied to this route.
     this.savedTabletopTransform = null;

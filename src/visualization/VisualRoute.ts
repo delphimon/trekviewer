@@ -17,9 +17,6 @@ export interface VisualRouteStation {
   segmentIndex?: number;
 }
 
-const _v1 = new THREE.Vector3();
-const _v2 = new THREE.Vector3();
-const _v3 = new THREE.Vector3();
 
 /**
  * 2D distance in X/Z plane.
