@@ -688,7 +688,12 @@ code, and list them in the commit message.
   unreachable: `src/core/LoadedTrek.ts` picks it only when `baseMeshGrid` is missing, and
   `src/terrain/TerrainGenerator.ts` should always set `baseMeshGrid`. If any code path
   returns a result without `baseMeshGrid`, stop and mark `[-]`.
-- [ ] **C2 Delete the BatchedMesh imagery branches** in
+  - Note: verified unreachable in the app (`TerrainGenerator.generate` has one return and it
+    sets `baseMeshGrid`; `main.ts` always passes `tiledTerrain: true`). Not deleted: it is 573
+    lines plus the `LoadedTrek` tests that use it as their default streamer, over the
+    ~300-line stop rule. **OWNER:** confirm deletion (and making the tiled streamer the
+    only default).
+- [x] **C2 Delete the BatchedMesh imagery branches** in
   `src/terrain/ImageryBatchRenderer.ts` and the `experimentalImageryBatching` option
   (always `false` in `main.ts`).
 - [ ] **C3 Remove the overlay-patch renderer** once B1 is done and a shader fade exists:

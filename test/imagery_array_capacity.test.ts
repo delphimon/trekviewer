@@ -102,7 +102,7 @@ it('selects no more tiles than the arrays hold and never draws a proxy patch in 
 it('gives a visible tile the slot of a hidden tile when every array is full', () => {
   stubCanvas();
   vi.spyOn(performance, 'now').mockReturnValue(0);
-  const renderer = new ImageryBatchRenderer(1, true);
+  const renderer = new ImageryBatchRenderer(1);
   const patches = new Map(Array.from({ length: IMAGERY_BATCH_LIMITS.layers }, (_, i) => {
     const p = patch(String(i)); return [p.key, p] as const;
   }));

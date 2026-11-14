@@ -166,14 +166,13 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
     mat.dispose();
   });
 
-  it('4. ImageryBatchRenderer skips BatchedMesh allocation and packs cross-zoom tiles when directSurface is enabled', () => {
-    const renderer = new ImageryBatchRenderer(4, true);
+  it('4. ImageryBatchRenderer allocates no meshes and packs cross-zoom tiles', () => {
+    const renderer = new ImageryBatchRenderer(4);
     const page1 = (renderer as any).createPage({ zoom: 15, texture: { anisotropy: 4 }, mesh: { renderOrder: 1 } }, 256, 256, 256 * 256 * 4 * 32);
 
     expect(page1.mesh).toBeUndefined();
     const diag = renderer.getDiagnostics();
     expect(diag.pages).toBe(1);
-    expect(diag.geometryBytes).toBe(0);
     expect(renderer.group.children.length).toBe(0);
 
     renderer.clear();

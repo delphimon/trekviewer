@@ -5,14 +5,14 @@ import type { ImageryPatch } from '../src/terrain/ImageryLODManager.ts';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-function fixture(maxPages = 2, directSurface = false) {
+function fixture(maxPages = 2) {
   vi.spyOn(performance, 'now').mockReturnValue(0);
   let image: any;
   vi.stubGlobal('document', { createElement: () => ({ width: 2, height: 2, getContext: () => ({
     setTransform: () => {}, drawImage: (next: any) => { image = next; },
     getImageData: () => ({ data: image.pixels }),
   }) }) });
-  return new ImageryBatchRenderer(maxPages, directSurface);
+  return new ImageryBatchRenderer(maxPages);
 }
 
 function patch(key: string, zoom = 19, size = 2): ImageryPatch {
@@ -28,78 +28,31 @@ function patch(key: string, zoom = 19, size = 2): ImageryPatch {
     dispose: () => { mesh.geometry.dispose(); material.dispose(); texture.dispose(); } };
 }
 
-it('copies exact positions, normals, UVs and topology while keeping source geometry and visibility for terrain logic', () => {
-  const renderer = fixture(), p = patch('a');
-  p.mesh.layers.mask = 5;
-  const geometry = p.mesh.geometry;
-  const input = Object.fromEntries(Object.entries(geometry.attributes).map(([key, attribute]) => [key, Array.from(attribute.array)]));
-  const indices = Array.from(geometry.index!.array);
-  renderer.sync(new Map([[p.key, p]]));
-  expect(renderer.getDiagnostics().patches).toBe(1);
-  const entry = (renderer as any).entries.get(p.key);
-  const range = entry.page.mesh.getGeometryRangeAt(entry.geometryId);
-  for (const [key, values] of Object.entries(input)) {
-    const attribute = entry.page.mesh.geometry.getAttribute(key);
-    expect(Array.from(attribute.array.slice(range.vertexStart * attribute.itemSize, (range.vertexStart + range.vertexCount) * attribute.itemSize))).toEqual(values);
-  }
-  const copied = Array.from(entry.page.mesh.geometry.index.array.slice(range.indexStart, range.indexStart + range.indexCount)) as number[];
-  expect(copied.map(i => i - range.vertexStart)).toEqual(indices);
-  expect(p.mesh.geometry).toBe(geometry); expect(p.mesh.visible).toBe(true);
-  expect(p.mesh.layers.mask).toBe(0);
-  expect((p.mesh.material as THREE.Material).visible).toBe(false);
-  renderer.clear(); expect((p.mesh.material as THREE.Material).visible).toBe(true);
-  expect(p.mesh.layers.mask).toBe(5);
-  expect(Array.from(geometry.attributes.position.array)).toEqual(input.position);
-  p.dispose();
-});
-
-it('releases all stale copies before its bounded uploads so terrain promotion cannot leave an old rendered surface', () => {
-  const renderer = fixture();
-  const patches = new Map(Array.from({ length: 4 }, (_, i) => { const p = patch(String(i)); return [p.key, p] as const; }));
-  renderer.sync(patches); expect(renderer.getDiagnostics().patches).toBe(2);
-  renderer.sync(patches); expect(renderer.getDiagnostics().patches).toBe(4);
-  for (const p of patches.values()) {
-    p.mesh.geometry.attributes.position.setY(0, 25);
-    p.mesh.geometry.attributes.position.needsUpdate = true;
-    p.mesh.geometry.computeBoundingSphere();
-  }
-  renderer.sync(patches);
-  expect(renderer.getDiagnostics().patches).toBe(2);
-  expect([...patches.values()].filter(p => (p.mesh.material as THREE.Material).visible)).toHaveLength(2);
-  for (const entry of (renderer as any).entries.values()) {
-    const range = entry.page.mesh.getGeometryRangeAt(entry.geometryId);
-    expect(entry.page.mesh.geometry.attributes.position.getY(range.vertexStart)).toBe(25);
-  }
-  renderer.clear(); for (const p of patches.values()) p.dispose();
-});
-
-it('keeps fades on the source renderer and preserves hidden members and local transforms', () => {
+it('keeps fades on the source renderer and preserves hidden members', () => {
   const renderer = fixture(), p = patch('a'), patches = new Map([[p.key, p]]);
   p.isFading = true; (p.mesh.material as THREE.Material).opacity = 0.4;
   renderer.sync(patches); expect(renderer.getDiagnostics().patches).toBe(0);
   expect((p.mesh.material as THREE.Material).visible).toBe(true);
   p.isFading = false; (p.mesh.material as THREE.Material).opacity = 1;
   renderer.sync(patches);
-  p.mesh.visible = false; p.mesh.position.set(2, 3, 4); renderer.sync(patches);
-  const entry = (renderer as any).entries.get(p.key);
-  expect(entry.page.mesh.getVisibleAt(entry.instanceId)).toBe(false);
-  const matrix = new THREE.Matrix4(); entry.page.mesh.getMatrixAt(entry.instanceId, matrix);
-  expect(matrix.elements).toEqual(p.mesh.matrix.elements);
+  p.mesh.visible = false; renderer.sync(patches);
+  // A hidden member keeps its layer; the terrain shader reads its logical visibility.
+  expect(renderer.getTextureBindings().entries[0].patch.mesh.visible).toBe(false);
   expect(renderer.getDiagnostics().uploads).toBe(1);
   renderer.clear(); p.dispose();
 });
 
 it('bounds pages and memory without hiding tiles that cannot fit', () => {
-  const renderer = fixture(1), a = patch('a', 18), b = patch('b', 19), patches = new Map([[a.key, a], [b.key, b]]);
-  renderer.sync(patches);
-  expect(renderer.getDiagnostics().pages).toBe(1); expect(renderer.getDiagnostics().patches).toBe(1);
-  expect((b.mesh.material as THREE.Material).visible).toBe(true);
+  const renderer = fixture(1);
+  const patches = new Map(Array.from({ length: IMAGERY_BATCH_LIMITS.layers + 1 }, (_, i) => { const p = patch(String(i), 18 + (i % 2)); return [p.key, p] as const; }));
+  for (let i = 0; i < 40; i++) renderer.sync(patches);
+  expect(renderer.getDiagnostics().pages).toBe(1);
+  expect(renderer.getDiagnostics().patches).toBe(IMAGERY_BATCH_LIMITS.layers); // both zooms share the page
   expect(renderer.getDiagnostics().arrayBytes).toBeLessThanOrEqual(IMAGERY_BATCH_LIMITS.arrayBytes);
-  expect(renderer.getDiagnostics().geometryBytes).toBeLessThanOrEqual(IMAGERY_BATCH_LIMITS.geometryBytes);
-  patches.delete(a.key); renderer.sync(patches); renderer.sync(patches);
-  expect(renderer.getDiagnostics().patches).toBe(1);
-  expect((b.mesh.material as THREE.Material).visible).toBe(false);
-  renderer.clear(); a.dispose(); b.dispose();
+  const overflow = [...patches.values()].filter(p => !renderer.owns(p.key));
+  expect(overflow).toHaveLength(1);
+  expect((overflow[0].mesh.material as THREE.Material).visible).toBe(true); // still drawn by its own mesh
+  renderer.clear(); for (const p of patches.values()) p.dispose();
 });
 
 it('falls back after unreadable imagery and releases page resources without closing source images', () => {
@@ -111,16 +64,7 @@ it('falls back after unreadable imagery and releases page resources without clos
   renderer.clear(); expect((p.texture.image as HTMLCanvasElement).width).toBe(2); p.dispose();
 });
 
-it('requires actual multi-draw and array capability before enabling the prototype', () => {
-  const renderer: any = { extensions: { has: () => true }, getContext: () => ({ texImage3D() {}, getParameter: () => 256 }) };
-  expect(ImageryBatchRenderer.supported(renderer)).toBe(true);
-  renderer.extensions.has = () => false;
-  expect(ImageryBatchRenderer.supported(renderer)).toBe(false);
-  renderer.getContext = () => ({});
-  expect(ImageryBatchRenderer.supported(renderer)).toBe(false);
-});
-
-it('defers a second expensive transfer but still releases every stale terrain copy in the frame', () => {
+it('defers a second expensive transfer but still releases every stale copy in the frame', () => {
   const renderer = fixture(), a = patch('a'), b = patch('b'), patches = new Map([[a.key, a], [b.key, b]]);
   let clock = 0;
   vi.spyOn(performance, 'now').mockImplementation(() => clock);
@@ -131,7 +75,7 @@ it('defers a second expensive transfer but still releases every stale terrain co
   renderer.sync(patches);
   expect(renderer.getDiagnostics().patches).toBe(1); expect(read).toHaveBeenCalledTimes(1);
   renderer.sync(patches); expect(renderer.getDiagnostics().patches).toBe(2);
-  for (const p of patches.values()) p.mesh.geometry.attributes.position.needsUpdate = true;
+  for (const p of patches.values()) p.texture.needsUpdate = true; // new imagery for both tiles
   renderer.sync(patches);
   expect(renderer.getDiagnostics().patches).toBe(1);
   expect([...patches.values()].filter(p => (p.mesh.material as THREE.Material).visible)).toHaveLength(1);
@@ -141,13 +85,12 @@ it('defers a second expensive transfer but still releases every stale terrain co
 });
 
 it('retains direct-surface imagery through terrain replacement without allocating or recopying patch geometry', () => {
-  const renderer = fixture(2, true), p = patch('direct'), patches = new Map([[p.key, p]]);
+  const renderer = fixture(2), p = patch('direct'), patches = new Map([[p.key, p]]);
   renderer.sync(patches);
   const replacement = p.mesh.geometry.clone();
   p.mesh.geometry.dispose(); p.mesh.geometry = replacement;
   renderer.sync(patches);
   expect(renderer.getDiagnostics().uploads).toBe(1);
-  expect(renderer.getDiagnostics().geometryBytes).toBe(0);
   expect(renderer.getTextureBindings().entries).toHaveLength(1);
   expect(renderer.group.children.every(child => !child.visible)).toBe(true);
   p.mesh.visible = false; renderer.sync(patches);

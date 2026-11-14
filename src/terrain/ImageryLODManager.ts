@@ -67,7 +67,6 @@ export interface ImageryPatch {
 }
 
 export interface ImageryLODManagerOptions {
-  experimentalImageryBatching?: boolean;
   experimentalTerrainImagery?: boolean;
   terrainTileGrid?: TileGridBounds;
   terrainGeoBounds: GeoBounds;
@@ -1163,30 +1162,30 @@ export class ImageryLODManager {
   }
 
   public getBatchDiagnostics() {
-    return { requested: !!(this.options.experimentalImageryBatching || this.options.experimentalTerrainImagery),
+    return { requested: !!(this.options.experimentalTerrainImagery),
       mode: this.terrainImagery ? 'terrain' : 'patches', lookupBytes: this.terrainImagery?.lookupBytes ?? 0,
       reprojectionsAvoided: this.directReprojectionsAvoided,
-      status: !(this.options.experimentalImageryBatching || this.options.experimentalTerrainImagery) ? 'off' : this.batchSupport === false ? 'unsupported' : this.batchRenderer ? 'active' : 'pending',
+      status: !(this.options.experimentalTerrainImagery) ? 'off' : this.batchSupport === false ? 'unsupported' : this.batchRenderer ? 'active' : 'pending',
       ...this.batchRenderer?.getDiagnostics() };
   }
 
   /** Run after terrain publication, immediately before rendering this frame. */
   public syncRenderer(renderer: THREE.WebGLRenderer): void {
-    if (!(this.options.experimentalImageryBatching || this.options.experimentalTerrainImagery) || this.isDisposed) return;
+    if (!(this.options.experimentalTerrainImagery) || this.isDisposed) return;
     const direct = !!(this.options.experimentalTerrainImagery && this.options.terrainTileGrid);
-    this.batchSupport ??= direct ? TerrainImageryMaterial.supported(renderer) : ImageryBatchRenderer.supported(renderer);
+    this.batchSupport ??= direct && TerrainImageryMaterial.supported(renderer);
     if (!this.batchSupport) return;
     if (direct && !this.terrainImagery) {
       try { this.terrainImagery = new TerrainImageryMaterial(this.options.terrainGeoBounds, this.options.terrainTileGrid!, renderer.capabilities.maxTextureSize); }
       catch { this.batchSupport = false; return; }
       this.terrainImagery.setSlopeShading(this.slopeShading, this.verticalExaggeration);
     }
-    this.batchRenderer ??= new ImageryBatchRenderer(undefined, direct, direct ? patch => {
+    this.batchRenderer ??= new ImageryBatchRenderer(undefined, patch => {
       if (this.directRefreshDepth || !this.staleDirectPatches.delete(patch.key) || this.patches.get(patch.key) !== patch) return;
       const previous = patch.mesh.geometry;
       patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y); previous.dispose();
       this.markRendererDirty();
-    } : undefined);
+    });
     if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
     const surfaceKey = this.surfaceSignature();
     if (renderer === this.syncedRenderer && this.rendererRevision === this.syncedRevision && surfaceKey === this.syncedSurfaceKey) return;
