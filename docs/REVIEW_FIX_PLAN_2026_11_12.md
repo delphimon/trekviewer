@@ -460,7 +460,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
 all Z19 tiles loaded, dragging does nothing, there are no keyboard controls, and playback
 is locked to walking pace on an 18-hour route.
 
-- [ ] **W1 Chase camera on desktop.** In `src/visualization/FlyoverController.ts`, when
+- [x] **W1 Chase camera on desktop.** In `src/visualization/FlyoverController.ts`, when
   not presenting XR and view mode is `first-person`, place the camera behind the hiker
   along the direction of travel, 60 m back and 25 m above the ground, looking at a point
   40 m ahead of the hiker. Keep it above the terrain using the elevation sampler

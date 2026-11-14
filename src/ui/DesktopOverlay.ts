@@ -416,7 +416,7 @@ export class DesktopOverlay {
     this.viewMode = mode;
     this.updateFitAvailability();
     const button = document.getElementById('btnViewToggle');
-    if (button) button.textContent = mode === 'diorama' ? 'Walk Trail (1:1)' : 'Tabletop Diorama';
+    if (button) button.textContent = mode === 'diorama' ? 'Fly the trail' : 'Tabletop Diorama';
     if (button) button.ariaPressed = String(mode === 'first-person');
     const speeds = this.container.querySelector<HTMLElement>('.speed-selector');
     if (speeds) speeds.style.display = mode === 'first-person' ? 'none' : 'flex';
@@ -743,7 +743,7 @@ export class DesktopOverlay {
             </div>
             <button id="btnFollowRoute" class="btn btn-secondary" aria-pressed="false" title="Follow the hiker from above. Drag or zoom the terrain to return to manual inspection." disabled>Follow route</button>
             <button id="btnViewToggle" class="btn btn-secondary view-toggle-btn" aria-pressed="false">
-              Walk Trail (1:1)
+              Fly the trail
             </button>
           </div>
 

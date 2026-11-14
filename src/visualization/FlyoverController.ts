@@ -12,6 +12,14 @@ export interface FlyoverUpdate {
   speed: number;
 }
 
+/** Desktop "Fly the trail" chase camera (XR life-size mode does not use it). */
+export const CHASE_BACK_M = 60;
+export const CHASE_UP_M = 25;
+export const CHASE_AHEAD_M = 40;
+export const CHASE_MIN_CLEARANCE_M = 8;
+const CHASE_HEADING_TAU_S = 0.7;
+const CHASE_LINE_SAMPLES = 6;
+
 export class FlyoverController {
   private trailResult: TrailResult;
   private track: TrackStats;
@@ -31,6 +39,9 @@ export class FlyoverController {
   private readonly _scratchUpAxis = new THREE.Vector3(0, 1, 0);
   private readonly _scratchLookTarget = new THREE.Vector3();
   private viewerHeading: number = 0;
+  private readonly chaseHeading = new THREE.Vector3();
+  private hasChaseHeading = false;
+  private readonly _scratchChaseBack = new THREE.Vector3();
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
   private elevationSampler?: (x: number, z: number) => number;
 
@@ -51,6 +62,7 @@ export class FlyoverController {
 
   public setViewMode(mode: ViewMode): void {
     if (this.viewMode !== mode) {
+      this.hasChaseHeading = false;
       this.navigationYaw = null;
       this.viewerAnchor.set(0, 0, 0);
       this.viewerHeading = 0;
@@ -278,17 +290,49 @@ export class FlyoverController {
         dioramaRoot.position.copy(offset);
         dioramaRoot.scale.set(1, 1, 1);
       } else if (camera) {
-        // Desktop fallback: place camera at eye level (+2m above trail) looking forward (Section 7)
-        camera.position.set(pos.x, groundY + 2.0, pos.z);
-        const lookTarget = this._scratchLookTarget.set(
-          pos.x + forward.x * 40,
-          groundY + forward.y * 40 + 1.2,
-          pos.z + forward.z * 40
-        );
-        camera.lookAt(lookTarget);
+        this.updateChaseCamera(camera, pos.x, groundY, pos.z, forward, deltaS);
       }
     }
   }
+
+  /** Desktop chase view: behind the hiker along the (smoothed) direction of travel, looking
+   * ahead, never closer than CHASE_MIN_CLEARANCE_M to the terrain along the line of sight. */
+  private updateChaseCamera(camera: THREE.Camera, x: number, groundY: number, z: number, forward: THREE.Vector3, dt: number): void {
+    const length = Math.hypot(forward.x, forward.z);
+    if (length > 1e-6) {
+      if (!this.hasChaseHeading) { this.chaseHeading.set(forward.x / length, 0, forward.z / length); this.hasChaseHeading = true; }
+      else {
+        const k = 1 - Math.exp(-dt / CHASE_HEADING_TAU_S);
+        this.chaseHeading.x += (forward.x / length - this.chaseHeading.x) * k;
+        this.chaseHeading.z += (forward.z / length - this.chaseHeading.z) * k;
+        const h = Math.hypot(this.chaseHeading.x, this.chaseHeading.z);
+        if (h > 1e-6) { this.chaseHeading.x /= h; this.chaseHeading.z /= h; }
+      }
+    }
+    const back = this._scratchChaseBack.set(-this.chaseHeading.x, 0, -this.chaseHeading.z);
+    const horizontal = this.chaseHorizontal(), vertical = this.chaseVertical();
+    let camY = groundY + vertical;
+    const camX = x + back.x * horizontal, camZ = z + back.z * horizontal;
+    if (this.elevationSampler) {
+      // Lift until every sampled point on the line from the hiker to the camera clears the
+      // terrain; the camera endpoint gets the full clearance.
+      const eyeY = groundY + 2;
+      for (let i = 1; i <= CHASE_LINE_SAMPLES; i++) {
+        const t = i / CHASE_LINE_SAMPLES;
+        const h = this.elevationSampler(x + (camX - x) * t, z + (camZ - z) * t);
+        if (!Number.isFinite(h)) continue;
+        camY = Math.max(camY, eyeY + (h + CHASE_MIN_CLEARANCE_M * t - eyeY) / t);
+      }
+    }
+    camera.position.set(camX, camY, camZ);
+    const tx = x - back.x * CHASE_AHEAD_M, tz = z - back.z * CHASE_AHEAD_M;
+    const ahead = this.elevationSampler?.(tx, tz);
+    this._scratchLookTarget.set(tx, Number.isFinite(ahead) ? ahead! : groundY, tz);
+    camera.lookAt(this._scratchLookTarget);
+  }
+
+  private chaseHorizontal(): number { return CHASE_BACK_M; }
+  private chaseVertical(): number { return CHASE_UP_M; }
 
   /**
    * Converts simulated GPS playback time (seconds) to distance fraction [0..1] along the route.

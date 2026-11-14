@@ -372,8 +372,8 @@ describe('Stage X4: Terrain SurfaceRevision and Dependent Reprojection', () => {
     const camera = new THREE.PerspectiveCamera();
     flyover.update(0.016, camera);
 
-    // Camera height should be groundY + 2.0m eye level
-    expect(camera.position.y).toBeCloseTo(500 + 2.0, 0.01);
+    // Desktop chase camera: 25 m above the current surface (W1)
+    expect(camera.position.y).toBeCloseTo(500 + 25, 0.01);
 
     // World position reflects current surface Y
     const worldPos = flyover.getCurrentWorldPosition();
@@ -382,7 +382,7 @@ describe('Stage X4: Terrain SurfaceRevision and Dependent Reprojection', () => {
     // Surface height changes dynamically
     currentSurfaceY = 650;
     flyover.update(0.016, camera);
-    expect(camera.position.y).toBeCloseTo(650 + 2.0, 0.01);
+    expect(camera.position.y).toBeCloseTo(650 + 25, 0.01);
     expect(flyover.getCurrentWorldPosition().y).toBe(650);
 
     // WebXR presentation offset test
