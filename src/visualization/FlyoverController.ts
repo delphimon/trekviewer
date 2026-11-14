@@ -18,6 +18,12 @@ export const CHASE_UP_M = 25;
 export const CHASE_AHEAD_M = 40;
 export const CHASE_MIN_CLEARANCE_M = 8;
 const CHASE_HEADING_TAU_S = 0.7;
+export const CHASE_DEFAULT_DISTANCE_M = Math.hypot(CHASE_BACK_M, CHASE_UP_M);
+export const CHASE_DEFAULT_PITCH_RAD = Math.atan2(CHASE_UP_M, CHASE_BACK_M);
+export const CHASE_PITCH_LIMITS_RAD = [THREE.MathUtils.degToRad(5), THREE.MathUtils.degToRad(80)] as const;
+export const CHASE_DISTANCE_LIMITS_M = [15, 400] as const;
+/** After this long without look input the view eases back to the default chase pose. */
+export const CHASE_LOOK_RETURN_S = 3;
 const CHASE_LINE_SAMPLES = 6;
 
 export class FlyoverController {
@@ -42,6 +48,12 @@ export class FlyoverController {
   private readonly chaseHeading = new THREE.Vector3();
   private hasChaseHeading = false;
   private readonly _scratchChaseBack = new THREE.Vector3();
+  private chaseYawOffset = 0;
+  private chasePitch = CHASE_DEFAULT_PITCH_RAD;
+  private chaseDistance = CHASE_DEFAULT_DISTANCE_M;
+  private chaseClock = 0;
+  private lastChaseInput = -Infinity;
+  private chaseDragging = false;
   private onUpdateCallback?: (state: FlyoverUpdate) => void;
   private elevationSampler?: (x: number, z: number) => number;
 
@@ -63,6 +75,7 @@ export class FlyoverController {
   public setViewMode(mode: ViewMode): void {
     if (this.viewMode !== mode) {
       this.hasChaseHeading = false;
+      this.chaseYawOffset = 0; this.chasePitch = CHASE_DEFAULT_PITCH_RAD; this.chaseDistance = CHASE_DEFAULT_DISTANCE_M;
       this.navigationYaw = null;
       this.viewerAnchor.set(0, 0, 0);
       this.viewerHeading = 0;
@@ -309,7 +322,9 @@ export class FlyoverController {
         if (h > 1e-6) { this.chaseHeading.x /= h; this.chaseHeading.z /= h; }
       }
     }
+    this.easeChaseLook(dt);
     const back = this._scratchChaseBack.set(-this.chaseHeading.x, 0, -this.chaseHeading.z);
+    if (this.chaseYawOffset !== 0) back.applyAxisAngle(this._scratchUpAxis, this.chaseYawOffset);
     const horizontal = this.chaseHorizontal(), vertical = this.chaseVertical();
     let camY = groundY + vertical;
     const camX = x + back.x * horizontal, camZ = z + back.z * horizontal;
@@ -331,8 +346,39 @@ export class FlyoverController {
     camera.lookAt(this._scratchLookTarget);
   }
 
-  private chaseHorizontal(): number { return CHASE_BACK_M; }
-  private chaseVertical(): number { return CHASE_UP_M; }
+  private chaseHorizontal(): number { return this.chaseDistance * Math.cos(this.chasePitch); }
+  private chaseVertical(): number { return this.chaseDistance * Math.sin(this.chasePitch); }
+
+  /** Desktop mouse look: orbit the chase view around the hiker (yaw free, pitch 5-80 deg). */
+  public chaseLook(deltaYaw: number, deltaPitch: number): void {
+    this.chaseYawOffset += deltaYaw;
+    this.chasePitch = THREE.MathUtils.clamp(this.chasePitch + deltaPitch, CHASE_PITCH_LIMITS_RAD[0], CHASE_PITCH_LIMITS_RAD[1]);
+    this.lastChaseInput = this.chaseClock;
+  }
+
+  /** Desktop wheel: follow distance, 15-400 m. */
+  public chaseZoom(factor: number): void {
+    if (!(factor > 0)) return;
+    this.chaseDistance = THREE.MathUtils.clamp(this.chaseDistance * factor, CHASE_DISTANCE_LIMITS_M[0], CHASE_DISTANCE_LIMITS_M[1]);
+    this.lastChaseInput = this.chaseClock;
+  }
+
+  /** While the pointer is held the view never eases back. */
+  public setChaseDragging(dragging: boolean): void {
+    this.chaseDragging = dragging;
+    this.lastChaseInput = this.chaseClock;
+  }
+
+  private easeChaseLook(dt: number): void {
+    this.chaseClock += dt;
+    if (this.chaseDragging || this.chaseClock - this.lastChaseInput < CHASE_LOOK_RETURN_S) return;
+    const k = 1 - Math.exp(-dt / 0.6);
+    // Shortest way back to the default heading.
+    const yaw = Math.atan2(Math.sin(this.chaseYawOffset), Math.cos(this.chaseYawOffset));
+    this.chaseYawOffset = yaw - yaw * k;
+    this.chasePitch += (CHASE_DEFAULT_PITCH_RAD - this.chasePitch) * k;
+    this.chaseDistance += (CHASE_DEFAULT_DISTANCE_M - this.chaseDistance) * k;
+  }
 
   /**
    * Converts simulated GPS playback time (seconds) to distance fraction [0..1] along the route.

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import * as THREE from 'three';
-import { FlyoverController, CHASE_MIN_CLEARANCE_M, CHASE_BACK_M } from '../src/visualization/FlyoverController.ts';
+import { FlyoverController, CHASE_MIN_CLEARANCE_M, CHASE_BACK_M, CHASE_DEFAULT_DISTANCE_M } from '../src/visualization/FlyoverController.ts';
 import type { TrailResult } from '../src/visualization/TrailMesh.ts';
 import type { TrackStats } from '../src/gpx/TrackTypes.ts';
 
@@ -51,4 +51,38 @@ it('leaves the XR life-size placement unchanged', () => {
   flyover.update(0.016, undefined, root, true);
   expect(root.position.y).toBeCloseTo(-650);
   expect(root.scale.x).toBe(1);
+});
+
+const offset = (camera: THREE.Camera) => camera.position.clone().sub(new THREE.Vector3(2500, 100, 0));
+const run = (f: { flyover: FlyoverController; camera: THREE.Camera }, seconds: number) => {
+  for (let t = 0; t < seconds; t += 1 / 30) f.flyover.update(1 / 30, f.camera);
+};
+
+it('orbits around the hiker with pitch limits and a 15-400 m wheel range', () => {
+  const f = fixture(() => 100); f.flyover.setProgress(0.5);
+  f.flyover.setChaseDragging(true);
+  f.flyover.chaseLook(Math.PI / 2, 10); // quarter turn, pitch pushed past the limit
+  run(f, 0.1);
+  const o = offset(f.camera);
+  expect(Math.abs(o.z)).toBeGreaterThan(Math.abs(o.x)); // now beside the hiker, not behind
+  expect(Math.atan2(o.y, Math.hypot(o.x, o.z))).toBeCloseTo(THREE.MathUtils.degToRad(80), 2);
+  f.flyover.chaseZoom(100); run(f, 0.1);
+  expect(offset(f.camera).length()).toBeCloseTo(400, 0);
+  f.flyover.chaseZoom(0.0001); run(f, 0.1);
+  expect(offset(f.camera).length()).toBeCloseTo(15, 0);
+});
+
+it('eases back to the default chase pose 3 s after the pointer is released', () => {
+  const f = fixture(() => 100); f.flyover.setProgress(0.5);
+  f.flyover.setChaseDragging(true);
+  f.flyover.chaseLook(1.2, 0.5); f.flyover.chaseZoom(3);
+  run(f, 5); // held: no easing
+  expect(offset(f.camera).length()).toBeGreaterThan(150);
+  f.flyover.setChaseDragging(false);
+  run(f, 2.5); // still within 3 s
+  expect(offset(f.camera).length()).toBeGreaterThan(150);
+  run(f, 6);
+  const o = offset(f.camera);
+  expect(o.length()).toBeCloseTo(CHASE_DEFAULT_DISTANCE_M, 0);
+  expect(o.x).toBeCloseTo(-CHASE_BACK_M, 0);
 });

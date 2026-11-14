@@ -147,6 +147,34 @@ export class TrekViewerApp {
   private readonly dioramaModelFollow = new DioramaModelFollow();
   private readonly followFocus = new THREE.Vector3();
   private readonly tablePlacement = new TablePlacement();
+  /** Desktop "Fly the trail" mouse look: drag orbits the chase view, wheel sets distance. */
+  private chaseDrag: { x: number; y: number } | null = null;
+  private chaseLookActive(): boolean {
+    return this.currentViewMode === 'first-person' && !this.sceneManager.renderer.xr.isPresenting && !!this.flyoverController;
+  }
+  private readonly onChasePointerDown = (event: PointerEvent) => {
+    if (!this.chaseLookActive() || event.button !== 0) return;
+    this.chaseDrag = { x: event.clientX, y: event.clientY };
+    this.flyoverController?.setChaseDragging(true);
+    (event.target as Element | null)?.setPointerCapture?.(event.pointerId);
+  };
+  private readonly onChasePointerMove = (event: PointerEvent) => {
+    if (!this.chaseDrag || !this.chaseLookActive()) return;
+    const dx = event.clientX - this.chaseDrag.x, dy = event.clientY - this.chaseDrag.y;
+    this.chaseDrag.x = event.clientX; this.chaseDrag.y = event.clientY;
+    this.flyoverController?.chaseLook(-dx * 0.005, dy * 0.005);
+  };
+  private readonly onChasePointerUp = () => {
+    if (!this.chaseDrag) return;
+    this.chaseDrag = null;
+    this.flyoverController?.setChaseDragging(false);
+  };
+  private readonly onChaseWheel = (event: WheelEvent) => {
+    if (!this.chaseLookActive()) return;
+    event.preventDefault();
+    this.flyoverController?.chaseZoom(Math.exp(event.deltaY * 0.001));
+  };
+
   private readonly onOrbitStart = () => {
     this.desktopViewFitted = false;
     this.session.setFollowRoute(false);
@@ -199,6 +227,12 @@ export class TrekViewerApp {
     this.controls.dampingFactor = 0.05;
     configureDesktopInspection(this.controls);
     this.controls.addEventListener('start', this.onOrbitStart);
+    const canvas = this.sceneManager.renderer.domElement;
+    canvas.addEventListener('pointerdown', this.onChasePointerDown);
+    canvas.addEventListener('pointermove', this.onChasePointerMove);
+    canvas.addEventListener('pointerup', this.onChasePointerUp);
+    canvas.addEventListener('pointercancel', this.onChasePointerUp);
+    canvas.addEventListener('wheel', this.onChaseWheel, { passive: false });
     this.controls.target.set(0, 0, 0);
 
     this.sceneManager.renderer.xr.addEventListener('sessionstart', async () => {
@@ -1620,6 +1654,12 @@ export class TrekViewerApp {
     this.tablePlacement.dispose();
     this.xrManager.dispose();
     this.controls.removeEventListener('start', this.onOrbitStart);
+    const chaseCanvas = this.sceneManager.renderer.domElement;
+    chaseCanvas.removeEventListener('pointerdown', this.onChasePointerDown);
+    chaseCanvas.removeEventListener('pointermove', this.onChasePointerMove);
+    chaseCanvas.removeEventListener('pointerup', this.onChasePointerUp);
+    chaseCanvas.removeEventListener('pointercancel', this.onChasePointerUp);
+    chaseCanvas.removeEventListener('wheel', this.onChaseWheel);
     this.controls.dispose();
     this.overlay.dispose();
     this.sceneManager.dispose();

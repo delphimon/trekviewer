@@ -466,7 +466,7 @@ is locked to walking pace on an 18-hour route.
   40 m ahead of the hiker. Keep it above the terrain using the elevation sampler
   (minimum 8 m clearance). XR behaviour must not change.
   Rename the desktop button from "Walk Trail (1:1)" to "Fly the trail"; XR labels stay.
-- [ ] **W2 Mouse look.** While in this mode on desktop, dragging rotates the view around
+- [x] **W2 Mouse look.** While in this mode on desktop, dragging rotates the view around
   the hiker (yaw free, pitch 5°–80°), the wheel changes the follow distance 15–400 m, and
   releasing for 3 s eases back to the default chase position.
 - [ ] **W3 Speed control.** Show the speed selector in this mode on desktop with
