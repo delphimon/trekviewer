@@ -872,6 +872,7 @@ export class XRManager {
         if (state.isGripping) {
           state.isGripping = false;
           this.triggerHaptic(i, 0.3, 25);
+          this.playFeedback('release');
         }
       }
 
@@ -1198,6 +1199,7 @@ export class XRManager {
       if (!state.isPinching) {
         if (state.activeInteraction === 'diorama') {
           state.activeInteraction = 'none';
+          this.playFeedback('release');
         } else if (!isEngagedWithWaypoint && !isEngagedWithHUD) {
           state.activeInteraction = 'none';
         }
@@ -1321,7 +1323,11 @@ export class XRManager {
 
     // Convert world position of fingertip to local space of Spatial HUD
     const hudGroup = this.spatialHUD.group;
-    if (!isPinching) state.hudGrabOffset = undefined;
+    if (!isPinching && state.hudGrabOffset) {
+      // Hand bar-drag ended: resize for the new distance, as the controller drag does.
+      state.hudGrabOffset = undefined;
+      this.spatialHUD.setAngularSize(this.getActiveCamera().getWorldPosition(_scratchV3).distanceTo(hudGroup.position), this.comfort.panelScale);
+    }
     const local = _scratchV1.copy(fingerPos);
     hudGroup.worldToLocal(local);
 

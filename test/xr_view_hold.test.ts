@@ -75,3 +75,14 @@ it('pauses and ignores the sticks while the session is blurred by the system UI'
   expect(onSessionBlur).toHaveBeenCalledTimes(1);
   expect(onScrubDistance).not.toHaveBeenCalled();
 });
+
+it('plays the release cue when a controller grip lets go of the model', async () => {
+  const { InteractionFeedback } = await import('../src/xr/InteractionFeedback.ts');
+  const play = vi.spyOn(InteractionFeedback.prototype, 'play').mockImplementation(() => {});
+  const { xr, sources } = setup();
+  xr.setViewMode('diorama');
+  xr.update();
+  sources[1].gamepad.buttons[1].pressed = true; xr.update(); // grip
+  sources[1].gamepad.buttons[1].pressed = false; xr.update(); // release
+  expect(play).toHaveBeenCalledWith('release');
+});

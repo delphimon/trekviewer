@@ -637,8 +637,12 @@ Implement and unit-test; mark each `[~] needs headset check`.
   for the quest-high profile. Must be set before the session starts.
   - Note: needs headset check — on Quest High, text and terrain look sharper and the frame
     rate holds (72 Hz target); switch to Balanced if it does not.
-- [ ] **X9 Unused cues.** Play the existing `release` audio cue on grab release; call
+- [~] **X9 Unused cues.** Play the existing `release` audio cue on grab release; call
   `setAngularSize` after a hand bar-drag as the controller path does.
+  - Note: release cue covered by a test (controller grip); the hand bar-drag resize has no
+    public-API test. Needs headset check — letting go of the model plays a soft release
+    sound; dragging the panel by its bar with a hand and letting go resizes it for the new
+    distance.
 
 ---
 
@@ -806,4 +810,8 @@ and anything the owner must check.
   measurements. Tests changed: `hud_ui_performance` (2 Hz playback refresh),
   `first_person_view_sampling` (diagnostics now opt-in), `stage_w1_quality_profile` and
   `terrain_cache_robustness` (64 MB Quest cache).
+- 2026-11-14, Phase X: X1, X2, X4–X9 implemented with unit tests and marked `[~]` for a
+  headset check (see each note). **OWNER X3** (near-field transport strip): not started,
+  waiting for your go-ahead. Tests changed: `hud_ui_performance` and `resource_disposal`
+  (HUD canvas now 2048×1536), `xr_render_quality` (1.2× framebuffer on Quest High).
 
