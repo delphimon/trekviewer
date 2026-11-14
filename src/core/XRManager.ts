@@ -3,7 +3,7 @@ import { terrainFootprint } from '../terrain/TerrainFootprint.ts';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
 import { InteractionFeedback, type FeedbackCue } from '../xr/InteractionFeedback.ts';
-import { DioramaBase } from '../visualization/DioramaBase.ts';
+import { DioramaBase, plinthBottomDepth } from '../visualization/DioramaBase.ts';
 import type { GeoBounds, ViewMode } from '../gpx/TrackTypes.ts';
 import { DEFAULT_COMFORT, type ComfortPreferences } from '../xr/ComfortPreferences.ts';
 import {
@@ -41,6 +41,10 @@ export function isHUDPokePressing(z: number, prevZ: number | null, wasPressing: 
   if (wasPressing) return z < POKE_RELEASE_DEPTH;
   return z < POKE_PRESS_DEPTH && prevZ !== null && prevZ >= POKE_PRESS_DEPTH && msSinceRelease >= POKE_REPRESS_MS;
 }
+
+/** Widest the plinth may be zoomed to in the room (metres). */
+export const MAX_PLINTH_WIDTH_M = 2.5;
+export const maxTabletopScale = (plinthWidthM: number) => MAX_PLINTH_WIDTH_M / Math.max(plinthWidthM, 1);
 
 const _footprintLocal = new THREE.Vector3();
 /** Whether a world-space point lies over the plinth (local footprint `plinthWidth` x `plinthDepth`
@@ -255,6 +259,14 @@ export class XRManager {
       if ((obj as THREE.Mesh).isMesh && !(obj as unknown as { isSprite?: boolean }).isSprite) this.waypointHitMeshes.push(obj as THREE.Mesh);
     });
     return this.waypointGroup;
+  }
+
+  /** Caps the plinth at MAX_PLINTH_WIDTH_M and rests its bottom at `bottomY`. */
+  private constrainTabletopZoom(bottomY: number): void {
+    const root = this.sceneManager.dioramaRoot;
+    const limit = maxTabletopScale(Math.max(this.dioramaWidthMeters, this.dioramaDepthMeters) + 40);
+    if (root.scale.x > limit) root.scale.setScalar(limit);
+    root.position.y = bottomY + plinthBottomDepth() * root.scale.y;
   }
 
   private unhoverWaypoints(): void {
@@ -807,9 +819,12 @@ export class XRManager {
             const zoomFactor = rotateAxis ? 1.0 : computeThumbstickZoomFactor(stickY, dt);
             if (zoomFactor !== 1.0) {
               this.callbacks.onDioramaManipulation?.();
-              const currentScale = this.sceneManager.dioramaRoot.scale.x;
+              const root = this.sceneManager.dioramaRoot;
+              const bottom = root.position.y - plinthBottomDepth() * root.scale.y;
+              const currentScale = root.scale.x;
               const newScale = Math.max(0.000005, Math.min(0.05, currentScale * zoomFactor));
-              this.sceneManager.dioramaRoot.scale.set(newScale, newScale, newScale);
+              root.scale.set(newScale, newScale, newScale);
+              this.constrainTabletopZoom(bottom);
             }
           }
         }
@@ -1464,6 +1479,8 @@ export class XRManager {
     if (grabs.length >= 2) {
       const g0 = grabs[0];
       const g1 = grabs[1];
+      const root = this.sceneManager.dioramaRoot;
+      const scaleBefore = root.scale.x, bottomBefore = root.position.y - plinthBottomDepth() * root.scale.y;
       applyBimanualTransform(
         this.sceneManager.dioramaRoot,
         g0.prevWorldPos,
@@ -1476,6 +1493,12 @@ export class XRManager {
         g1.wristQuat,
         this.horizonLocked
       );
+      if (root.scale.x !== scaleBefore) {
+        // Zoom about the plinth: its bottom follows only the hands' vertical movement, so
+        // the model stays on the table; never wider than MAX_PLINTH_WIDTH_M.
+        const lift = (g0.worldPos.y + g1.worldPos.y - g0.prevWorldPos.y - g1.prevWorldPos.y) / 2;
+        this.constrainTabletopZoom(bottomBefore + lift);
+      }
     } else if (grabs.length === 1) {
       const g = grabs[0];
       // A bare-hand pinch only moves the model: the hand's pointing direction changes

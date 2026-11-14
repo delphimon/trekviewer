@@ -617,9 +617,12 @@ Implement and unit-test; mark each `[~] needs headset check`.
   - Note: hiker 5 cm / pins 4 cm in the room (XR), 44 / 36 px on desktop. Needs headset
     check — zoom the tabletop in and out: pins and hiker stay the same size; in life-size,
     waypoint markers read as ~1.5 m signposts (they keep their existing +8 m offset).
-- [ ] **X5 Zoom about the plinth, stay on the table.** When two-hand scaling, keep the
+- [~] **X5 Zoom about the plinth, stay on the table.** When two-hand scaling, keep the
   plinth bottom at the table height (use B4's offset). Clamp maximum scale so the plinth
   is never wider than 2.5 m.
+  - Note: applied to two-hand zoom (the plinth bottom follows only the hands' vertical
+    movement) and right-stick zoom. Needs headset check — zoom with two hands on a table:
+    the plinth stays on the surface and stops growing at 2.5 m.
 - [ ] **X6 Vignette centred on view direction.** `SceneManager.ts` vignette shader uses
   `length(screenUV-0.5)` per eye; compute it from the view-space direction so both eyes
   agree.
