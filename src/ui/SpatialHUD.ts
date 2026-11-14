@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { remainingAt } from '../gpx/Remaining.ts';
 import { formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits } from '../utils/Units.ts';
 import type { GPXPoint, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
@@ -1188,7 +1189,8 @@ export class SpatialHUD {
       const nearLandmark = nearest && Math.abs(nearest.progress - this.currentProgress) * this.track.totalDistance < 150
         ? `${nearest.name} • ` : '';
 
-      const tipText = `${nearLandmark}${formatElevation(this.currentElevation)} • ${formatDistance(distance)}${tipDetail}`;
+      const left = remainingAt(this.track, this.currentProgress);
+      const tipText = `${nearLandmark}${formatElevation(this.currentElevation)} • ${formatDistance(distance)} • ${formatDistance(left.meters)} left${tipDetail}`;
       const boxW = Math.max(140, tipText.length * 7.5 + 20);
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';

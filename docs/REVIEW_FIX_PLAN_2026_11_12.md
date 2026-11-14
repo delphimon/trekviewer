@@ -670,7 +670,9 @@ Do these only after phases B–U. Each needs a Browser check and a unit test for
   landmarks. Show per-day distance, gain, loss and time in the Route tab, and shade
   alternate days in the elevation chart.
   - Note: done and unit-tested; browser check outstanding (pane hidden).
-- [ ] **N4 Remaining distance and time** next to the progress readout (desktop and HUD).
+- [~] **N4 Remaining distance and time** next to the progress readout (desktop and HUD).
+  - Note: desktop shows distance and time left under PROGRESS; the HUD scrub tooltip adds
+    distance left. Browser and headset checks outstanding.
 - [ ] **N5 Sun position.** OWNER: confirm. A time-of-day slider that moves the
   directional light using solar position for the route's latitude/longitude and the
   track's date. Shadows stay off in XR.
@@ -822,4 +824,7 @@ and anything the owner must check.
   headset check (see each note). **OWNER X3** (near-field transport strip): not started,
   waiting for your go-ahead. Tests changed: `hud_ui_performance` and `resource_disposal`
   (HUD canvas now 2048×1536), `xr_render_quality` (1.2× framebuffer on Quest High).
+- 2026-11-14, Phase N: N1–N4 implemented with unit tests and marked `[~]` — none could be
+  browser-checked because the in-app browser pane stayed hidden (the page does not finish
+  loading without animation frames). **OWNER N5** (sun position): not started.
 

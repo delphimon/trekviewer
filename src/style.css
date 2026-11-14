@@ -788,3 +788,4 @@ body, html {
 .slope-legend[hidden] { display: none; }
 .slope-legend i { display: inline-block; width: 12px; height: 12px; margin-right: 4px; border-radius: 3px; vertical-align: -2px; opacity: 0.8; }
 
+.current-stat .c-sub { display: block; font: 600 11px system-ui, sans-serif; color: var(--text-muted); white-space: nowrap; }

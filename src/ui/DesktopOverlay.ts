@@ -1,4 +1,5 @@
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { remainingAt } from '../gpx/Remaining.ts';
 import { daySplits } from '../gpx/DaySplits.ts';
 import { SLOPE_BANDS } from '../terrain/TerrainImageryMaterial.ts';
 import { formatElapsed, type TrailPointInfo } from '../visualization/TrailPick.ts';
@@ -430,7 +431,11 @@ export class DesktopOverlay {
     this.scrubberCurEle.textContent = `${formatElevation(currentElevation)} (${formatElevation(currentElevation, otherUnits())})`;
 
     if (this.currentTrack) {
+      const left = remainingAt(this.currentTrack, progress);
       this.scrubberCurDist.textContent = formatDistance(this.currentTrack.totalDistance * progress);
+      this.scrubberCurDist.title = `${formatDistance(left.meters)} and ${formatElapsed(left.seconds)} to go`;
+      const remaining = document.getElementById('scrubberRemaining');
+      if (remaining) remaining.textContent = `${formatDistance(left.meters)} • ${formatElapsed(left.seconds)} left`;
     }
 
     this.drawElevationChart();
@@ -800,6 +805,7 @@ export class DesktopOverlay {
             <div class="current-stat">
               <span class="c-label">PROGRESS</span>
               <span id="scrubberCurDist" class="c-val">-- mi</span>
+              <span id="scrubberRemaining" class="c-sub"></span>
             </div>
           </div>
         </footer>
