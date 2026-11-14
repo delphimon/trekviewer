@@ -539,9 +539,16 @@ body, html {
 
 .chart-container {
   width: 100%;
-  height: 50px;
+  height: 96px;
   position: relative;
 }
+
+.chart-tooltip {
+  position: absolute; top: 4px; transform: translateX(-50%);
+  padding: 3px 8px; border-radius: 6px; pointer-events: none; white-space: nowrap;
+  background: rgba(15, 23, 42, 0.92); color: #f1f5f9; font: 600 12px system-ui, sans-serif;
+}
+.chart-tooltip[hidden] { display: none; }
 
 #canvasChart {
   width: 100%;
@@ -697,6 +704,9 @@ body, html {
 
 /* Data credits sit inside the player bar, below the chart, never over it */
 .player-bar { flex-wrap: wrap; }
+/* Buttons and readouts on one row; the chart and scrubber take the full row below. */
+.player-center { flex-basis: 100%; order: 3; }
+@media (max-width: 600px) { .chart-container { height: 72px; } }
 .desktop-attribution { flex-basis: 100%; order: 10; margin-top: -6px; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-muted); overflow-wrap: anywhere; }
 
 .status-warning { color: var(--accent-amber); }

@@ -1,4 +1,5 @@
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { chartBackingSize, chartReadout, distanceTicks } from './ElevationChart.ts';
 import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
 import type { ComfortPreferences } from '../xr/ComfortPreferences.ts';
@@ -55,6 +56,12 @@ export class DesktopOverlay {
   private cachedElevationSamples: { elevation: number; distance: number }[] = [];
   private routeLandmarks: readonly RouteLandmark[] = [];
   private staticChartCanvas: HTMLCanvasElement | null = null;
+  /** Chart drawing space is CSS pixels; the backing store is scaled by the device pixel ratio. */
+  private chartDpr = 1;
+  private chartCssWidth = 800;
+  private chartCssHeight = 96;
+  private chartObserver: ResizeObserver | null = null;
+  private chartTooltip: HTMLElement | null = null;
   private chartLandmarks: { x: number; y: number; radius: number; landmark: RouteLandmark }[] = [];
 
   // DOM elements
@@ -239,20 +246,38 @@ export class DesktopOverlay {
     this.updateLandmarks(track, landmarks);
   }
 
+  /** Match the chart's backing store to its CSS size x devicePixelRatio, then redraw. */
+  private resizeChart(): void {
+    const canvas = this.canvasChart;
+    const box = canvas.getBoundingClientRect?.();
+    const cssWidth = canvas.clientWidth || box?.width || this.chartCssWidth;
+    const cssHeight = canvas.clientHeight || box?.height || this.chartCssHeight;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const size = chartBackingSize(cssWidth, cssHeight, dpr);
+    const unchanged = size.width === canvas.width && size.height === canvas.height && dpr === this.chartDpr
+      && cssWidth === this.chartCssWidth && cssHeight === this.chartCssHeight;
+    this.chartCssWidth = cssWidth; this.chartCssHeight = cssHeight; this.chartDpr = dpr;
+    if (unchanged) return;
+    canvas.width = size.width; canvas.height = size.height;
+    this.renderStaticChartBackground();
+    this.drawElevationChart();
+  }
+
   private renderStaticChartBackground(): void {
     if (!this.currentTrack || this.cachedElevationSamples.length < 2) return;
-    const w = this.canvasChart.width;
-    const h = this.canvasChart.height;
+    const w = this.chartCssWidth;
+    const h = this.chartCssHeight;
 
     if (!this.staticChartCanvas) {
       this.staticChartCanvas = document.createElement('canvas');
     }
-    this.staticChartCanvas.width = w;
-    this.staticChartCanvas.height = h;
+    this.staticChartCanvas.width = this.canvasChart.width;
+    this.staticChartCanvas.height = this.canvasChart.height;
 
     const ctx = this.staticChartCanvas.getContext('2d');
     if (!ctx) return;
 
+    ctx.setTransform?.(this.chartDpr, 0, 0, this.chartDpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
     const samples = this.cachedElevationSamples;
@@ -284,6 +309,24 @@ export class DesktopOverlay {
     ctx.closePath();
     ctx.fillStyle = grad;
     ctx.fill();
+
+    // Axes: elevation range at the left edge, distance ticks along the bottom.
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.85)';
+    ctx.fillText(`${Math.round(maxE * 3.28084).toLocaleString()} ft`, 4, 2);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`${Math.round(minE * 3.28084).toLocaleString()} ft`, 4, h - 2);
+    const totalMi = this.currentTrack.totalDistance * 0.000621371;
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+    ctx.lineWidth = 1;
+    for (const tick of distanceTicks(totalMi)) {
+      const tx = (tick / totalMi) * w;
+      ctx.beginPath(); ctx.moveTo(tx, h - 14); ctx.lineTo(tx, h); ctx.stroke();
+      ctx.fillText(`${tick} mi`, tx, h - 14);
+    }
 
     // Draw landmark markers along the elevation profile (Section 30)
     this.chartLandmarks = [];
@@ -387,13 +430,15 @@ export class DesktopOverlay {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = canvas.width;
-    const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
+    const w = this.chartCssWidth;
+    const h = this.chartCssHeight;
+    ctx.setTransform?.(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (this.staticChartCanvas) {
       ctx.drawImage(this.staticChartCanvas, 0, 0);
     }
+    ctx.setTransform?.(this.chartDpr, 0, 0, this.chartDpr, 0, 0);
 
     // Progress scrub line
     const scrubX = this.currentProgress * w;
@@ -658,7 +703,8 @@ export class DesktopOverlay {
 
           <div class="player-center">
             <div class="chart-container">
-              <canvas id="canvasChart" width="800" height="70"></canvas>
+              <canvas id="canvasChart" width="800" height="96"></canvas>
+              <div id="chartTooltip" class="chart-tooltip" role="status" hidden></div>
             </div>
             <div class="scrubber-wrapper">
               <div id="scrubberFill" class="scrubber-fill"></div>
@@ -689,6 +735,7 @@ export class DesktopOverlay {
     this.scrubberCurEle = document.getElementById('scrubberCurEle')!;
     this.scrubberCurDist = document.getElementById('scrubberCurDist')!;
     this.canvasChart = document.getElementById('canvasChart') as HTMLCanvasElement;
+    this.chartTooltip = document.getElementById('chartTooltip');
     this.statusBanner = document.getElementById('statusBanner')!;
   }
 
@@ -937,8 +984,8 @@ export class DesktopOverlay {
     // Elevation Profile Interactive Click (Jump to Landmark or Scrub) (Section 30)
     this.canvasChart.addEventListener('click', (e) => {
       const rect = this.canvasChart.getBoundingClientRect();
-      const scaleX = this.canvasChart.width / (rect.width || 1);
-      const scaleY = this.canvasChart.height / (rect.height || 1);
+      const scaleX = this.chartCssWidth / (rect.width || 1);
+      const scaleY = this.chartCssHeight / (rect.height || 1);
       const clickX = (e.clientX - rect.left) * scaleX;
       const clickY = (e.clientY - rect.top) * scaleY;
 
@@ -958,10 +1005,32 @@ export class DesktopOverlay {
       if (hitLandmark) {
         this.callbacks.onSelectWaypoint?.(hitLandmark.name, hitLandmark.lat, hitLandmark.lon, hitLandmark.progress);
       } else {
-        const progress = Math.min(Math.max(clickX / this.canvasChart.width, 0), 1);
+        const progress = Math.min(Math.max(clickX / this.chartCssWidth, 0), 1);
         this.callbacks.onScrub(progress);
       }
     });
+    this.canvasChart.addEventListener('pointermove', (e) => this.showChartTooltip(e.clientX));
+    this.canvasChart.addEventListener('pointerleave', () => { if (this.chartTooltip) this.chartTooltip.hidden = true; });
+    if (typeof ResizeObserver !== 'undefined') {
+      this.chartObserver = new ResizeObserver(() => this.resizeChart());
+      this.chartObserver.observe(this.canvasChart);
+    }
+    this.resizeChart();
+  }
+
+  /** Distance, elevation and grade under the pointer. */
+  private showChartTooltip(clientX: number): void {
+    const tip = this.chartTooltip;
+    if (!tip || !this.currentTrack) return;
+    const rect = this.canvasChart.getBoundingClientRect();
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width || 0);
+    const progress = rect.width ? x / rect.width : 0;
+    const distance = progress * this.currentTrack.totalDistance;
+    const readout = chartReadout(this.cachedElevationSamples, distance);
+    if (!readout) { tip.hidden = true; return; }
+    tip.textContent = `${(distance * 0.000621371).toFixed(1)} mi • ${Math.round(readout.elevation * 3.28084).toLocaleString()} ft • ${readout.grade >= 0 ? '+' : ''}${readout.grade.toFixed(0)}%`;
+    tip.style.left = `${x}px`;
+    tip.hidden = false;
   }
 
   public setHorizonLocked(locked: boolean): void {
@@ -1225,6 +1294,7 @@ export class DesktopOverlay {
 
   public dispose(): void {
     this.offlineDownloads.dispose();
+    this.chartObserver?.disconnect(); this.chartObserver = null;
     if (this.onWindowDragOver) {
       window.removeEventListener('dragover', this.onWindowDragOver);
       this.onWindowDragOver = undefined;

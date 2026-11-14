@@ -412,7 +412,7 @@ Rainier route.
 All items: Browser check at 1440×900 and at the `mobile` preset (375×812).
 Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
 
-- [ ] **U1 Elevation chart is tiny and blurry.**
+- [x] **U1 Elevation chart is tiny and blurry.**
   - The canvas is fixed at `width="800" height="70"` and is about 250 px wide at 1440.
   - Do: size the canvas backing store to `clientWidth × devicePixelRatio` on resize (use
     the existing `ResizeObserver` pattern in `main.ts`), redraw the static layer, and
