@@ -564,12 +564,17 @@ Write the numbers in the commit message.
     still read it. Freeing it needs P7's own `texSubImage3D` path. Context recovery does
     not need it (`releaseBatches` rebuilds from the patch images). Numbers not measured
     (browser pane hidden; owner chose to skip).
-- [ ] **P7 Whole-array mipmap regeneration per tile** — *Reported (verify first).*
+- [~] **P7 Whole-array mipmap regeneration per tile** — *Reported (verify first).*
   three.js regenerates mips for all 32 layers after each layer update. Advanced; attempt
   only after P1–P6. Approach: build the mip chain for the one tile on a canvas, and
   upload each level with `texSubImage3D` through `renderer.getContext()`, with
   `generateMipmaps = false` on the array texture. If this needs more than about 300
   lines or breaks context recovery, mark `[~]` and stop.
+  - Note: verified by reading three.js `WebGLTextures` (a layer update is followed by
+    `generateMipmap` on the whole array). Not implemented: the change replaces three's
+    upload with raw `texSubImage3D` calls on its internal texture handle and state, which
+    nothing here can exercise (no WebGL in unit tests, browser pane hidden). Do it with a
+    visible browser or on a headset, together with freeing the P6 CPU mirror.
 - [ ] **P8 IndexedDB read path** — *Reported (verify first).*
   `src/terrain/PersistentResourceCache.ts`: reads use a `readonly` transaction; batch
   the last-access timestamp writes into the existing flush; replace `metadata.getAll()`
