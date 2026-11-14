@@ -748,8 +748,12 @@ code, and list them in the commit message.
     (`check-imagery-batch-browser`, `check-live-imagery-batch`, `check-terrain-imagery-browser`).
     Four other unreferenced browser checks use current flags and were kept (not run here:
     browser pane hidden / no Playwright browser download).
-- [ ] **T4 ESLint** with `typescript-eslint` recommended rules, `npm run lint`, and a CI
+- [-] **T4 ESLint** with `typescript-eslint` recommended rules, `npm run lint`, and a CI
   step. Fix errors; do not disable rules wholesale. Per-line disables need a reason.
+  - Note: blocked. `typescript-eslint` 8.72 requires TypeScript `>=4.8.4 <6.1.0`; the project
+    uses TypeScript 7.0.2, so `npm install` fails on the peer range. Not forced with
+    `--legacy-peer-deps`. **OWNER:** wait for a TS 7 compatible typescript-eslint, or pick
+    another linter.
 - [ ] **T5 `package.json` hygiene:** add `"private": true`, a `description`, an `engines`
   field matching CI, remove `"main": "index.js"`. Read the version in `vite.config.ts`
   from `package.json` instead of the hard-coded `1.0.0`. Make CI and local Node versions
