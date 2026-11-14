@@ -111,10 +111,9 @@ node scripts/verify-landmark-navigation.mjs
 - `?debug=1`: Displays the real-time diagnostic overlay and `#buildBadge` (frame pacing, CPU submission p95, active imagery/DEM provider, LOD patch counts by zoom, cache stats) and exposes `window.__trekViewerApp`.
 - `?profile=1`: Enables the bounded 1-second Quest/desktop performance profiler and **Download JSON** report button.
 - `?terrainImagery=0`: Disables direct terrain shader imagery draping and falls back to overlay patch meshes for A/B comparison.
-- `?imageryBatch=1`: Enables experimental `THREE.BatchedMesh` clipped-patch batching.
 - `?markerBatch=0`: Disables `WaypointInstanceRenderer` instanced waypoint markers.
-- `?terrainTiles=0`: Uses legacy single-chunk `LocalTerrainStreamer` instead of `TiledTerrainStreamer`.
 - `?terrainGrid=60|75|120`: Overrides base terrain mesh cell spacing in meters.
+- Removed: `?imageryBatch` (BatchedMesh batching deleted in C2) and `?terrainTiles` (the tiled streamer is always used).
 
 ### Deployment to Production (`trekviewer.surge.sh`)
 ```bash

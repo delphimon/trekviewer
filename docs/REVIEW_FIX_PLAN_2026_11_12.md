@@ -763,7 +763,7 @@ code, and list them in the commit message.
 - [ ] **T6 Rename history-named tests** (`stage_*`, `review_*`,
   `architecture_review_fixes`) to the unit they cover, splitting files that cover several
   units. Pure moves; no assertion changes. Do this last to avoid merge pain.
-- [ ] **T7 Docs.** Update `README.md` for every user-visible change in this plan.
+- [x] **T7 Docs.** Update `README.md` for every user-visible change in this plan.
   `docs/OFFLINE_ROUTE_PACKS.md` says browser export and geographic indexing "remain
   open" (both exist). `docs/ARCHITECTURE_REVIEW_AND_HANDOFF.md` documents removed URL
   flags. Point `README.md` "Open work" at this file.
