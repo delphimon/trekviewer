@@ -732,11 +732,14 @@ code, and list them in the commit message.
   `test/offline_store_lifecycle.test.ts` covering `OfflineDownloads.prepare/start` and
   `OfflineStore.publish/remove/save/read` through public methods: fresh download,
   resume after pause, publish, remove. Needed by B2 and O1.
-- [ ] **T2 One browser smoke test in CI.** Add `@playwright/test`, a test that serves
+- [x] **T2 One browser smoke test in CI.** Add `@playwright/test`, a test that serves
   `dist`, loads the page, waits for the status "Loaded:" (or its replacement from B14),
   and asserts no console errors other than network failures to external hosts. Mock
   external hosts with route interception returning a 1×1 PNG so CI needs no network.
   Add the step to `.github/workflows/ci.yml` after the build.
+  - Note: waits for the stats panel to name the route ("Loaded:" is replaced by later
+    status messages within a second). Locally it ran with `PW_CHANNEL=chrome` (installed
+    Chrome; no Playwright browser download); CI installs Chromium.
 - [ ] **T3 Repair or delete `scripts/*.mjs` browser checks.** Several use removed URL
   flags (`imageryBatch`, `terrainTiles`, `terrainSourceBounds`) and Playwright was not a
   dependency. Delete scripts referenced by nothing (check `package.json`, docs and other

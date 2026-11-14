@@ -31,3 +31,9 @@ jobs:
 
       - name: Build production bundle
         run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke test (external hosts mocked)
+        run: npm run test:e2e

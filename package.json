@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "verify": "npm run typecheck && npm test && npm run build",
     "deploy:surge": "npm run verify && npx surge dist --domain trekviewer.surge.sh",
-    "package:apk": "bash scripts/package-quest-apk.sh"
+    "package:apk": "bash scripts/package-quest-apk.sh",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "lerc": "^4.2.0",
@@ -24,6 +25,7 @@
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.2",
     "@types/sax": "^1.2.7",
     "@types/three": "^0.186.0",

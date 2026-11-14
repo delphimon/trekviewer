@@ -40,3 +40,7 @@ quest-package/
 *.aab
 *.keystore
 *.jks
+
+# Playwright
+test-results/
+playwright-report/
