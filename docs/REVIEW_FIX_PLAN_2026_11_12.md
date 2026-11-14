@@ -449,7 +449,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
   use the temporary cache as you explore." Do not change which routes are offered.
 - [ ] **U7 Replace emoji used as icons** in buttons with text labels or inline SVG, so
   buttons render the same on every platform. Keep labels short.
-- [ ] **U8 Default speed parse.** `DesktopOverlay.ts`
+- [x] **U8 Default speed parse.** `DesktopOverlay.ts`
   `parseFloat(btn.getAttribute('data-speed') || '20')`: the fallback should be `'1'`.
 
 ---

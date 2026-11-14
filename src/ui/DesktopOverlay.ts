@@ -974,7 +974,7 @@ export class DesktopOverlay {
     // Speed buttons
     document.querySelectorAll('.speed-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const spd = parseFloat(btn.getAttribute('data-speed') || '20');
+        const spd = parseFloat(btn.getAttribute('data-speed') || '1');
         this.setPlaybackSpeed(spd);
         this.callbacks.onSetSpeed(spd);
       });
