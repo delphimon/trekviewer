@@ -531,7 +531,7 @@ Write the numbers in the commit message.
   label string changed, a toggle changed, or the chart cursor moved ≥ 2 canvas pixels.
   Extend `test/hud_ui_performance.test.ts`: 90 s of tour progress updates must cause
   fewer than 200 uploads.
-- [ ] **P3 XR per-frame traversals and allocations** — *Reported (verify first).*
+- [x] **P3 XR per-frame traversals and allocations** — *Reported (verify first).*
   `src/core/XRManager.ts`:
   - cache `dioramaRoot.getObjectByName('Waypoints')` and the `hitMeshes` list; refresh
     them in `setDioramaContext` / on route commit, not per frame;

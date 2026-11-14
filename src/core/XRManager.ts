@@ -239,6 +239,29 @@ export class XRManager {
   private dioramaMaxPeakLocal: number = 800;
   private dioramaPlinthBottomY: number = -105; // Plinth bottom in local diorama coords (-80 - 25 = -105)
 
+  /** Reused for activePointerRay; getActivePointerRay() hands out clones. */
+  private readonly pointerRay = new THREE.Ray();
+  private waypointGroup: THREE.Object3D | null = null;
+  private readonly waypointHitMeshes: THREE.Mesh[] = [];
+
+  /** The route's waypoint group and its raycast meshes, looked up once per route instead of
+   * traversing the scene every frame. Refreshed when the cached group left the model. */
+  private getWaypointGroup(): THREE.Object3D | null {
+    const root = this.sceneManager.dioramaRoot;
+    if (this.waypointGroup && this.waypointGroup.parent?.parent === root) return this.waypointGroup;
+    this.waypointGroup = root.getObjectByName('Waypoints') ?? null;
+    this.waypointHitMeshes.length = 0;
+    this.waypointGroup?.traverse(obj => {
+      if ((obj as THREE.Mesh).isMesh && !(obj as unknown as { isSprite?: boolean }).isSprite) this.waypointHitMeshes.push(obj as THREE.Mesh);
+    });
+    return this.waypointGroup;
+  }
+
+  private unhoverWaypoints(): void {
+    const group = this.getWaypointGroup();
+    if (group) DioramaBase.onUnhoverWaypoint(group);
+  }
+
   public setDioramaContext(
     bounds: GeoBounds,
     elevationSampler?: (x: number, z: number) => number,
@@ -246,6 +269,7 @@ export class XRManager {
     verticalExaggeration: number = 1.0
   ): void {
     this.dioramaBounds = bounds;
+    this.waypointGroup = null; // new route: look the waypoint group up again
     const footprint = terrainFootprint(bounds);
     this.dioramaWidthMeters = footprint.widthMeters;
     this.dioramaDepthMeters = footprint.depthMeters;
@@ -403,9 +427,10 @@ export class XRManager {
       this.sceneManager.scene.add(controller);
 
       // Visual laser pointer beam
+      // Unit-length beam; its length is rayLine.scale.z (no per-frame geometry rebuilds).
       const rayGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -2.5),
+        new THREE.Vector3(0, 0, -1),
       ]);
       const rayMat = new THREE.LineBasicMaterial({
         color: 0x38bdf8,
@@ -413,6 +438,7 @@ export class XRManager {
         opacity: 0.65,
       });
       const rayLine = new THREE.Line(rayGeo, rayMat);
+      rayLine.scale.z = 2.5;
       rayLine.name = 'LaserRay';
       controller.add(rayLine);
 
@@ -1332,17 +1358,17 @@ export class XRManager {
     if (this.currentViewMode !== 'diorama') {
       if (state.isHoveringWaypoint) {
         state.isHoveringWaypoint = false;
-        DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+        this.unhoverWaypoints();
       }
       state.isTouchingWaypoint = false;
       state.latchedWaypointPin = null;
       return false;
     }
-    const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
+    const wpGroup = this.getWaypointGroup();
     if (!wpGroup || wpGroup.children.length === 0) {
       if (state.isHoveringWaypoint) {
         state.isHoveringWaypoint = false;
-        DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+        this.unhoverWaypoints();
       }
       state.isTouchingWaypoint = false;
       state.latchedWaypointPin = null;
@@ -1423,7 +1449,7 @@ export class XRManager {
 
     if (state.isHoveringWaypoint) {
       state.isHoveringWaypoint = false;
-      DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+      this.unhoverWaypoints();
     }
     state.isTouchingWaypoint = false;
     state.latchedWaypointPin = null;
@@ -1511,10 +1537,7 @@ export class XRManager {
         this.spatialHUD.group.lookAt(_scratchV3.x, this.spatialHUD.group.position.y, _scratchV3.z);
         this.spatialHUD.group.updateMatrixWorld(true);
 
-        state.rayLine.geometry.setFromPoints([
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(0, 0, -state.hudDragDistance),
-        ]);
+        state.rayLine.scale.z = state.hudDragDistance;
         state.rayLine.visible = true;
         state.reticle.visible = true;
         state.reticle.position.copy(this.spatialHUD.grabMesh.position).applyMatrix4(this.spatialHUD.group.matrixWorld);
@@ -1549,10 +1572,7 @@ export class XRManager {
           this.sceneManager.dioramaRoot.position.z = state.terrainDragStartDioramaPos.z + deltaZ;
 
           const dist = _scratchRayOrigin.distanceTo(newHit);
-          state.rayLine.geometry.setFromPoints([
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 0, -dist),
-          ]);
+          state.rayLine.scale.z = dist;
           state.rayLine.visible = true;
           state.reticle.visible = true;
           state.reticle.position.copy(newHit);
@@ -1588,10 +1608,7 @@ export class XRManager {
       state.isInteractingWithHUD = isTriggerDown;
 
       const hitDistance = hudHit.distance;
-      state.rayLine.geometry.setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -hitDistance),
-      ]);
+      state.rayLine.scale.z = hitDistance;
       state.rayLine.visible = true;
       state.reticle.visible = true;
       state.reticle.position.copy(hudHit.point);
@@ -1647,18 +1664,12 @@ export class XRManager {
     // 4. Raycast against Waypoint Pins in diorama mode (Controllers & Hands pointing)
     if (this.currentViewMode === 'diorama') {
       try {
-        const wpGroup = this.sceneManager.dioramaRoot.getObjectByName('Waypoints');
+        const wpGroup = this.getWaypointGroup();
         if (wpGroup && wpGroup.children.length > 0) {
           // Raycast meshes within wpGroup, prioritizing WaypointHitTarget (Section 26)
-          const hitMeshes: THREE.Mesh[] = [];
-          wpGroup.traverse((obj) => {
-            if ((obj as THREE.Mesh).isMesh && !(obj as any).isSprite) {
-              hitMeshes.push(obj as THREE.Mesh);
-            }
-          });
-          const wpHits = this.raycaster.intersectObjects(hitMeshes, false);
+          const wpHits = this.raycaster.intersectObjects(this.waypointHitMeshes, false);
           if (wpHits.length > 0) {
-            this.activePointerRay = new THREE.Ray(_scratchRayOrigin.clone(), _scratchRayDir.clone());
+            this.activePointerRay = this.pointerRay.set(_scratchRayOrigin, _scratchRayDir);
             const hitWp = wpHits[0];
             let curr: THREE.Object3D | null = hitWp.object;
             while (curr && (!curr.userData || !curr.userData.waypoint)) {
@@ -1670,10 +1681,7 @@ export class XRManager {
               DioramaBase.onHoverWaypoint(this.sceneManager.dioramaRoot, curr);
 
               const dist = hitWp.distance;
-              state.rayLine.geometry.setFromPoints([
-                new THREE.Vector3(0, 0, 0),
-                new THREE.Vector3(0, 0, -dist),
-              ]);
+              state.rayLine.scale.z = dist;
               state.rayLine.visible = true;
               state.reticle.visible = true;
               state.reticle.position.copy(hitWp.point);
@@ -1686,7 +1694,7 @@ export class XRManager {
               return;
             }
           } else {
-            DioramaBase.onUnhoverWaypoint(this.sceneManager.dioramaRoot);
+            this.unhoverWaypoints();
           }
         }
       } catch (err) {
@@ -1717,12 +1725,9 @@ export class XRManager {
       }
 
       if (tableHit) {
-        this.activePointerRay = new THREE.Ray(_scratchRayOrigin.clone(), _scratchRayDir.clone());
+        this.activePointerRay = this.pointerRay.set(_scratchRayOrigin, _scratchRayDir);
         const dist = _scratchRayOrigin.distanceTo(tableHit);
-        state.rayLine.geometry.setFromPoints([
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(0, 0, -dist),
-        ]);
+        state.rayLine.scale.z = dist;
         state.rayLine.visible = true;
         state.reticle.visible = true;
         state.reticle.position.copy(tableHit);
@@ -1740,11 +1745,8 @@ export class XRManager {
     }
 
     // 5. Physical Controller: Default empty space ray
-    this.activePointerRay = new THREE.Ray(_scratchRayOrigin.clone(), _scratchRayDir.clone());
-    state.rayLine.geometry.setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -2.5),
-    ]);
+    this.activePointerRay = this.pointerRay.set(_scratchRayOrigin, _scratchRayDir);
+    state.rayLine.scale.z = 2.5;
     state.rayLine.visible = true;
     state.reticle.visible = false;
 

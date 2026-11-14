@@ -176,6 +176,15 @@ export function evaluatePinchState(
 // Module-scoped scratch instances for hot-loop manipulation math to avoid allocations
 const _scratchVPrev = new THREE.Vector3();
 const _scratchVCurr = new THREE.Vector3();
+const _twistDelta = new THREE.Quaternion();
+const _twistPrevInverse = new THREE.Quaternion();
+
+/** Rotation angle (rad) of curr relative to prev, projected on `axis`. Allocation-free. */
+function wristTwistAbout(prev: THREE.Quaternion, curr: THREE.Quaternion, axis: THREE.Vector3): number {
+  const dq = _twistDelta.copy(curr).multiply(_twistPrevInverse.copy(prev).invert());
+  const sign = dq.w < 0 ? -1 : 1;
+  return (dq.x * axis.x + dq.y * axis.y + dq.z * axis.z) * 2 * sign;
+}
 const _scratchPrevMid = new THREE.Vector3();
 const _scratchCurrMid = new THREE.Vector3();
 const _scratchOffset = new THREE.Vector3();
@@ -253,21 +262,10 @@ export function applyBimanualTransform(
     let twistAccum = 0;
     let twistCount = 0;
 
-    const wristPairs = [
-      { prev: wrist0Prev, curr: wrist0Curr },
-      { prev: wrist1Prev, curr: wrist1Curr },
-    ];
-    for (const pair of wristPairs) {
-      if (pair.prev && pair.curr) {
-        const dq = pair.curr.clone().multiply(pair.prev.clone().invert());
-        if (dq.w < 0) {
-          dq.x = -dq.x;
-          dq.y = -dq.y;
-          dq.z = -dq.z;
-          dq.w = -dq.w;
-        }
-        const rotVec = new THREE.Vector3(dq.x * 2, dq.y * 2, dq.z * 2);
-        const twistAngle = rotVec.dot(_scratchVCurr);
+    for (let k = 0; k < 2; k++) {
+      const prev = k === 0 ? wrist0Prev : wrist1Prev, curr = k === 0 ? wrist0Curr : wrist1Curr;
+      if (prev && curr) {
+        const twistAngle = wristTwistAbout(prev, curr, _scratchVCurr);
         if (Math.abs(twistAngle) > 0.002 && Math.abs(twistAngle) < 0.3) {
           twistAccum += twistAngle;
           twistCount++;

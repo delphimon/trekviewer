@@ -694,8 +694,9 @@ export class DioramaBase {
   /**
    * Starts hover exit fade timer (Section 27).
    */
-  public static onUnhoverWaypoint(baseGroup: THREE.Group): void {
-    const wpGroup = baseGroup.getObjectByName('Waypoints');
+  public static onUnhoverWaypoint(baseGroup: THREE.Object3D): void {
+    // Accepts the 'Waypoints' group itself so per-frame callers can skip the scene search.
+    const wpGroup = baseGroup.name === 'Waypoints' ? baseGroup : baseGroup.getObjectByName('Waypoints');
     if (!wpGroup) return;
     for (const child of wpGroup.children) {
       if (child.userData.isHovered && child.userData.hoverTimeout <= 0) {
