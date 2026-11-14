@@ -392,7 +392,7 @@ Rainier route.
   `src/visualization/DioramaBase.ts` (search `metalness: 0.8`): use
   `metalness: 0, roughness: 0.85` and a dark slate colour.
 
-- [ ] **V7 Anisotropy is set to the device maximum** — *Reported (verify first).*
+- [x] **V7 Anisotropy is set to the device maximum** — *Reported (verify first).*
   `src/core/SceneManager.ts` `TextureProvider.setMaxAnisotropy(...)`: clamp to 4 for
   quest profiles and 8 for desktop.
 

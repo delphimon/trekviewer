@@ -6,6 +6,11 @@ import { updateInspectionClipping } from './InspectionView.ts';
 import { requestedXRFoveation, readXRRenderQuality } from './XRRenderQuality.ts';
 import type { QualityProfileName } from '../terrain/QualityProfile.ts';
 
+/** Texture anisotropy: 4 on Quest profiles (bandwidth), 8 on desktop, never above the device. */
+export function anisotropyForProfile(profile: QualityProfileName, deviceMax: number): number {
+  return Math.max(1, Math.min(profile.startsWith('quest') ? 4 : 8, deviceMax || 1));
+}
+
 export class SceneManager {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
@@ -66,7 +71,6 @@ export class SceneManager {
     this.setQualityProfile(qualityProfile);
     this.renderer.xr.addEventListener('sessionstart', this.onXRSessionStartBound);
     container.appendChild(this.renderer.domElement);
-    TextureProvider.setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
     this.vignette = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
       uniforms: { strength: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false,
       vertexShader: 'varying vec2 screenUV; void main(){screenUV=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
@@ -147,6 +151,7 @@ export class SceneManager {
 
   public setQualityProfile(profile: QualityProfileName): void {
     this.qualityProfile = profile;
+    TextureProvider.setMaxAnisotropy(anisotropyForProfile(profile, this.renderer.capabilities.getMaxAnisotropy()));
     try { this.renderer.xr.setFoveation(requestedXRFoveation(profile)); }
     catch (error) { console.warn('XR foveation request was not accepted; layer diagnostics report the runtime state.', error); }
   }
