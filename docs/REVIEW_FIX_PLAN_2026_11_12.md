@@ -209,7 +209,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Test: for a synthetic ridge (centre 10 m above both edges) assert the attribute is
     within 0.1 m of the centre height and that it rescales with exaggeration.
 
-- [ ] **B7 Tile timeouts are negative-cached for 60 s instead of 15 s** — *Confirmed.*
+- [x] **B7 Tile timeouts are negative-cached for 60 s instead of 15 s** — *Confirmed.*
   - Where: `src/terrain/TileImageCache.ts`: `const timer = setTimeout(abort, timeoutMs);`
     and `/timed? ?out|timeout/i.test(errMsg) ? 15000 : 60000`.
   - Do: keep a local `let timedOut = false`; the timer sets it and aborts. In the catch,

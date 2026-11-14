@@ -553,7 +553,10 @@ export class TileImageCache {
     const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) controller.abort();
     const started = performance.now();
-    const timer = setTimeout(abort, timeoutMs);
+    // Our own timeout must read as a timeout (short negative-cache delay), while
+    // a caller abort stays an abort.
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; abort(); }, timeoutMs);
     const decode = async (blob: Blob) => {
       const objectURL = URL.createObjectURL(blob);
       try {
@@ -579,6 +582,9 @@ export class TileImageCache {
       const image = await decode(blob);
       PersistentResourceCache.write(url, blob, generation);
       return image;
+    } catch (error) {
+      if (timedOut && !signal?.aborted) throw new Error('Timeout loading tile');
+      throw error;
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   }
 }
