@@ -56,8 +56,9 @@ export class SceneManager {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    // Neutral keeps imagery hues (ACES shifted them) and does not crush bright snow.
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.xr.enabled = true;
@@ -86,11 +87,11 @@ export class SceneManager {
     this.scene.add(this.fadeOverlay);
 
     // 5. Lighting
-    this.hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.2);
+    this.hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.0);
     this.hemiLight.position.set(0, 500, 0);
     this.scene.add(this.hemiLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xfffbeb, 2.4);
+    this.sunLight = new THREE.DirectionalLight(0xfffbeb, 2.0);
     this.sunLight.position.set(300, 600, 400);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 2048;

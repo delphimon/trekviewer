@@ -347,7 +347,7 @@ Rainier route.
     softened by darkening the skirt. First Rainier load in the preview took about 30–40 s
     (was about 18 s) because the DEM and imagery cover a larger area.
 
-- [ ] **V2 Snow is blown out and imagery colours are shifted** — *Confirmed.*
+- [x] **V2 Snow is blown out and imagery colours are shifted** — *Confirmed.*
   - Where: `src/core/SceneManager.ts` `toneMapping = THREE.ACESFilmicToneMapping`,
     `toneMappingExposure = 1.15`, hemisphere light 1.2, sun 2.4.
   - Do: switch to `THREE.NeutralToneMapping` with exposure 1.0. Then lower the lights so
