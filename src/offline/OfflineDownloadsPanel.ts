@@ -125,7 +125,8 @@ export class OfflineDownloadsPanel {
         if (this.disposed) return;
         this.message.textContent = `Downloading ${plan.routeId === 'rainier-emmons' ? 'Rainier' : 'Enchantments'}. Saved pieces are kept if you pause or reload.`;
         await OfflineDownloads.start(plan);
-        if ((await OfflineStore.state(plan.id))?.state !== 'ready') break;
+        // A paused or failed update leaves the pack 'ready' but still missing sources.
+        if ((await OfflineStore.state(plan.id))?.state !== 'ready' || await OfflineStore.missingCount(plan) > 0) break;
       }
     } catch (error) { if (!this.disposed) this.message.textContent = error instanceof Error ? error.message : 'Download failed. Resume to retry.'; }
     finally { this.running = false; if (!this.disposed) { this.controls(); await this.refresh(); } }
@@ -166,6 +167,7 @@ export class OfflineDownloadsPanel {
         const status = document.createElement('span');
         const percent = row.total ? Math.floor((row.completed / row.total) * 100) : 0;
         status.textContent = !OfflineStore.compatible(row) ? ' — made for an older version of this route. Remove it and download again.'
+          : row.state === 'ready' && row.updating && OfflineDownloads.busy() ? ` — ✓ Ready offline • Updating ${percent}% • ${size(row.bytes)}`
           : row.state === 'ready' ? ` — ✓ Ready offline • ${size(row.bytes)}`
           : row.state === 'downloading' && !OfflineDownloads.busy() ? ` — Interrupted at ${percent}%. Check size, then Download to resume.`
           : row.state === 'downloading' ? ` — Downloading ${percent}% • ${size(row.bytes)}`
@@ -174,7 +176,7 @@ export class OfflineDownloadsPanel {
         if (row.state === 'ready' && OfflineStore.compatible(row)) {
           const detail = document.createElement('span'); detail.textContent = ` • ${row.message}`;
           line.appendChild(detail);
-          void this.reportMissing(row, status);
+          if (!row.updating || !OfflineDownloads.busy()) void this.reportMissing(row, status);
           const exp = document.createElement('button'); exp.className = 'btn btn-sm'; exp.textContent = 'Export'; exp.disabled = busy;
           exp.onclick = () => { void this.exportArchive(row.id, row.routeId); };
           line.appendChild(exp);

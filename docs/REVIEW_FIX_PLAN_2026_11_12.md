@@ -141,7 +141,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Note: patch meshes keep `visible` as the logical flag (coverage and upload use it);
     they are kept off-screen with `layers.mask = 0`, so the test checks drawable meshes.
 
-- [ ] **B2 Updating a "Needs update" pack takes the whole pack offline** — *Confirmed.*
+- [x] **B2 Updating a "Needs update" pack takes the whole pack offline** — *Confirmed.*
   - Where: `src/offline/OfflineDownloads.ts` near
     `state: 'downloading', total: plan.resources.length`;
     `src/offline/OfflineStore.ts` `read()` (`r.state === 'ready'`).

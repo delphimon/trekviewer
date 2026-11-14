@@ -6,6 +6,8 @@ export interface OfflinePackState {
   id: string; routeId: string; name: string; routeHash: string;
   state: 'paused' | 'downloading' | 'ready'; total: number; completed: number;
   bytes: number; estimatedBytes: number; message: string; updated: number;
+  /** A ready pack fetching sources a newer inventory needs; it stays readable throughout. */
+  updating?: boolean;
 }
 export interface OfflineAsset {
   key: string; packId: string; urls: string[]; sourceUrl: string;

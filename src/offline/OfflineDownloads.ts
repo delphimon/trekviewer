@@ -78,8 +78,10 @@ export class OfflineDownloads {
         // A ready pack only needs work when the current inventory has sources it lacks.
         if (previous?.state === 'ready' && await OfflineStore.missingCount(plan) === 0) return;
         const persisted = await navigator.storage.persist?.().catch(() => false);
+        // Updating a ready pack keeps it 'ready' (readable) for the whole gap download.
+        const updating = previous?.state === 'ready';
         let state: OfflinePackState = { id: plan.id, routeId: plan.routeId, routeHash: plan.routeHash, name: plan.name,
-          state: 'downloading', total: plan.resources.length, completed: previous?.completed ?? 0, bytes: previous?.bytes ?? 0, estimatedBytes: plan.estimatedBytes,
+          state: updating ? 'ready' : 'downloading', updating, total: plan.resources.length, completed: previous?.completed ?? 0, bytes: previous?.bytes ?? 0, estimatedBytes: plan.estimatedBytes,
           message: `${source?.message ?? 'Downloading'} • ${persisted ? 'storage persistence granted' : 'browser may reclaim storage'}`, updated: Date.now() };
         await OfflineStore.putState(state);
         try {
@@ -138,7 +140,7 @@ export class OfflineDownloads {
           if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
           await OfflineStore.publish(plan, verified, verifiedBytes);
         } catch (error) {
-          await OfflineStore.putState({ ...state, state: 'paused', message: controller.signal.aborted ? 'Paused. Resume downloading or reselect the pack file to keep completed sources.'
+          await OfflineStore.putState({ ...state, state: updating ? 'ready' : 'paused', updating: false, message: controller.signal.aborted ? 'Paused. Resume downloading or reselect the pack file to keep completed sources.'
             : error instanceof DOMException && error.name === 'QuotaExceededError' ? 'Browser storage is full. Free space, then resume.'
             : (error instanceof Error ? error.message : 'Download interrupted. Resume to retry.'), updated: Date.now() });
           if (!controller.signal.aborted) throw error;
