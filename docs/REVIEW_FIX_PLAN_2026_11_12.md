@@ -447,7 +447,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
   `vite.config.ts` hashes only `rainier-emmons` and `enchantments-dragontail`. Add one
   sentence under the list: "Offline maps are available for these routes. Other routes
   use the temporary cache as you explore." Do not change which routes are offered.
-- [ ] **U7 Replace emoji used as icons** in buttons with text labels or inline SVG, so
+- [x] **U7 Replace emoji used as icons** in buttons with text labels or inline SVG, so
   buttons render the same on every platform. Keep labels short.
 - [x] **U8 Default speed parse.** `DesktopOverlay.ts`
   `parseFloat(btn.getAttribute('data-speed') || '20')`: the fallback should be `'1'`.
@@ -742,4 +742,11 @@ and anything the owner must check.
   about 18 s. **OWNER:** existing offline packs will show "Needs update" after V1 (B2 keeps
   them usable). V3 casing has a one-pixel minimum because the overview ribbon is ~3 px wide.
   V4 added a 0.2 s label placement throttle (none existed). V8 needs an owner decision.
+- 2026-11-13, Phase U done (U1–U8), each checked at 1440×900 and 375×812. U1 chart is
+  DPR-sharp with axes and a hover readout; U3 gives the 3D view 70% of a 375×812 screen
+  (53% with More open); U4 adds an imperial/metric setting (`trekviewer.units`). Tests
+  changed: `stage_t4_waypoint_ux` unaffected after a fix; `product_polish` legend now shows
+  the real fast-band threshold (3.7+ mph, was a mislabelled 4.0+); `review_regressions`
+  reads the chip label after the new marker dot. Waypoint label textures on the model
+  (DioramaBase) pick up the unit setting on the next route load, not live.
 

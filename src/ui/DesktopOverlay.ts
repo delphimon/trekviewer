@@ -416,7 +416,7 @@ export class DesktopOverlay {
     this.viewMode = mode;
     this.updateFitAvailability();
     const button = document.getElementById('btnViewToggle');
-    if (button) button.textContent = mode === 'diorama' ? '🚶 Walk Trail (1:1)' : '🏔 Tabletop Diorama';
+    if (button) button.textContent = mode === 'diorama' ? 'Walk Trail (1:1)' : 'Tabletop Diorama';
     if (button) button.ariaPressed = String(mode === 'first-person');
     const speeds = this.container.querySelector<HTMLElement>('.speed-selector');
     if (speeds) speeds.style.display = mode === 'first-person' ? 'none' : 'flex';
@@ -539,7 +539,7 @@ export class DesktopOverlay {
             <label for="routeSelect">Select Trek:</label>
             <select id="routeSelect" class="styled-select"></select>
             <button id="btnImportGPX" class="btn btn-secondary upload-btn" type="button">
-              📂 Import GPX
+              Import GPX
             </button>
             <input type="file" id="gpxUploadInput" accept=".gpx" style="display:none;" />
             <div class="mobile-menu-wrap">
@@ -556,10 +556,10 @@ export class DesktopOverlay {
           <div class="xr-buttons">
             <button id="btnSettings" class="btn btn-secondary settings-toggle" aria-controls="trekSettings" aria-expanded="false">Settings</button>
             <button id="btnEnterVR" class="btn btn-primary xr-btn" aria-describedby="xrSupportStatus" disabled>
-              🥽 Enter VR
+              Enter VR
             </button>
             <button id="btnEnterAR" class="btn btn-accent xr-btn" aria-describedby="xrSupportStatus" disabled>
-              👓 Passthrough (MR)
+              Passthrough (MR)
             </button>
             <button id="btnQuestHelp" class="btn-link quest-help-btn" type="button" hidden>Open on a Quest headset</button>
           </div>
@@ -611,9 +611,9 @@ export class DesktopOverlay {
               <option value="imperial">Imperial (mi, ft)</option><option value="metric">Metric (km, m)</option></select></label>
             <h3>Visual Style</h3>
             <div class="btn-group">
-              <button id="btnSatTex" class="btn btn-sm btn-active">🛰️ Aerial</button>
-              <button id="btnHybridTex" class="btn btn-sm">🏷️ Hybrid</button>
-              <button id="btnTopoTex" class="btn btn-sm">🗺️ Topo</button>
+              <button id="btnSatTex" class="btn btn-sm btn-active">Aerial</button>
+              <button id="btnHybridTex" class="btn btn-sm">Hybrid</button>
+              <button id="btnTopoTex" class="btn btn-sm">Topo</button>
             </div>
 
             <h3>Satellite &amp; Aerial Source</h3>
@@ -636,10 +636,10 @@ export class DesktopOverlay {
             <p id="satelliteProviderAttribution" class="trek-meta" role="status" aria-live="polite"></p>
             <h3>Trail Colors</h3>
             <div class="btn-group">
-              <button id="btnColorSolid" class="btn btn-sm btn-active">🧭 Solid</button>
-              <button id="btnColorGrade" class="btn btn-sm">⛰️ Steepness</button>
-              <button id="btnColorSpeed" class="btn btn-sm">🏃 Pace</button>
-              <button id="btnColorEle" class="btn btn-sm">📈 Altitude</button>
+              <button id="btnColorSolid" class="btn btn-sm btn-active">Solid</button>
+              <button id="btnColorGrade" class="btn btn-sm">Steepness</button>
+              <button id="btnColorSpeed" class="btn btn-sm">Pace</button>
+              <button id="btnColorEle" class="btn btn-sm">Altitude</button>
             </div>
             <div id="trailLegend" class="trail-legend">
               <div class="legend-bar" id="legendBar"></div>
@@ -667,8 +667,8 @@ export class DesktopOverlay {
             <p class="trek-meta">Keep the model upright while moving, zooming and turning. Level horizon preserves your position and zoom.</p>
             <h3>Quality</h3>
             <div class="btn-group" id="groupQuality">
-              <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high" aria-pressed="true">⚡ High</button>
-              <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced" aria-pressed="false">🌱 Balanced</button>
+              <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high" aria-pressed="true">High</button>
+              <button id="btnQualityBalanced" class="btn btn-sm btn-quality" data-quality="balanced" aria-pressed="false">Balanced</button>
             </div>
             <h3>VR Comfort</h3>
             <label class="comfort-option">Movement
@@ -732,7 +732,7 @@ export class DesktopOverlay {
         <!-- Bottom Timeline & Flyover Player Bar -->
         <footer class="player-bar glass-card">
           <div class="player-left">
-            <button id="btnPlay" class="btn btn-primary play-btn">▶ Tour</button>
+            <button id="btnPlay" class="btn btn-primary play-btn">Play tour</button>
             <button id="btnPlayerMore" class="btn btn-secondary player-more-btn" type="button" aria-expanded="false">More</button>
             <select id="playbackMode" class="btn btn-secondary" aria-label="Playback timing" title="Tour covers the route in 90 seconds at 1x. Track timing uses recorded or estimated pace.">
               <option value="tour">90s tour</option>
@@ -743,7 +743,7 @@ export class DesktopOverlay {
             </div>
             <button id="btnFollowRoute" class="btn btn-secondary" aria-pressed="false" title="Follow the hiker from above. Drag or zoom the terrain to return to manual inspection." disabled>Follow route</button>
             <button id="btnViewToggle" class="btn btn-secondary view-toggle-btn" aria-pressed="false">
-              🚶 Walk Trail (1:1)
+              Walk Trail (1:1)
             </button>
           </div>
 
@@ -1252,19 +1252,18 @@ export class DesktopOverlay {
       chip.className = 'landmark-chip';
       chip.type = 'button';
 
-      let icon = '📍';
-      if (lm.type === 'start' || lm.name.toLowerCase().includes('start') || lm.name.toLowerCase().includes('trailhead')) {
-        icon = '🟢';
-      } else if (lm.type === 'summit' || lm.name.toLowerCase().includes('summit') || lm.name.toLowerCase().includes('peak') || lm.name.toLowerCase().includes('high point')) {
-        icon = '⛰️';
-      } else if (lm.type === 'finish' || lm.name.toLowerCase().includes('finish')) {
-        icon = '🏁';
-      } else if (lm.type === 'day_boundary' || lm.name.toLowerCase().includes('camp')) {
-        icon = '⛺';
-      }
+      // A coloured dot (CSS) instead of an emoji, matching the chart's landmark colours.
+      const lower = lm.name.toLowerCase();
+      const kind = lm.type === 'start' || lower.includes('start') || lower.includes('trailhead') ? 'start'
+        : lm.type === 'summit' || lm.type === 'high_point' || lower.includes('summit') || lower.includes('peak') || lower.includes('high point') ? 'summit'
+        : lm.type === 'finish' || lower.includes('finish') ? 'finish'
+        : lm.type === 'day_boundary' || lower.includes('camp') ? 'camp' : 'other';
+      const dot = document.createElement('span');
+      dot.className = `landmark-dot landmark-dot-${kind}`;
+      dot.setAttribute?.('aria-hidden', 'true');
 
       const eleText = lm.ele ? ` (${formatElevation(lm.ele)})` : '';
-      chip.textContent = `${icon} `;
+      chip.appendChild(dot);
       const label = document.createElement('span');
       label.textContent = `${lm.name}${eleText}`;
       chip.appendChild(label);

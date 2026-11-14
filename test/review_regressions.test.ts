@@ -138,7 +138,7 @@ it('renders imported waypoint names as literal text', () => {
   const payload='<img src=x onerror="window.__reviewProof=1">';
   overlay.updateLandmarks({landmarks:[],waypoints:[{name:payload,lat:46.85,lon:-121.75,ele:100}]});
   expect(elements[0].innerHTML).toBeUndefined();
-  expect(elements[0].children[0].textContent).toContain(payload);
+  expect(elements[0].children.at(-1).textContent).toContain(payload); // label follows the marker dot
 });
 
 it('bounds provider startup even when fetch never settles', async () => {

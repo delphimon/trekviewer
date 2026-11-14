@@ -772,3 +772,10 @@ body, html {
   .desktop-attribution { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
 }
 
+/* Landmark chip markers (text-free, same colours as the elevation chart) */
+.landmark-dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #38bdf8; vertical-align: middle; }
+.landmark-dot-start { background: #10b981; }
+.landmark-dot-summit { background: #f59e0b; }
+.landmark-dot-finish { background: #ef4444; }
+.landmark-dot-camp { background: #8b5cf6; }
+
