@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { execSync } from 'child_process';
-import { entryIntegrity } from './scripts/entry-integrity.ts';
+import { entryIntegrity, stripDevCsp } from './scripts/entry-integrity.ts';
 import { offlineShell } from './scripts/offline-shell.ts';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -35,6 +35,7 @@ export default defineConfig({
   plugins: [
     basicSsl(),
     entryIntegrity(),
+    stripDevCsp(),
     offlineShell(buildId),
     {
       name: 'build-provenance',

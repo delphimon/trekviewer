@@ -306,7 +306,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   `src/terrain/providers/ImageryProvider.ts` (search `access_token=`): use an
   `Authorization: Bearer` header for the ion endpoint request if the API accepts it.
   Keep the query form only for the tile URLs that require it.
-- [ ] **S4 Add a Content-Security-Policy meta tag** to `index.html`.
+- [x] **S4 Add a Content-Security-Policy meta tag** to `index.html`.
   - Build the host list from the allowlist in `src/offline/OfflineSourceIdentity.ts` and
     the provider files in `src/terrain/providers/`. Do not invent hosts.
   - Start from: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src

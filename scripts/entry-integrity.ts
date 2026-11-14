@@ -37,6 +37,17 @@ function installEntryRecovery(): void {
   }, true);
 }
 
+const recoveryScript = `(${installEntryRecovery.toString()})();`;
+const CSP_HASH_PLACEHOLDER = '__TREK_ENTRY_RECOVERY_HASH__';
+
+/** Dev serving has its own HMR connections; the CSP meta applies to built pages only. */
+export function stripDevCsp(): Plugin {
+  return {
+    name: 'trek-strip-dev-csp', apply: 'serve',
+    transformIndexHtml: html => html.replace(/\s*<!--[^>]*?entry-recovery[\s\S]*?-->\s*<meta http-equiv="Content-Security-Policy"[^>]*>/, ''),
+  };
+}
+
 export function entryIntegrity(): Plugin {
   return {
     name: 'trek-entry-integrity', apply: 'build', enforce: 'post',
@@ -52,9 +63,12 @@ export function entryIntegrity(): Plugin {
           if (!entry || entry.type !== 'chunk' || !entry.isEntry) return tag;
           count++;
           const integrity = `sha384-${createHash('sha384').update(entry.code).digest('base64')}`;
-          return `<script>(${installEntryRecovery.toString()})();</script>\n<script${before}src="${src}"${after} data-trek-entry="true" integrity="${integrity}"></script>`;
+          return `<script>${recoveryScript}</script>\n<script${before}src="${src}"${after} data-trek-entry="true" integrity="${integrity}"></script>`;
         });
         if (count !== 1) throw Error(`Expected one application entry, found ${count}`);
+        // The CSP allows exactly this inline script by hash; no 'unsafe-inline' for scripts.
+        if (!html.source.includes(CSP_HASH_PLACEHOLDER)) throw Error('Expected the CSP inline-script hash placeholder in index.html');
+        html.source = html.source.replace(CSP_HASH_PLACEHOLDER, `'sha256-${createHash('sha256').update(recoveryScript).digest('base64')}'`);
         // Shared chunks (e.g. the three.js vendor chunk) are preloaded; give them the same
         // integrity protection as the entry so a corrupted response is rejected, not executed.
         html.source = html.source.replace(/<link\b([^>]*?)rel="modulepreload"([^>]*?)href="([^\"]+\.js)"([^>]*)>/g,

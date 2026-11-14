@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Hosts: src/offline/OfflineSourceIdentity.ts allowlist and src/terrain/providers/ (Bing tiles come
+         from ion/Bing metadata as *.tiles.virtualearth.net). The build fills in the hash of the inline
+         entry-recovery script (scripts/entry-integrity.ts); dev serving removes this tag. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' __TREK_ENTRY_RECOVERY_HASH__; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://api.cesium.com https://dev.virtualearth.net https://*.tiles.virtualearth.net https://server.arcgisonline.com https://services.arcgisonline.com https://basemap.nationalmap.gov https://imagery.nationalmap.gov https://elevation.nationalmap.gov https://carto.nationalmap.gov https://imagery.geoplatform.gov https://cloudless.eox.at https://tiles.maps.eox.at https://wmts.geo.admin.ch https://api3.geo.admin.ch https://s3.amazonaws.com https://prd-tnm.s3.amazonaws.com; connect-src 'self' https://api.cesium.com https://dev.virtualearth.net https://*.tiles.virtualearth.net https://server.arcgisonline.com https://services.arcgisonline.com https://basemap.nationalmap.gov https://imagery.nationalmap.gov https://elevation.nationalmap.gov https://carto.nationalmap.gov https://imagery.geoplatform.gov https://cloudless.eox.at https://tiles.maps.eox.at https://wmts.geo.admin.ch https://api3.geo.admin.ch https://s3.amazonaws.com https://prd-tnm.s3.amazonaws.com; object-src 'none'; base-uri 'self'" />
     <meta name="theme-color" content="#090d16" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
