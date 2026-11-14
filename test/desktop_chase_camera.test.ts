@@ -105,3 +105,14 @@ it('moves at walking pace times the speed on desktop and stays at walking pace i
   xr.flyover.update(1, undefined, new THREE.Group(), true);
   expect(xr.flyover.getProgress() * 5000).toBeLessThanOrEqual(1.4 + 1e-9);
 });
+
+it('uses a 1 m near plane and a terrain-sized far plane in the desktop trail view', async () => {
+  const { updateInspectionClipping } = await import('../src/core/InspectionView.ts');
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 80000);
+  updateInspectionClipping(camera, false, 1, 0, 0, 20_000);
+  expect([camera.near, camera.far]).toEqual([1, 60_000]);
+  updateInspectionClipping(camera, false, 1, 0, 0, 2_000);
+  expect(camera.far).toBe(30_000); // never short of a padded terrain block
+  updateInspectionClipping(camera, false, 1, 0, 0); // XR / other views unchanged
+  expect([camera.near, camera.far]).toEqual([0.1, 80000]);
+});

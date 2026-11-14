@@ -199,7 +199,9 @@ export class SceneManager {
     updateInspectionClipping(this.camera,
       this.currentViewMode === 'diorama' && !this.renderer.xr.isPresenting,
       targetDistance, this.camera.position.distanceTo(this.dioramaRoot.position),
-      this.terrainExtent * this.dioramaRoot.scale.length());
+      this.terrainExtent * this.dioramaRoot.scale.length(),
+      // Depth precision for the desktop trail view; XR keeps its near plane for hands.
+      this.currentViewMode === 'first-person' && !this.renderer.xr.isPresenting ? this.terrainExtent : undefined);
   }
 
   /** 0 = clear, 1 = fully black. Only drawn while presenting in XR. */

@@ -67,9 +67,13 @@ export function updateInspectionClipping(
   targetDistance: number,
   modelDistance: number,
   modelRadius: number,
+  /** Desktop trail (chase) view: life-size metres, viewer never closer than 1 m to anything. */
+  chaseExtent?: number,
 ): void {
-  const near = tabletop ? THREE.MathUtils.clamp(targetDistance * 0.005, 1e-7, 0.001) : 0.1;
-  const far = tabletop ? Math.max(10, modelDistance + modelRadius * 2, targetDistance * 2) : 80000;
+  const chase = !tabletop && chaseExtent !== undefined;
+  const near = tabletop ? THREE.MathUtils.clamp(targetDistance * 0.005, 1e-7, 0.001) : chase ? 1 : 0.1;
+  const far = tabletop ? Math.max(10, modelDistance + modelRadius * 2, targetDistance * 2)
+    : chase ? Math.max(3 * chaseExtent!, 30_000) : 80000;
   // Static views incur no projection rebuild; avoid inspecting geometry every frame.
   if (camera.near === near && camera.far === far) return;
   camera.near = near;

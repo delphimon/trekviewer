@@ -579,10 +579,13 @@ Write the numbers in the commit message.
   `src/terrain/PersistentResourceCache.ts`: reads use a `readonly` transaction; batch
   the last-access timestamp writes into the existing flush; replace `metadata.getAll()`
   on every flush with a running total.
-- [ ] **P9 Depth precision.** `SceneManager.ts` camera `near 0.1 / far 80000`. In
+- [~] **P9 Depth precision.** `SceneManager.ts` camera `near 0.1 / far 80000`. In
   first-person/chase mode set near to 1 m and far to 3 × terrain extent
   (`updateInspectionClipping` already handles tabletop). Browser check for z-fighting on
   distant ridges.
+  - Note: desktop trail view only (XR keeps 0.1 m so hands are not clipped). `terrainExtent`
+    is the route extent, smaller than the V1 terrain block, so far is
+    max(3 × extent, 30 km). The z-fighting browser check was not possible (pane hidden).
 
 ---
 
@@ -777,4 +780,11 @@ and anything the owner must check.
   its network probe (`TREK_PACK_SAMPLE=1`), not run. README cites 5.5 GB (Rainier) and
   10.4 GB (Enchantments) for full packs. Note the script still uses the pre-V1 margin.
   **OWNER O6** (pack validity from inventory instead of GPX bytes): recorded, not started.
+- 2026-11-13, Phase P: P1–P5 and P8 done; P6 partial (cache budget only, the array CPU
+  mirror needs P7); P7 not attempted (raw GL upload cannot be exercised here); P9 done for
+  the desktop trail view, browser z-fighting check outstanding. No before/after frame
+  numbers were taken: the browser pane was hidden and the owner chose to skip
+  measurements. Tests changed: `hud_ui_performance` (2 Hz playback refresh),
+  `first_person_view_sampling` (diagnostics now opt-in), `stage_w1_quality_profile` and
+  `terrain_cache_robustness` (64 MB Quest cache).
 
