@@ -649,7 +649,7 @@ code, and list them in the commit message.
 
 ## Phase T — Tests and tooling
 
-- [ ] **T1 Add `fake-indexeddb`** (dev dependency) and
+- [x] **T1 Add `fake-indexeddb`** (dev dependency) and
   `test/offline_store_lifecycle.test.ts` covering `OfflineDownloads.prepare/start` and
   `OfflineStore.publish/remove/save/read` through public methods: fresh download,
   resume after pause, publish, remove. Needed by B2 and O1.
