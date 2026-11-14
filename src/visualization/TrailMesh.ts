@@ -53,7 +53,7 @@ export class TrailMesh {
       new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(0, 0, -10)]);
 
     // 1. Build Multi-Segment Flat Ribbon Geometry for Tabletop Diorama with 8m station spacing (Section 14)
-    const { geometry: dioramaGeo, unscaledGroundY } = this.buildMultiSegmentRibbon(
+    const { geometry: dioramaGeo, unscaledGroundY, unscaledCenterY: dioramaCenterY } = this.buildMultiSegmentRibbon(
       routeGeometry,
       ribbonHalfWidth,
       8.0,
@@ -63,7 +63,7 @@ export class TrailMesh {
     );
 
     // 2. 1:1 Immersion Low-Profile Path Geometry across all segments (0.35m half-width = 70cm path, 0.08m ground clearance) (Section 11, 16)
-    const { geometry: firstPersonGeo, unscaledGroundY: firstPersonUnscaledGroundY } = this.buildMultiSegmentRibbon(
+    const { geometry: firstPersonGeo, unscaledGroundY: firstPersonUnscaledGroundY, unscaledCenterY: firstPersonCenterY } = this.buildMultiSegmentRibbon(
       routeGeometry,
       0.35,
       8.0,
@@ -326,7 +326,9 @@ export class TrailMesh {
       for (let i = 0; i < unscaledGroundY.length; i++) {
         posArray[i * 3 + 1] = unscaledGroundY[i] * factor + dioramaElevationOffset;
       }
-      dioramaVertexIndex.updatePositions(dioramaVertexIndex.verticesIn());
+      const allDiorama = dioramaVertexIndex.verticesIn();
+      dioramaVertexIndex.updatePositions(allDiorama);
+      TrailMesh.updateCenterHeights(dioramaGeo, dioramaCenterY, allDiorama, factor, dioramaElevationOffset);
 
       // Update start, finish, and summit beacons with constant +8.0 offset
       startBeacon.position.y = startGroundY * factor + 8.0;
@@ -376,6 +378,7 @@ export class TrailMesh {
       }
       if (changedDiorama.length) {
         dioramaVertexIndex.updatePositions(changedDiorama);
+        TrailMesh.updateCenterHeights(dioramaGeo, dioramaCenterY, changedDiorama, currentExaggeration, dioramaElevationOffset, sampler);
         // The tabletop ribbon is unlit; it does not consume a normal attribute.
       }
 
@@ -402,6 +405,7 @@ export class TrailMesh {
       }
       if (fpChanged) {
         firstPersonVertexIndex.updatePositions(changedFP);
+        TrailMesh.updateCenterHeights(firstPersonGeo, firstPersonCenterY, changedFP, 1.0, 0.08, sampler);
         if (currentViewMode === 'first-person') {
           if (pendingFirstPersonNormals.size > 0) {
             for (const v of changedFP) pendingFirstPersonNormals.add(v);
@@ -510,12 +514,13 @@ export class TrailMesh {
     verticalOffset: number = 0,
     verticalExaggeration: number = 1.0,
     elevationSampler?: (x: number, z: number) => number
-  ): { geometry: THREE.BufferGeometry; unscaledGroundY: Float32Array } {
+  ): { geometry: THREE.BufferGeometry; unscaledGroundY: Float32Array; unscaledCenterY: Float32Array } {
     const geo = new THREE.BufferGeometry();
     const allPositions: number[] = [];
     const allNormals: number[] = [];
     const allIndices: number[] = [];
     const unscaledGroundYList: number[] = [];
+    const unscaledCenterYList: number[] = [];
     const allProgresses: number[] = [];
     const allTrailCoords: number[] = [];
 
@@ -552,7 +557,10 @@ export class TrailMesh {
         // Sample BOTH left and right edges independently at rendered terrain surface (Section 13)
         let leftGroundY = pt.y;
         let rightGroundY = pt.y;
+        let centerGroundY = pt.y;
         if (elevationSampler) {
+          const sC = elevationSampler(pt.x, pt.z);
+          if (!isNaN(sC)) centerGroundY = sC;
           const sL = elevationSampler(leftX, leftZ);
           if (!isNaN(sL)) leftGroundY = sL;
           const sR = elevationSampler(rightX, rightZ);
@@ -571,6 +579,7 @@ export class TrailMesh {
         allPositions.push(rightX, rightFinalY, rightZ);
         allNormals.push(0, 1, 0);
         unscaledGroundYList.push(rightGroundY);
+        unscaledCenterYList.push(centerGroundY, centerGroundY);
 
         // Track progress
         const dist = segStartDist + t * segDistSpan;
@@ -606,6 +615,11 @@ export class TrailMesh {
     const partnerAttr = new THREE.Float32BufferAttribute(partners, 3);
     partnerAttr.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('trailPartner', partnerAttr);
+    // Draped centre-line height: on a convex ridge the edge midpoint lies below the crest.
+    const unscaledCenterY = new Float32Array(unscaledCenterYList);
+    const centerAttr = new THREE.Float32BufferAttribute(unscaledCenterY.map(y => y * verticalExaggeration + verticalOffset), 1);
+    centerAttr.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('trailCenterY', centerAttr);
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
     geo.setAttribute('trailCoord', new THREE.Float32BufferAttribute(allTrailCoords, 2));
     geo.setIndex(allIndices);
@@ -614,7 +628,27 @@ export class TrailMesh {
     return {
       geometry: geo,
       unscaledGroundY: new Float32Array(unscaledGroundYList),
+      unscaledCenterY,
     };
+  }
+
+  /** Re-drape the centre-line height of changed ribbon vertices (and their partners). */
+  private static updateCenterHeights(geo: THREE.BufferGeometry, unscaledCenterY: Float32Array, vertices: readonly number[],
+    factor: number, offset: number, sampler?: (x: number, z: number) => number): void {
+    const center = geo.attributes.trailCenterY as THREE.BufferAttribute | undefined;
+    if (!center || !vertices.length) return;
+    const pos = geo.attributes.position.array as Float32Array;
+    for (const i of vertices) {
+      const other = i ^ 1;
+      if (sampler && other < center.count) {
+        const sampled = sampler((pos[i * 3] + pos[other * 3]) / 2, (pos[i * 3 + 2] + pos[other * 3 + 2]) / 2);
+        if (Number.isFinite(sampled)) { unscaledCenterY[i] = sampled; unscaledCenterY[other] = sampled; }
+      }
+      center.setX(i, unscaledCenterY[i] * factor + offset);
+      if (other < center.count) center.setX(other, unscaledCenterY[other] * factor + offset);
+    }
+    center.clearUpdateRanges();
+    center.needsUpdate = true;
   }
 
   public static getGradeBand(grade: number): number {

@@ -32,6 +32,7 @@ export function addTrailChevrons(material: Material, width: TrailWidthOptions, s
     shader.uniforms.trailMinHalfWidth = { value: width.minHalfWidth };
     shader.vertexShader = `attribute vec2 trailCoord;
 attribute vec3 trailPartner;
+attribute float trailCenterY;
 uniform float trailBuiltHalfWidth;
 uniform float trailAngularHalfWidth;
 uniform float trailMinHalfWidth;
@@ -42,6 +43,8 @@ vTrailCoord = trailCoord;
 // Narrow toward the centre line (the midpoint of this vertex and its opposite edge, which also
 // interpolates the draped elevation) so the apparent width stays constant with distance.
 vec3 trailMid = 0.5 * (position + trailPartner);
+// On a convex ridge the edge midpoint is below the crest; keep the centre line on the terrain.
+trailMid.y = max(trailMid.y, trailCenterY);
 vec4 trailMidView = modelViewMatrix * vec4(trailMid, 1.0);
 float trailModelScale = max(length(vec3(modelViewMatrix[0])), 1e-6);
 float trailWantHalf = max(trailAngularHalfWidth * length(trailMidView.xyz) / trailModelScale, trailMinHalfWidth);
@@ -75,5 +78,5 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.045, 0.065), chevronOutli
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), chevronWhite);
 `);
   };
-  material.customProgramCacheKey = () => 'trail-direction-chevrons-v2';
+  material.customProgramCacheKey = () => 'trail-direction-chevrons-v3';
 }

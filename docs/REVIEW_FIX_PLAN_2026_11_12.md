@@ -196,7 +196,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     path, call `setOuterEdges` with the shared edge marked inner, assert the shared-edge
     heights equal the raw grid heights (not the 60 m parent) within 1 cm.
 
-- [ ] **B6 Trail ribbon is buried on convex ridges** — *Confirmed (shader); effect
+- [x] **B6 Trail ribbon is buried on convex ridges** — *Confirmed (shader); effect
   reported.*
   - Where: `src/visualization/TrailChevronMaterial.ts`
     `vec3 trailMid = 0.5 * (position + trailPartner);`; edge sampling in
