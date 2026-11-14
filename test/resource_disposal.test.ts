@@ -2,7 +2,7 @@ import { describe, it } from 'vitest';
 import assert from 'node:assert';
 import * as THREE from 'three';
 import { disposeObject3D } from '../src/core/ResourceLifecycle.ts';
-import { SpatialHUD } from '../src/ui/SpatialHUD.ts';
+import { SpatialHUD, HUD_CANVAS_SCALE } from '../src/ui/SpatialHUD.ts';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
 
 const SAMPLE_GPX = `<?xml version="1.0" encoding="UTF-8"?>
@@ -142,8 +142,8 @@ describe('Resource Disposal Lifecycle (Stage E)', () => {
 
       assert.ok(hud.group);
       assert.ok(hud.group.children.length > 0, 'HUD must contain meshes');
-      assert.strictEqual((hud as any).canvas.width, 1024);
-      assert.strictEqual((hud as any).canvas.height, 768);
+      assert.strictEqual((hud as any).canvas.width, 1024 * HUD_CANVAS_SCALE);
+      assert.strictEqual((hud as any).canvas.height, 768 * HUD_CANVAS_SCALE);
 
       let hudTexDisposed = false;
       (hud as any).texture.addEventListener('dispose', () => {

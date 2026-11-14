@@ -4,7 +4,7 @@ import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
 vi.mock('../src/offline/OfflineDownloadsPanel.ts', () => ({ OfflineDownloadsPanel: class { setManifest() {} dispose() {} } }));
 import assert from 'node:assert';
 import * as THREE from 'three';
-import { SpatialHUD } from '../src/ui/SpatialHUD.ts';
+import { SpatialHUD, HUD_LAYOUT_WIDTH, HUD_LAYOUT_HEIGHT } from '../src/ui/SpatialHUD.ts';
 import { DesktopOverlay } from '../src/ui/DesktopOverlay.ts';
 import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 import { TrailMesh } from '../src/visualization/TrailMesh.ts';
@@ -355,7 +355,7 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
       });
 
       // Convert canvas-space coordinates using the current HUD dimensions.
-      const uvExag = new THREE.Vector2(850 / 1024, 1 - 510 / (hud as any).canvas.height);
+      const uvExag = new THREE.Vector2(850 / HUD_LAYOUT_WIDTH, 1 - 510 / HUD_LAYOUT_HEIGHT);
 
       // 1st click: 1.0x -> 1.5x
       const handled1 = hud.onPointerClick(uvExag);

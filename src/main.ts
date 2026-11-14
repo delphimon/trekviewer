@@ -837,8 +837,8 @@ export class TrekViewerApp {
     const offset = _scratchHUDOffset.set(lateral, firstPerson ? -0.25 : -0.2, firstPerson ? -1.2 : -1.05);
     offset.applyAxisAngle(_yAxis, yaw);
     this.spatialHUD.group.position.copy(camPos).add(offset);
-    // Level orientation facing user: pure vertical yaw, zero crooked tilt/roll
-    this.spatialHUD.group.lookAt(camPos.x, this.spatialHUD.group.position.y, camPos.z);
+    // Face the eye, pitch included (the panel sits below eye level); lookAt keeps zero roll.
+    this.spatialHUD.group.lookAt(camPos.x, camPos.y, camPos.z);
     this.spatialHUD.setAngularSize(camPos.distanceTo(this.spatialHUD.group.position), this.comfort.panelScale);
     this.hudClearance?.reset(this.spatialHUD.group);
     this.updateHUDClearance(true);

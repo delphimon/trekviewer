@@ -598,11 +598,15 @@ Implement and unit-test; mark each `[~] needs headset check`.
   through black around each 25 m step using `SceneManager.setFade`.
   - Note: needs headset check — with no saved settings, the left stick in life-size moves
     in 25 m steps and each step dips briefly to black (about 150 ms) with no visible jump.
-- [ ] **X2 HUD legibility, interim.** `src/ui/SpatialHUD.ts`: canvas 2048×1536 with all
+- [~] **X2 HUD legibility, interim.** `src/ui/SpatialHUD.ts`: canvas 2048×1536 with all
   layout coordinates scaled ×2 (use a single scale constant, do not hand-edit numbers),
   minimum text size equal to 18 px at the old scale, texture anisotropy 4, and tilt the
   panel so its normal points at the eye (pitch, not only yaw) in `dockHUD` in `main.ts`.
   P2 must be done first because the texture is four times larger.
+  - Note: layout stays in 1024×768 units and every draw is scaled by `HUD_CANVAS_SCALE`
+    (no hand-edited coordinates). Needs headset check — text is sharper; look for labels
+    that now overflow their buttons or the footer lines (fonts below 18 px were raised to
+    18 px), and confirm the docked panel is pitched to face you.
 - [ ] **X3 Near-field transport strip.** Add a small strip on the plinth's near edge with
   Play/Pause, previous/next landmark and a short scrub bar, sized for index-finger poke
   (targets ≥ 3 cm). It reuses `SpatialHUD` callbacks. The far panel stays as it is.

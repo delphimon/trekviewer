@@ -36,6 +36,18 @@ interface InteractiveArea {
   action: () => void;
 }
 
+/** Layout units of the panel; drawing is scaled by HUD_CANVAS_SCALE for legibility. */
+export const HUD_LAYOUT_WIDTH = 1024;
+export const HUD_LAYOUT_HEIGHT = 768;
+export const HUD_CANVAS_SCALE = 2;
+/** Smallest text, in layout px (about 2.4 mm tall at the docked distance). */
+export const HUD_MIN_FONT_PX = 18;
+
+/** Raises any canvas font size below HUD_MIN_FONT_PX to the minimum. */
+export function hudFont(font: string): string {
+  return font.replace(/(\d+(?:\.\d+)?)px/, (match, size) => Number(size) < HUD_MIN_FONT_PX ? `${HUD_MIN_FONT_PX}px` : match);
+}
+
 export class SpatialHUD {
   public group: THREE.Group;
   public mesh: THREE.Mesh;
@@ -107,15 +119,15 @@ export class SpatialHUD {
     this.group.name = 'SpatialHUDGroup';
     this.group.visible = initiallyVisible;
 
-    // Canvas resolution: 1024 x 680
+    // Layout is in 1024 x 768 units; the canvas is HUD_CANVAS_SCALE times sharper.
     this.canvas = document.createElement('canvas');
-    this.canvas.width = 1024;
-    this.canvas.height = 768;
+    this.canvas.width = HUD_LAYOUT_WIDTH * HUD_CANVAS_SCALE;
+    this.canvas.height = HUD_LAYOUT_HEIGHT * HUD_CANVAS_SCALE;
     this.ctx = this.canvas.getContext('2d')!;
 
     // Static offscreen canvas for invariant background, labels, and elevation curve
     this.staticCanvas = document.createElement('canvas');
-    this.staticCanvas.width = 1024;
+    this.staticCanvas.width = this.canvas.width;
     this.staticCanvas.height = this.canvas.height;
     this.staticCtx = this.staticCanvas.getContext('2d')!;
 
@@ -129,6 +141,7 @@ export class SpatialHUD {
     this.texture.minFilter = THREE.LinearMipmapLinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.generateMipmaps = true;
+    this.texture.anisotropy = 4; // the panel is often seen at an angle
 
     // Preserve canvas aspect and existing target sizes when adding the horizon row.
     const geo = new THREE.PlaneGeometry(0.8, 0.8 * this.canvas.height / this.canvas.width);
@@ -592,8 +605,8 @@ export class SpatialHUD {
 
   private uvToCanvas(uv: THREE.Vector2): { x: number; y: number } {
     return {
-      x: uv.x * this.canvas.width,
-      y: (1 - uv.y) * this.canvas.height,
+      x: uv.x * HUD_LAYOUT_WIDTH,
+      y: (1 - uv.y) * HUD_LAYOUT_HEIGHT,
     };
   }
 
@@ -793,8 +806,9 @@ export class SpatialHUD {
 
   private renderStaticLayer(): void {
     const ctx = this.staticCtx;
-    const w = this.staticCanvas.width;
-    const h = this.staticCanvas.height;
+    const w = HUD_LAYOUT_WIDTH;
+    const h = HUD_LAYOUT_HEIGHT;
+    ctx.setTransform?.(HUD_CANVAS_SCALE, 0, 0, HUD_CANVAS_SCALE, 0, 0);
 
     ctx.clearRect(0, 0, w, h);
 
@@ -810,7 +824,7 @@ export class SpatialHUD {
 
     // 1. Header Title & Subtitle
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = hudFont('bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
     let title = this.track.name;
     if (title.length > 24) title = title.substring(0, 22) + '...';
     ctx.fillText(title, 40, 56);
@@ -828,7 +842,7 @@ export class SpatialHUD {
       ctx.stroke();
 
       ctx.fillStyle = '#fbbf24';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = hudFont('bold 12px sans-serif');
       ctx.fillText(`⚠️ Data Notes`, pillX + 10, 51);
     }
 
@@ -838,12 +852,12 @@ export class SpatialHUD {
     const isMixed = this.track.timingType === 'mixed';
     const timeLabel = isRecorded ? 'GPS Timed' : isMixed ? 'Mixed Timing' : 'Est. Pace';
     ctx.fillStyle = '#38bdf8';
-    ctx.font = '600 15px sans-serif';
+    ctx.font = hudFont('600 15px sans-serif');
     ctx.fillText(`⛰️ Meta Quest 3 • 3D Trek Explorer • ${timeLabel} • ${buildInfo.shortBadge}`, 40, 84);
 
     // Top Right Version / Build Pill
     const versionText = buildInfo.shortBadge;
-    ctx.font = 'bold 12px ui-monospace, Menlo, Monaco, Consolas, monospace';
+    ctx.font = hudFont('bold 12px ui-monospace, Menlo, Monaco, Consolas, monospace');
     const versionWidth = ctx.measureText(versionText).width;
     const vPillW = Math.max(90, versionWidth + 18);
     const vPillX = w - 40 - vPillW;
@@ -868,7 +882,7 @@ export class SpatialHUD {
     ctx.stroke();
 
     ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.font = hudFont('bold 12px sans-serif');
     ctx.textAlign = 'center';
     ctx.fillText('⠿ GRAB / DRAG TO MOVE HUD', 512, 28);
     ctx.textAlign = 'left';
@@ -886,16 +900,16 @@ export class SpatialHUD {
     stats.forEach((s, idx) => {
       const colX = 35 + idx * colW;
       ctx.fillStyle = '#64748b';
-      ctx.font = 'bold 13px sans-serif';
+      ctx.font = hudFont('bold 13px sans-serif');
       ctx.fillText(s.label, colX + 10, 126);
 
       if (s.val) {
         ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 23px sans-serif';
+        ctx.font = hudFont('bold 23px sans-serif');
         ctx.fillText(s.val, colX + 10, 154);
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '13px sans-serif';
+        ctx.font = hudFont('13px sans-serif');
         ctx.fillText(s.sub, colX + 10, 176);
       }
     });
@@ -972,7 +986,7 @@ export class SpatialHUD {
 
         if (lm.type === 'summit' || lm.type === 'start' || lm.type === 'finish') {
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 11px sans-serif';
+          ctx.font = hudFont('bold 11px sans-serif');
           ctx.textAlign = 'center';
           let shortName = lm.name;
           if (shortName.length > 10) shortName = shortName.substring(0, 9) + '…';
@@ -984,7 +998,7 @@ export class SpatialHUD {
 
     // 4. Footer Controller & Hand Gestures Guide
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '12px sans-serif';
+    ctx.font = hudFont('12px sans-serif');
     ctx.fillText('🖐️ Hands: 1-hand pinch: move · 2 hands: zoom / turn  •  Poke buttons directly', 45, 688);
     ctx.fillText('🕹 Controllers: [L-Stick] Pan Mountain  •  [R-Stick] Rotate & Zoom  •  [Grip] Grab & Move  •  Hold A/X: switch view', 45, 706);
 
@@ -995,11 +1009,11 @@ export class SpatialHUD {
       : '';
     const metaStr = `Elevation: ${qualityLabel}${this.elevationSource ? ` • ${this.elevationSource}` : ''}${provStr}${this.attribution ? ` • Imagery: ${this.attribution}` : ''}`;
     ctx.fillStyle = '#64748b';
-    ctx.font = '11px sans-serif';
+    ctx.font = hudFont('11px sans-serif');
     let line = '', y = 724;
     for (const word of metaStr.split(' ')) {
       const next = line ? `${line} ${word}` : word;
-      if (line && ctx.measureText(next).width > this.canvas.width - 90) {
+      if (line && ctx.measureText(next).width > HUD_LAYOUT_WIDTH - 90) {
         ctx.fillText(line, 45, y); y += 12; line = word;
       } else line = next;
     }
@@ -1008,13 +1022,14 @@ export class SpatialHUD {
 
   private renderDynamicLayer(): void {
     const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = HUD_LAYOUT_WIDTH;
+    const h = HUD_LAYOUT_HEIGHT;
+    ctx.setTransform?.(HUD_CANVAS_SCALE, 0, 0, HUD_CANVAS_SCALE, 0, 0);
 
     ctx.clearRect(0, 0, w, h);
 
     // 1. Blit pre-rendered static layer
-    ctx.drawImage(this.staticCanvas, 0, 0);
+    ctx.drawImage(this.staticCanvas, 0, 0, w, h);
 
     for (const button of [
       { id: 'btn-horizon-lock', x: 35, width: 300, text: this.horizonLocked ? 'Horizon locked' : 'Horizon unlocked' },
@@ -1026,7 +1041,7 @@ export class SpatialHUD {
       ctx.beginPath(); ctx.roundRect(button.x, 620, button.width, 54, 12); ctx.fill();
       ctx.strokeStyle = hover ? '#ffffff' : 'rgba(56, 189, 248, 0.4)';
       ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff'; ctx.font = hudFont('bold 18px sans-serif'); ctx.textAlign = 'center';
       ctx.fillText(button.text, button.x + button.width / 2, 655);
     }
     ctx.textAlign = 'left';
@@ -1053,7 +1068,7 @@ export class SpatialHUD {
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = hudFont('bold 15px sans-serif');
     const dockLabel = this.currentDockSide === 'left' ? '📍 Dock L' : this.currentDockSide === 'center' ? '📍 Dock C' : '📍 Dock R';
     ctx.fillText(dockLabel, 664, 58);
 
@@ -1069,18 +1084,18 @@ export class SpatialHUD {
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 19px sans-serif';
+    ctx.font = hudFont('bold 19px sans-serif');
     ctx.fillText(exitArmed ? 'Tap again to exit' : '🚪 Exit MR / VR', 808, 59);
 
     // 4. Dynamic Stat 4: CURRENT ELEV
     const colW = (w - 70) / 4;
     const colX = 35 + 3 * colW;
     ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 23px sans-serif';
+    ctx.font = hudFont('bold 23px sans-serif');
     ctx.fillText(formatElevation(this.currentElevation), colX + 10, 154);
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '13px sans-serif';
+    ctx.font = hudFont('13px sans-serif');
     ctx.fillText(formatElevation(this.currentElevation, otherUnits()), colX + 10, 176);
 
     // 5. Scrubber Line, Pin, and Tooltip
@@ -1185,7 +1200,7 @@ export class SpatialHUD {
       ctx.stroke();
 
       ctx.fillStyle = '#f8fafc';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = hudFont('bold 12px sans-serif');
       ctx.textAlign = 'center';
       ctx.fillText(tipText, scrubX, scrubY - 18);
       ctx.textAlign = 'left';
@@ -1205,7 +1220,7 @@ export class SpatialHUD {
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 19px sans-serif';
+    ctx.font = hudFont('bold 19px sans-serif');
     ctx.fillText(playbackPresentation(this.playbackMode, this.currentViewMode, this.isPlaying).playLabel, 50, 447);
 
     // Step -10s Button
@@ -1215,7 +1230,7 @@ export class SpatialHUD {
     ctx.roundRect(225, 410, 95, 58, 12);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     ctx.fillText(this.currentViewMode === 'first-person' ? '⏪ -25 m' : '⏪ -10s', 242, 446);
 
     // Step +10s Button
@@ -1225,7 +1240,7 @@ export class SpatialHUD {
     ctx.roundRect(330, 410, 95, 58, 12);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     ctx.fillText(this.currentViewMode === 'first-person' ? '+25 m ⏩' : '+10s ⏩', 345, 446);
 
     // Speeds: 1x, 5x, 20x, 60x
@@ -1234,7 +1249,7 @@ export class SpatialHUD {
     if (this.currentViewMode === 'first-person') {
       ctx.fillStyle = '#1e293b';
       ctx.beginPath(); ctx.roundRect(445, 410, 350, 58, 12); ctx.fill();
-      ctx.fillStyle = '#cbd5e1'; ctx.font = '20px sans-serif';
+      ctx.fillStyle = '#cbd5e1'; ctx.font = hudFont('20px sans-serif');
       ctx.fillText('Walking pace • 1.4 m/s', 470, 446);
     } else speeds.forEach((spd, idx) => {
       const sx = speedXs[idx];
@@ -1252,7 +1267,7 @@ export class SpatialHUD {
       ctx.stroke();
 
       ctx.fillStyle = isSelected ? '#ffffff' : '#cbd5e1';
-      ctx.font = isSelected ? 'bold 17px sans-serif' : '16px sans-serif';
+      ctx.font = hudFont(isSelected ? 'bold 17px sans-serif' : '16px sans-serif');
       ctx.textAlign = 'center';
       ctx.fillText(`${spd}x`, sx + 40, 446);
       ctx.textAlign = 'left';
@@ -1265,7 +1280,7 @@ export class SpatialHUD {
     ctx.roundRect(810, 410, 180, 58, 12);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px sans-serif';
+    ctx.font = hudFont('bold 18px sans-serif');
     ctx.fillText('⏮ Trailhead', 840, 446);
 
     // 7. Row 2: View Modes, Focus, Map Style, Trail Colors, Vertical Exaggeration (y = 485)
@@ -1281,7 +1296,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     ctx.textAlign = 'center';
     ctx.fillText(this.confirmAreaId === 'btn-view' ? 'Tap again: life-size' : this.currentViewMode === 'diorama' ? '🚶 1:1 Trail' : '🏔 Diorama', 35 + 90, 521);
 
@@ -1295,7 +1310,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     ctx.fillText(this.currentViewMode === 'diorama'
       ? this.followRoute ? 'Stop following' : 'Follow hiker' : '🎯 Center Hiker', 225 + 90, 521);
 
@@ -1309,7 +1324,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     const texLabel = this.currentTextureStyle === 'satellite'
       ? '🛰 Aerial View'
       : this.currentTextureStyle === 'hybrid'
@@ -1329,7 +1344,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     const colLabel = this.currentTrailColorMode === 'solid'
       ? '🧭 Solid Route'
       : this.currentTrailColorMode === 'grade'
@@ -1349,7 +1364,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = hudFont('bold 16px sans-serif');
     ctx.fillText(`⛰️ ${this.verticalExaggeration.toFixed(1)}x Exag`, 795 + 97, 521);
     ctx.textAlign = 'left';
 
@@ -1368,7 +1383,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = hasLandmarks ? '#ffffff' : '#64748b';
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = hudFont('bold 15px sans-serif');
     ctx.textAlign = 'center';
     ctx.fillText('◀ Prev Landmark', 35 + 110, 583);
 
@@ -1386,14 +1401,14 @@ export class SpatialHUD {
       let displayName = nearestCard.name;
       if (displayName.length > 26) displayName = displayName.substring(0, 24) + '…';
       ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 15px sans-serif';
+      ctx.font = hudFont('bold 15px sans-serif');
       ctx.fillText(`📍 ${displayName}`, 270 + 240, 572);
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '12px sans-serif';
+      ctx.font = hudFont('12px sans-serif');
       ctx.fillText(`${formatElevation(nearestCard.ele)} • ${formatDistance(this.track.totalDistance * nearestCard.progress)}`, 270 + 240, 591);
     } else {
       ctx.fillStyle = '#64748b';
-      ctx.font = 'bold 15px sans-serif';
+      ctx.font = hudFont('bold 15px sans-serif');
       ctx.fillText('📍 No Landmarks on Track', 270 + 240, 583);
     }
 
@@ -1406,7 +1421,7 @@ export class SpatialHUD {
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = hasLandmarks ? '#ffffff' : '#64748b';
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = hudFont('bold 15px sans-serif');
     ctx.fillText('Next Landmark ▶', 765 + 112, 583);
     ctx.textAlign = 'left';
 
@@ -1423,7 +1438,7 @@ export class SpatialHUD {
       ctx.stroke();
 
       ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 15px sans-serif';
+      ctx.font = hudFont('bold 15px sans-serif');
       ctx.fillText(this.statusMessage, 55, pillY + 22, w - 110);
 
       if (this.statusProgress > 0) {
