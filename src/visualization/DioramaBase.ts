@@ -88,10 +88,11 @@ export class DioramaBase {
 
     // Main plinth slab
     const plinthGeo = new THREE.BoxGeometry(widthM + 40, plinthHeight, depthM + 40);
+    // Matte dark slate: with no environment map a metallic slab only shows black.
     const plinthMat = new THREE.MeshStandardMaterial({
-      color: 0x111317, // Sleek matte obsidian / anodized titanium
-      metalness: 0.8,
-      roughness: 0.3,
+      color: 0x2b3440,
+      metalness: 0,
+      roughness: 0.85,
     });
     const plinth = new THREE.Mesh(plinthGeo, plinthMat);
     plinth.position.y = baseY - plinthHeight / 2;

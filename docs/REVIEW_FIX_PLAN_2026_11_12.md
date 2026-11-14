@@ -388,7 +388,7 @@ Rainier route.
   - Done when: during the tour the skyline is visible and the camera never goes below
     the terrain. Update follow tests that assert the old pitch.
 
-- [ ] **V6 Plinth renders flat black** — *Reported (verify first).*
+- [x] **V6 Plinth renders flat black** — *Reported (verify first).*
   `src/visualization/DioramaBase.ts` (search `metalness: 0.8`): use
   `metalness: 0, roughness: 0.85` and a dark slate colour.
 
