@@ -539,7 +539,7 @@ Write the numbers in the commit message.
     unit-length line scaled by `rayLine.scale.z`;
   - replace `new THREE.Ray(...)` with a scratch ray.
   `src/xr/GestureMath.ts`: remove the per-frame `wristPairs` array and clones.
-- [ ] **P4 First-person imagery zoom ignores distance** — *Reported (verify first).*
+- [x] **P4 First-person imagery zoom ignores distance** — *Reported (verify first).*
   `src/terrain/ImageryLODManager.ts` (search
   `innerZoom = Math.min(this.providerMaxZoom, 19)`),
   `src/terrain/BroadDetailSelection.ts`.

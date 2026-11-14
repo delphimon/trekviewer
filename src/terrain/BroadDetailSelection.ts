@@ -1,7 +1,15 @@
 import { latLonToTile, tileBounds } from '../gpx/Coordinates.ts';
 import type { GeoBounds } from '../gpx/TrackTypes.ts';
 
-export interface DetailFocus { lat: number; lon: number; }
+/** `zoom` (optional) caps the detail promoted for this point, e.g. by its view distance. */
+export interface DetailFocus { lat: number; lon: number; zoom?: number }
+
+/** First-person detail for a view hit: full zoom within 300 m, one level coarser per
+ * doubling of distance beyond that, never below `minZoom`. */
+export function zoomForViewDistance(distanceM: number, maxZoom: number, minZoom = 13): number {
+  if (!(distanceM > 300)) return maxZoom;
+  return Math.max(minZoom, maxZoom - Math.ceil(Math.log2(distanceM / 300)));
+}
 export interface DetailTile { x: number; y: number; zoom: number; dist: number; isHighRes: boolean; }
 
 /** Broad, concentric coverage with complete sibling groups around overscanned view hits.
@@ -62,19 +70,22 @@ export function computeBroadDetailTiles(
   }
   // Guard each view hit by a 2x2 block of fine parents, in addition to the
   // already broad all-direction core. Terrain just outside the FOV stays sharp.
-  const viewTiles = viewPoints.map(point => latLonToTile(point.lat, point.lon, zoom));
+  const viewTiles = viewPoints.map(point => {
+    const z = Math.min(zoom, Math.max(13, point.zoom ?? zoom));
+    return { ...latLonToTile(point.lat, point.lon, z), z };
+  });
   // Cover every sampled slope before spending spare capacity on guard bands.
   // Current center-out view samples precede retained history. Give their
   // complete sibling groups priority over the background neighborhood, even
   // when those tiles were already selected by the concentric core above.
   for (let i = 0; i < viewTiles.length; i++) {
     const fine = viewTiles[i];
-    promote(fine.x, fine.y, zoom, -2 + i / viewTiles.length);
+    promote(fine.x, fine.y, fine.z, -2 + i / viewTiles.length);
   }
   for (const fine of viewTiles) {
     const px = Math.floor(fine.x / 2), py = Math.floor(fine.y / 2);
     const startX = fine.x % 2 ? px : px - 1, startY = fine.y % 2 ? py : py - 1;
-    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) promote((startX + dx) * 2, (startY + dy) * 2, zoom, 1);
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) promote((startX + dx) * 2, (startY + dy) * 2, fine.z, 1);
   }
   return [...selected.values()];
 }

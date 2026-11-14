@@ -9,7 +9,7 @@ import { TerrainRaycast } from './TerrainRaycast.ts';
 import { ImageryBatchRenderer, imageryArrayCapacity } from './ImageryBatchRenderer.ts';
 import { TerrainImageryMaterial } from './TerrainImageryMaterial.ts';
 import type { TileGridBounds } from './TextureProvider.ts';
-import { computeBroadDetailTiles, type DetailFocus } from './BroadDetailSelection.ts';
+import { computeBroadDetailTiles, zoomForViewDistance, type DetailFocus } from './BroadDetailSelection.ts';
 import type { GeoBounds, TextureStyle, ViewMode, TrackStats } from '../gpx/TrackTypes.ts';
 import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import {
@@ -1261,7 +1261,7 @@ export class ImageryLODManager {
 
   public getDetailFocusPoints(): readonly DetailFocus[] { return this.detailFocusPoints; }
 
-  private sampleDetailFocus(camera: THREE.Camera, root: THREE.Group, renderer?: THREE.WebGLRenderer): DetailFocus[] {
+  private sampleDetailFocus(camera: THREE.Camera, root: THREE.Group, renderer?: THREE.WebGLRenderer, zoomByDistance?: number): DetailFocus[] {
     this.detailViewDistance = null;
     const base = this.options.terrainMesh;
     if (!base) return [];
@@ -1275,7 +1275,12 @@ export class ImageryLODManager {
       if (!hit) continue;
       this.detailViewDistance ??= ray.ray.origin.distanceTo(hit.point);
       const local = root.worldToLocal(hit.point.clone());
-      points.push(localMetersToGeo(local.x, local.z, this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon));
+      const point: DetailFocus = localMetersToGeo(local.x, local.z, this.options.terrainGeoBounds.centerLat, this.options.terrainGeoBounds.centerLon);
+      if (zoomByDistance !== undefined) {
+        // First person: detail falls off with distance (world metres -> model metres).
+        point.zoom = zoomForViewDistance(ray.ray.origin.distanceTo(hit.point) / Math.max(root.scale.x, 1e-9), zoomByDistance);
+      }
+      points.push(point);
     }
     return points;
   }
@@ -2246,7 +2251,7 @@ export class ImageryLODManager {
     // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6, Stage W4)
     const broadHigh = this.qualityProfile.name !== 'quest-balanced' && this.maxPatches >= 293;
     const detailPoints = broadHigh ? this.retainDetailFocus([
-      { lat: hikerLat, lon: hikerLon }, ...this.sampleDetailFocus(camera, dioramaRoot, renderer),
+      { lat: hikerLat, lon: hikerLon }, ...this.sampleDetailFocus(camera, dioramaRoot, renderer, innerZoom),
     ], innerZoom) : [];
     const candidates = broadHigh ? computeBroadDetailTiles(
       { lat: hikerLat, lon: hikerLon }, innerZoom, this.maxPatches - 32, this.options.terrainGeoBounds, detailPoints
