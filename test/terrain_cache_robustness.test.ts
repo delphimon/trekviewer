@@ -180,8 +180,8 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
         isRealDEM: true,
       };
 
-      // Sample exactly halfway between pixel (100, 100) and (101, 101)
-      const coord = tileToLatLon(tileXMin + 100.5 / 256, tileYMin + 100.5 / 256, zoom);
+      // Halfway between the centres of pixels (100, 100) and (101, 101); pixel i sits at i + 0.5
+      const coord = tileToLatLon(tileXMin + 101 / 256, tileYMin + 101 / 256, zoom);
       const mid = ElevationTileService.sampleElevation(grid, coord.lat, coord.lon);
       assert.strictEqual(mid.isValid, true);
       // (100 + 200 + 300 + 400) / 4 = 250
@@ -220,7 +220,7 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
       // Valid weights sum = 0.25 + 0.25 + 0.25 = 0.75
       // Valid elevation sum = 0.25*100 + 0.25*300 + 0.25*400 = 25 + 75 + 100 = 200
       // Normalized elevation = 200 / 0.75 = 266.6667
-      const coord = tileToLatLon(tileXMin + 100.5 / 256, tileYMin + 100.5 / 256, zoom);
+      const coord = tileToLatLon(tileXMin + 101 / 256, tileYMin + 101 / 256, zoom);
       const mid = ElevationTileService.sampleElevation(grid, coord.lat, coord.lon);
       assert.strictEqual(mid.isValid, true);
       assert.ok(Math.abs(mid.elevation - (200 / 0.75)) < 0.2);
@@ -248,7 +248,7 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
         isRealDEM: true,
       };
 
-      const coord = tileToLatLon(tileXMin + 100.5 / 256, tileYMin + 100.5 / 256, zoom);
+      const coord = tileToLatLon(tileXMin + 101 / 256, tileYMin + 101 / 256, zoom);
       const res = ElevationTileService.sampleElevation(grid, coord.lat, coord.lon);
       assert.strictEqual(res.isValid, false);
       assert.ok(Number.isNaN(res.elevation));

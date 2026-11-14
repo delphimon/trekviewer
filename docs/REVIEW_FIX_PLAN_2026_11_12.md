@@ -250,7 +250,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     `resetInteractionState`. Also ignore a second face button while one hold is running.
   - Test: start a hold, simulate disconnect, assert the callback received `null`.
 
-- [ ] **B12 Terrarium DEM is offset by half a pixel** — *Reported (verify first).*
+- [x] **B12 Terrarium DEM is offset by half a pixel** — *Reported (verify first).*
   - Where: `src/terrain/ElevationTiles.ts` (search
     `gx = (xGlobal - grid.tileXMin) * 256`).
   - Verify: build a synthetic 2-tile grid where pixel `(i, j)` stores `i`. Sample at the

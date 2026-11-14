@@ -509,11 +509,21 @@ export class ElevationTileService {
     const raster = grid.rasterBounds;
     const mercatorX = lon * Math.PI * 6378137 / 180;
     const mercatorY = mercatorLatitude * 6378137;
-    const gx = raster ? (mercatorX - raster.west) * (grid.width - 1) / (raster.east - raster.west) : (xGlobal - grid.tileXMin) * 256;
-    const gy = raster ? (raster.north - mercatorY) * (grid.height - 1) / (raster.north - raster.south) : (yGlobal - grid.tileYMin) * 256;
-
-    if (gx < 0 || gx >= grid.width - 1 || gy < 0 || gy >= grid.height - 1) {
-      return { elevation: NaN, isValid: false };
+    let gx: number, gy: number;
+    if (raster) {
+      gx = (mercatorX - raster.west) * (grid.width - 1) / (raster.east - raster.west);
+      gy = (raster.north - mercatorY) * (grid.height - 1) / (raster.north - raster.south);
+      if (gx < 0 || gx >= grid.width - 1 || gy < 0 || gy >= grid.height - 1) {
+        return { elevation: NaN, isValid: false };
+      }
+    } else {
+      // Tile pixel i covers [i, i + 1) and stores the value at its centre (i + 0.5).
+      const px = (xGlobal - grid.tileXMin) * 256, py = (yGlobal - grid.tileYMin) * 256;
+      if (px < 0 || px >= grid.width || py < 0 || py >= grid.height) {
+        return { elevation: NaN, isValid: false };
+      }
+      gx = Math.min(Math.max(px - 0.5, 0), grid.width - 1);
+      gy = Math.min(Math.max(py - 0.5, 0), grid.height - 1);
     }
 
     const tx = raster ? 0 : Math.floor(gx / 256);
