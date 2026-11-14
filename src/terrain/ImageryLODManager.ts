@@ -908,6 +908,12 @@ export class ImageryLODManager {
   private directReprojectionsAvoided = 0;
   private batchSupport: boolean | null = null;
   public readonly group: THREE.Group;
+  /** Bumped whenever patches, their visibility or their geometry change, so syncRenderer
+   * can skip frames where nothing it reads has changed. */
+  private rendererRevision = 0;
+  private syncedRevision = -1;
+  private syncedRenderer: THREE.WebGLRenderer | null = null;
+  private syncedSurfaceKey = NaN;
   private options: ImageryLODManagerOptions;
   private patches: Map<string, ImageryPatch> = new Map();
   // Publication is independent of request selection. Head motion can change
@@ -1175,9 +1181,14 @@ export class ImageryLODManager {
       if (this.directRefreshDepth || !this.staleDirectPatches.delete(patch.key) || this.patches.get(patch.key) !== patch) return;
       const previous = patch.mesh.geometry;
       patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y); previous.dispose();
+      this.markRendererDirty();
     } : undefined);
     if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
-    this.batchRenderer.sync(this.patches);
+    const surfaceKey = this.surfaceSignature();
+    if (renderer === this.syncedRenderer && this.rendererRevision === this.syncedRevision && surfaceKey === this.syncedSurfaceKey) return;
+    const complete = this.batchRenderer.sync(this.patches);
+    this.syncedRenderer = renderer; this.syncedSurfaceKey = surfaceKey;
+    this.syncedRevision = complete ? this.rendererRevision : -1;
     if (this.terrainImagery) {
       // The terrain shader draws uploaded tiles; until a tile is uploaded the
       // parent tile or route composite stays on screen. Never draw the patch
@@ -1190,7 +1201,25 @@ export class ImageryLODManager {
     }
   }
 
+  /** Allocation-free fingerprint of the terrain surfaces the shader imagery is applied to. */
+  private surfaceSignature(): number {
+    const base = this.options.terrainMesh;
+    if (!base) return 0;
+    const siblings = base.parent?.children;
+    if (!siblings) return base.id * 31 + ((base.material as unknown as { id?: number }).id ?? 0);
+    let key = siblings.length;
+    for (let i = 0; i < siblings.length; i++) {
+      const object = siblings[i] as THREE.Mesh;
+      if (!object.isMesh || (object !== base && object.name !== 'LocalHighResTerrainMesh')) continue;
+      key = (key * 33 + object.id * 31 + ((object.material as unknown as { id?: number }).id ?? 0)) % 2_147_483_647;
+    }
+    return key;
+  }
+
+  private markRendererDirty(): void { this.rendererRevision++; }
+
   public async releaseBatches(): Promise<void> {
+    this.markRendererDirty();
     this.directRefreshDepth++;
     this.terrainImagery?.dispose(); this.terrainImagery = undefined;
     this.batchRenderer?.clear();
@@ -1221,6 +1250,7 @@ export class ImageryLODManager {
       if (!patch || !patches.includes(patch)) continue;
       const previous = patch.mesh.geometry; patch.mesh.geometry = createPromotedPatchGeometry(data); previous.dispose();
       this.staleDirectPatches.delete(data.key);
+      this.markRendererDirty();
       if (!this.terrainImagery) patch.mesh.layers.mask = 1;
     }
   }
@@ -1457,6 +1487,7 @@ export class ImageryLODManager {
 
   public reprojectPatches(sampler?: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds): void {
     if (this.isDisposed) return;
+    this.markRendererDirty();
     this.invalidateStreamedSurface();
     this.evaluationDirty = true;
     if (sampler) {
@@ -2395,6 +2426,7 @@ export class ImageryLODManager {
    * until eviction, even when a new request selection is incomplete.
    */
   public updatePatchVisibility(): void {
+    this.markRendererDirty();
     for (const key of this.publishedTileKeys) {
       if (!this.patches.has(key)) this.publishedTileKeys.delete(key);
     }
@@ -2734,6 +2766,7 @@ export class ImageryLODManager {
       fadeDurationMs,
       outlineMesh,
       dispose: () => {
+        this.markRendererDirty();
         if (patch.outlineMesh) {
           mesh.remove(patch.outlineMesh);
           patch.outlineMesh.geometry.dispose();

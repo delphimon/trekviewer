@@ -522,7 +522,7 @@ Measure before and after each item with `?debug=1` (badge shows callbacks/s, CPU
 draw calls, textures) on the default route: tabletop idle, tour playing, walk mode.
 Write the numbers in the commit message.
 
-- [ ] **P1 `syncRenderer` allocates every frame** — *Reported (verify first).*
+- [x] **P1 `syncRenderer` allocates every frame** — *Reported (verify first).*
   `src/terrain/ImageryLODManager.ts` `syncRenderer` (called from `main.ts` every frame):
   add a revision counter that increments when batch entries or terrain surfaces change;
   return early when the revision and renderer are unchanged.

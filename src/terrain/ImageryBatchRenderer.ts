@@ -68,8 +68,10 @@ export class ImageryBatchRenderer {
 
   public owns(key: string): boolean { return this.entries.has(key); }
 
-  public sync(patches: ReadonlyMap<string, ImageryPatch>): void {
+  /** Returns false while uploads were deferred by the per-frame budget (call again next frame). */
+  public sync(patches: ReadonlyMap<string, ImageryPatch>): boolean {
     const started = performance.now();
+    let deferred = false;
     // First release every stale copy, regardless of the upload budget. Changed
     // terrain must render its new source geometry in this very frame.
     for (const [key, entry] of this.entries) {
@@ -90,15 +92,15 @@ export class ImageryBatchRenderer {
     }
     let remaining = IMAGERY_BATCH_LIMITS.uploadsPerFrame;
     for (const [key, patch] of patches) {
-      if (remaining <= 0) break;
       if (this.entries.has(key) || !patch.mesh.visible || !this.eligible(patch)) continue;
+      if (remaining <= 0) { deferred = true; break; }
       if (this.add(key, patch)) remaining--;
       // A tile-count limit alone still permits two expensive readbacks/copies
       // in one frame. Keep making progress, but defer the next successful copy
       // after the CPU preparation allowance is consumed. One operation and
       // stale-copy cleanup are indivisible and can exceed this soft allowance.
       if (remaining < IMAGERY_BATCH_LIMITS.uploadsPerFrame
-        && performance.now() - started >= IMAGERY_BATCH_LIMITS.preparationMsPerFrame) break;
+        && performance.now() - started >= IMAGERY_BATCH_LIMITS.preparationMsPerFrame) { deferred = true; break; }
     }
     for (let i = this.pages.length - 1; i >= 0; i--) if (this.pages[i].slots.size === 0) {
       this.destroyPage(this.pages[i]); this.pages.splice(i, 1);
@@ -106,6 +108,7 @@ export class ImageryBatchRenderer {
     this.lastPreparationMs = performance.now() - started;
     this.totalPreparationMs += this.lastPreparationMs;
     this.maxPreparationMs = Math.max(this.maxPreparationMs, this.lastPreparationMs);
+    return !deferred;
   }
 
   public clear(): void {
