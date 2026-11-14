@@ -259,7 +259,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     and clamp to the grid. Update `test/dem_registration`-style fixtures if they encoded
     the offset, and say so in the commit.
 
-- [ ] **B13 "Reload to update" breaks other open tabs** — *Reported (verify first).*
+- [x] **B13 "Reload to update" breaks other open tabs** — *Reported (verify first).*
   - Where: `scripts/offline-worker.js` (`skipWaiting`, cache deletion in `activate`),
     `src/offline/OfflineShell.ts` (`controllerchange`, `reloading`, `canReload`).
   - Do: on `controllerchange`, reload any tab that is not presenting XR and has no

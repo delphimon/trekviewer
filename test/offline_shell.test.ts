@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
-import { expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
+import { registerOfflineShell } from '../src/offline/OfflineShell.ts';
+import { OfflineDownloads } from '../src/offline/OfflineDownloads.ts';
 
 const worker = fs.readFileSync('scripts/offline-worker.js', 'utf8');
 async function fixture(corrupt = false) {
@@ -40,4 +42,46 @@ it('rejects corrupt shell bytes and removes only the incomplete new version', as
   const f = await fixture(true);
   await expect(f.dispatch('install')).rejects.toThrow('integrity mismatch');
   expect(f.stores.has('trekviewer-shell-new')).toBe(false); expect(f.stores.has('trekviewer-shell-old')).toBe(true); expect(f.takeovers()).toBe(0);
+});
+
+function shellPage() {
+  const listeners = new Map<string, () => void>();
+  const status = { textContent: '', children: [] as any[], appendChild(child: any) { this.children.push(child); } };
+  const reload = vi.fn();
+  vi.stubEnv('PROD', true);
+  vi.stubGlobal('location', { reload });
+  vi.stubGlobal('document', { baseURI: 'https://example.test/app/', getElementById: () => status,
+    createElement: () => ({ className: '', type: '', textContent: '', disabled: false, onclick: null as null | (() => void) }) });
+  vi.stubGlobal('navigator', { serviceWorker: { controller: {}, addEventListener: (name: string, fn: () => void) => listeners.set(name, fn),
+    register: () => new Promise(() => {}) } });
+  return { reload, status, controllerChange: () => listeners.get('controllerchange')!() };
+}
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+it('reloads a second idle tab when another tab activates the new version', () => {
+  const page = shellPage();
+  registerOfflineShell(() => true);
+  page.controllerChange();
+  expect(page.reload).toHaveBeenCalledTimes(1);
+});
+
+it('asks a busy second tab to reload, in the status banner too, instead of reloading under it', () => {
+  const page = shellPage(), notify = vi.fn();
+  let busy = true; vi.spyOn(OfflineDownloads, 'busy').mockImplementation(() => busy);
+  registerOfflineShell(() => true, notify);
+  page.controllerChange();
+  expect(page.reload).not.toHaveBeenCalled();
+  expect(notify).toHaveBeenCalledWith(expect.stringMatching(/reload to update/i));
+  const button = page.status.children.at(-1);
+  expect(button.textContent).toBe('Reload to update');
+  busy = false; button.onclick();
+  expect(page.reload).toHaveBeenCalledTimes(1);
+});
+
+it('does not reload a tab presenting XR or playing when the controller changes', () => {
+  const page = shellPage();
+  registerOfflineShell(() => false);
+  page.controllerChange();
+  expect(page.reload).not.toHaveBeenCalled();
+  expect(page.status.children.at(-1).textContent).toBe('Reload to update');
 });

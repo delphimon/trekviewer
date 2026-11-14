@@ -75,7 +75,8 @@ export class DesktopOverlay {
     this.container = container;
     this.callbacks = callbacks;
     this.createDOM();
-    this.offlineDownloads = new OfflineDownloadsPanel(document.getElementById('offlineDownloads')!, () => !this.isPlaying && (this.callbacks.canPrepareOffline?.() ?? true));
+    this.offlineDownloads = new OfflineDownloadsPanel(document.getElementById('offlineDownloads')!, () => !this.isPlaying && (this.callbacks.canPrepareOffline?.() ?? true),
+      message => this.showStatus(message, false, 'ready'));
     this.setupEventListeners();
     const cacheToggle = document.getElementById('resourceCacheEnabled') as HTMLInputElement | null;
     if (cacheToggle) cacheToggle.checked = PersistentResourceCache.isEnabled();

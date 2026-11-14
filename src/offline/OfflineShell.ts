@@ -1,13 +1,33 @@
+import { OfflineDownloads } from './OfflineDownloads.ts';
+
 /** Registers the offline app shell. A new version waits until the user chooses
- * "Reload to update" (never while in VR/MR or during playback). */
-export function registerOfflineShell(canReload: () => boolean = () => true): void {
+ * "Reload to update" (never while in VR/MR or during playback). `notify` puts the
+ * prompt in the app's status banner, so it is seen outside the Offline tab. */
+export function registerOfflineShell(canReload: () => boolean = () => true, notify?: (message: string) => void): void {
   const element = () => document.getElementById('offlineShellStatus');
   const status = (message: string) => { const el = element(); if (el) el.textContent = message; };
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) { status('Offline app startup is unavailable in this session.'); return; }
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) location.reload();
+    if (reloading) { location.reload(); return; }
+    // Another tab activated the new version and its old cached assets are gone. Reload this
+    // tab now if that is safe; otherwise ask, since lazily loaded code may no longer load.
+    if (canReload() && !OfflineDownloads.busy()) { location.reload(); return; }
+    offerReload();
   });
+  const offerReload = () => {
+    const el = element();
+    notify?.('A new version of TrekViewer is active. Reload to update.');
+    if (!el) return;
+    el.textContent = 'A new version of TrekViewer is active. ';
+    const button = document.createElement('button');
+    button.className = 'btn btn-sm'; button.type = 'button'; button.textContent = 'Reload to update';
+    button.onclick = () => {
+      if (!canReload() || OfflineDownloads.busy()) { status('Pause playback, downloads and VR/MR, then choose Reload to update.'); setTimeout(offerReload, 4000); return; }
+      location.reload();
+    };
+    el.appendChild(button);
+  };
   const offerUpdate = (registration: ServiceWorkerRegistration) => {
     const el = element(); if (!el) return;
     el.textContent = 'A new version of TrekViewer is ready. ';

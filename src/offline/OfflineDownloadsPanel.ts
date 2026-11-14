@@ -29,7 +29,7 @@ export class OfflineDownloadsPanel {
   private manifest: RouteManifestItem[] = [];
   private changed = () => { if (!this.timer) this.timer = setTimeout(() => { this.timer = undefined; void this.refresh(); }, 250); };
   private pageHide = () => OfflineDownloads.pause();
-  constructor(private root: HTMLElement, private canPrepare: () => boolean = () => true) {
+  constructor(private root: HTMLElement, private canPrepare: () => boolean = () => true, notifyUpdate?: (message: string) => void) {
     root.innerHTML = `<h3>Offline maps</h3>
       <p class="trek-meta">Save a route's aerial imagery and terrain so it works without a connection. Keep this tab open while downloading; playing the tour or entering VR/MR pauses the download, and Resume continues where it stopped.</p>
       <label class="comfort-option"><span>Mount Rainier — Emmons</span><input type="checkbox" data-offline-route="rainier-emmons" checked /></label>
@@ -61,7 +61,7 @@ export class OfflineDownloadsPanel {
     this.importer.onclick = () => this.filePicker.click();
     this.filePicker.onchange = () => { const file = this.filePicker.files?.[0]; this.filePicker.value = ''; if (file) void this.importArchive(file); };
     OfflineStore.events.addEventListener('change', this.changed); window.addEventListener('pagehide', this.pageHide);
-    registerOfflineShell(this.canPrepare); void this.refresh(); void this.updatePersistence(false);
+    registerOfflineShell(this.canPrepare, notifyUpdate); void this.refresh(); void this.updatePersistence(false);
   }
   public setManifest(manifest: RouteManifestItem[]): void { this.manifest = manifest; }
   private getSelectedMode(): NonNullable<OfflinePlanOptions['mode']> {
