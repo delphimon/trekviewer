@@ -207,18 +207,12 @@ export class TrekViewerApp {
 
   constructor() {
     ImageryLODManager.collectViewDiagnostics = this.isDebugMode || this.isProfilingMode;
-    // Diagnostic instance count (Section 46)
-    if (typeof window !== 'undefined') {
-      (window as any).__trekViewerInstances = ((window as any).__trekViewerInstances || 0) + 1;
-      if ((window as any).__trekViewerInstances > 1) {
-        console.warn(`[DIAGNOSTIC] Multiple TrekViewerApp instances detected: ${(window as any).__trekViewerInstances}`);
-      }
+    if (this.isDebugMode) {
+      console.log(
+        `%c[TrekViewer Build]\nLabel: ${__APP_BUILD_INFO__.label}\nSHA: ${__APP_BUILD_INFO__.sha}\nBranch: ${__APP_BUILD_INFO__.branch}\nBuilt: ${__APP_BUILD_INFO__.builtAt}`,
+        'color: #38bdf8; font-weight: bold;'
+      );
     }
-
-    console.log(
-      `%c[TrekViewer Build]\nLabel: ${__APP_BUILD_INFO__.label}\nSHA: ${__APP_BUILD_INFO__.sha}\nBranch: ${__APP_BUILD_INFO__.branch}\nBuilt: ${__APP_BUILD_INFO__.builtAt}`,
-      'color: #38bdf8; font-weight: bold;'
-    );
 
     // Visual badge shown in development or when ?debug=1 is enabled (Requirement #112)
     if (typeof document !== 'undefined' && (this.isDebugMode || (import.meta as any).env?.DEV)) {

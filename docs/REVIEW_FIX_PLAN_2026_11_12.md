@@ -716,7 +716,7 @@ code, and list them in the commit message.
   `tsconfig.json`.
   - Note: 29 errors fixed; unused public parameters got a `_` prefix. `tsconfig.test.json`
     turns both flags off for test files (138 unused test imports), so they apply to `src`.
-- [ ] **C6 Remove debug leftovers in `main.ts`**: the `__trekViewerInstances` counter and
+- [x] **C6 Remove debug leftovers in `main.ts`**: the `__trekViewerInstances` counter and
   the unconditional build `console.log` (keep it under `?debug=1`).
 - [ ] **C7 OWNER decision, record only:** replace the static singletons
   (`TextureProvider`, `TileImageCache`, `ElevationTileService`,
