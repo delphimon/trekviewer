@@ -494,7 +494,7 @@ is locked to walking pace on an 18-hour route.
   continues; after the main pass, retry the list once. Pause only if more than 20
   resources are still failing or a quota error occurs. Test with `fake-indexeddb` and a
   fetch mock that fails twice then succeeds.
-- [ ] **O2 Corridor packs overclaim terrain** — *Reported (verify first).*
+- [x] **O2 Corridor packs overclaim terrain** — *Reported (verify first).*
   `src/offline/OfflinePlan.ts` (corridor mode drops fine DEM outside the corridor), copy
   in `src/offline/OfflineStore.ts` ("with full terrain shape") and `README.md`.
   Do: fix the copy to "detailed terrain along the trail, overview terrain elsewhere".

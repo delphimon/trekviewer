@@ -44,7 +44,7 @@ track the hiker.
 ## Offline maps
 
 In the **Offline** tab choose routes and a detail level, then **Check size** and **Download**.
-"Sharp along the trail" (default) keeps full terrain shape with sharp imagery near the route
+"Sharp along the trail" (default) has detailed terrain along the trail, overview terrain elsewhere, and sharp imagery near the route
 and is much smaller than "Sharp everywhere" (the earlier full packs were 5.5 GB for Rainier
 and 10.4 GB for the Enchantments). Keep the tab open while downloading; playing or entering
 VR/MR pauses it and **Download** resumes. Packs that a newer app version expects more data
