@@ -656,6 +656,10 @@ body, html {
   outline-offset: 3px;
 }
 
+.xr-btn[hidden], .quest-help-btn[hidden] { display: none; }
+.quest-help-btn { background: none; border: 0; padding: 4px 2px; color: var(--accent-cyan); font: 600 13px system-ui, sans-serif; text-decoration: underline; cursor: pointer; }
+@media (max-width: 900px) { .logo-subtitle { display: none; } }
+
 @media (max-width: 1150px) {
   .top-bar { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
   .route-select-wrapper { flex: 1; min-width: 0; }

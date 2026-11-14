@@ -421,7 +421,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
   - Add: Y-axis min/max labels, X-axis distance ticks, and on pointer move a tooltip with
     distance, elevation and grade at the cursor (grade from neighbouring samples in
     `cachedElevationSamples`).
-- [ ] **U2 Header wastes space when XR is unavailable.** When `setXRSupport(false, false)`
+- [x] **U2 Header wastes space when XR is unavailable.** When `setXRSupport(false, false)`
   hide both XR buttons and the status line, and show one small text button
   "Open on a Quest headset" that opens the Help tab. Remove the subtitle
   "Meta Quest 3 Alpine Visualizer" below 900 px width.

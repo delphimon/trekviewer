@@ -527,6 +527,7 @@ export class DesktopOverlay {
             <button id="btnEnterAR" class="btn btn-accent xr-btn" aria-describedby="xrSupportStatus" disabled>
               👓 Passthrough (MR)
             </button>
+            <button id="btnQuestHelp" class="btn-link quest-help-btn" type="button" hidden>Open on a Quest headset</button>
           </div>
           <p id="xrSupportStatus" class="xr-support-status" role="status" aria-busy="true">Checking headset availability…</p>
         </header>
@@ -814,6 +815,12 @@ export class DesktopOverlay {
       closeSettings();
       this.callbacks.onFitTerrain?.();
       if (wasOpen) settingsButton?.focus();
+    });
+    document.getElementById('btnQuestHelp')?.addEventListener('click', () => {
+      this.showPanelTab('help');
+      // On narrow screens the panel is a sheet behind the Settings button.
+      if (settingsButton && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)').matches
+        && settingsButton.getAttribute('aria-expanded') !== 'true') settingsButton.click();
     });
     settingsButton?.addEventListener('click', () => {
       const open = settingsButton.getAttribute('aria-expanded') !== 'true';
@@ -1245,8 +1252,14 @@ export class DesktopOverlay {
   public setXRSupport(vr: boolean | null, ar: boolean | null, message: string): void {
     this.xrChecking = false;
     this.xrSupport = { vr, ar };
+    // With no headset support at all, two dead buttons and a status line only cost header
+    // space: show one link to the Help tab instead.
+    const none = vr === false && ar === false;
     const status = document.getElementById('xrSupportStatus');
-    if (status) { status.textContent = message; status.hidden = !message; status.ariaBusy = 'false'; }
+    if (status) { status.textContent = message; status.hidden = none || !message; status.ariaBusy = 'false'; }
+    for (const id of ['btnEnterVR', 'btnEnterAR']) { const button = document.getElementById(id); if (button) button.hidden = none; }
+    const help = document.getElementById('btnQuestHelp');
+    if (help) help.hidden = !none;
     this.updateXRButtons();
   }
 
