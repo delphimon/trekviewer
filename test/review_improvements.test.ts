@@ -36,10 +36,12 @@ function handState(): any {
     indexTipWorldPos: new THREE.Vector3(0, 0, -0.5), pinchTracker: { justPinched: true } };
 }
 
-it('re-arms direct pokes after fast withdrawal and hidden-panel cancellation', () => {
+it('re-arms direct pokes after withdrawal and hidden-panel cancellation', () => {
+  let now = 1000; vi.spyOn(performance, 'now').mockImplementation(() => now);
   const xr = directHUD(), hand: any = { isClickingHUD: false };
-  // A poke must arrive from the front after a hover frame; withdrawing re-arms it.
-  for (const z of [0.04, 0, 0.04, 0]) xr.checkHandHUDInteraction(hand, new THREE.Vector3(0, 0, z), false);
+  // A poke must arrive from the front after a hover frame; withdrawing re-arms it
+  // (a re-press within 150 ms of the release is ignored, so frames here are 200 ms apart).
+  for (const z of [0.04, 0, 0.04, 0]) { xr.checkHandHUDInteraction(hand, new THREE.Vector3(0, 0, z), false); now += 200; }
   expect(xr.spatialHUD.onPointerClick).toHaveBeenCalledTimes(2);
   // Entering straight into the press zone (e.g. from behind the panel) never clicks.
   const fresh = directHUD(), passing: any = { isClickingHUD: false };

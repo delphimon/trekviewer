@@ -233,11 +233,14 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Test: ray hitting the plane 5 m from the model does not start a drag; a ray hitting
     inside the footprint does.
 
-- [ ] **B10 Poke has no release hysteresis** — *Reported (verify first).* **HEADSET**
+- [~] **B10 Poke has no release hysteresis** — *Reported (verify first).* **HEADSET**
   - Where: `src/core/XRManager.ts` `POKE_DEPTH = 0.012`.
   - Do: press at 12 mm, release at 20 mm, and ignore a new press on the same control for
     150 ms after a release.
   - Test: feed fingertip depths 11, 13, 11, 13 mm over 4 frames; exactly one press fires.
+  - Note: needs headset check — poke a HUD button slowly and hold the fingertip at the
+    surface; it should fire once, and a quick double poke (under 150 ms) should fire once.
+    The 150 ms guard is per hand (any HUD control), not per control.
 
 - [ ] **B11 Hold-A/X dim can stick** — *Reported (verify first).*
   - Where: `src/core/XRManager.ts` (controller disconnect / tracking-lost paths,

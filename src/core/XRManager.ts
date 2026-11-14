@@ -28,6 +28,19 @@ import {
 export const handPokePointerId = (handedness?: string | null) => `handpoke_${handedness ?? 'unknown'}`;
 export const handRayPointerId = (handedness?: string | null) => `handray_${handedness ?? 'unknown'}`;
 
+/** Poke press depth, release depth (hysteresis) and re-press suppression after a release. */
+export const POKE_PRESS_DEPTH = 0.012;
+export const POKE_RELEASE_DEPTH = 0.020;
+export const POKE_REPRESS_MS = 150;
+/** Whether a fingertip at local panel depth `z` (metres in front of the panel) is pressing.
+ * A new press needs the fingertip to arrive from in front of the press depth; a held press
+ * lasts until the fingertip backs out past the release depth (or goes 3 cm behind). */
+export function isHUDPokePressing(z: number, prevZ: number | null, wasPressing: boolean, msSinceRelease: number): boolean {
+  if (z <= -0.03) return false;
+  if (wasPressing) return z < POKE_RELEASE_DEPTH;
+  return z < POKE_PRESS_DEPTH && prevZ !== null && prevZ >= POKE_PRESS_DEPTH && msSinceRelease >= POKE_REPRESS_MS;
+}
+
 const _footprintLocal = new THREE.Vector3();
 /** Whether a world-space point lies over the plinth (local footprint `plinthWidth` x `plinthDepth`
  * model metres, centred on the root) plus `marginWorld` metres. */
@@ -134,6 +147,8 @@ export interface HandState {
   hudGrabOffset?: THREE.Vector3;
   /** Panel-local z of the fingertip on the previous frame while over the HUD (null when away). */
   hudPrevLocalZ?: number | null;
+  /** performance.now() of the last HUD release by this hand, for poke re-press suppression. */
+  hudReleasedAt?: number;
   /** True only for a pinch that began while the hand was over the HUD. */
   hudPinchArmed?: boolean;
   /** Handedness cached at connect time so a disconnect can release its HUD pointer. */
@@ -1265,10 +1280,9 @@ export class XRManager {
       // after at least one hover frame, so a hand passing through from behind is ignored.
       if (pinchStarted) state.hudPinchArmed = true;
       if (!isPinching) state.hudPinchArmed = false;
-      const POKE_DEPTH = 0.012;
-      const inPokeZone = local.z < POKE_DEPTH && local.z > -0.03;
-      const pokeArrived = inPokeZone && prevZ !== null && prevZ >= POKE_DEPTH;
-      const pressing = (isPinching && state.hudPinchArmed) || (inPokeZone && (state.isClickingHUD || pokeArrived));
+      const now = performance.now();
+      const pressing = (isPinching && state.hudPinchArmed)
+        || isHUDPokePressing(local.z, prevZ, state.isClickingHUD, now - (state.hudReleasedAt ?? -Infinity));
       if (pressing && !state.isClickingHUD) {
         state.isClickingHUD = true;
         if (this.spatialHUD.onPointerClick(uv, pointerId)) this.playFeedback('press');
@@ -1276,6 +1290,7 @@ export class XRManager {
         this.spatialHUD.onPointerDrag(uv, pointerId);
       } else if (!pressing && state.isClickingHUD) {
         state.isClickingHUD = false;
+        state.hudReleasedAt = now;
         this.spatialHUD.onPointerRelease(pointerId);
       }
       return true; // Hand is engaged with HUD
