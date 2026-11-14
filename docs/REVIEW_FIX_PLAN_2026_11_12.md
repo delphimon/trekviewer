@@ -425,7 +425,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
   hide both XR buttons and the status line, and show one small text button
   "Open on a Quest headset" that opens the Help tab. Remove the subtitle
   "Meta Quest 3 Alpine Visualizer" below 900 px width.
-- [ ] **U3 Mobile layout.** Target: at 375×812 the 3D canvas has at least 55% of the
+- [x] **U3 Mobile layout.** Target: at 375×812 the 3D canvas has at least 55% of the
   viewport height when panels are closed.
   - Header: one row (logo, route select, a single "⋯" menu holding Import GPX and
     Settings).

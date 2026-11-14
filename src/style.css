@@ -738,3 +738,37 @@ body, html {
   .stats-panel.settings-open .stat-sub { display: none; }
   .stats-panel.settings-open .stat-value small { font-size: 12px; }
 }
+
+/* Phone layout: one header row, a compact player bar and a full-height settings sheet. */
+.mobile-menu-wrap { display: none; position: relative; }
+.player-more-btn, .settings-close { display: none; }
+.mobile-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; display: flex; flex-direction: column; gap: 6px; padding: 8px; min-width: 160px; }
+.mobile-menu[hidden] { display: none; }
+@media (max-width: 900px) {
+  .stats-panel.settings-open .settings-close { display: inline-flex; float: right; margin: 0 0 8px 8px; }
+}
+@media (max-width: 600px) {
+  .top-bar { flex-wrap: nowrap; }
+  .logo-group > div { display: none; }
+  .route-select-wrapper { flex: 1 1 auto; flex-basis: auto; min-width: 0; }
+  #routeSelect { flex: 1; width: 0; min-width: 0; }
+  #btnImportGPX, #btnSettings { display: none !important; }
+  .mobile-menu-wrap { display: block; }
+  .xr-buttons:not(:has(.xr-btn:not([hidden]))) { display: contents; }
+  .quest-help-btn { display: none !important; }
+  .stats-panel.settings-open {
+    position: fixed; inset: 0; top: 0; left: 0; right: 0; width: auto; height: 100dvh;
+    max-height: none; margin: 0; border-radius: 0; z-index: 200;
+  }
+  .player-more-btn { display: inline-flex; }
+  .player-bar:not(.player-more-open) #playbackMode,
+  .player-bar:not(.player-more-open) .speed-selector,
+  .player-bar:not(.player-more-open) #btnFollowRoute,
+  .player-bar:not(.player-more-open) #btnViewToggle { display: none !important; }
+  .player-left { flex: 1 1 auto; }
+  .player-right { width: auto; flex: 0 0 auto; gap: 12px; }
+  .player-right .c-label { font-size: 11px; }
+  .player-right .c-val { font-size: 14px; }
+  .desktop-attribution { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+}
+

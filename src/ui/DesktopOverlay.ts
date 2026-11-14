@@ -516,6 +516,14 @@ export class DesktopOverlay {
               📂 Import GPX
             </button>
             <input type="file" id="gpxUploadInput" accept=".gpx" style="display:none;" />
+            <div class="mobile-menu-wrap">
+              <button id="btnMobileMenu" class="btn btn-secondary mobile-menu-btn" type="button" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="mobileMenu">⋯</button>
+              <div id="mobileMenu" class="mobile-menu glass-card" role="menu" hidden>
+                <button class="btn btn-secondary" type="button" role="menuitem" data-proxy="btnImportGPX">Import GPX</button>
+                <button class="btn btn-secondary" type="button" role="menuitem" data-proxy="btnSettings">Settings</button>
+                <button id="menuQuestHelp" class="btn btn-secondary" type="button" role="menuitem" data-proxy="btnQuestHelp" hidden>Open on a Quest headset</button>
+              </div>
+            </div>
           </div>
 
           <!-- WebXR Meta Quest 3 Launch Buttons -->
@@ -549,6 +557,7 @@ export class DesktopOverlay {
 
         <!-- Left Stats Panel -->
         <aside id="trekSettings" class="stats-panel glass-card" aria-label="Trek settings">
+          <button id="btnCloseSettings" class="btn btn-secondary settings-close" type="button">Close</button>
           <h2 id="statsTitle" class="trek-title">Loading Route...</h2>
           <p id="statsSubtitle" class="trek-meta">Cascades Mountaineering</p>
           <div id="statsGrid" class="stats-grid"></div>
@@ -689,6 +698,7 @@ export class DesktopOverlay {
         <footer class="player-bar glass-card">
           <div class="player-left">
             <button id="btnPlay" class="btn btn-primary play-btn">▶ Tour</button>
+            <button id="btnPlayerMore" class="btn btn-secondary player-more-btn" type="button" aria-expanded="false">More</button>
             <select id="playbackMode" class="btn btn-secondary" aria-label="Playback timing" title="Tour covers the route in 90 seconds at 1x. Track timing uses recorded or estimated pace.">
               <option value="tour">90s tour</option>
               <option value="recorded">Track timing</option>
@@ -821,6 +831,26 @@ export class DesktopOverlay {
       // On narrow screens the panel is a sheet behind the Settings button.
       if (settingsButton && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 900px)').matches
         && settingsButton.getAttribute('aria-expanded') !== 'true') settingsButton.click();
+    });
+    // Phones: one header row with a menu, and a collapsible row of playback options.
+    const menuButton = document.getElementById('btnMobileMenu');
+    const menu = document.getElementById('mobileMenu');
+    const closeMenu = () => { if (menu) menu.hidden = true; menuButton?.setAttribute('aria-expanded', 'false'); };
+    menuButton?.addEventListener('click', () => {
+      const open = menuButton.getAttribute('aria-expanded') !== 'true';
+      if (menu) menu.hidden = !open;
+      menuButton.setAttribute('aria-expanded', String(open));
+    });
+    document.querySelectorAll<HTMLButtonElement>('#mobileMenu [data-proxy]').forEach(item => item.addEventListener('click', () => {
+      closeMenu();
+      document.getElementById(item.dataset.proxy!)?.click();
+    }));
+    document.getElementById('btnCloseSettings')?.addEventListener('click', () => { closeSettings(); settingsButton?.focus(); });
+    const moreButton = document.getElementById('btnPlayerMore');
+    moreButton?.addEventListener('click', () => {
+      const open = moreButton.getAttribute('aria-expanded') !== 'true';
+      document.querySelector('.player-bar')?.classList.toggle('player-more-open', open);
+      moreButton.setAttribute('aria-expanded', String(open));
     });
     settingsButton?.addEventListener('click', () => {
       const open = settingsButton.getAttribute('aria-expanded') !== 'true';
@@ -1258,8 +1288,7 @@ export class DesktopOverlay {
     const status = document.getElementById('xrSupportStatus');
     if (status) { status.textContent = message; status.hidden = none || !message; status.ariaBusy = 'false'; }
     for (const id of ['btnEnterVR', 'btnEnterAR']) { const button = document.getElementById(id); if (button) button.hidden = none; }
-    const help = document.getElementById('btnQuestHelp');
-    if (help) help.hidden = !none;
+    for (const id of ['btnQuestHelp', 'menuQuestHelp']) { const help = document.getElementById(id); if (help) help.hidden = !none; }
     this.updateXRButtons();
   }
 
