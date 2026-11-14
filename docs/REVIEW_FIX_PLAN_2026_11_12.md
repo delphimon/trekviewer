@@ -740,10 +740,14 @@ code, and list them in the commit message.
   - Note: waits for the stats panel to name the route ("Loaded:" is replaced by later
     status messages within a second). Locally it ran with `PW_CHANNEL=chrome` (installed
     Chrome; no Playwright browser download); CI installs Chromium.
-- [ ] **T3 Repair or delete `scripts/*.mjs` browser checks.** Several use removed URL
+- [~] **T3 Repair or delete `scripts/*.mjs` browser checks.** Several use removed URL
   flags (`imageryBatch`, `terrainTiles`, `terrainSourceBounds`) and Playwright was not a
   dependency. Delete scripts referenced by nothing (check `package.json`, docs and other
   scripts with `grep -rn "<script name>" .`); fix the rest.
+  - Note: deleted the three that used removed flags and are referenced by nothing
+    (`check-imagery-batch-browser`, `check-live-imagery-batch`, `check-terrain-imagery-browser`).
+    Four other unreferenced browser checks use current flags and were kept (not run here:
+    browser pane hidden / no Playwright browser download).
 - [ ] **T4 ESLint** with `typescript-eslint` recommended rules, `npm run lint`, and a CI
   step. Fix errors; do not disable rules wholesale. Per-line disables need a reason.
 - [ ] **T5 `package.json` hygiene:** add `"private": true`, a `description`, an `engines`
