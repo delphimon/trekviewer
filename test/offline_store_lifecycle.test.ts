@@ -29,6 +29,7 @@ let fetchImpl: (input: string, init: RequestInit) => Promise<Response>;
 const fetchMock = vi.fn((input: string, init: RequestInit) => fetchImpl(input, init));
 
 beforeEach(() => {
+  OfflineDownloads.retryDelaysMs = [0, 0, 0];
   fetchImpl = async input => new Response(png(Number(new URL(input).searchParams.get('bbox')!.split(',')[1])));
   fetchMock.mockClear();
   vi.stubGlobal('fetch', fetchMock);
@@ -89,4 +90,31 @@ it('saves an asset directly and publishes once every planned source is present',
   await OfflineStore.publish(p, 1, 32);
   expect(await OfflineStore.state(p.id)).toMatchObject({ state: 'ready' });
   expect(await OfflineStore.read(p.resources[0].urls[0])).not.toBeNull();
+});
+
+it('retries a source that fails twice, without pausing the download', async () => {
+  const p = plan('retried', 3);
+  let failures = 0;
+  fetchImpl = async input => {
+    if (input === p.resources[1].urls[0] && failures < 2) { failures++; throw new TypeError('Failed to fetch'); }
+    return new Response(png(0));
+  };
+  await OfflineDownloads.start(p);
+  expect(failures).toBe(2);
+  expect(await OfflineStore.state(p.id)).toMatchObject({ state: 'ready', completed: 3 });
+});
+
+it('revisits a source that keeps failing after the main pass, then pauses with a count', async () => {
+  const p = plan('revisited', 4);
+  const calls: string[] = [];
+  fetchImpl = async input => {
+    calls.push(input);
+    if (input === p.resources[0].urls[0]) throw new TypeError('Failed to fetch');
+    return new Response(png(0));
+  };
+  await expect(OfflineDownloads.start(p)).rejects.toThrow('1 map piece could not be downloaded');
+  const state = await OfflineStore.state(p.id);
+  expect(state).toMatchObject({ state: 'paused', completed: 3 }); // the other three were saved
+  expect(calls.filter(url => url === p.resources[0].urls[0])).toHaveLength(8); // 4 attempts, twice
+  expect(calls.indexOf(p.resources[3].urls[0])).toBeLessThan(calls.lastIndexOf(p.resources[0].urls[0]));
 });

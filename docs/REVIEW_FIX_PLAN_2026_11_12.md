@@ -486,7 +486,7 @@ is locked to walking pace on an 18-hour route.
 
 ## Phase O — Offline robustness
 
-- [ ] **O1 Retry in the browser download path** — *Reported (verify first).*
+- [x] **O1 Retry in the browser download path** — *Reported (verify first).*
   `src/offline/OfflineDownloads.ts` (the loop that tries each alias once then
   `throw lastError`), `src/offline/OfflineDownloadsPanel.ts` (queue `break`).
   Do: up to 4 attempts per resource with delays 1 s, 4 s, 15 s (honour the abort

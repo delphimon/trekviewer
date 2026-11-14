@@ -21,6 +21,7 @@ function plan(count: number): OfflinePlan {
 
 let failing = false;
 beforeEach(() => {
+  OfflineDownloads.retryDelaysMs = [0, 0, 0];
   vi.stubGlobal('fetch', vi.fn(async () => { if (failing) throw new TypeError('Network unreachable'); return new Response(png()); }));
   vi.stubGlobal('navigator', { locks: { request: (_n: string, _o: unknown, task: (lock: unknown) => unknown) => task({}) },
     storage: { persist: async () => true, estimate: async () => ({ usage: 0, quota: 1e12 }) } });
@@ -39,11 +40,12 @@ it('keeps a "Needs update" pack ready and readable when its update fails', async
   const putState = OfflineStore.putState.bind(OfflineStore);
   vi.spyOn(OfflineStore, 'putState').mockImplementation(async next => { states.push(next.state); return putState(next); });
   failing = true;
-  await expect(OfflineDownloads.start(plan(3))).rejects.toThrow('Network unreachable');
+  await expect(OfflineDownloads.start(plan(3))).rejects.toThrow('1 map piece could not be downloaded');
 
   expect(states.every(s => s === 'ready')).toBe(true); // never rewritten to 'downloading'
   const state = await OfflineStore.state('update-pack');
-  expect(state).toMatchObject({ state: 'ready', updating: false, message: 'Network unreachable' });
+  expect(state).toMatchObject({ state: 'ready', updating: false });
+  expect(state?.message).toMatch(/could not be downloaded/);
   const blob = await OfflineStore.read(url(0));
   expect(blob?.size).toBe(32);
 

@@ -50,6 +50,39 @@ export async function validateOfflineResource(resource: OfflineResource, blob: B
  * Browser close/Play/XR pauses, and already committed sources survive reload. */
 export class OfflineDownloads {
   private static controller: AbortController | undefined;
+  /** Waits between attempts at one source (so 4 attempts in all). */
+  public static retryDelaysMs: readonly number[] = [1000, 4000, 15000];
+  /** More sources than this failing in one pass pauses the download. */
+  public static readonly MAX_REVISIT = 20;
+
+  /** Tries every alias of a source, up to 1 + retryDelaysMs.length times. Null when it still
+   * fails; aborts (pause) always throw. */
+  private static async fetchWithRetries(resource: OfflineResource, signal: AbortSignal): Promise<{ blob: Blob; sourceUrl: string } | null> {
+    for (let attempt = 0; ; attempt++) {
+      for (const url of resource.urls) {
+        if (signal.aborted) throw new DOMException('Download paused', 'AbortError');
+        const request = new AbortController(), abort = () => request.abort();
+        signal.addEventListener('abort', abort, { once: true });
+        const timer = setTimeout(abort, 35000);
+        try {
+          const blob = await readBoundedBlob(await fetch(url, { signal: request.signal, credentials: 'omit' }), resource.kind === 'image' ? 8 * 1024 * 1024 : 32 * 1024 * 1024);
+          await validateOfflineResource(resource, blob, signal);
+          return { blob, sourceUrl: url };
+        } catch (error) {
+          if (signal.aborted) throw new DOMException('Download paused', 'AbortError');
+          if (error instanceof DOMException && error.name === 'QuotaExceededError') throw error;
+        } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
+      }
+      const wait = this.retryDelaysMs[attempt];
+      if (wait === undefined) return null;
+      await new Promise<void>((resolve, reject) => {
+        const done = () => { clearTimeout(t); signal.removeEventListener('abort', stop); };
+        const stop = () => { done(); reject(new DOMException('Download paused', 'AbortError')); };
+        const t = setTimeout(() => { done(); resolve(); }, wait);
+        signal.addEventListener('abort', stop, { once: true });
+      });
+    }
+  }
   public static busy(): boolean { return !!this.controller; }
   public static pause(): void { this.controller?.abort(); }
   public static async withLock<T>(task: () => Promise<T>): Promise<T> {
@@ -86,7 +119,9 @@ export class OfflineDownloads {
         await OfflineStore.putState(state);
         try {
           let verified = 0, verifiedBytes = 0, lastNotifyAt = performance.now();
-          for (let position = 0; position < plan.resources.length; position++) {
+          // Returns false when a network source still failed after its retries; the caller
+          // revisits it after the main pass instead of pausing the whole download.
+          const process = async (position: number): Promise<boolean> => {
             const resource = plan.resources[position];
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
             const retained = await OfflineStore.stored(plan.id, resource);
@@ -108,25 +143,15 @@ export class OfflineDownloads {
               // Check actual shared usage, not the uncompressed planning budget.
               // Already-saved sources can still be verified/published when full.
               await requireOfflineCapacity();
-              let lastError: unknown = Error('Source unavailable.');
-              for (const url of resource.urls) {
-                if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
-                const request = new AbortController(), abort = () => request.abort();
-                controller.signal.addEventListener('abort', abort, { once: true });
-                const timer = setTimeout(abort, 35000);
-                try {
-                  blob = await readBoundedBlob(await fetch(url, { signal: request.signal, credentials: 'omit' }), resource.kind === 'image' ? 8 * 1024 * 1024 : 32 * 1024 * 1024);
-                  await validateOfflineResource(resource, blob, controller.signal); sourceUrl = url; break;
-                } catch (error) { blob = undefined; lastError = error; }
-                finally { clearTimeout(timer); controller.signal.removeEventListener('abort', abort); }
-              }
-              if (!blob) throw lastError;
+              const fetched = await this.fetchWithRetries(resource, controller.signal);
+              if (!fetched) return false;
+              blob = fetched.blob; sourceUrl = fetched.sourceUrl;
             }
             if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
             verified++; verifiedBytes += blob.size;
             if (asset) {
               if (verified % 256 === 0) await OfflineStore.putState({ ...state, message: `Checking saved sources (${verified}/${plan.resources.length})…`, updated: Date.now() });
-              continue; // Verified staged bodies are immutable; do not rewrite gigabytes on resume.
+              return true; // Verified staged bodies are immutable; do not rewrite gigabytes on resume.
             }
             const next = { ...state, completed: state.completed + Number(!retained), bytes: state.bytes + blob.size - (retained?.bytes ?? 0), updated: Date.now() };
             await requireOfflineCapacity(blob.size);
@@ -136,7 +161,18 @@ export class OfflineDownloads {
             if (shouldNotify) lastNotifyAt = now;
             await OfflineStore.save(next, resource, sourceUrl, blob, await hashOfflineBlob(blob), shouldNotify);
             state = next;
+            return true;
+          };
+          const revisit: number[] = [];
+          for (let position = 0; position < plan.resources.length; position++) {
+            if (await process(position)) continue;
+            revisit.push(position);
+            // Many failures at once usually mean the connection is gone: stop and let Resume retry.
+            if (revisit.length > OfflineDownloads.MAX_REVISIT) throw Error(`${revisit.length} map pieces failed to download. Check the connection, then Resume.`);
           }
+          let failed = 0;
+          for (const position of revisit) if (!(await process(position))) failed++;
+          if (failed) throw Error(`${failed} map piece${failed === 1 ? '' : 's'} could not be downloaded. Resume to retry ${failed === 1 ? 'it' : 'them'}.`);
           if (controller.signal.aborted) throw new DOMException('Download paused', 'AbortError');
           await OfflineStore.publish(plan, verified, verifiedBytes);
         } catch (error) {
