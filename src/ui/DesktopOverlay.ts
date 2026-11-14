@@ -1,4 +1,5 @@
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { daySplits } from '../gpx/DaySplits.ts';
 import { SLOPE_BANDS } from '../terrain/TerrainImageryMaterial.ts';
 import { formatElapsed, type TrailPointInfo } from '../visualization/TrailPick.ts';
 import { distanceInUnits, distanceUnitLabel, formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits, setUnits } from '../utils/Units.ts';
@@ -277,6 +278,25 @@ export class DesktopOverlay {
     this.updateScrubber(0, track.points[0]?.ele || track.minElevation);
     this.updateTrailLegend();
     this.updateLandmarks(track, landmarks);
+    this.renderDaySplits();
+  }
+
+  /** Per-day distance, gain, loss and time (multi-day routes only). */
+  private renderDaySplits(): void {
+    const box = document.getElementById('daySplits');
+    if (!box || !this.currentTrack) return;
+    const splits = daySplits(this.currentTrack, this.routeLandmarks);
+    box.hidden = splits.length === 0;
+    box.replaceChildren?.();
+    if (!splits.length) return;
+    const heading = document.createElement('h3'); heading.textContent = 'Days';
+    box.appendChild(heading);
+    for (const split of splits) {
+      const row = document.createElement('p'); row.className = 'trek-meta day-split-row';
+      row.textContent = `Day ${split.day}: ${formatDistance(split.distanceMeters)} • ${formatElevation(split.gainMeters, undefined, true)} / `
+        + `-${formatElevation(split.lossMeters)} • ${formatElapsed(split.seconds)}`;
+      box.appendChild(row);
+    }
   }
 
   /** Match the chart's backing store to its CSS size x devicePixelRatio, then redraw. */
@@ -317,6 +337,11 @@ export class DesktopOverlay {
     const minE = this.currentTrack.minElevation;
     const maxE = this.currentTrack.maxElevation;
     const spanE = Math.max(maxE - minE, 10);
+
+    // Alternate days get a faint band behind the profile.
+    for (const split of daySplits(this.currentTrack, this.routeLandmarks)) {
+      if (split.day % 2 === 0) { ctx.fillStyle = 'rgba(148, 163, 184, 0.12)'; ctx.fillRect(split.startProgress * w, 0, (split.endProgress - split.startProgress) * w, h); }
+    }
 
     // Profile Line
     ctx.beginPath();
@@ -608,6 +633,7 @@ export class DesktopOverlay {
               </div>
               <div class="landmarks-list" id="landmarksList"></div>
             </div>
+            <div id="daySplits" class="day-splits" hidden></div>
             <p class="trek-meta" id="routeTabHint">Pick a landmark to jump there, or click the elevation chart below.</p>
           </div>
           <div class="controls-section panel-tabpanel" role="tabpanel" id="tabpanel-view" aria-labelledby="tab-view" data-tabpanel="view" hidden>

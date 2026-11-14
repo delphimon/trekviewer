@@ -666,9 +666,10 @@ Do these only after phases B–U. Each needs a Browser check and a unit test for
     style stays `satellite`, so providers and offline packs are untouched). Works with
     terrain-shader imagery (the default); not with `?terrainImagery=0`. Browser check not
     done (pane hidden).
-- [ ] **N3 Day splits.** `src/gpx/RouteLandmarks.ts` already produces `day_boundary`
+- [~] **N3 Day splits.** `src/gpx/RouteLandmarks.ts` already produces `day_boundary`
   landmarks. Show per-day distance, gain, loss and time in the Route tab, and shade
   alternate days in the elevation chart.
+  - Note: done and unit-tested; browser check outstanding (pane hidden).
 - [ ] **N4 Remaining distance and time** next to the progress readout (desktop and HUD).
 - [ ] **N5 Sun position.** OWNER: confirm. A time-of-day slider that moves the
   directional light using solar position for the route's latitude/longitude and the
