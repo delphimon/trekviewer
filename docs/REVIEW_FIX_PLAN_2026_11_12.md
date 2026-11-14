@@ -157,7 +157,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     the state is `ready`.
   - Done when: test passes and README line "keep working" is true.
 
-- [ ] **B3 Hand-ray scrubbing on the HUD chart stops after one frame** — *Confirmed.*
+- [x] **B3 Hand-ray scrubbing on the HUD chart stops after one frame** — *Confirmed.*
   - Where: `src/core/XRManager.ts`: the poke path ends with
     `this.spatialHUD.onPointerRelease(pointerId);` and the ray path builds
     ``const pointerId = isHand ? `hand_${...}` ``; `src/ui/SpatialHUD.ts`

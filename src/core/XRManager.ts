@@ -23,6 +23,11 @@ import {
   computeThumbstickZoomFactor,
 } from '../xr/GestureMath.ts';
 
+/** HUD pointer owners. A hand's direct poke and its far ray are separate
+ * pointers, so releasing one never ends a scrub owned by the other. */
+export const handPokePointerId = (handedness?: string | null) => `handpoke_${handedness ?? 'unknown'}`;
+export const handRayPointerId = (handedness?: string | null) => `handray_${handedness ?? 'unknown'}`;
+
 export { ALL_HAND_JOINTS, BONE_CONNECTIONS };
 
 export interface XRInteractionCallbacks {
@@ -421,8 +426,9 @@ export class XRManager {
         state.prevButtons.fill(false);
         state.needsButtonRelease = true;
         state.snapTurnLatched = state.walkStepLatched = false;
-        this.spatialHUD?.onPointerRelease(`controller_${i}`);
         const handedness = event?.data?.handedness as XRHandedness | undefined;
+        this.spatialHUD?.onPointerRelease(`controller_${i}`);
+        this.spatialHUD?.onPointerRelease(handRayPointerId(handedness));
         this.enforcePhysicalControllerOwnership(handedness);
       });
 
@@ -544,7 +550,7 @@ export class XRManager {
       hand.addEventListener('disconnected', () => {
         // Release any HUD scrub this hand owned, using the handedness it connected with.
         if (state.isClickingHUD || state.hudPrevLocalZ != null) {
-          this.spatialHUD?.onPointerRelease(`hand_${state.cachedHandedness ?? 'unknown'}`);
+          this.spatialHUD?.onPointerRelease(handPokePointerId(state.cachedHandedness));
           this.spatialHUD?.onPointerLeave();
         }
         state.isClickingHUD = false;
@@ -621,7 +627,7 @@ export class XRManager {
           state.isHoveringHUD = false;
           if (!matchingHand?.visualOutline.group.visible || matchingHand?.indexTipTracked === false) {
             state.isInteractingWithHUD = false;
-            this.spatialHUD?.onPointerRelease(`hand_${source.handedness ?? 'unknown'}`);
+            this.spatialHUD?.onPointerRelease(handRayPointerId(source.handedness));
           }
         } else {
           this.updatePointerRaycast(i, state, isHandPinching, true);
@@ -1051,7 +1057,7 @@ export class XRManager {
         state.activeInteraction = 'none';
         state.isClickingHUD = false;
         state.hudGrabOffset = undefined;
-        this.spatialHUD?.onPointerRelease(`hand_${state.inputSource?.handedness ?? 'unknown'}`);
+        this.spatialHUD?.onPointerRelease(handPokePointerId(state.inputSource?.handedness));
         state.pinchReticle.visible = false;
         continue;
       }
@@ -1201,7 +1207,7 @@ export class XRManager {
 
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
-    const pointerId = `hand_${state.inputSource?.handedness ?? 'unknown'}`;
+    const pointerId = handPokePointerId(state.inputSource?.handedness);
     if (!this.spatialHUD || !this.spatialHUD.group.visible) {
       state.isClickingHUD = false;
       state.hudGrabOffset = undefined;
@@ -1415,7 +1421,7 @@ export class XRManager {
     isTriggerDown: boolean,
     isHand: boolean = false
   ): void {
-    const pointerId = isHand ? `hand_${state.inputSource?.handedness ?? 'unknown'}` : `controller_${controllerIdx}`;
+    const pointerId = isHand ? handRayPointerId(state.inputSource?.handedness) : `controller_${controllerIdx}`;
     if (!isHand && state.isGripping) {
       state.rayLine.visible = false;
       state.reticle.visible = false;

@@ -104,7 +104,7 @@ it('cancels a direct hand capture when only the fingertip loses tracking', () =>
   expect(xr.processHandGrabs()).toEqual([]);
   expect(xr.spatialHUD.onPointerClick).not.toHaveBeenCalled();
   expect(hand.isClickingHUD).toBe(false);
-  expect(xr.spatialHUD.onPointerRelease).toHaveBeenCalledWith('hand_left');
+  expect(xr.spatialHUD.onPointerRelease).toHaveBeenCalledWith('handpoke_left');
 });
 
 it('does not dispatch HUD actions while a controller grip owns the terrain', () => {
