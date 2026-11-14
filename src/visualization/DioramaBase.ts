@@ -15,6 +15,43 @@ const _scratchLabelPos = new THREE.Vector3();
 const _scratchWorldScale = new THREE.Vector3();
 const _scratchPinWorldScale = new THREE.Vector3();
 const _scratchPinPosition = new THREE.Vector3();
+const _scratchLabelView = new THREE.Vector3();
+
+/** Landmark label priority (lower wins an overlap); other waypoints label on hover only. */
+export function landmarkLabelPriority(type: string | undefined): number | null {
+  switch (type) {
+    case 'summit': case 'high_point': return 0;
+    case 'start': return 1;
+    case 'finish': return 2;
+    case 'day_boundary': return 3;
+    default: return null;
+  }
+}
+
+/** A label's screen rectangle in normalized device coordinates. */
+export interface LabelRect { priority: number; x: number; y: number; halfW: number; halfH: number; visible: boolean; pin?: THREE.Object3D }
+
+/** Greedy priority placement: a label is shown unless it overlaps a higher-priority shown one.
+ * Sorts `rects` in place; writes each rect's `visible`. */
+export function placeLandmarkLabels(rects: LabelRect[], count: number = rects.length): void {
+  for (let i = 1; i < count; i++) { // insertion sort: stable, allocation-free, tiny n
+    const r = rects[i]; let j = i - 1;
+    while (j >= 0 && rects[j].priority > r.priority) { rects[j + 1] = rects[j]; j--; }
+    rects[j + 1] = r;
+  }
+  for (let i = 0; i < count; i++) {
+    const r = rects[i];
+    if (!r.visible) continue; // off-screen / behind the camera
+    for (let k = 0; k < i; k++) {
+      const o = rects[k];
+      if (o.visible && Math.abs(o.x - r.x) < o.halfW + r.halfW && Math.abs(o.y - r.y) < o.halfH + r.halfH) { r.visible = false; break; }
+    }
+  }
+}
+
+const LABEL_PLACEMENT_INTERVAL_S = 0.2;
+const labelPlacementClock = new WeakMap<THREE.Object3D, number>();
+const labelRectPool: LabelRect[] = [];
 const markerBatches = new WeakMap<THREE.Group, WaypointInstanceRenderer>();
 
 /** Local Y of the plinth top (the default `baseY`) and the slab thickness, in model metres. */
@@ -488,6 +525,12 @@ export class DioramaBase {
     const metresPerPixelAtUnitDistance = desktopViewportHeight && (camera as THREE.PerspectiveCamera).isPerspectiveCamera
       ? 2 * Math.tan(THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov / 2)) / desktopViewportHeight : 0;
 
+    const sinceLast = (labelPlacementClock.get(baseGroup) ?? Infinity) + delta;
+    if (sinceLast >= LABEL_PLACEMENT_INTERVAL_S) {
+      labelPlacementClock.set(baseGroup, 0);
+      this.placeLandmarkLabels(wpGroup, camera, camWorldPos, metresPerPixelAtUnitDistance);
+    } else labelPlacementClock.set(baseGroup, sinceLast);
+
     for (const child of wpGroup.children) {
       const pin = child as THREE.Group;
       const uData = pin.userData;
@@ -533,15 +576,13 @@ export class DioramaBase {
 
       const label = pin.getObjectByName('WaypointLabelSprite') as THREE.Sprite | null;
       if (label) {
-        label.visible = isActive;
-        if (isActive) {
+        label.visible = isActive || uData.landmarkLabelShown === true;
+        if (label.visible) {
           // Angular size: 8-12 deg horizontal visual angle, practical world bounds [0.12m, 0.85m] (Section 33)
           const labelWorldPos = _scratchLabelPos;
           label.getWorldPosition(labelWorldPos);
           const distToCam = labelWorldPos.distanceTo(camWorldPos);
-          const desiredWorldWidth = metresPerPixelAtUnitDistance
-            ? Math.min(0.85, distToCam * metresPerPixelAtUnitDistance * 240)
-            : Math.max(0.12, Math.min(0.85, distToCam * 0.175));
+          const desiredWorldWidth = this.labelWorldWidth(distToCam, metresPerPixelAtUnitDistance, !isActive);
           const desiredWorldHeight = desiredWorldWidth * (128 / 384);
 
           // Robust local scale from pin world scale (Section 34)
@@ -554,6 +595,51 @@ export class DioramaBase {
       }
     }
     markerBatches.get(baseGroup)?.update();
+  }
+
+  /** Desired label world width at a distance (shared by sizing and overlap placement). */
+  private static labelWorldWidth(distToCam: number, metresPerPixelAtUnitDistance: number, compact = false): number {
+    // Always-on landmark labels are half the size of a hovered/selected label.
+    const k = compact ? 0.5 : 1;
+    return metresPerPixelAtUnitDistance
+      ? Math.min(0.85, distToCam * metresPerPixelAtUnitDistance * 240 * k)
+      : Math.max(0.12 * k, Math.min(0.85, distToCam * 0.175 * k));
+  }
+
+  /** Start, summit/high point, finish and day-boundary labels stay on unless they would
+   * cover a higher-priority label on screen. Runs on the placement interval, not per frame. */
+  private static placeLandmarkLabels(wpGroup: THREE.Object3D, camera: THREE.Camera, camWorldPos: THREE.Vector3,
+    metresPerPixelAtUnitDistance: number): void {
+    const projection = camera.projectionMatrix.elements;
+    camera.updateMatrixWorld();
+    let count = 0;
+    for (const pin of wpGroup.children) {
+      const priority = landmarkLabelPriority(pin.userData.waypoint?.type);
+      pin.userData.landmarkLabelShown = false;
+      if (priority === null || !pin.visible) continue;
+      const label = pin.getObjectByName('WaypointLabelSprite');
+      if (!label) continue;
+      label.getWorldPosition(_scratchLabelPos);
+      const dist = _scratchLabelPos.distanceTo(camWorldPos);
+      const width = this.labelWorldWidth(dist, metresPerPixelAtUnitDistance, true);
+      _scratchLabelView.copy(_scratchLabelPos).applyMatrix4(camera.matrixWorldInverse);
+      const depth = -_scratchLabelView.z;
+      const rect = labelRectPool[count] ??= { priority: 0, x: 0, y: 0, halfW: 0, halfH: 0, visible: false };
+      rect.priority = priority;
+      rect.visible = depth > 0;
+      _scratchLabelView.applyMatrix4(camera.projectionMatrix);
+      rect.x = depth > 0 ? _scratchLabelView.x : 0; rect.y = depth > 0 ? _scratchLabelView.y : 0;
+      rect.halfW = depth > 0 ? projection[0] * width / 2 / depth : 0;
+      rect.halfH = depth > 0 ? projection[5] * width * (128 / 384) / 2 / depth : 0;
+      rect.visible &&= Math.abs(rect.x) <= 1 + rect.halfW && Math.abs(rect.y) <= 1 + rect.halfH;
+      rect.pin = pin;
+      count++;
+    }
+    placeLandmarkLabels(labelRectPool, count);
+    for (let i = 0; i < count; i++) {
+      const rect = labelRectPool[i];
+      if (rect.pin) rect.pin.userData.landmarkLabelShown = rect.visible;
+    }
   }
 
   /**

@@ -366,7 +366,7 @@ Rainier route.
     sub-pixel; the casing is the outer 20% or about one pixel, whichever is wider. The
     trail was confirmed 5 m above the terrain along its whole length (not buried).
 
-- [ ] **V4 Markers have no names** — *Confirmed.*
+- [x] **V4 Markers have no names** — *Confirmed.*
   - Where: `src/visualization/DioramaBase.ts`, `src/visualization/TrailMesh.ts`,
     `src/visualization/WaypointInstanceRenderer.ts`.
   - Do: always show a text label for start, summit/high point, finish and day-boundary
@@ -375,6 +375,10 @@ Rainier route.
     screen, sort by priority (summit, start, finish, day boundary, other) and hide a
     label that overlaps a higher-priority one. Other waypoints keep hover-only labels.
   - Done when: four labelled pins are readable on the default view and none overlap.
+  - Note: there was no existing waypoint update throttle; placement runs every 0.2 s.
+    Always-on labels are half the hover size. On Rainier, Finish shares Start's location
+    (merged), and Day 2 Start is hidden at the default zoom because it would cover the
+    High Point label; it appears when zoomed in. So the default view shows two to three.
 
 - [ ] **V5 Follow camera is almost top-down** — *Confirmed.*
   - Where: `src/visualization/DioramaCameraFollow.ts`.
