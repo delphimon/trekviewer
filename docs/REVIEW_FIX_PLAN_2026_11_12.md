@@ -754,10 +754,12 @@ code, and list them in the commit message.
     uses TypeScript 7.0.2, so `npm install` fails on the peer range. Not forced with
     `--legacy-peer-deps`. **OWNER:** wait for a TS 7 compatible typescript-eslint, or pick
     another linter.
-- [ ] **T5 `package.json` hygiene:** add `"private": true`, a `description`, an `engines`
+- [x] **T5 `package.json` hygiene:** add `"private": true`, a `description`, an `engines`
   field matching CI, remove `"main": "index.js"`. Read the version in `vite.config.ts`
   from `package.json` instead of the hard-coded `1.0.0`. Make CI and local Node versions
   agree (CI uses 22; `@types/node` is 26).
+  - Note: aligned on Node 26 (local Node and `@types/node` are 26): CI uses 26,
+    `engines.node` is `>=26`, and `.nvmrc` says 26.
 - [ ] **T6 Rename history-named tests** (`stage_*`, `review_*`,
   `architecture_review_fixes`) to the unit they cover, splitting files that cover several
   units. Pure moves; no assertion changes. Do this last to avoid merge pain.

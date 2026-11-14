@@ -21,7 +21,8 @@ try {
 
 const buildTimestamp = new Date().toISOString();
 const buildId = `${gitSha.substring(0, 7)}${gitDirty ? '-modified' : ''}-${buildTimestamp}`;
-const buildLabel = process.env.APP_BUILD_LABEL || `TrekViewer 1.0.0 • ${gitSha.substring(0, 7)}${gitDirty ? " (modified)" : ""}`;
+const appVersion = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version as string;
+const buildLabel = process.env.APP_BUILD_LABEL || `TrekViewer ${appVersion} • ${gitSha.substring(0, 7)}${gitDirty ? " (modified)" : ""}`;
 
 const buildInfo = {id:buildId, sha:gitSha, shortSha:gitSha.substring(0,7), branch:gitBranch,
   dirty:gitDirty, builtAt:buildTimestamp, label:buildLabel};

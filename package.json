@@ -1,9 +1,12 @@
 {
   "name": "trekviewer",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "TrekViewer 3D: GPX routes on real terrain as a tabletop model or life-size trail, in the browser and on Meta Quest (WebXR).",
   "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
