@@ -28,6 +28,12 @@ import {
 export const handPokePointerId = (handedness?: string | null) => `handpoke_${handedness ?? 'unknown'}`;
 export const handRayPointerId = (handedness?: string | null) => `handray_${handedness ?? 'unknown'}`;
 
+/** True only when the HUD reports its own drag-handle area under this UV (never a button). */
+export function isHUDDragHandleHit(hud: Pick<SpatialHUD, 'onPointerHover' | 'isHoveringDragHandle'>, uv: THREE.Vector2): boolean {
+  hud.onPointerHover(uv);
+  return hud.isHoveringDragHandle();
+}
+
 export { ALL_HAND_JOINTS, BONE_CONNECTIONS };
 
 export interface XRInteractionCallbacks {
@@ -1547,8 +1553,8 @@ export class XRManager {
         state.reticle.lookAt(_scratchV1);
       }
 
-      // Check if hitting HUD drag handle: grab cylinder or top drag handle bar on card
-      const isDragTarget = isHitGrabMesh || (hudHit.uv && (this.spatialHUD!.isHoveringDragHandle() || (hudHit.uv.y > 0.92 && hudHit.uv.x >= 0.25 && hudHit.uv.x <= 0.75)));
+      // Check if hitting HUD drag handle: grab cylinder or the HUD's own 'hud-drag' area
+      const isDragTarget = isHitGrabMesh || (!!hudHit.uv && isHUDDragHandleHit(this.spatialHUD!, hudHit.uv));
       if (isDragTarget) {
         if (isTriggerDown && !state.prevButtons[0]) {
           state.isDraggingHUD = true;

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 vi.mock('../src/offline/OfflineDownloadsPanel.ts', () => ({ OfflineDownloadsPanel: class { setManifest() {} dispose() {} } }));
 import * as THREE from 'three';
 import { SpatialHUD } from '../src/ui/SpatialHUD.ts';
-import { handPokePointerId, handRayPointerId } from '../src/core/XRManager.ts';
+import { handPokePointerId, handRayPointerId, isHUDDragHandleHit } from '../src/core/XRManager.ts';
 import type { TrackStats, GPXPoint, TrackSegment } from '../src/gpx/TrackTypes.ts';
 
 function createMockTrack(pointCount: number = 10, hasTimestamps: boolean = true): TrackStats {
@@ -194,5 +194,23 @@ it('keeps a hand-ray scrub alive when the same hand\'s poke path releases', () =
   hud.onPointerRelease(ray);
   hud.onPointerDrag(chart(800), ray);
   expect(onScrub).toHaveBeenCalledTimes(2);
+  hud.dispose();
+});
+
+it('resolves the whole Dock button to Dock, and only the drag bar to a panel drag', () => {
+  const onDockHUD = vi.fn();
+  const hud = new SpatialHUD(createMockTrack(50), {
+    onTogglePlay: () => {}, onToggleViewMode: () => {}, onToggleTexture: () => {},
+    onReset: () => {}, onExitMR: () => {}, onScrub: () => {}, onSetSpeed: () => {},
+    onStepSeconds: () => {}, onFocusHiker: () => {}, onDockHUD,
+  });
+  const at = (x: number, y: number) => new THREE.Vector2(x / 1024, 1 - y / 768);
+  // Dock rectangle is x 650-765, y 25-79 on the 1024x768 canvas.
+  for (const point of [at(707, 52), at(707, 26), at(652, 30)]) {
+    expect(isHUDDragHandleHit(hud, point)).toBe(false);
+    expect(hud.onPointerClick(point, 'controller_0')).toBe(true);
+  }
+  expect(onDockHUD).toHaveBeenCalledTimes(3);
+  expect(isHUDDragHandleHit(hud, at(500, 20))).toBe(true);
   hud.dispose();
 });

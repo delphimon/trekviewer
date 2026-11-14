@@ -218,7 +218,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Test: fake timers, a fetch that never resolves; assert the negative-cache retry delay
     is 15000.
 
-- [ ] **B8 Laser cannot press most of the HUD Dock button** — *Reported (verify first).*
+- [x] **B8 Laser cannot press most of the HUD Dock button** — *Reported (verify first).*
   - Where: `src/core/XRManager.ts` (search `uv.y > 0.92`), `src/ui/SpatialHUD.ts` Dock
     button rectangle (x 650–765, y 25–79) and the `hud-drag` area.
   - Do: remove the UV fallback drag zone and use only the `hud-drag` hit area reported by
