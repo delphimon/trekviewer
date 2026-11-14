@@ -115,7 +115,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
 
 ## Phase B — Correctness bugs
 
-- [ ] **B1 Imagery tiles overflow the texture array and draw flat quads** — *Confirmed
+- [x] **B1 Imagery tiles overflow the texture array and draw flat quads** — *Confirmed
   (budgets and layer count); overflow behaviour reported.*
   - Where: `src/terrain/ImageryBatchRenderer.ts` (`IMAGERY_BATCH_LIMITS.layers: 32`,
     `maxPages`, `eligible()`), `src/terrain/QualityProfile.ts` (`tabletopPatches: 448`,
@@ -138,6 +138,8 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     has `visible === true` in terrain-shader mode.
   - Done when: test passes; Browser check with `?debug=1` in walk mode for 60 s shows no
     flat sheets.
+  - Note: patch meshes keep `visible` as the logical flag (coverage and upload use it);
+    they are kept off-screen with `layers.mask = 0`, so the test checks drawable meshes.
 
 - [ ] **B2 Updating a "Needs update" pack takes the whole pack offline** — *Confirmed.*
   - Where: `src/offline/OfflineDownloads.ts` near

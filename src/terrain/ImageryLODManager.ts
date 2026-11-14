@@ -6,7 +6,7 @@ import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGe
 import { runTerrainJob } from './TerrainJobs.ts';
 import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
-import { ImageryBatchRenderer } from './ImageryBatchRenderer.ts';
+import { ImageryBatchRenderer, imageryArrayCapacity } from './ImageryBatchRenderer.ts';
 import { TerrainImageryMaterial } from './TerrainImageryMaterial.ts';
 import type { TileGridBounds } from './TextureProvider.ts';
 import { computeBroadDetailTiles, type DetailFocus } from './BroadDetailSelection.ts';
@@ -89,6 +89,7 @@ export interface ImageryLODManagerOptions {
 
 export interface ImageryLODDiagnostics {
   activePatchesCount: number;
+  patchBudget: number;
   targetZoom: number;
   calculatedDesiredZoom: number;
   effectiveProviderClampedZoom: number;
@@ -1016,7 +1017,7 @@ export class ImageryLODManager {
     this.routeGeometry = options.routeGeometry;
 
     this.maxConcurrency = options.maxConcurrency ?? this.qualityProfile.concurrency;
-    this.maxPatches = options.maxPatches ?? (this.viewMode === 'first-person' ? this.qualityProfile.firstPersonPatches : this.qualityProfile.tabletopPatches);
+    this.maxPatches = options.maxPatches ?? this.patchBudget(this.qualityProfile, this.viewMode);
     this.warmRetentionMs = this.qualityProfile.warmRetentionMs;
     this.EVAL_INTERVAL_MS = this.qualityProfile.evalIntervalMs;
     this.PROMOTION_DWELL_MS = this.qualityProfile.promotionDwellMs;
@@ -1110,6 +1111,7 @@ export class ImageryLODManager {
 
     return {
       activePatchesCount: this.patches.size,
+      patchBudget: this.maxPatches,
       targetZoom: this.currentTargetZoom,
       calculatedDesiredZoom: this.calculatedDesiredZoom,
       effectiveProviderClampedZoom: this.currentTargetZoom,
@@ -1177,6 +1179,10 @@ export class ImageryLODManager {
     if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
     this.batchRenderer.sync(this.patches);
     if (this.terrainImagery) {
+      // The terrain shader draws uploaded tiles; until a tile is uploaded the
+      // parent tile or route composite stays on screen. Never draw the patch
+      // mesh itself (often a flat 4-corner proxy that cuts through ridges).
+      for (const patch of this.patches.values()) patch.mesh.layers.mask = 0;
       const base = this.options.terrainMesh;
       const surfaces = base?.parent?.children.filter((object): object is THREE.Mesh =>
         object instanceof THREE.Mesh && (object === base || object.name === 'LocalHighResTerrainMesh')) ?? (base ? [base] : []);
@@ -1189,6 +1195,8 @@ export class ImageryLODManager {
     this.terrainImagery?.dispose(); this.terrainImagery = undefined;
     this.batchRenderer?.clear();
     this.batchSupport = null;
+    // Fallback rendering draws patch meshes again once they hold real geometry.
+    for (const [key, patch] of this.patches) if (!this.staleDirectPatches.has(key)) patch.mesh.layers.mask = 1;
     try { await this.refreshDirectSources(); }
     finally { this.directRefreshDepth--; }
   }
@@ -1213,6 +1221,7 @@ export class ImageryLODManager {
       if (!patch || !patches.includes(patch)) continue;
       const previous = patch.mesh.geometry; patch.mesh.geometry = createPromotedPatchGeometry(data); previous.dispose();
       this.staleDirectPatches.delete(data.key);
+      if (!this.terrainImagery) patch.mesh.layers.mask = 1;
     }
   }
 
@@ -1275,11 +1284,19 @@ export class ImageryLODManager {
     }
   }
 
+  /** Profile budget; with terrain-shader imagery every selected tile must
+   * also fit a texture-array slot (32 kept free for turnover). */
+  private patchBudget(profile: QualityProfile, mode: ViewMode): number {
+    const budget = mode === 'first-person' ? profile.firstPersonPatches : profile.tabletopPatches;
+    return this.options.experimentalTerrainImagery && this.options.terrainTileGrid
+      ? Math.min(budget, imageryArrayCapacity() - 32) : budget;
+  }
+
   public setViewMode(mode: ViewMode): void {
     if (this.isDisposed || this.viewMode === mode) return;
     this.detailFocusPoints = []; this.detailFocusHistory = [];
     this.viewMode = mode;
-    this.maxPatches = mode === 'first-person' ? this.qualityProfile.firstPersonPatches : this.qualityProfile.tabletopPatches;
+    this.maxPatches = this.patchBudget(this.qualityProfile, mode);
     this.currentGeneration++;
 
     if (mode === 'first-person') {
@@ -1337,7 +1354,7 @@ export class ImageryLODManager {
     this.directionalGaze = null;
     this.qualityProfile = profile;
     this.maxConcurrency = profile.concurrency;
-    this.maxPatches = this.viewMode === 'first-person' ? profile.firstPersonPatches : profile.tabletopPatches;
+    this.maxPatches = this.patchBudget(profile, this.viewMode);
     this.warmRetentionMs = profile.warmRetentionMs;
     this.EVAL_INTERVAL_MS = profile.evalIntervalMs;
     this.PROMOTION_DWELL_MS = profile.promotionDwellMs;
@@ -2692,6 +2709,8 @@ export class ImageryLODManager {
     mesh.name = `ImageryPatch_${key}`;
     // Keep imagery below the trail (renderOrder 5, stronger depth offset).
     mesh.renderOrder = 1 + (zoom - 13) / 8;
+    // Terrain-shader mode draws the tile from the texture array, never this mesh.
+    if (this.terrainImagery) mesh.layers.mask = 0;
 
     let outlineMesh: THREE.LineSegments | undefined;
     if (this.debugPatchBounds) {

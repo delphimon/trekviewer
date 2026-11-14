@@ -7,6 +7,12 @@ export const IMAGERY_BATCH_LIMITS = {
   preparationMsPerFrame: 2,
 } as const;
 const PAGE_GEOMETRY_BYTES = IMAGERY_BATCH_LIMITS.verticesPerPage * 32 + IMAGERY_BATCH_LIMITS.indicesPerPage * 4;
+const DEFAULT_MAX_PAGES = Math.floor(IMAGERY_BATCH_LIMITS.geometryBytes / PAGE_GEOMETRY_BYTES);
+
+/** Tiles the texture arrays can hold at once (layers per page × page limit). */
+export function imageryArrayCapacity(maxPages = DEFAULT_MAX_PAGES): number {
+  return IMAGERY_BATCH_LIMITS.layers * maxPages;
+}
 
 interface Page {
   zoom: number; width: number; height: number;
@@ -41,7 +47,7 @@ export class ImageryBatchRenderer {
       && gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS) >= IMAGERY_BATCH_LIMITS.layers;
   }
 
-  constructor(private readonly maxPages = Math.floor(IMAGERY_BATCH_LIMITS.geometryBytes / PAGE_GEOMETRY_BYTES), private readonly directSurface = false,
+  constructor(private readonly maxPages = DEFAULT_MAX_PAGES, private readonly directSurface = false,
     private readonly beforeRelease?: (patch: ImageryPatch) => void) {
     if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > Math.floor(IMAGERY_BATCH_LIMITS.geometryBytes / PAGE_GEOMETRY_BYTES)) throw new RangeError('Invalid imagery page limit');
     this.group.name = this.directSurface ? 'TerrainImageryCache' : 'ImageryBatchPrototype';
@@ -153,11 +159,16 @@ export class ImageryBatchRenderer {
       const diagnostics = this.getDiagnostics();
       const arrayBytes = this.mipBytes(width, height) * IMAGERY_BATCH_LIMITS.layers;
       if (this.pages.length >= this.maxPages || diagnostics.arrayBytes + arrayBytes > IMAGERY_BATCH_LIMITS.arrayBytes
-        || (!this.directSurface && diagnostics.geometryBytes + PAGE_GEOMETRY_BYTES > IMAGERY_BATCH_LIMITS.geometryBytes)) return false;
-      // Allocation failure must leave the source visible, like any other
-      // unsupported case; never turn a rendering experiment into a blank tile.
-      try { page = this.createPage(patch, width, height, arrayBytes); }
-      catch { this.failures++; return false; }
+        || (!this.directSurface && diagnostics.geometryBytes + PAGE_GEOMETRY_BYTES > IMAGERY_BATCH_LIMITS.geometryBytes)) {
+        // Full: a visible tile takes the slot of a hidden (warm or covered) one.
+        page = this.evictHidden(patch, width, height, vertices, indices);
+        if (!page) return false;
+      } else {
+        // Allocation failure must leave the source visible, like any other
+        // unsupported case; never turn a rendering experiment into a blank tile.
+        try { page = this.createPage(patch, width, height, arrayBytes); }
+        catch { this.failures++; return false; }
+      }
     }
     let geometryId: number | undefined;
     try {
@@ -200,6 +211,20 @@ export class ImageryBatchRenderer {
       this.unreadable.add(image); this.failures++;
       return false;
     }
+  }
+
+  private evictHidden(patch: ImageryPatch, width: number, height: number, vertices: number, indices: number): Page | undefined {
+    for (const [key, entry] of this.entries) {
+      const page = entry.page;
+      if (entry.patch.mesh.visible || page.width !== width || page.height !== height
+        || page.texture.anisotropy !== patch.texture.anisotropy) continue;
+      if (!this.directSurface && (page.zoom !== patch.zoom || page.mesh?.renderOrder !== patch.mesh.renderOrder
+        || page.vertices - entry.geometry.attributes.position.count + vertices > IMAGERY_BATCH_LIMITS.verticesPerPage
+        || page.indices - entry.geometry.index!.count + indices > IMAGERY_BATCH_LIMITS.indicesPerPage)) continue;
+      this.remove(key, entry);
+      return page;
+    }
+    return undefined;
   }
 
   private remove(key: string, entry: Entry): void {
