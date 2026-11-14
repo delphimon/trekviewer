@@ -62,6 +62,15 @@ export function plinthBottomDepth(baseY: number = DIORAMA_BASE_Y): number {
   return -(baseY - PLINTH_HEIGHT_M);
 }
 
+/** Scale bar length: the largest 1-2-5 x 10^n metres that is at most 25% of the plinth width
+ * (always at least 8% of it, since consecutive 1-2-5 steps differ by at most 2.5x). */
+export function scaleBarLengthMeters(plinthWidthM: number): number {
+  const target = Math.max(1, plinthWidthM * 0.25);
+  const decade = 10 ** Math.floor(Math.log10(target));
+  for (const step of [5, 2, 1]) if (step * decade <= target) return step * decade;
+  return decade;
+}
+
 export class DioramaBase {
   public static setMarkerBatching(base: THREE.Group, enabled: boolean): void {
     if (!enabled) { markerBatches.get(base)?.dispose(); markerBatches.delete(base); return; }
@@ -236,7 +245,7 @@ export class DioramaBase {
     const group = new THREE.Group();
     group.name = 'ScaleBar';
 
-    const barLength = widthM > 8000 ? 2000 : 1000;
+    const barLength = scaleBarLengthMeters(widthM + 40);
     const labelText = barLength >= 1000 ? `${barLength / 1000} km` : `${barLength} m`;
     group.userData = { scaleMeters: barLength, label: labelText };
 

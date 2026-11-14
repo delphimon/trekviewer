@@ -396,10 +396,14 @@ Rainier route.
   `src/core/SceneManager.ts` `TextureProvider.setMaxAnisotropy(...)`: clamp to 4 for
   quest profiles and 8 for desktop.
 
-- [ ] **V8 Scale bar is useless once zoomed** — *Reported (verify first).*
+- [~] **V8 Scale bar is useless once zoomed** — *Reported (verify first).*
   `src/visualization/DioramaBase.ts` `ScaleBar`: pick the bar length from the current
   model scale so it stays between 8% and 25% of the plinth width, choosing from
   1-2-5 × 10ⁿ metres, and update its label.
+  - Note: the bar is now the largest 1-2-5 × 10ⁿ length within 8–25% of the plinth width
+    (2 km on Rainier). The ratio to the plinth cannot change with model scale (both scale
+    together), so zooming still leaves the bar in the plinth corner. OWNER: say whether a
+    screen-relative scale bar (sized to the visible ground) is wanted instead.
 
 ---
 
@@ -732,4 +736,10 @@ and anything the owner must check.
   the preview until it is unregistered. **OWNER action S1:** revoke the Cesium token that
   was committed in `src/terrain/TextureProvider.ts` at `33a0f92` in the Cesium ion
   dashboard, and restrict the current token to the app's allowed URLs.
+- 2026-11-13, Phase V done. V1–V7 done with before/after browser checks on default
+  Rainier; V8 partly done (see its note). V1 consolidates four copies of the terrain margin
+  into `terrainFootprint()`; first load in the preview now takes about 30–40 s instead of
+  about 18 s. **OWNER:** existing offline packs will show "Needs update" after V1 (B2 keeps
+  them usable). V3 casing has a one-pixel minimum because the overview ribbon is ~3 px wide.
+  V4 added a 0.2 s label placement throttle (none existed). V8 needs an owner decision.
 
