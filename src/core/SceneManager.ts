@@ -7,6 +7,10 @@ import { requestedXRFoveation, readXRRenderQuality } from './XRRenderQuality.ts'
 import type { QualityProfileName } from '../terrain/QualityProfile.ts';
 
 /** Texture anisotropy: 4 on Quest profiles (bandwidth), 8 on desktop, never above the device. */
+/** Comfort vignette: darkens from 26 deg to 54 deg off the eye's view direction. */
+export const VIGNETTE_VERTEX_SHADER = 'varying vec3 viewDir; void main(){vec4 v=inverse(projectionMatrix)*vec4(position.xy,1.0,1.0);viewDir=v.xyz/v.w;gl_Position=vec4(position.xy,0.0,1.0);}';
+export const VIGNETTE_FRAGMENT_SHADER = 'varying vec3 viewDir; uniform float strength; void main(){vec3 d=normalize(viewDir);float angle=atan(length(d.xy),-d.z);float edge=smoothstep(0.45,0.95,angle);if(edge<0.01)discard;gl_FragColor=vec4(0.0,0.0,0.0,edge*strength);}';
+
 export function anisotropyForProfile(profile: QualityProfileName, deviceMax: number): number {
   return Math.max(1, Math.min(profile.startsWith('quest') ? 4 : 8, deviceMax || 1));
 }
@@ -73,8 +77,10 @@ export class SceneManager {
     container.appendChild(this.renderer.domElement);
     this.vignette = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
       uniforms: { strength: { value: 0 } }, transparent: true, depthTest: false, depthWrite: false,
-      vertexShader: 'varying vec2 screenUV; void main(){screenUV=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
-      fragmentShader: 'varying vec2 screenUV; uniform float strength; void main(){float edge=smoothstep(0.25,0.67,length(screenUV-0.5));if(edge<0.01)discard;gl_FragColor=vec4(0.0,0.0,0.0,edge*strength);}',
+      // Measured from each eye's view direction, not its viewport centre: XR eye projections
+      // are off-axis, so a screen-centred ring sat in different places for the two eyes.
+      vertexShader: VIGNETTE_VERTEX_SHADER,
+      fragmentShader: VIGNETTE_FRAGMENT_SHADER,
     }));
     this.vignette.frustumCulled = false;
     this.vignette.renderOrder = 2000;
