@@ -53,6 +53,7 @@ const _scratchHUDOffset = new THREE.Vector3();
 const _scratchHUDEye = new THREE.Vector3();
 const _yAxis = new THREE.Vector3(0, 1, 0);
 const _scratchFollowAhead = new THREE.Vector3();
+const _scratchFollowTravel = new THREE.Vector3();
 
 export class TrekViewerApp {
   /** Device-local resource cache controls and diagnostics; contains no keys. */
@@ -1414,12 +1415,15 @@ export class TrekViewerApp {
         const marker = this.trailResult.hikerMarker;
         const progress = this.flyoverController?.getProgress() ?? 0;
         const ahead = this.trailResult.routeGeometry?.getTelemetryAtProgress(Math.min(1, progress + 0.02))?.position;
+        let travel: THREE.Vector3 | undefined;
         if (ahead) {
           _scratchFollowAhead.copy(ahead);
           if (marker.parent) marker.parent.localToWorld(_scratchFollowAhead);
+          travel = _scratchFollowTravel.subVectors(_scratchFollowAhead, this.followFocus);
           this.followFocus.lerp(_scratchFollowAhead, 0.4);
         }
-        this.dioramaFollow.update(this.sceneManager.camera, this.controls.target, this.followFocus, delta);
+        // Follow from behind the direction of travel so the skyline stays in view.
+        this.dioramaFollow.update(this.sceneManager.camera, this.controls.target, this.followFocus, delta, travel);
       }
     }
     if (this.controls.enabled && this.currentViewMode === 'diorama') this.controls.update();

@@ -3,6 +3,10 @@ import type { TerrainResult } from '../terrain/TerrainGenerator.ts';
 
 export const FOLLOW_SURFACE_SAMPLES = 16;
 export const FOLLOW_SURFACE_CLEARANCE = 0.015;
+/** Camera elevation above the horizon when following the direction of travel. */
+export const FOLLOW_PITCH_RAD = THREE.MathUtils.degToRad(35);
+/** Heading smoothing time constant: about 2 s to settle, so switchbacks do not swing the view. */
+export const FOLLOW_HEADING_TAU_S = 0.7;
 type FollowTerrain = Pick<TerrainResult, 'group' | 'sampleRenderedSurfaceY' | 'getVerticalExaggeration'>;
 
 /** Desktop-only inspection camera. The XR viewer and model never move here. */
@@ -15,6 +19,8 @@ export class DioramaCameraFollow {
   private readonly surfaceScale = new THREE.Vector3();
   private terrain: FollowTerrain | null = null;
   private localClearance = 0;
+  private readonly heading = new THREE.Vector3();
+  private hasHeading = false;
 
   public setTerrain(terrain: FollowTerrain | null): void {
     this.terrain = terrain;
@@ -27,10 +33,15 @@ export class DioramaCameraFollow {
     this.offset.setLength(THREE.MathUtils.clamp(this.offset.length(), 0.3, 0.8));
     // Keep a raised, oblique inspection view rather than a ground-level camera.
     this.offset.y = Math.max(0.25, this.offset.y);
+    this.hasHeading = false;
   }
 
-  public update(camera: THREE.Camera, target: THREE.Vector3, focus: THREE.Vector3, delta: number): void {
-    const alpha = 1 - Math.exp(-3 * (Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0));
+  /** `travel` (world space, optional) is the hiker's direction of travel; the camera then sits
+   * behind it at FOLLOW_PITCH_RAD. Without it the start offset is kept. */
+  public update(camera: THREE.Camera, target: THREE.Vector3, focus: THREE.Vector3, delta: number, travel?: THREE.Vector3): void {
+    const dt = Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0;
+    const alpha = 1 - Math.exp(-3 * dt);
+    if (travel) this.updateHeading(travel, dt);
     this.desiredPosition.copy(focus).add(this.offset);
     const terrain = this.terrain;
     let surfaceReady = false;
@@ -50,6 +61,23 @@ export class DioramaCameraFollow {
     camera.position.lerp(this.desiredPosition, alpha);
     // Smoothing or a scrub can put the actual camera below a newly raised ridge.
     if (terrain && surfaceReady) this.raiseAboveSurface(camera.position, terrain);
+  }
+
+  private updateHeading(travel: THREE.Vector3, dt: number): void {
+    const length = Math.hypot(travel.x, travel.z);
+    if (!(length > 1e-9)) return;
+    if (!this.hasHeading) { this.heading.set(travel.x / length, 0, travel.z / length); this.hasHeading = true; }
+    else {
+      const k = 1 - Math.exp(-dt / FOLLOW_HEADING_TAU_S);
+      this.heading.x += (travel.x / length - this.heading.x) * k;
+      this.heading.z += (travel.z / length - this.heading.z) * k;
+      const h = Math.hypot(this.heading.x, this.heading.z);
+      if (h < 1e-6) return; // an exact reversal passes through zero; keep the last offset
+      this.heading.x /= h; this.heading.z /= h;
+    }
+    const distance = this.offset.length();
+    const back = distance * Math.cos(FOLLOW_PITCH_RAD);
+    this.offset.set(-this.heading.x * back, distance * Math.sin(FOLLOW_PITCH_RAD), -this.heading.z * back);
   }
 
   private raiseAboveSurface(position: THREE.Vector3, terrain: FollowTerrain): void {

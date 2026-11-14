@@ -380,7 +380,7 @@ Rainier route.
     (merged), and Day 2 Start is hidden at the default zoom because it would cover the
     High Point label; it appears when zoomed in. So the default view shows two to three.
 
-- [ ] **V5 Follow camera is almost top-down** — *Confirmed.*
+- [x] **V5 Follow camera is almost top-down** — *Confirmed.*
   - Where: `src/visualization/DioramaCameraFollow.ts`.
   - Do: follow from behind the direction of travel at about 35° above the horizon,
     smoothing the heading over about 2 s so switchbacks do not swing the camera. Keep the
