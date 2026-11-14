@@ -28,6 +28,17 @@ import {
 export const handPokePointerId = (handedness?: string | null) => `handpoke_${handedness ?? 'unknown'}`;
 export const handRayPointerId = (handedness?: string | null) => `handray_${handedness ?? 'unknown'}`;
 
+const _footprintLocal = new THREE.Vector3();
+/** Whether a world-space point lies over the plinth (local footprint `plinthWidth` x `plinthDepth`
+ * model metres, centred on the root) plus `marginWorld` metres. */
+export function isOverPlinthFootprint(root: THREE.Object3D, worldPoint: THREE.Vector3,
+  plinthWidth: number, plinthDepth: number, marginWorld = 0.05): boolean {
+  root.updateMatrixWorld();
+  const local = root.worldToLocal(_footprintLocal.copy(worldPoint));
+  const margin = marginWorld / Math.max(Math.abs(root.scale.x), 1e-9);
+  return Math.abs(local.x) <= plinthWidth / 2 + margin && Math.abs(local.z) <= plinthDepth / 2 + margin;
+}
+
 /** True only when the HUD reports its own drag-handle area under this UV (never a button). */
 export function isHUDDragHandleHit(hud: Pick<SpatialHUD, 'onPointerHover' | 'isHoveringDragHandle'>, uv: THREE.Vector2): boolean {
   hud.onPointerHover(uv);
@@ -1663,6 +1674,9 @@ export class XRManager {
         const t = (planeY - _scratchRayOrigin.y) / _scratchRayDir.y;
         if (t > 0 && t < 12) {
           tableHit = _scratchV1.copy(_scratchRayOrigin).addScaledVector(_scratchRayDir, t);
+          // Only the model itself (plinth footprint plus 5 cm) can be grabbed, not the room.
+          if (!isOverPlinthFootprint(this.sceneManager.dioramaRoot, tableHit,
+            this.dioramaWidthMeters + 40, this.dioramaDepthMeters + 40)) tableHit = null;
         }
       }
 

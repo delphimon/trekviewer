@@ -226,7 +226,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Test: hit-test the centre and the top edge of the Dock rectangle; both must resolve
     to the Dock action, not a drag.
 
-- [ ] **B9 Trigger grabs the model from anywhere** — *Reported (verify first).*
+- [x] **B9 Trigger grabs the model from anywhere** — *Reported (verify first).*
   - Where: `src/core/XRManager.ts` (search `t < 12`).
   - Do: after intersecting the horizontal plane, transform the hit into `dioramaRoot`
     local space and reject it when it lies outside the plinth footprint plus 5 cm.
