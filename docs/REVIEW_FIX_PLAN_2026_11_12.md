@@ -700,3 +700,14 @@ Add one entry per finished phase: date, items done, items dropped and why, measu
 and anything the owner must check.
 
 - 2026-11-12: plan written. Nothing started.
+- 2026-11-13, Phase B done (branch `review-fixes-2026-11-12`). B1–B3, B5–B9, B11–B13 done;
+  B4, B10, B14 done in code and marked `[~]` for a headset check. T1 (`fake-indexeddb`)
+  done early for B2. Verify-first items B8, B9, B10, B11, B12, B13 and the B14 storage
+  item were all confirmed by test or reading; none dropped. Existing tests changed because
+  they encoded old behaviour: `review_improvements` (poke id, 150 ms re-press),
+  `terrain_cache_robustness` (DEM pixel centres), `desktop_status_banner` and
+  `xr_availability` (explicit status state). B1 browser check: 60 s in walk mode with
+  `?debug=1`, coverage 100 %, no flat sheets. Suite: 157 files / 909 tests.
+  Owner headset checks: B4 plinth sits on a detected table; B10 slow poke fires once;
+  B14 model appears 80 cm ahead of where you look on MR entry without a table.
+
