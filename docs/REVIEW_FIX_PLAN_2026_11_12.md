@@ -183,7 +183,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
   - Note: needs headset check — in passthrough with a Space Setup table, the plinth's
     bottom face should sit on the table top (no slab hidden below the surface).
 
-- [ ] **B5 Chunk seam re-blend runs on already-blended heights** — *Confirmed.*
+- [x] **B5 Chunk seam re-blend runs on already-blended heights** — *Confirmed.*
   - Where: `src/terrain/LocalTerrainChunk.ts`
     `this.rawLocalHeights = prepared ? new Float32Array(prepared.heights) : ...` and the
     prepared payload `heights: this.unscaledHeights`; `src/workers/TerrainWorker.ts`.

@@ -14,6 +14,10 @@ export interface TerrainChunkData {
   uvs: Float32Array;
   indices: Uint16Array | Uint32Array;
   heights: Float32Array;
+  /** Unblended local heights; setOuterEdges re-blends from these. */
+  rawHeights?: Float32Array;
+  /** Unblended heights one cell beyond each edge (west, east, north, south), for two-sided edge normals. */
+  edgeRing?: Float32Array;
   bounds: { min: [number, number, number]; max: [number, number, number]; center: [number, number, number]; radius: number };
   fallbackCount: number;
   maxDiffFromBase: number;
@@ -102,6 +106,7 @@ export class LocalTerrainChunk {
   public readonly material: THREE.MeshStandardMaterial;
   private unscaledHeights: Float32Array;
   private rawLocalHeights: Float32Array;
+  private edgeRing?: Float32Array;
   private segments: number;
   private segmentsX: number;
   private segmentsZ: number;
@@ -136,7 +141,7 @@ export class LocalTerrainChunk {
       indices: this.geometry.index!.array as Uint16Array | Uint32Array,
       bounds: { min: this.geometry.boundingBox!.min.toArray(), max: this.geometry.boundingBox!.max.toArray(),
         center: this.geometry.boundingSphere!.center.toArray(), radius: this.geometry.boundingSphere!.radius },
-      heights: this.unscaledHeights, fallbackCount: this.fallbackCount, maxDiffFromBase: this.maxDiffFromBase,
+      heights: this.unscaledHeights, rawHeights: this.rawLocalHeights, edgeRing: this.edgeRing, fallbackCount: this.fallbackCount, maxDiffFromBase: this.maxDiffFromBase,
     };
   }
 
@@ -210,7 +215,8 @@ export class LocalTerrainChunk {
     const vertexCount = posAttr.count;
     this.totalVertices = vertexCount;
     this.unscaledHeights = prepared?.heights ?? new Float32Array(vertexCount);
-    this.rawLocalHeights = prepared ? new Float32Array(prepared.heights) : new Float32Array(vertexCount);
+    this.rawLocalHeights = prepared?.rawHeights ?? (prepared ? new Float32Array(prepared.heights) : new Float32Array(vertexCount));
+    this.edgeRing = prepared ? prepared.edgeRing : this.sampleEdgeRing(options.localGrid);
     this.fallbackCount = 0;
     this.maxDiffFromBase = 0;
 
@@ -265,7 +271,7 @@ export class LocalTerrainChunk {
 
     posAttr.needsUpdate = true;
     if (!options.preparedData) this.geometry.computeVertexNormals();
-    if (!options.preparedData) this.applyParentEdgeNormals();
+    if (!options.preparedData) { this.applyParentEdgeNormals(); this.applyInnerEdgeNormals(); }
     if (!prepared) {
       this.geometry.computeBoundingBox();
       this.geometry.computeBoundingSphere();
@@ -380,6 +386,54 @@ export class LocalTerrainChunk {
     }
   }
 
+  /** Raw heights one cell outside each edge, sampled from the same DEM a neighbour uses. */
+  private sampleEdgeRing(grid: ElevationGrid): Float32Array {
+    const sx = this.segmentsX, sz = this.segmentsZ, cw = this.widthM / sx, cd = this.depthM / sz;
+    const ring = new Float32Array(2 * (sz + 1) + 2 * (sx + 1));
+    const sample = (x: number, z: number) => {
+      const sceneX = this.localCenter.x + x, sceneZ = this.localCenter.z + z;
+      const geo = localMetersToGeo(sceneX, sceneZ, this.referenceCenterLat, this.referenceCenterLon);
+      const s = ElevationTileService.sampleElevation(grid, geo.lat, geo.lon);
+      return s.isValid && !isNaN(s.elevation) ? s.elevation - this.terrainBaseElevation
+        : this.baseSampler ? this.baseSampler(sceneX, sceneZ) : 0;
+    };
+    for (let row = 0; row <= sz; row++) {
+      const z = -this.depthM / 2 + row * cd;
+      ring[row] = sample(-this.widthM / 2 - cw, z);
+      ring[sz + 1 + row] = sample(this.widthM / 2 + cw, z);
+    }
+    for (let col = 0; col <= sx; col++) {
+      const x = -this.widthM / 2 + col * cw;
+      ring[2 * (sz + 1) + col] = sample(x, -this.depthM / 2 - cd);
+      ring[2 * (sz + 1) + sx + 1 + col] = sample(x, this.depthM / 2 + cd);
+    }
+    return ring;
+  }
+
+  /** Inner (shared) edges get central-difference normals from the height field, using
+   * the ring beyond the edge, so both neighbouring chunks light the seam the same way. */
+  private applyInnerEdgeNormals(): void {
+    const ring = this.edgeRing;
+    if (!ring) return;
+    const sx = this.segmentsX, sz = this.segmentsZ, stride = sx + 1;
+    const gxScale = this.currentExaggeration / (2 * this.widthM / sx), gzScale = this.currentExaggeration / (2 * this.depthM / sz);
+    const h = this.unscaledHeights, normals = this.geometry.attributes.normal;
+    const set = (row: number, col: number) => {
+      const i = row * stride + col;
+      const west = col > 0 ? h[i - 1] : ring[row], east = col < sx ? h[i + 1] : ring[sz + 1 + row];
+      const north = row > 0 ? h[i - stride] : ring[2 * (sz + 1) + col];
+      const south = row < sz ? h[i + stride] : ring[2 * (sz + 1) + stride + col];
+      const gx = (east - west) * gxScale, gz = (south - north) * gzScale;
+      const length = Math.hypot(gx, 1, gz);
+      normals.setXYZ(i, -gx / length, 1 / length, -gz / length);
+    };
+    if (!this.outerEdges.west) for (let row = 0; row <= sz; row++) set(row, 0);
+    if (!this.outerEdges.east) for (let row = 0; row <= sz; row++) set(row, sx);
+    if (!this.outerEdges.north) for (let col = 0; col <= sx; col++) set(0, col);
+    if (!this.outerEdges.south) for (let col = 0; col <= sx; col++) set(sz, col);
+    normals.needsUpdate = true;
+  }
+
   public getOuterEdges(): TerrainChunkEdgeFlags {
     return { ...this.outerEdges };
   }
@@ -417,6 +471,7 @@ export class LocalTerrainChunk {
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
     this.applyParentEdgeNormals();
+    this.applyInnerEdgeNormals();
     this.geometry.computeBoundingBox();
     this.geometry.computeBoundingSphere();
     return true;
@@ -480,10 +535,12 @@ export class LocalTerrainChunk {
       this.unscaledHeights[i] = h;
       posAttr.setY(i, h * this.currentExaggeration);
     }
+    this.edgeRing = this.sampleEdgeRing(newGrid);
 
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
     this.applyParentEdgeNormals();
+    this.applyInnerEdgeNormals();
     this.geometry.computeBoundingBox();
     this.geometry.computeBoundingSphere();
 
@@ -581,6 +638,7 @@ export class LocalTerrainChunk {
     posAttr.needsUpdate = true;
     this.geometry.computeVertexNormals();
     this.applyParentEdgeNormals();
+    this.applyInnerEdgeNormals();
     this.geometry.computeBoundingBox();
     this.geometry.computeBoundingSphere();
 

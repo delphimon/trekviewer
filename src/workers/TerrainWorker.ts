@@ -31,7 +31,8 @@ self.onmessage = async (event: MessageEvent<TerrainWorkerJob>) => {
       if (!base) throw new Error('Terrain worker has no base grid');
       const chunk = new LocalTerrainChunk({ ...job.options, baseElevationSampler: (x, z) => sampleTerrainSurface(base, x, z) });
       const result = chunk.getBuildData();
-      self.postMessage({ result }, { transfer: [result.positions.buffer, result.normals.buffer, result.uvs.buffer, result.indices.buffer, result.heights.buffer] });
+      self.postMessage({ result }, { transfer: [result.positions.buffer, result.normals.buffer, result.uvs.buffer, result.indices.buffer, result.heights.buffer,
+        ...(result.rawHeights ? [result.rawHeights.buffer] : []), ...(result.edgeRing ? [result.edgeRing.buffer] : [])] });
       chunk.dispose();
     } else {
       const sample = (lat: number, lon: number): number | undefined => {
