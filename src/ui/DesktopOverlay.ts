@@ -1,4 +1,5 @@
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { formatElapsed, type TrailPointInfo } from '../visualization/TrailPick.ts';
 import { distanceInUnits, distanceUnitLabel, formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits, setUnits } from '../utils/Units.ts';
 import { chartBackingSize, chartReadout, distanceTicks } from './ElevationChart.ts';
 import { GPXParser } from '../gpx/GPXParser';
@@ -92,6 +93,7 @@ export class DesktopOverlay {
     else if (this.currentTrack) this.callbacks.onScrub(Math.min(1, Math.max(0, this.currentProgress + action.delta)));
   };
   private currentElevation = 0;
+  private trailPopoverTimer: ReturnType<typeof setTimeout> | undefined;
   private unsubscribeUnits: (() => void) | null = null;
   private chartLandmarks: { x: number; y: number; radius: number; landmark: RouteLandmark }[] = [];
 
@@ -1114,6 +1116,22 @@ export class DesktopOverlay {
     tip.textContent = `${formatDistance(distance)} • ${formatElevation(readout.elevation)} • ${readout.grade >= 0 ? '+' : ''}${readout.grade.toFixed(0)}%`;
     tip.style.left = `${x}px`;
     tip.hidden = false;
+  }
+
+  /** Small readout where the user clicked the trail. */
+  public showTrailPoint(info: TrailPointInfo, clientX: number, clientY: number): void {
+    let pop = document.getElementById('trailPointPopover');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'trailPointPopover'; pop.className = 'trail-point-popover glass-card'; pop.setAttribute('role', 'status');
+      this.container.appendChild(pop);
+    }
+    pop.textContent = `${formatDistance(info.distanceMeters)} • ${formatElevation(info.elevationMeters)} • `
+      + `${info.gradePercent >= 0 ? '+' : ''}${info.gradePercent.toFixed(0)}% • ${formatElapsed(info.elapsedSeconds)}`;
+    pop.style.left = `${clientX}px`; pop.style.top = `${clientY}px`;
+    pop.hidden = false;
+    if (this.trailPopoverTimer) clearTimeout(this.trailPopoverTimer);
+    this.trailPopoverTimer = setTimeout(() => { if (pop) pop.hidden = true; }, 6000);
   }
 
   public setHorizonLocked(locked: boolean): void {

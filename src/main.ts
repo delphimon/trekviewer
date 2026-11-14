@@ -1,4 +1,5 @@
 import { ImageryLODManager } from './terrain/ImageryLODManager.ts';
+import { trailPointInfo } from './visualization/TrailPick.ts';
 import * as THREE from 'three';
 import { formatDistance, formatElevation } from './utils/Units.ts';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -49,6 +50,7 @@ export function friendlyRouteError(error: Error): string {
 }
 
 const _scratchV3 = new THREE.Vector3();
+const _scratchPointerNdc = new THREE.Vector2();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchHUDDir = new THREE.Vector3();
 const _scratchHUDOffset = new THREE.Vector3();
@@ -153,6 +155,28 @@ export class TrekViewerApp {
   private chaseLookActive(): boolean {
     return this.currentViewMode === 'first-person' && !this.sceneManager.renderer.xr.isPresenting && !!this.flyoverController;
   }
+  /** Desktop tabletop: a click (no drag) on the trail jumps there and shows a readout. */
+  private trailClickStart: { x: number; y: number } | null = null;
+  private readonly trailRaycaster = new THREE.Raycaster();
+  private readonly onTrailPointerDown = (event: PointerEvent) => {
+    this.trailClickStart = event.button === 0 && this.currentViewMode === 'diorama' && !this.sceneManager.renderer.xr.isPresenting
+      ? { x: event.clientX, y: event.clientY } : null;
+  };
+  private readonly onTrailPointerUp = (event: PointerEvent) => {
+    const start = this.trailClickStart; this.trailClickStart = null;
+    const trail = this.trailResult, track = this.currentTrack;
+    if (!start || !trail || !track || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return;
+    const rect = this.sceneManager.renderer.domElement.getBoundingClientRect();
+    _scratchPointerNdc.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this.trailRaycaster.setFromCamera(_scratchPointerNdc, this.sceneManager.camera);
+    const hit = this.trailRaycaster.intersectObject(trail.trailMesh, false)[0];
+    if (!hit) return;
+    const local = trail.trailMesh.worldToLocal(hit.point.clone());
+    const info = trailPointInfo(trail.routeGeometry, track, local.x, local.z);
+    this.flyoverController?.setProgress(info.progress);
+    this.session.setProgress(info.progress);
+    this.overlay.showTrailPoint(info, event.clientX, event.clientY);
+  };
   private readonly onChasePointerDown = (event: PointerEvent) => {
     if (!this.chaseLookActive() || event.button !== 0) return;
     this.chaseDrag = { x: event.clientX, y: event.clientY };
@@ -231,6 +255,8 @@ export class TrekViewerApp {
     this.controls.addEventListener('start', this.onOrbitStart);
     const canvas = this.sceneManager.renderer.domElement;
     canvas.addEventListener('pointerdown', this.onChasePointerDown);
+    canvas.addEventListener('pointerdown', this.onTrailPointerDown);
+    canvas.addEventListener('pointerup', this.onTrailPointerUp);
     canvas.addEventListener('pointermove', this.onChasePointerMove);
     canvas.addEventListener('pointerup', this.onChasePointerUp);
     canvas.addEventListener('pointercancel', this.onChasePointerUp);
@@ -313,6 +339,14 @@ export class TrekViewerApp {
     this.xrManager.setCallbacks({
       onToggleViewMode: () => this.toggleViewMode(),
       onViewModeHoldProgress: (progress) => { this.viewHoldProgress = progress; },
+      onSelectTrailPoint: (x, z) => {
+        const trail = this.trailResult, track = this.currentTrack;
+        if (!trail || !track) return;
+        const info = trailPointInfo(trail.routeGeometry, track, x, z);
+        this.flyoverController?.setProgress(info.progress);
+        this.session.setProgress(info.progress);
+        this.spatialHUD?.showStatus(`${formatDistance(info.distanceMeters)} • ${formatElevation(info.elevationMeters)} • ${info.gradePercent >= 0 ? '+' : ''}${info.gradePercent.toFixed(0)}%`);
+      },
       onSessionBlur: () => {
         this.flyoverController?.pause();
         this.session.setPlayback(false);
@@ -634,6 +668,7 @@ export class TrekViewerApp {
     newTrek.setVerticalExaggeration(effectiveExaggeration);
     this.xrManager.setVerticalExaggeration(effectiveExaggeration);
 
+    this.xrManager.setTrailMesh?.(newTrek.trailResult?.trailMesh ?? null);
     this.xrManager.setDioramaContext(
       track.bounds,
       newTrek.terrainResult.elevationSampler,
@@ -1676,6 +1711,8 @@ export class TrekViewerApp {
     this.controls.removeEventListener('start', this.onOrbitStart);
     const chaseCanvas = this.sceneManager.renderer.domElement;
     chaseCanvas.removeEventListener('pointerdown', this.onChasePointerDown);
+    chaseCanvas.removeEventListener('pointerdown', this.onTrailPointerDown);
+    chaseCanvas.removeEventListener('pointerup', this.onTrailPointerUp);
     chaseCanvas.removeEventListener('pointermove', this.onChasePointerMove);
     chaseCanvas.removeEventListener('pointerup', this.onChasePointerUp);
     chaseCanvas.removeEventListener('pointercancel', this.onChasePointerUp);

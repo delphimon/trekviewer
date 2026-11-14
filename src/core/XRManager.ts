@@ -72,6 +72,8 @@ export interface XRInteractionCallbacks {
   onViewModeHoldProgress?: (progress: number | null) => void;
   /** The session became hidden or blurred (system menu, guardian): pause playback. */
   onSessionBlur?: () => void;
+  /** Trigger pressed on the trail; coordinates are trail-local model metres. */
+  onSelectTrailPoint?: (localX: number, localZ: number) => void;
   onTogglePlay?: () => void;
   onTurn?: (radians: number) => void;
   onLocomotion?: () => void;
@@ -248,6 +250,9 @@ export class XRManager {
   /** Reused for activePointerRay; getActivePointerRay() hands out clones. */
   private readonly pointerRay = new THREE.Ray();
   private sessionVisible = true;
+  private trailMesh: THREE.Object3D | null = null;
+  /** The route's trail ribbon, for selecting points along it. */
+  public setTrailMesh(mesh: THREE.Object3D | null): void { this.trailMesh = mesh; }
   private waypointGroup: THREE.Object3D | null = null;
   private readonly waypointHitMeshes: THREE.Mesh[] = [];
 
@@ -1747,6 +1752,18 @@ export class XRManager {
       state.rayLine.visible = false;
       state.reticle.visible = false;
       return;
+    }
+
+    // 4b. Trigger on the trail selects that point (raycast only on the press edge).
+    if (this.currentViewMode === 'diorama' && this.trailMesh && isTriggerDown && !state.prevButtons[0]) {
+      const hit = this.raycaster.intersectObject(this.trailMesh, false)[0];
+      if (hit) {
+        const local = this.trailMesh.worldToLocal(_scratchV2.copy(hit.point));
+        this.callbacks.onSelectTrailPoint?.(local.x, local.z);
+        this.triggerHaptic(controllerIdx, 0.8, 40);
+        this.playFeedback('select');
+        return;
+      }
     }
 
     // 5. Physical Controller: Raycast against Tabletop / Terrain Plane in diorama mode

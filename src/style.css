@@ -779,3 +779,7 @@ body, html {
 .landmark-dot-finish { background: #ef4444; }
 .landmark-dot-camp { background: #8b5cf6; }
 
+/* Trail point readout (click on the trail) */
+.trail-point-popover { position: fixed; z-index: 70; transform: translate(-50%, calc(-100% - 12px)); padding: 6px 10px; font: 600 13px system-ui, sans-serif; color: #f1f5f9; pointer-events: none; white-space: nowrap; }
+.trail-point-popover[hidden] { display: none; }
+

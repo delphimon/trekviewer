@@ -650,10 +650,13 @@ Implement and unit-test; mark each `[~] needs headset check`.
 
 Do these only after phases B–U. Each needs a Browser check and a unit test for its maths.
 
-- [ ] **N1 Click a point on the trail.** Desktop: clicking the trail (raycast against the
+- [~] **N1 Click a point on the trail.** Desktop: clicking the trail (raycast against the
   trail mesh, then `routeGeometry.projectGeoPointToVisualRoute` or its local-space
   equivalent) sets progress there and shows distance, elevation, grade and elapsed time
   in a small popover. XR: the same on pinch/trigger select of the trail.
+  - Note: desktop click and XR controller-trigger selection done and unit-tested (hand pinch
+    on the trail is not wired: pinch near the model already grabs it). Browser check not
+    done: with the pane hidden the page does not finish loading.
 - [ ] **N2 Slope-angle shading.** A fourth visual style "Slope" that tints terrain by
   slope angle from the surface normal in `src/terrain/TerrainImageryMaterial.ts`:
   transparent below 27°, yellow 27–30°, orange 30–35°, red 35–45°, purple above 45°,
