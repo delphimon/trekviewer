@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { formatDistance, formatElevation } from './utils/Units.ts';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode } from './gpx/TrackTypes';
 import { FrameTimingMonitor } from './core/FrameTimingMonitor';
@@ -716,9 +717,7 @@ export class TrekViewerApp {
     this.overlay.updateTrack(track, this.routeLandmarks);
     this.overlay.setXREnabled(true);
     void this.autoEnterInstalledPWA();
-    const distMi = (track.totalDistance * 0.000621371).toFixed(1);
-    const gainFt = Math.round(track.elevationGain * 3.28084);
-    this.overlay.showStatus(`Loaded: ${track.name} (${distMi} mi, +${gainFt.toLocaleString()} ft gain)`, false, 'ready');
+    this.overlay.showStatus(`Loaded: ${track.name} (${formatDistance(track.totalDistance)}, ${formatElevation(track.elevationGain, undefined, true)} gain)`, false, 'ready');
   }
 
   private async loadRouteByFile(url: string, fallbackName: string, routeId?: string): Promise<void> {

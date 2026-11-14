@@ -433,7 +433,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
     toggle move into a collapsible second row.
   - Settings: a full-height sheet (top of viewport to bottom) with its own close button,
     not a box squeezed between header and player bar.
-- [ ] **U4 Units setting.** Add a `units: 'imperial' | 'metric'` preference stored under
+- [x] **U4 Units setting.** Add a `units: 'imperial' | 'metric'` preference stored under
   `trekviewer.units` (default from `navigator.language`: `en-US` → imperial, otherwise
   metric). Create `src/utils/Units.ts` with `formatDistance`, `formatElevation`,
   `formatSpeed` and use it everywhere numbers are shown: `DesktopOverlay` (stats,

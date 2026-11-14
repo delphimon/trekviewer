@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits } from '../utils/Units.ts';
 import type { GPXPoint, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
@@ -52,6 +53,7 @@ export class SpatialHUD {
 
   // Dirty state tracking & throttled GPU uploads
   private staticDirty: boolean = true;
+  private readonly unsubscribeUnits = onUnitsChange(() => { this.staticDirty = true; this.dynamicDirty = true; });
   private dynamicDirty: boolean = true;
   private lastTextureUploadTime: number = -Infinity;
   // ~11.7 Hz (target 8-12 uploads/sec during active playback)
@@ -849,17 +851,11 @@ export class SpatialHUD {
     ctx.textAlign = 'left';
 
     // 2. Static Stats Grid (Labels + Invariant values)
-    const distKm = (this.track.totalDistance / 1000).toFixed(1);
-    const distMi = (this.track.totalDistance * 0.000621371).toFixed(1);
-    const gainM = Math.round(this.track.elevationGain);
-    const gainFt = Math.round(this.track.elevationGain * 3.28084);
-    const peakM = Math.round(this.track.maxElevation);
-    const peakFt = Math.round(this.track.maxElevation * 3.28084);
-
+    const units = getUnits(), other = otherUnits(units);
     const stats = [
-      { label: 'DISTANCE', val: `${distMi} mi`, sub: `${distKm} km` },
-      { label: 'ELEV GAIN', val: `+${gainFt.toLocaleString()} ft`, sub: `+${gainM.toLocaleString()} m` },
-      { label: 'SUMMIT ELEV', val: `${peakFt.toLocaleString()} ft`, sub: `${peakM.toLocaleString()} m` },
+      { label: 'DISTANCE', val: formatDistance(this.track.totalDistance, units), sub: formatDistance(this.track.totalDistance, other) },
+      { label: 'ELEV GAIN', val: formatElevation(this.track.elevationGain, units, true), sub: formatElevation(this.track.elevationGain, other, true) },
+      { label: 'SUMMIT ELEV', val: formatElevation(this.track.maxElevation, units), sub: formatElevation(this.track.maxElevation, other) },
       { label: 'CURRENT ELEV', val: '', sub: '' }, // Dynamic value drawn in renderDynamicLayer
     ];
 
@@ -1058,11 +1054,11 @@ export class SpatialHUD {
     const colX = 35 + 3 * colW;
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 23px sans-serif';
-    ctx.fillText(`${Math.round(this.currentElevation * 3.28084).toLocaleString()} ft`, colX + 10, 154);
+    ctx.fillText(formatElevation(this.currentElevation), colX + 10, 154);
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '13px sans-serif';
-    ctx.fillText(`${Math.round(this.currentElevation)} m`, colX + 10, 176);
+    ctx.fillText(formatElevation(this.currentElevation, otherUnits()), colX + 10, 176);
 
     // 5. Scrubber Line, Pin, and Tooltip
     const chartX = 35;
@@ -1134,8 +1130,6 @@ export class SpatialHUD {
       ctx.fill();
 
       // Tooltip above handle
-      const curDistMi = (this.track.totalDistance * this.currentProgress * 0.000621371).toFixed(1);
-      const curEleFt = Math.round(this.currentElevation * 3.28084);
       const distance = this.currentProgress * this.track.totalDistance;
       let lo = 0, hi = this.track.points.length - 1;
       while (lo < hi) {
@@ -1149,15 +1143,14 @@ export class SpatialHUD {
       if (this.currentTrailColorMode === 'grade' && pt?.grade !== undefined) {
         tipDetail = ` • ${Math.round(Math.abs(pt.grade))}% slope`;
       } else if (this.currentTrailColorMode === 'speed') {
-        const spdMph = pt?.speed ? (pt.speed * 2.23694).toFixed(1) : (this.track.avgSpeed * 0.621371).toFixed(1);
-        tipDetail = ` • ${spdMph} mph`;
+        tipDetail = ` • ${formatSpeed(pt?.speed ? pt.speed : this.track.avgSpeed / 3.6)}`;
       }
       // Route distance keeps loop endpoints and repeat visits distinct.
       const nearest = this.getNearestLandmark();
       const nearLandmark = nearest && Math.abs(nearest.progress - this.currentProgress) * this.track.totalDistance < 150
         ? `${nearest.name} • ` : '';
 
-      const tipText = `${nearLandmark}${curEleFt.toLocaleString()} ft • ${curDistMi} mi${tipDetail}`;
+      const tipText = `${nearLandmark}${formatElevation(this.currentElevation)} • ${formatDistance(distance)}${tipDetail}`;
       const boxW = Math.max(140, tipText.length * 7.5 + 20);
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
@@ -1369,14 +1362,12 @@ export class SpatialHUD {
     if (nearestCard) {
       let displayName = nearestCard.name;
       if (displayName.length > 26) displayName = displayName.substring(0, 24) + '…';
-      const eleFt = Math.round(nearestCard.ele * 3.28084);
-      const distMi = (this.track.totalDistance * nearestCard.progress * 0.000621371).toFixed(1);
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 15px sans-serif';
       ctx.fillText(`📍 ${displayName}`, 270 + 240, 572);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '12px sans-serif';
-      ctx.fillText(`${eleFt.toLocaleString()} ft • ${distMi} mi`, 270 + 240, 591);
+      ctx.fillText(`${formatElevation(nearestCard.ele)} • ${formatDistance(this.track.totalDistance * nearestCard.progress)}`, 270 + 240, 591);
     } else {
       ctx.fillStyle = '#64748b';
       ctx.font = 'bold 15px sans-serif';
@@ -1422,6 +1413,7 @@ export class SpatialHUD {
   }
 
   public dispose(): void {
+    this.unsubscribeUnits();
     this.clearConfirm();
     if (this.group.parent) {
       this.group.parent.remove(this.group);

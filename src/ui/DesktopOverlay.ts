@@ -1,4 +1,5 @@
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { distanceInUnits, distanceUnitLabel, formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits, setUnits } from '../utils/Units.ts';
 import { chartBackingSize, chartReadout, distanceTicks } from './ElevationChart.ts';
 import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
@@ -62,6 +63,8 @@ export class DesktopOverlay {
   private chartCssHeight = 96;
   private chartObserver: ResizeObserver | null = null;
   private chartTooltip: HTMLElement | null = null;
+  private currentElevation = 0;
+  private unsubscribeUnits: (() => void) | null = null;
   private chartLandmarks: { x: number; y: number; radius: number; landmark: RouteLandmark }[] = [];
 
   // DOM elements
@@ -186,7 +189,9 @@ export class DesktopOverlay {
     this.updateFitAvailability();
     this.statsTitle.textContent = track.name;
 
-    this.statsSubtitle.textContent = `High Point: ${Math.round(track.maxElevation)} m (${Math.round(track.maxElevation * 3.28084)} ft) • Total Vert: +${Math.round(track.elevationGain)} m`;
+    const units = getUnits(), other = otherUnits(units);
+    const small = (text: string) => text.replace(/ (\S+)$/, ' <small>$1</small>');
+    this.statsSubtitle.textContent = `High Point: ${formatElevation(track.maxElevation, units)} (${formatElevation(track.maxElevation, other)}) • Total Vert: ${formatElevation(track.elevationGain, units, true)}`;
     if (track.warnings && track.warnings.length > 0) {
       const pill = document.createElement('span');
       pill.className = 'data-quality-pill';
@@ -197,11 +202,6 @@ export class DesktopOverlay {
       this.statsSubtitle.appendChild(pill);
     }
 
-    const distKm = (track.totalDistance / 1000).toFixed(1);
-    const distMi = (track.totalDistance * 0.000621371).toFixed(1);
-    const gainM = Math.round(track.elevationGain);
-    const gainFt = Math.round(track.elevationGain * 3.28084);
-    const lossM = Math.round(track.elevationLoss);
 
     let timeStr = '--';
     if (track.movingTime > 0) {
@@ -218,18 +218,18 @@ export class DesktopOverlay {
     this.statsGrid.innerHTML = `
       <div class="stat-item">
         <span class="stat-label">DISTANCE</span>
-        <span class="stat-value">${distMi} <small>mi</small></span>
-        <span class="stat-sub">${distKm} km</span>
+        <span class="stat-value">${small(formatDistance(track.totalDistance, units))}</span>
+        <span class="stat-sub">${formatDistance(track.totalDistance, other)}</span>
       </div>
       <div class="stat-item">
         <span class="stat-label">ELEV GAIN</span>
-        <span class="stat-value">+${gainFt.toLocaleString()} <small>ft</small></span>
-        <span class="stat-sub">+${gainM.toLocaleString()} m</span>
+        <span class="stat-value">${small(formatElevation(track.elevationGain, units, true))}</span>
+        <span class="stat-sub">${formatElevation(track.elevationGain, other, true)}</span>
       </div>
       <div class="stat-item">
         <span class="stat-label">DESCENT</span>
-        <span class="stat-value">-${Math.round(lossM * 3.28084).toLocaleString()} <small>ft</small></span>
-        <span class="stat-sub">-${lossM.toLocaleString()} m</span>
+        <span class="stat-value">-${small(formatElevation(track.elevationLoss, units))}</span>
+        <span class="stat-sub">-${formatElevation(track.elevationLoss, other)}</span>
       </div>
       <div class="stat-item">
         <span class="stat-label">${timeLabel}</span>
@@ -315,17 +315,17 @@ export class DesktopOverlay {
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(226, 232, 240, 0.85)';
-    ctx.fillText(`${Math.round(maxE * 3.28084).toLocaleString()} ft`, 4, 2);
+    ctx.fillText(formatElevation(maxE), 4, 2);
     ctx.textBaseline = 'bottom';
-    ctx.fillText(`${Math.round(minE * 3.28084).toLocaleString()} ft`, 4, h - 2);
-    const totalMi = this.currentTrack.totalDistance * 0.000621371;
+    ctx.fillText(formatElevation(minE), 4, h - 2);
+    const totalMi = distanceInUnits(this.currentTrack.totalDistance), unitLabel = distanceUnitLabel();
     ctx.textAlign = 'center';
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
     ctx.lineWidth = 1;
     for (const tick of distanceTicks(totalMi)) {
       const tx = (tick / totalMi) * w;
       ctx.beginPath(); ctx.moveTo(tx, h - 14); ctx.lineTo(tx, h); ctx.stroke();
-      ctx.fillText(`${tick} mi`, tx, h - 14);
+      ctx.fillText(`${tick} ${unitLabel}`, tx, h - 14);
     }
 
     // Draw landmark markers along the elevation profile (Section 30)
@@ -368,13 +368,11 @@ export class DesktopOverlay {
     this.scrubberInput.value = (progress * 100).toString();
     this.scrubberFill.style.width = `${progress * 100}%`;
 
-    const eleM = Math.round(currentElevation);
-    const eleFt = Math.round(currentElevation * 3.28084);
-    this.scrubberCurEle.textContent = `${eleFt.toLocaleString()} ft (${eleM} m)`;
+    this.currentElevation = currentElevation;
+    this.scrubberCurEle.textContent = `${formatElevation(currentElevation)} (${formatElevation(currentElevation, otherUnits())})`;
 
     if (this.currentTrack) {
-      const curDistMi = (this.currentTrack.totalDistance * progress * 0.000621371).toFixed(1);
-      this.scrubberCurDist.textContent = `${curDistMi} mi`;
+      this.scrubberCurDist.textContent = formatDistance(this.currentTrack.totalDistance * progress);
     }
 
     this.drawElevationChart();
@@ -581,6 +579,8 @@ export class DesktopOverlay {
             <p class="trek-meta" id="routeTabHint">Pick a landmark to jump there, or click the elevation chart below.</p>
           </div>
           <div class="controls-section panel-tabpanel" role="tabpanel" id="tabpanel-view" aria-labelledby="tab-view" data-tabpanel="view" hidden>
+            <label class="comfort-option"><span>Units</span><select id="unitsSelect" aria-label="Units">
+              <option value="imperial">Imperial (mi, ft)</option><option value="metric">Metric (km, m)</option></select></label>
             <h3>Visual Style</h3>
             <div class="btn-group">
               <button id="btnSatTex" class="btn btn-sm btn-active">🛰️ Aerial</button>
@@ -846,6 +846,17 @@ export class DesktopOverlay {
       document.getElementById(item.dataset.proxy!)?.click();
     }));
     document.getElementById('btnCloseSettings')?.addEventListener('click', () => { closeSettings(); settingsButton?.focus(); });
+    const unitsSelect = document.getElementById('unitsSelect') as HTMLSelectElement | null;
+    if (unitsSelect) {
+      unitsSelect.value = getUnits();
+      unitsSelect.addEventListener?.('change', () => setUnits(unitsSelect.value === 'metric' ? 'metric' : 'imperial'));
+    }
+    this.unsubscribeUnits = onUnitsChange(units => {
+      if (unitsSelect) unitsSelect.value = units;
+      if (!this.currentTrack) return;
+      this.updateTrack(this.currentTrack, this.routeLandmarks);
+      this.updateScrubber(this.currentProgress, this.currentElevation);
+    });
     const moreButton = document.getElementById('btnPlayerMore');
     moreButton?.addEventListener('click', () => {
       const open = moreButton.getAttribute('aria-expanded') !== 'true';
@@ -1065,7 +1076,7 @@ export class DesktopOverlay {
     const distance = progress * this.currentTrack.totalDistance;
     const readout = chartReadout(this.cachedElevationSamples, distance);
     if (!readout) { tip.hidden = true; return; }
-    tip.textContent = `${(distance * 0.000621371).toFixed(1)} mi • ${Math.round(readout.elevation * 3.28084).toLocaleString()} ft • ${readout.grade >= 0 ? '+' : ''}${readout.grade.toFixed(0)}%`;
+    tip.textContent = `${formatDistance(distance)} • ${formatElevation(readout.elevation)} • ${readout.grade >= 0 ? '+' : ''}${readout.grade.toFixed(0)}%`;
     tip.style.left = `${x}px`;
     tip.hidden = false;
   }
@@ -1157,18 +1168,17 @@ export class DesktopOverlay {
       maxEl.textContent = '40%+ (Extreme)';
     } else if (mode === 'speed') {
       bar.style.background = 'linear-gradient(to right, #ef4444 0%, #f97316 25%, #eab308 50%, #10b981 75%, #06b6d4 100%)';
-      minEl.textContent = '< 1.1 mph (Slow)';
-      midEl.textContent = 'Smoothed Pace (2.8 mph)';
-      maxEl.textContent = '4.0+ mph (Fast)';
+      // Speed bands (TrailMesh.getSpeedBand): slow < 1.8 km/h, steady 3.2-4.5, fast 6.0+.
+      minEl.textContent = `< ${formatSpeed(1.8 / 3.6)} (Slow)`;
+      midEl.textContent = `Smoothed Pace (${formatSpeed(4.5 / 3.6)})`;
+      maxEl.textContent = `${formatSpeed(6.0 / 3.6).replace(' ', '+ ')} (Fast)`;
     } else if (mode === 'elevation') {
       bar.style.background = 'linear-gradient(to right, #00f5d4 0%, #10b981 25%, #f59e0b 55%, #ef4444 85%, #ffffff 100%)';
       if (this.currentTrack) {
-        const minFt = Math.round(this.currentTrack.minElevation * 3.28084);
-        const maxFt = Math.round(this.currentTrack.maxElevation * 3.28084);
-        const midFt = Math.round((minFt + maxFt) / 2);
-        minEl.textContent = `${minFt.toLocaleString()} ft`;
-        midEl.textContent = `${midFt.toLocaleString()} ft`;
-        maxEl.textContent = `${maxFt.toLocaleString()} ft`;
+        const { minElevation, maxElevation } = this.currentTrack;
+        minEl.textContent = formatElevation(minElevation);
+        midEl.textContent = formatElevation((minElevation + maxElevation) / 2);
+        maxEl.textContent = formatElevation(maxElevation);
       } else {
         minEl.textContent = 'Min Alt';
         midEl.textContent = 'Mid Alt';
@@ -1217,7 +1227,7 @@ export class DesktopOverlay {
         icon = '⛺';
       }
 
-      const eleText = lm.ele ? ` (${Math.round(lm.ele * 3.28084)} ft)` : '';
+      const eleText = lm.ele ? ` (${formatElevation(lm.ele)})` : '';
       chip.textContent = `${icon} `;
       const label = document.createElement('span');
       label.textContent = `${lm.name}${eleText}`;
@@ -1337,6 +1347,7 @@ export class DesktopOverlay {
   public dispose(): void {
     this.offlineDownloads.dispose();
     this.chartObserver?.disconnect(); this.chartObserver = null;
+    this.unsubscribeUnits?.(); this.unsubscribeUnits = null;
     if (this.onWindowDragOver) {
       window.removeEventListener('dragover', this.onWindowDragOver);
       this.onWindowDragOver = undefined;

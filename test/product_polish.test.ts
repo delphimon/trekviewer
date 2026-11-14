@@ -438,7 +438,8 @@ describe('Stage Q: Product Polish, Landmarks, and Diagnostics', () => {
       assert.ok(bar.style.background.includes('#ef4444'));
       assert.ok(bar.style.background.includes('#06b6d4'));
       assert.strictEqual(minEl.textContent, '< 1.1 mph (Slow)');
-      assert.strictEqual(maxEl.textContent, '4.0+ mph (Fast)');
+      // The fast band starts at 6.0 km/h (TrailMesh.getSpeedBand), which is 3.7 mph.
+      assert.strictEqual(maxEl.textContent, '3.7+ mph (Fast)');
 
       // 3. Elevation mode
       overlay.setTrailColorMode('elevation');
