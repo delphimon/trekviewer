@@ -503,7 +503,7 @@ is locked to walking pace on an 18-hour route.
   `src/offline/OfflineArchive.ts`, `src/offline/OfflineDownloads.ts`: when a stored
   asset's `sha256` and `bytes` equal the archive manifest record, skip `source.load`,
   decode and re-hash.
-- [ ] **O4 Service worker update check.** `src/offline/OfflineShell.ts`: call
+- [x] **O4 Service worker update check.** `src/offline/OfflineShell.ts`: call
   `registration.update()` when the page becomes visible, at most once an hour. `canReload`
   must be false while `OfflineDownloads.busy()`.
 - [ ] **O5 OWNER decision: store imagery as WebP/JPEG instead of PNG32.** Packs are

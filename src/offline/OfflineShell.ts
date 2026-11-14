@@ -1,5 +1,7 @@
 import { OfflineDownloads } from './OfflineDownloads.ts';
 
+export const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
 /** Registers the offline app shell. A new version waits until the user chooses
  * "Reload to update" (never while in VR/MR or during playback). `notify` puts the
  * prompt in the app's status banner, so it is seen outside the Offline tab. */
@@ -8,11 +10,13 @@ export function registerOfflineShell(canReload: () => boolean = () => true, noti
   const status = (message: string) => { const el = element(); if (el) el.textContent = message; };
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) { status('Offline app startup is unavailable in this session.'); return; }
   let reloading = false;
+  // A running download must never be cut by a reload.
+  const safeToReload = () => canReload() && !OfflineDownloads.busy();
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloading) { location.reload(); return; }
     // Another tab activated the new version and its old cached assets are gone. Reload this
     // tab now if that is safe; otherwise ask, since lazily loaded code may no longer load.
-    if (canReload() && !OfflineDownloads.busy()) { location.reload(); return; }
+    if (safeToReload()) { location.reload(); return; }
     offerReload();
   });
   const offerReload = () => {
@@ -23,7 +27,7 @@ export function registerOfflineShell(canReload: () => boolean = () => true, noti
     const button = document.createElement('button');
     button.className = 'btn btn-sm'; button.type = 'button'; button.textContent = 'Reload to update';
     button.onclick = () => {
-      if (!canReload() || OfflineDownloads.busy()) { status('Pause playback, downloads and VR/MR, then choose Reload to update.'); setTimeout(offerReload, 4000); return; }
+      if (!safeToReload()) { status('Pause playback, downloads and VR/MR, then choose Reload to update.'); setTimeout(offerReload, 4000); return; }
       location.reload();
     };
     el.appendChild(button);
@@ -34,7 +38,7 @@ export function registerOfflineShell(canReload: () => boolean = () => true, noti
     const button = document.createElement('button');
     button.className = 'btn btn-sm'; button.type = 'button'; button.textContent = 'Reload to update';
     button.onclick = () => {
-      if (!canReload()) { status('Pause playback and leave VR/MR, then choose Reload to update.'); setTimeout(() => offerUpdate(registration), 4000); return; }
+      if (!safeToReload()) { status('Pause playback, downloads and VR/MR, then choose Reload to update.'); setTimeout(() => offerUpdate(registration), 4000); return; }
       const waiting = registration.waiting; if (!waiting) { location.reload(); return; }
       reloading = true; button.disabled = true;
       waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -54,5 +58,12 @@ export function registerOfflineShell(canReload: () => boolean = () => true, noti
       });
     };
     registration.addEventListener('updatefound', watch); watch();
+    // Long-lived tabs (and installed PWAs) check for a new version when shown, at most hourly.
+    let lastCheck = Date.now();
+    document.addEventListener?.('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastCheck < UPDATE_CHECK_INTERVAL_MS) return;
+      lastCheck = Date.now();
+      void registration.update().catch(() => { /* offline: try again next time */ });
+    });
   }).catch(() => status('Offline app startup is unavailable. Connect and reload to retry.'));
 }

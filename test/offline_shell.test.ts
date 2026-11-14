@@ -85,3 +85,42 @@ it('does not reload a tab presenting XR or playing when the controller changes',
   expect(page.reload).not.toHaveBeenCalled();
   expect(page.status.children.at(-1).textContent).toBe('Reload to update');
 });
+
+it('checks for a new version when the page is shown, at most once an hour', async () => {
+  let now = 1_000_000; vi.spyOn(Date, 'now').mockImplementation(() => now);
+  const docListeners = new Map<string, () => void>();
+  const doc: any = { baseURI: 'https://example.test/app/', visibilityState: 'visible', getElementById: () => null,
+    addEventListener: (name: string, fn: () => void) => docListeners.set(name, fn) };
+  const update = vi.fn(async () => {});
+  const registration = { waiting: null, active: {}, installing: null, update, addEventListener: () => {} };
+  vi.stubEnv('PROD', true);
+  vi.stubGlobal('document', doc);
+  vi.stubGlobal('navigator', { serviceWorker: { controller: {}, addEventListener: () => {}, register: async () => registration } });
+  registerOfflineShell(() => true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const shown = () => docListeners.get('visibilitychange')!();
+  now += 10 * 60 * 1000; shown();
+  expect(update).not.toHaveBeenCalled();
+  now += 60 * 60 * 1000; shown();
+  expect(update).toHaveBeenCalledTimes(1);
+  now += 60 * 1000; shown();
+  expect(update).toHaveBeenCalledTimes(1);
+  doc.visibilityState = 'hidden'; now += 2 * 60 * 60 * 1000; shown();
+  expect(update).toHaveBeenCalledTimes(1);
+});
+
+it('never reloads from Reload to update while a download runs', async () => {
+  const page = shellPage();
+  vi.spyOn(OfflineDownloads, 'busy').mockReturnValue(true);
+  const postMessage = vi.fn();
+  vi.stubGlobal('navigator', { serviceWorker: { controller: {}, addEventListener: () => {},
+    register: async () => ({ waiting: { postMessage }, active: {}, installing: null, update: async () => {}, addEventListener: () => {} }) } });
+  (globalThis as any).document.addEventListener = () => {};
+  registerOfflineShell(() => true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const button = page.status.children.at(-1);
+  expect(button.textContent).toBe('Reload to update');
+  button.onclick();
+  expect(postMessage).not.toHaveBeenCalled();
+  expect(page.reload).not.toHaveBeenCalled();
+});
