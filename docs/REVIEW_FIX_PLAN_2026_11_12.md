@@ -499,7 +499,7 @@ is locked to walking pace on an 18-hour route.
   in `src/offline/OfflineStore.ts` ("with full terrain shape") and `README.md`.
   Do: fix the copy to "detailed terrain along the trail, overview terrain elsewhere".
   Do not change what is downloaded.
-- [ ] **O3 Pack-file resume re-reads everything** — *Reported (verify first).*
+- [x] **O3 Pack-file resume re-reads everything** — *Reported (verify first).*
   `src/offline/OfflineArchive.ts`, `src/offline/OfflineDownloads.ts`: when a stored
   asset's `sha256` and `bytes` equal the archive manifest record, skip `source.load`,
   decode and re-hash.

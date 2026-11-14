@@ -118,3 +118,21 @@ it('revisits a source that keeps failing after the main pass, then pauses with a
   expect(calls.filter(url => url === p.resources[0].urls[0])).toHaveLength(8); // 4 attempts, twice
   expect(calls.indexOf(p.resources[3].urls[0])).toBeLessThan(calls.lastIndexOf(p.resources[0].urls[0]));
 });
+
+it('resumes a pack-file import without re-reading or re-decoding sources it already saved', async () => {
+  const { exportOfflineArchive, inspectOfflineArchive, offlineArchiveSource } = await import('../src/offline/OfflineArchive.ts');
+  const p = plan('archived', 3);
+  await OfflineDownloads.start(p);
+  const file = await exportOfflineArchive(p);
+  const index = await inspectOfflineArchive(file);
+  // An interrupted import of the same file leaves the pack paused with every source saved.
+  const saved = await OfflineStore.state(p.id);
+  await OfflineStore.putState({ ...saved!, state: 'paused' });
+  let decodes = 0;
+  vi.stubGlobal('createImageBitmap', async () => { decodes++; return { width: 256, height: 256, close: () => {} }; });
+  const slice = vi.spyOn(Blob.prototype, 'slice');
+  await OfflineDownloads.prepare(async signal => ({ plan: p, source: await offlineArchiveSource(file, index, p, signal) }));
+  expect(decodes).toBe(0);
+  expect(slice).not.toHaveBeenCalled();
+  expect(await OfflineStore.state(p.id)).toMatchObject({ state: 'ready', completed: 3 });
+});

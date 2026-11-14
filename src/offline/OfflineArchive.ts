@@ -126,6 +126,11 @@ export async function offlineArchiveSource(file: Blob, index: ArchiveIndex, plan
   return { message: 'Importing route pack', async load(position: number, signal: AbortSignal, retained?: OfflineAsset) {
     paused(signal);
     const r = m.records[position], resource = plan.resources[position];
+    // Resume: a saved original that already matches this manifest record (same bytes and
+    // hash) was validated and hashed when it was committed. Skip reading the pack member.
+    if (retained && retained.bytes === r.bytes && retained.sha256 === r.sha256 && retained.blob.size === r.bytes) {
+      return { blob: retained.blob, sourceUrl: sourceUrls[position], reused: true };
+    }
     const stored = file.slice(index.offsets[position], index.offsets[position] + r.storedBytes);
     if (await hashOfflineBlob(stored) !== r.storedSha256) throw Error(`Pack source ${position + 1} failed its stored hash`);
     // Still verify stored archive bytes on resume, but avoid a second decode and

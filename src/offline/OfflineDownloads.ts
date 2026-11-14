@@ -8,7 +8,8 @@ import { sameOfflineSource } from './OfflineSourceIdentity.ts';
 
 export interface OfflineAcquisition {
   message: string;
-  load(position: number, signal: AbortSignal, retained?: OfflineAsset): Promise<{ blob: Blob; sourceUrl: string }>;
+  /** `reused` means the retained asset was returned unchanged because it matches the source record. */
+  load(position: number, signal: AbortSignal, retained?: OfflineAsset): Promise<{ blob: Blob; sourceUrl: string; reused?: boolean }>;
 }
 
 export async function validateOfflineResource(resource: OfflineResource, blob: Blob, signal?: AbortSignal): Promise<void> {
@@ -137,8 +138,10 @@ export class OfflineDownloads {
               const loaded = await source.load(position, controller.signal, asset);
               blob = loaded.blob; sourceUrl = loaded.sourceUrl;
               if (!offlineSourceAllowed(sourceUrl) || !sameOfflineSource(sourceUrl, resource.urls) || !blob.size || blob.size > (resource.kind === 'image' ? 8 : 32) * 1024 * 1024) throw Error('Invalid imported source');
-              await validateOfflineResource(resource, blob, controller.signal);
-              if (asset && asset.sha256 !== await hashOfflineBlob(blob)) asset = undefined;
+              if (!(loaded.reused && asset && blob === asset.blob)) {
+                await validateOfflineResource(resource, blob, controller.signal);
+                if (asset && asset.sha256 !== await hashOfflineBlob(blob)) asset = undefined;
+              }
             } else if (!blob) {
               // Check actual shared usage, not the uncompressed planning budget.
               // Already-saved sources can still be verified/published when full.
