@@ -283,21 +283,18 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
         hud.updateState(progress, 2000 + frame, true, 'diorama', 'satellite');
       }
 
-      // Over 1000ms with 85ms minimum interval: 1000 / 85 ~= 11-12 uploads max
+      // Progress-only playback changes refresh the readouts at 2 Hz (P2), well under the
+      // 85 ms (12 Hz) upload cap that still applies to toggles and interaction.
       assert(
-        uploadCount <= 12,
-        `Active playback GPU texture uploads must be throttled (got ${uploadCount}, expected <= 12)`
+        uploadCount <= 3,
+        `Active playback GPU texture uploads must be throttled (got ${uploadCount}, expected <= 3)`
       );
-      assert(
-        uploadCount >= 10,
-        `Throttled upload rate should maintain smooth 8-12 Hz HUD updates (got ${uploadCount})`
-      );
+      assert(uploadCount >= 1, `Playback must still refresh the HUD (got ${uploadCount})`);
 
       // Now test settled state: when paused and stationary, 0 uploads should occur
       uploadCount = 0;
       hud.updateState(0.5, 2050, false, 'diorama', 'satellite');
-      // The pause state is immediate; its final display shares the upload cap.
-      assert.strictEqual(uploadCount, 0);
+      // The pause state is shown within one upload interval, exactly once.
       mockNow += 85; hud.update();
       assert.strictEqual(uploadCount, 1);
       uploadCount = 0;
@@ -309,6 +306,32 @@ describe('Stage L: HUD and UI Performance Architecture', () => {
       }
       assert.strictEqual(uploadCount, 0, 'Settled state must produce 0 texture uploads');
 
+      hud.dispose();
+    });
+
+    it('uploads the HUD fewer than 200 times over a 90 s tour and shows the final state on pause', () => {
+      let now = 1000;
+      vi.spyOn(performance, 'now').mockImplementation(() => now);
+      const track = createMockTrack(50);
+      const hud = new SpatialHUD(track, {
+        onTogglePlay: () => {}, onToggleViewMode: () => {}, onToggleTexture: () => {}, onReset: () => {},
+        onExitMR: () => {}, onScrub: () => {}, onSetSpeed: () => {}, onStepSeconds: () => {}, onFocusHiker: () => {},
+      });
+      const start = hud.getUploadDiagnostics().requests;
+      const frames = 90 * 72;
+      for (let frame = 0; frame <= frames; frame++) {
+        now = 1000 + frame * 1000 / 72;
+        const progress = frame / frames;
+        hud.updateState(progress, track.minElevation + progress * (track.maxElevation - track.minElevation), true, 'diorama', 'satellite');
+        hud.update();
+      }
+      expect(hud.getUploadDiagnostics().requests - start).toBeLessThan(200);
+      const beforePause = hud.getUploadDiagnostics().requests;
+      hud.updateState(1, track.maxElevation, false, 'diorama', 'satellite');
+      now += 100; hud.update();
+      expect(hud.getUploadDiagnostics().requests).toBe(beforePause + 1); // the final state is drawn
+      now += 1000; hud.update();
+      expect(hud.getUploadDiagnostics().requests).toBe(beforePause + 1); // then it settles
       hud.dispose();
     });
 

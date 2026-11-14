@@ -58,6 +58,12 @@ export class SpatialHUD {
   private lastTextureUploadTime: number = -Infinity;
   // ~11.7 Hz (target 8-12 uploads/sec during active playback)
   private readonly UPLOAD_INTERVAL_MS: number = 85;
+  /** While playing, progress-only changes (cursor, elevation, distance) redraw at most this often. */
+  private readonly PLAYBACK_REDRAW_MS: number = 500;
+  private lastProgressDrawTime = -Infinity;
+  private drawnCursorX = NaN;
+  private drawnElevationLabel = '';
+  private drawnDistanceLabel = '';
   private uploadCountInCurrentSecond: number = 0;
   private uploadRequestsTotal = 0;
   private recentUploadsPerSecond: number = 0;
@@ -546,6 +552,9 @@ export class SpatialHUD {
     verticalExaggeration?: number,
     currentPoint?: GPXPoint | null
   ): void {
+    const toggled = isPlaying !== this.isPlaying || viewMode !== this.currentViewMode || textureStyle !== this.currentTextureStyle
+      || (speed !== undefined && speed !== this.currentSpeed) || (trailColorMode !== undefined && trailColorMode !== this.currentTrailColorMode)
+      || (verticalExaggeration !== undefined && verticalExaggeration !== this.verticalExaggeration);
     this.currentProgress = progress;
     this.currentElevation = currentEle;
     this.currentPoint = currentPoint ?? null;
@@ -556,7 +565,17 @@ export class SpatialHUD {
     if (trailColorMode !== undefined) this.currentTrailColorMode = trailColorMode;
     if (verticalExaggeration !== undefined) this.verticalExaggeration = verticalExaggeration;
 
-    // Coalesce display work; callbacks and authoritative state update immediately.
+    // Coalesce display work; callbacks and authoritative state update immediately. Skip the
+    // texture upload when nothing visible changed: no toggle, the chart cursor moved < 2 px
+    // and the readouts read the same. During playback those readouts refresh at 2 Hz.
+    if (!toggled) {
+      const cursorX = 53 + progress * 918;
+      const elevationLabel = formatElevation(currentEle), distanceLabel = formatDistance(progress * this.track.totalDistance);
+      const changed = Math.abs(cursorX - this.drawnCursorX) >= 2 || elevationLabel !== this.drawnElevationLabel || distanceLabel !== this.drawnDistanceLabel;
+      if (!changed) return;
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (isPlaying && now - this.lastProgressDrawTime < this.PLAYBACK_REDRAW_MS) return;
+    }
     this.drawHUD();
   }
 
@@ -760,6 +779,10 @@ export class SpatialHUD {
   }
 
   private uploadDynamicLayer(now: number): void {
+    this.drawnCursorX = 53 + this.currentProgress * 918;
+    this.drawnElevationLabel = formatElevation(this.currentElevation);
+    this.drawnDistanceLabel = formatDistance(this.currentProgress * this.track.totalDistance);
+    this.lastProgressDrawTime = now;
     this.renderDynamicLayer();
     this.texture.needsUpdate = true;
     this.uploadCountInCurrentSecond++;

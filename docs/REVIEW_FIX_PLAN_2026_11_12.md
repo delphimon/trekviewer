@@ -526,7 +526,7 @@ Write the numbers in the commit message.
   `src/terrain/ImageryLODManager.ts` `syncRenderer` (called from `main.ts` every frame):
   add a revision counter that increments when batch entries or terrain surfaces change;
   return early when the revision and renderer are unchanged.
-- [ ] **P2 HUD texture re-upload at about 12 Hz** — *Reported (verify first).*
+- [x] **P2 HUD texture re-upload at about 12 Hz** — *Reported (verify first).*
   `src/ui/SpatialHUD.ts` `updateState` → `drawHUD()`: skip the redraw unless a displayed
   label string changed, a toggle changed, or the chart cursor moved ≥ 2 canvas pixels.
   Extend `test/hud_ui_performance.test.ts`: 90 s of tour progress updates must cause
