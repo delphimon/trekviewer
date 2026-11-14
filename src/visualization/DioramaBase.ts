@@ -16,6 +16,14 @@ const _scratchPinWorldScale = new THREE.Vector3();
 const _scratchPinPosition = new THREE.Vector3();
 const markerBatches = new WeakMap<THREE.Group, WaypointInstanceRenderer>();
 
+/** Local Y of the plinth top (the default `baseY`) and the slab thickness, in model metres. */
+export const DIORAMA_BASE_Y = -80;
+export const PLINTH_HEIGHT_M = 25;
+/** Depth of the plinth's lowest face below the model origin, in model metres (positive). */
+export function plinthBottomDepth(baseY: number = DIORAMA_BASE_Y): number {
+  return -(baseY - PLINTH_HEIGHT_M);
+}
+
 export class DioramaBase {
   public static setMarkerBatching(base: THREE.Group, enabled: boolean): void {
     if (!enabled) { markerBatches.get(base)?.dispose(); markerBatches.delete(base); return; }
@@ -28,7 +36,7 @@ export class DioramaBase {
    */
   public static create(
     bounds: GeoBounds,
-    baseY: number = -80,
+    baseY: number = DIORAMA_BASE_Y,
     waypoints: GPXWaypoint[] = [],
     baseElevation: number = bounds.minEle,
     elevationSampler?: (x: number, z: number) => number,
@@ -40,7 +48,7 @@ export class DioramaBase {
     const margin = 0.25;
     const widthM = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
     const depthM = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
-    const plinthHeight = 25; // meters in 1:1 scale
+    const plinthHeight = PLINTH_HEIGHT_M; // meters in 1:1 scale
 
     // Main plinth slab
     const plinthGeo = new THREE.BoxGeometry(widthM + 40, plinthHeight, depthM + 40);

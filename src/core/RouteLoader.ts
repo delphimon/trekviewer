@@ -3,7 +3,7 @@ import type { TrackStats, TrailColorMode } from '../gpx/TrackTypes.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { TerrainGenerator, type TerrainResult } from '../terrain/TerrainGenerator.ts';
 import { TrailMesh, type TrailResult } from '../visualization/TrailMesh.ts';
-import { DioramaBase } from '../visualization/DioramaBase.ts';
+import { DioramaBase, DIORAMA_BASE_Y } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { LoadedTrek } from './LoadedTrek.ts';
 import { TrekSession } from './TrekSession.ts';
@@ -262,7 +262,7 @@ export class RouteLoader {
 
       base = DioramaBase.create(
         track.bounds,
-        -80,
+        DIORAMA_BASE_Y,
         allWaypoints,
         terrain.terrainBaseElevation,
         surfaceSampler,

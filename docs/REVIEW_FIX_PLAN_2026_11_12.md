@@ -169,7 +169,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     start a scrub with the ray id, call the poke path's release with the poke id, assert
     a following `onPointerDrag` with the ray id still moves progress.
 
-- [ ] **B4 The model is sunk into the detected table** — *Confirmed.* **HEADSET**
+- [~] **B4 The model is sunk into the detected table** — *Confirmed.* **HEADSET**
   - Where: `src/xr/TablePlacement.ts`
     `root.position.set(table.position.x, table.position.y + 0.01, table.position.z)`;
     plinth dimensions in `src/visualization/DioramaBase.ts` (`baseY: number = -80`) and
@@ -180,6 +180,8 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     `TablePlacement.update` rather than importing scene objects.
   - Test: unit test with scale 0.0005 and depth 105 asserting the plinth bottom world Y
     equals `table.y + 0.01` within 1 mm.
+  - Note: needs headset check — in passthrough with a Space Setup table, the plinth's
+    bottom face should sit on the table top (no slab hidden below the surface).
 
 - [ ] **B5 Chunk seam re-blend runs on already-blended heights** — *Confirmed.*
   - Where: `src/terrain/LocalTerrainChunk.ts`

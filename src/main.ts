@@ -13,7 +13,7 @@ import { TrailResult } from './visualization/TrailMesh';
 import { FlyoverController } from './visualization/FlyoverController';
 import { DioramaCameraFollow } from './visualization/DioramaCameraFollow.ts';
 import { DioramaModelFollow } from './visualization/DioramaModelFollow.ts';
-import { DioramaBase } from './visualization/DioramaBase';
+import { DioramaBase, plinthBottomDepth } from './visualization/DioramaBase';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
@@ -1423,7 +1423,7 @@ export class TrekViewerApp {
     if (isPresenting && this.currentViewMode === 'diorama') {
       activeCamera.getWorldPosition(_scratchV3);
       const placed = this.tablePlacement?.update(frame, this.sceneManager.renderer.xr.getReferenceSpace(),
-        this.sceneManager.dioramaRoot, _scratchV3, now);
+        this.sceneManager.dioramaRoot, _scratchV3, now, plinthBottomDepth());
       if (placed) { this.spatialHUD?.showStatus(placed); this.pendingHUDDock = true; }
     } else if (isPresenting) {
       this.tablePlacement?.stopSearching();

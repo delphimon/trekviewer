@@ -77,9 +77,11 @@ export class TablePlacement {
 
   /**
    * Call once per XR frame. Returns a message when the model was just placed on a table.
+   * `plinthBottomDepth` is how far (model metres) the plinth's lowest face sits below the
+   * model origin; it is scaled by the root so the plinth bottom rests on the table.
    */
   public update(frame: XRFrame | undefined, referenceSpace: XRSpace | null, root: THREE.Object3D,
-    viewer: THREE.Vector3, now: number): string | null {
+    viewer: THREE.Vector3, now: number, plinthBottomDepth = 0): string | null {
     if (!frame || !referenceSpace) return null;
     let message: string | null = null;
     const f = frame as AnyFrame;
@@ -104,8 +106,8 @@ export class TablePlacement {
         }
         const table = chooseTablePlane(candidates, viewer);
         if (table) {
-          // Sit the model's base on the surface, at the table centre (a small gap avoids z-fighting).
-          root.position.set(table.position.x, table.position.y + 0.01, table.position.z);
+          // Sit the plinth's bottom on the surface, at the table centre (a small gap avoids z-fighting).
+          root.position.set(table.position.x, table.position.y + 0.01 + plinthBottomDepth * root.scale.y, table.position.z);
           this.searching = false;
           this.createAnchor(f, referenceSpace, root);
           message = 'Placed the model on your table.';
