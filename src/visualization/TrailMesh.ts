@@ -184,6 +184,9 @@ export class TrailMesh {
     });
     // Built widths are the maximum; the shader narrows the ribbon as the viewer gets closer so
     // a zoomed-in tabletop or the 1:1 trail is a thin line rather than a band over the terrain.
+    // Trail colours are legend colours: keep them out of scene tone mapping.
+    dioramaMat.toneMapped = false;
+    firstPersonMat.toneMapped = false;
     addTrailChevrons(dioramaMat, {
       builtHalfWidth: ribbonHalfWidth, angularHalfWidth: TRAIL_ANGULAR_HALF_WIDTH, minHalfWidth: 1.0,
     }, Math.max(40, ribbonHalfWidth * 14, maxDim / 45));

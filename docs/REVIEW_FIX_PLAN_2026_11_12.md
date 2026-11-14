@@ -356,12 +356,15 @@ Rainier route.
   - Done when: in a screenshot of the Emmons Glacier, crevasses and texture are visible
     in the snow (not flat white) and forest is not darker than before.
 
-- [ ] **V3 Trail is invisible on snow** — *Confirmed.*
+- [x] **V3 Trail is invisible on snow** — *Confirmed.*
   - Where: `src/visualization/TrailChevronMaterial.ts`, `src/visualization/TrailMesh.ts`.
   - Do: in the fragment shader darken the outer 20% of the ribbon width to `#0b1220`
     (a casing) using the existing across-width coordinate. Set `toneMapped = false` on
     the trail material so legend colours match the legend. Apply to every colour mode.
   - Done when: the trail is clearly readable across the glacier and across forest.
+  - Note: at overview distance the ribbon is only about 3 px wide, so a 20% casing was
+    sub-pixel; the casing is the outer 20% or about one pixel, whichever is wider. The
+    trail was confirmed 5 m above the terrain along its whole length (not buried).
 
 - [ ] **V4 Markers have no names** — *Confirmed.*
   - Where: `src/visualization/DioramaBase.ts`, `src/visualization/TrailMesh.ts`,

@@ -76,7 +76,13 @@ float chevronWhite = (1.0 - smoothstep(chevronStroke - chevronAA,
   chevronStroke + chevronAA, abs(chevronPhase))) * chevronExtent;
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.045, 0.065), chevronOutline);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), chevronWhite);
+// Dark casing on the outer 20% of the width (#0b1220, linear) keeps the trail readable on
+// snow and forest alike, whatever the colour mode. At overview distances the ribbon is only
+// a few pixels wide, so the casing is never thinner than about one pixel.
+float trailCasingStart = 1.0 - max(0.2, 1.2 * chevronEdgeAA);
+float trailCasing = smoothstep(trailCasingStart - chevronEdgeAA, trailCasingStart + chevronEdgeAA, abs(vTrailCoord.x));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.0033, 0.0060, 0.0144), trailCasing);
 `);
   };
-  material.customProgramCacheKey = () => 'trail-direction-chevrons-v3';
+  material.customProgramCacheKey = () => 'trail-direction-chevrons-v4';
 }
