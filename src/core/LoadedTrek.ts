@@ -157,8 +157,11 @@ export class LoadedTrek {
     this.trailResult.setColorMode(mode);
   }
 
+  private viewMode: ViewMode = 'diorama';
+
   public setViewMode(mode: ViewMode): void {
     if (this._isDisposed) return;
+    this.viewMode = mode;
     this.trailResult.setViewMode(mode);
     this.flyoverController.setViewMode(mode);
     this.imageryLOD.setViewMode(mode);
@@ -179,7 +182,8 @@ export class LoadedTrek {
 
   public updateWaypoints(camera: THREE.Camera, dioramaScale: number, delta: number, desktopViewportHeight?: number): void {
     if (this._isDisposed) return;
-    DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta, desktopViewportHeight);
+    DioramaBase.updateWaypoints(this.dioramaBase, camera, dioramaScale, delta, desktopViewportHeight, this.viewMode === 'first-person');
+    this.trailResult.updateMarkerScales?.(camera, desktopViewportHeight);
   }
 
   public updateHikerProgress(

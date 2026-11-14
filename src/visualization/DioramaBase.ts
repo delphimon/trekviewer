@@ -8,7 +8,9 @@ import { WaypointInstanceRenderer } from './WaypointInstanceRenderer.ts';
 export const BASE_MARKER_DIAMETER_LOCAL = 12.0; // OctahedronGeometry(6, 0) bounding diameter = 12 units
 export const DESIRED_MARKER_DIAMETER_WORLD = 0.025; // 2.5 cm world diameter (Section 29)
 export const DESIRED_LASER_HIT_RADIUS_WORLD = 0.05; // 5.0 cm world radius (10 cm diameter) for controller raycast (Section 30)
-export const ON_ROUTE_THRESHOLD_METERS = 75.0; // 50-100m threshold to snap waypoint to visual route (Section 26)
+export const ON_ROUTE_THRESHOLD_METERS = 75.0;
+/** Waypoint marker size in life-size mode (metres). */
+export const LIFE_SIZE_MARKER_HEIGHT_M = 1.5; // 50-100m threshold to snap waypoint to visual route (Section 26)
 
 const _scratchCamPos = new THREE.Vector3();
 const _scratchLabelPos = new THREE.Vector3();
@@ -519,7 +521,8 @@ export class DioramaBase {
     camera: THREE.Camera,
     dioramaScale: number,
     delta: number,
-    desktopViewportHeight?: number
+    desktopViewportHeight?: number,
+    lifeSize = false
   ): void {
     const wpGroup = baseGroup.getObjectByName('Waypoints');
     if (!wpGroup || wpGroup.children.length === 0) return;
@@ -571,6 +574,8 @@ export class DioramaBase {
           _scratchPinPosition.distanceTo(camWorldPos) * metresPerPixelAtUnitDistance * 22);
         markerScale = diameter / (BASE_MARKER_DIAMETER_LOCAL * parentWorldScale);
       }
+      // Life-size (1:1) mode: markers stand like signposts, about 1.5 m tall.
+      if (lifeSize) markerScale = LIFE_SIZE_MARKER_HEIGHT_M / (BASE_MARKER_DIAMETER_LOCAL * parentWorldScale);
       pin.scale.setScalar(markerScale * scaleMult);
 
       // Visual feedback: bright halo/ring and luminous emissive intensity (Section 32)

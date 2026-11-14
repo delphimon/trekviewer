@@ -20,6 +20,9 @@ export interface TrailResult {
   setViewMode: (mode: ViewMode) => void;
   setVerticalExaggeration: (factor: number) => void;
   reprojectToSurface?: (sampler: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds) => void;
+  /** Keeps the hiker and start/finish/summit pins a constant size on screen (desktop, pass the
+   * viewport height) or in the room (XR), like waypoint markers. Call once per frame. */
+  updateMarkerScales?: (camera: THREE.Camera, desktopViewportHeight?: number) => void;
   dispose: () => void;
   getGraphicsResources?: () => (THREE.BufferGeometry | THREE.Material)[];
 }
@@ -291,6 +294,30 @@ export class TrailMesh {
       };
     };
 
+    // Constant apparent size: pins about 4 cm tall in the room (XR) or 36 px on screen
+    // (desktop), the hiker slightly larger. Base heights are measured once, unscaled.
+    const scaledMarkers = [hikerMarker, startBeacon, finishBeacon, summitBeacon]
+      .filter((marker, index, all) => all.indexOf(marker) === index)
+      .map(marker => ({ marker, height: Math.max(1e-6, new THREE.Box3().setFromObject(marker).getSize(new THREE.Vector3()).y),
+        worldHeight: marker === hikerMarker ? 0.05 : 0.04, pixels: marker === hikerMarker ? 44 : 36 }));
+    const _markerPos = new THREE.Vector3(), _cameraPos = new THREE.Vector3(), _parentScale = new THREE.Vector3();
+    const updateMarkerScales = (camera: THREE.Camera, desktopViewportHeight?: number) => {
+      camera.getWorldPosition(_cameraPos);
+      const perspective = camera as THREE.PerspectiveCamera;
+      const metresPerPixel = desktopViewportHeight && perspective.isPerspectiveCamera
+        ? 2 * Math.tan(THREE.MathUtils.degToRad(perspective.fov / 2)) / desktopViewportHeight : 0;
+      for (const entry of scaledMarkers) {
+        const { marker } = entry;
+        if (!marker.visible || !marker.parent) continue;
+        marker.parent.getWorldScale(_parentScale);
+        marker.getWorldPosition(_markerPos);
+        const worldHeight = metresPerPixel
+          ? Math.min(entry.worldHeight, _markerPos.distanceTo(_cameraPos) * metresPerPixel * entry.pixels)
+          : entry.worldHeight;
+        marker.scale.setScalar(worldHeight / (entry.height * Math.max(_parentScale.y, 1e-9)));
+      }
+    };
+
     const setColorMode = (mode: TrailColorMode) => {
       currentColorMode = mode;
       applyColorsToGeo(dioramaGeo, mode);
@@ -505,6 +532,7 @@ export class TrailMesh {
       setViewMode,
       setVerticalExaggeration,
       reprojectToSurface,
+      updateMarkerScales,
       getGraphicsResources: () => [dioramaGeo, firstPersonGeo, dioramaMat, firstPersonMat],
       dispose,
     };

@@ -611,9 +611,12 @@ Implement and unit-test; mark each `[~] needs headset check`.
   Play/Pause, previous/next landmark and a short scrub bar, sized for index-finger poke
   (targets ≥ 3 cm). It reuses `SpatialHUD` callbacks. The far panel stays as it is.
   OWNER: confirm before starting; this is new UI.
-- [ ] **X4 Marker scale.** Hiker marker and start/finish pins must keep a constant
+- [~] **X4 Marker scale.** Hiker marker and start/finish pins must keep a constant
   angular size like waypoints do (they currently grow with zoom); in life-size mode
   waypoint markers become signpost height (about 1.5 m).
+  - Note: hiker 5 cm / pins 4 cm in the room (XR), 44 / 36 px on desktop. Needs headset
+    check — zoom the tabletop in and out: pins and hiker stay the same size; in life-size,
+    waypoint markers read as ~1.5 m signposts (they keep their existing +8 m offset).
 - [ ] **X5 Zoom about the plinth, stay on the table.** When two-hand scaling, keep the
   plinth bottom at the table height (use B4's offset). Clamp maximum scale so the plinth
   is never wider than 2.5 m.
