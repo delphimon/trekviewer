@@ -212,7 +212,8 @@ export class TrekSession {
 
   public setViewMode(viewMode: ViewMode): void {
     if (this.state.viewMode !== viewMode) {
-      this.setState({ viewMode });
+      // Speeds mean different things per view (tour/track x vs walking-pace x): start at 1x.
+      this.setState({ viewMode, playbackSpeed: 1 });
     }
   }
 

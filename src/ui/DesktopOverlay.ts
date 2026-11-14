@@ -408,7 +408,7 @@ export class DesktopOverlay {
 
   public setPlaying(playing: boolean): void {
     this.isPlaying = playing;
-    this.playBtn.textContent = playbackPresentation(this.playbackMode, this.viewMode, playing).playLabel;
+    this.playBtn.textContent = playbackPresentation(this.playbackMode, this.viewMode, playing, true).playLabel;
     this.playBtn.ariaPressed = String(playing);
   }
 
@@ -418,11 +418,10 @@ export class DesktopOverlay {
     const button = document.getElementById('btnViewToggle');
     if (button) button.textContent = mode === 'diorama' ? 'Fly the trail' : 'Tabletop Diorama';
     if (button) button.ariaPressed = String(mode === 'first-person');
-    const speeds = this.container.querySelector<HTMLElement>('.speed-selector');
-    if (speeds) speeds.style.display = mode === 'first-person' ? 'none' : 'flex';
     const timing = document.getElementById('playbackMode') as HTMLSelectElement | null;
     if (timing) timing.hidden = mode === 'first-person';
-    this.setPlaying(this.isPlaying);
+    // The trail view keeps a speed selector (multiples of walking pace) on desktop.
+    this.setPlaybackMode(this.playbackMode);
   }
 
   private updateFitAvailability(): void {
@@ -436,7 +435,7 @@ export class DesktopOverlay {
     this.playbackMode = mode;
     const select = document.getElementById('playbackMode') as HTMLSelectElement | null;
     if (select) select.value = mode;
-    const presentation = playbackPresentation(mode, this.viewMode, this.isPlaying);
+    const presentation = playbackPresentation(mode, this.viewMode, this.isPlaying, true);
     this.container.querySelectorAll<HTMLElement>('.speed-btn').forEach((button, i) => {
       button.dataset.speed = String(presentation.speeds[i]);
       button.textContent = `${presentation.speeds[i]}x`;

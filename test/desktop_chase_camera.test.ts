@@ -86,3 +86,22 @@ it('eases back to the default chase pose 3 s after the pointer is released', () 
   expect(o.length()).toBeCloseTo(CHASE_DEFAULT_DISTANCE_M, 0);
   expect(o.x).toBeCloseTo(-CHASE_BACK_M, 0);
 });
+
+it('offers 1x/10x/30x/100x walking pace in the desktop trail view only', async () => {
+  const { playbackPresentation, DESKTOP_TRAIL_SPEEDS } = await import('../src/visualization/PlaybackPresentation.ts');
+  expect(playbackPresentation('tour', 'first-person', false, true).speeds).toEqual(DESKTOP_TRAIL_SPEEDS);
+  expect(DESKTOP_TRAIL_SPEEDS).toEqual([1, 10, 30, 100]);
+  expect(playbackPresentation('tour', 'diorama', false, true).speeds).toEqual([0.5, 1, 2, 3]);
+  expect(playbackPresentation('recorded', 'first-person', false).speeds).toEqual([1, 5, 20, 60]); // HUD unchanged
+});
+
+it('moves at walking pace times the speed on desktop and stays at walking pace in XR', () => {
+  const desktop = fixture(() => 0);
+  desktop.flyover.setSpeed(30); desktop.flyover.play();
+  desktop.flyover.update(1, desktop.camera);
+  expect(desktop.flyover.getProgress() * 5000).toBeCloseTo(1.4 * 30);
+  const xr = fixture(() => 0);
+  xr.flyover.setSpeed(30); xr.flyover.play();
+  xr.flyover.update(1, undefined, new THREE.Group(), true);
+  expect(xr.flyover.getProgress() * 5000).toBeLessThanOrEqual(1.4 + 1e-9);
+});

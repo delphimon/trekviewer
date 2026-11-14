@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { GPXPoint, TrackStats, ViewMode } from '../gpx/TrackTypes.ts';
 import type { TrailResult } from './TrailMesh.ts';
 import { headingForForwardVector } from './RouteGeometry.ts';
-import { TOUR_DURATION_SECONDS, type PlaybackMode } from './PlaybackPresentation.ts';
+import { TOUR_DURATION_SECONDS, WALKING_PACE_MPS, type PlaybackMode } from './PlaybackPresentation.ts';
 
 export interface FlyoverUpdate {
   progress: number;
@@ -237,6 +237,11 @@ export class FlyoverController {
         this.progress = Math.min(1, this.progress + delta * this.playbackSpeed / TOUR_DURATION_SECONDS);
         this.playbackTime = this.progressToTime(this.progress);
         this.isPlaying = this.progress < 1;
+      } else if (this.viewMode === 'first-person' && !isWebXRPresenting && camera) {
+        // Desktop trail view: walking pace times the chosen multiplier (1x-100x).
+        this.progress = Math.min(1, this.progress + delta * WALKING_PACE_MPS * this.playbackSpeed / Math.max(this.track.totalDistance, 1));
+        this.playbackTime = this.progressToTime(this.progress);
+        this.isPlaying = this.progress < 1;
       } else {
         // Track timing retains its existing recorded/estimated temporal multiplier.
         this.playbackTime += delta * this.playbackSpeed;
@@ -250,7 +255,7 @@ export class FlyoverController {
 
         if (this.viewMode === 'first-person') {
           // Accelerated tabletop playback must not become high-speed locomotion.
-          const maxProgress = previousProgress + delta * 1.4 / Math.max(this.track.totalDistance, 1);
+          const maxProgress = previousProgress + delta * WALKING_PACE_MPS / Math.max(this.track.totalDistance, 1);
           if (this.progress > maxProgress) {
             this.progress = Math.min(maxProgress, 1);
             this.playbackTime = this.progressToTime(this.progress);

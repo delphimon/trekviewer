@@ -469,13 +469,18 @@ is locked to walking pace on an 18-hour route.
 - [x] **W2 Mouse look.** While in this mode on desktop, dragging rotates the view around
   the hiker (yaw free, pitch 5°–80°), the wheel changes the follow distance 15–400 m, and
   releasing for 3 s eases back to the default chase position.
-- [ ] **W3 Speed control.** Show the speed selector in this mode on desktop with
+- [x] **W3 Speed control.** Show the speed selector in this mode on desktop with
   1×, 10×, 30×, 100× of walking pace (extend `playbackPresentation` in
   `src/visualization/PlaybackPresentation.ts`). XR life-size stays at walking pace.
 - Tests: camera stays above terrain along a synthetic ridge; speeds map correctly;
   XR path unchanged (existing `stage_s1_first_person_lod` and `flyover_speed` tests pass).
 - Browser check: enter the mode at the start of Rainier, play at 30× for 20 s,
   screenshot; drag to look around, screenshot.
+- Note: W1 browser check done (elevated chase view at the Rainier start). The 30× / 20 s
+  run and the drag screenshot could not be taken: the in-app browser pane was hidden, so
+  the page received no animation frames. In the page, the selector showed 1×/10×/30×/100×,
+  play started, and one real 1 s update at 30× advanced 42 m (1.4 m/s × 30). Movement and
+  mouse look are covered by `test/desktop_chase_camera.test.ts`. Repeat the visual run.
 
 ---
 
@@ -749,4 +754,7 @@ and anything the owner must check.
   the real fast-band threshold (3.7+ mph, was a mislabelled 4.0+); `review_regressions`
   reads the chip label after the new marker dot. Waypoint label textures on the model
   (DioramaBase) pick up the unit setting on the next route load, not live.
+- 2026-11-13, Phase W done in code (W1–W3) with unit tests; W1 browser-checked. The W2/W3
+  visual run is outstanding (pane hidden, see the Phase W note). Speed resets to 1× on any
+  view-mode change so tour/track multipliers never carry into the trail view.
 
