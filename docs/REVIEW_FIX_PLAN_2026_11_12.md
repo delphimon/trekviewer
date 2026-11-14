@@ -710,4 +710,14 @@ and anything the owner must check.
   `?debug=1`, coverage 100 %, no flat sheets. Suite: 157 files / 909 tests.
   Owner headset checks: B4 plinth sits on a detected table; B10 slow poke fires once;
   B14 model appears 80 cm ahead of where you look on MR entry without a table.
+- 2026-11-13, Phase S done except S1 (owner). S2 removed `deploy:gh-pages`. S3 verified the
+  ion request carried the token in the URL; it now sends `Authorization: Bearer`, and a
+  live browser request confirmed ion's CORS accepts the header (401 for a dummy token).
+  S4 added the CSP; the build stamps the inline script's sha256, and the browser check
+  (Rainier, Enchantments, Aerial/Hybrid/Topo) showed no violations. The S4 check also found
+  a B14 regression (spinner stayed on "Aerial view active."), fixed in its own commit.
+  Note for browser checks: the offline service worker keeps serving the previous build in
+  the preview until it is unregistered. **OWNER action S1:** revoke the Cesium token that
+  was committed in `src/terrain/TextureProvider.ts` at `33a0f92` in the Cesium ion
+  dashboard, and restrict the current token to the app's allowed URLs.
 
