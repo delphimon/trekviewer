@@ -31,7 +31,8 @@ export const QUALITY_PROFILES: Record<QualityProfileName, QualityProfile> = {
     firstPersonPatches: 512,
     concurrency: 6,
     tileCacheEntries: 768,
-    tileCacheBytes: 192 * 1024 * 1024,
+    // Decoded-tile cache only; patches and texture arrays hold what is on screen (P6).
+    tileCacheBytes: 64 * 1024 * 1024,
     warmRetentionMs: 60000,
     evalIntervalMs: 120,              // 100-150 ms
     promotionDwellMs: 200,            // 150-250 ms (fast promotion)

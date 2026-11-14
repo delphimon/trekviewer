@@ -93,7 +93,7 @@ describe('Stage O: Terrain, Cache, and Memory Robustness', () => {
       TileImageCache.setTargetDevice(true);
       const questStats = TileImageCache.getStats();
       assert.strictEqual(questStats.maxEntries, 768);
-      assert.strictEqual(questStats.maxDecodedBytes, 192 * 1024 * 1024);
+      assert.strictEqual(questStats.maxDecodedBytes, 64 * 1024 * 1024);
 
       TileImageCache.setTargetDevice(false);
       const deskStats = TileImageCache.getStats();

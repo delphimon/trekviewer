@@ -551,13 +551,19 @@ Write the numbers in the commit message.
 - [x] **P5 Diagnostic work runs when not profiling** — *Reported (verify first).*
   `ImageryLODManager.ts`: the 12 extra rays used only for diagnostics and the unused
   `corridorPoints` build in the broad path run only when `?debug=1` or `?profile=1`.
-- [ ] **P6 Imagery memory** — *Reported estimate, about 430 MB on Quest High.*
+- [~] **P6 Imagery memory** — *Reported estimate, about 430 MB on Quest High.*
   - `src/terrain/ImageryBatchRenderer.ts`: free the CPU mirror of array pages after
     upload if nothing reads it afterwards (check context-loss recovery in
     `GraphicsRecovery`; if recovery needs the data, re-request tiles instead).
   - `src/terrain/QualityProfile.ts`: lower `tileCacheBytes` for quest profiles from
     192 MB to 64 MB.
   - Report `tileCacheMB`, textures and JS heap before and after.
+  - Note: tile cache lowered to 64 MB on quest-high (quest-balanced was already 40 MB).
+    The array-page CPU mirror was not freed: three.js slices each updated layer out of
+    `image.data` when it uploads (`WebGLTextures` layerUpdates), so later tile uploads
+    still read it. Freeing it needs P7's own `texSubImage3D` path. Context recovery does
+    not need it (`releaseBatches` rebuilds from the patch images). Numbers not measured
+    (browser pane hidden; owner chose to skip).
 - [ ] **P7 Whole-array mipmap regeneration per tile** — *Reported (verify first).*
   three.js regenerates mips for all 32 layers after each layer update. Advanced; attempt
   only after P1–P6. Approach: build the mip chain for the one tile on a canvas, and

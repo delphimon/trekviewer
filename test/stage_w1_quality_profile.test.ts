@@ -35,7 +35,7 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
       expect(questDefault.firstPersonPatches).toBe(512);
       expect(questDefault.concurrency).toBe(6);
       expect(questDefault.tileCacheEntries).toBe(768);
-      expect(questDefault.tileCacheBytes).toBe(192 * 1024 * 1024);
+      expect(questDefault.tileCacheBytes).toBe(64 * 1024 * 1024);
       expect(questDefault.warmRetentionMs).toBe(60000);
       expect(questDefault.evalIntervalMs).toBe(120);
       expect(questDefault.promotionDwellMs).toBe(200);
@@ -80,7 +80,7 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
       TileImageCache.setTargetDevice(true);
       const stats = TileImageCache.getStats();
       expect(stats.maxEntries).toBe(768);
-      expect(stats.maxDecodedBytes).toBe(192 * 1024 * 1024);
+      expect(stats.maxDecodedBytes).toBe(64 * 1024 * 1024);
     });
 
     it('scales decoded image cache for Desktop to 1024 entries / 256MB', () => {
