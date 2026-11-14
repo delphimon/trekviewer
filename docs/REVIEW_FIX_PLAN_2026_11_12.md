@@ -302,7 +302,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
 - [x] **S2 Delete the `deploy:gh-pages` script** from `package.json`. It publishes the
   built bundle (which contains the current token) to a repository branch and skips
   typecheck and tests.
-- [ ] **S3 Send the ion token as a header** — *Reported (verify first).*
+- [x] **S3 Send the ion token as a header** — *Reported (verify first).*
   `src/terrain/providers/ImageryProvider.ts` (search `access_token=`): use an
   `Authorization: Bearer` header for the ion endpoint request if the API accepts it.
   Keep the query form only for the tile URLs that require it.

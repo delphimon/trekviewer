@@ -79,7 +79,10 @@ export class CesiumBingImageryProvider implements ImageryProvider {
         });
         const request = (async () => {
           try {
-            const res = await fetch(`https://api.cesium.com/v1/assets/2/endpoint?access_token=${this.token}`, { signal: controller.signal });
+            // Header, not query: keeps the token out of URLs, logs and caches.
+            const res = await fetch('https://api.cesium.com/v1/assets/2/endpoint', {
+              signal: controller.signal, headers: { Authorization: `Bearer ${this.token}` },
+            });
             if (!res.ok) {
               if (res.status === 403) this.failureReason = 'Cesium access denied (403)';
               return null;
