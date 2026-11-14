@@ -629,8 +629,10 @@ Implement and unit-test; mark each `[~] needs headset check`.
   - Note: darkens from 26° to 54° off the view direction (similar to the old ring). Needs
     headset check — with the vignette on, turn smoothly: the dark ring should look the same
     in both eyes, with no doubled edge.
-- [ ] **X7 Pause on blur.** Pause playback and locomotion when the XR session's
+- [~] **X7 Pause on blur.** Pause playback and locomotion when the XR session's
   `visibilityState` is not `visible`.
+  - Note: needs headset check — start the tour, press the Meta button: playback stops and
+    the sticks do nothing until you return.
 - [ ] **X8 Framebuffer scale.** `SceneManager.ts` `setFramebufferScaleFactor(1)`: use 1.2
   for the quest-high profile. Must be set before the session starts.
 - [ ] **X9 Unused cues.** Play the existing `release` audio cue on grab release; call

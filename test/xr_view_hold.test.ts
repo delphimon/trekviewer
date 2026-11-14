@@ -51,3 +51,27 @@ it('clears the hold dim on an interaction reset and ignores a second face button
   xr.resetInteractionState();
   expect(progress.at(-1)).toBeNull();
 });
+
+it('pauses and ignores the sticks while the session is blurred by the system UI', () => {
+  const controllers: THREE.Group[] = [];
+  const session: { visibilityState: string } = { visibilityState: 'visible' };
+  const sceneManager: any = {
+    renderer: { xr: { isPresenting: true, getCamera: () => new THREE.PerspectiveCamera(),
+      getController: () => { const c = new THREE.Group(); controllers.push(c); return c; },
+      getControllerGrip: () => new THREE.Group(), getHand: () => new THREE.Group(), getSession: () => session } },
+    camera: new THREE.PerspectiveCamera(), scene: new THREE.Scene(), dioramaRoot: new THREE.Group(),
+  };
+  const xr = new XRManager(sceneManager);
+  xr.setViewMode('first-person');
+  const onSessionBlur = vi.fn(), onScrubDistance = vi.fn();
+  xr.setCallbacks({ onSessionBlur, onScrubDistance });
+  const buttons = Array.from({ length: 6 }, () => ({ pressed: false, touched: false, value: 0 }));
+  const axes = [0, 0, 0, 0];
+  controllers[0].dispatchEvent({ type: 'connected', data: { handedness: 'left', gamepad: { buttons, axes } } } as any);
+  xr.update();
+  session.visibilityState = 'visible-blurred';
+  axes[3] = -1;
+  for (let i = 0; i < 10; i++) xr.update();
+  expect(onSessionBlur).toHaveBeenCalledTimes(1);
+  expect(onScrubDistance).not.toHaveBeenCalled();
+});

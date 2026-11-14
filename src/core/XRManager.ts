@@ -70,6 +70,8 @@ export interface XRInteractionCallbacks {
   onToggleViewMode?: () => void;
   /** 0..1 while A/X is held toward a view-mode switch; null when released/cancelled. */
   onViewModeHoldProgress?: (progress: number | null) => void;
+  /** The session became hidden or blurred (system menu, guardian): pause playback. */
+  onSessionBlur?: () => void;
   onTogglePlay?: () => void;
   onTurn?: (radians: number) => void;
   onLocomotion?: () => void;
@@ -245,6 +247,7 @@ export class XRManager {
 
   /** Reused for activePointerRay; getActivePointerRay() hands out clones. */
   private readonly pointerRay = new THREE.Ray();
+  private sessionVisible = true;
   private waypointGroup: THREE.Object3D | null = null;
   private readonly waypointHitMeshes: THREE.Mesh[] = [];
 
@@ -663,6 +666,13 @@ export class XRManager {
     if (this.isDisposed) return;
     const session = this.renderer.xr.getSession();
     if (!session) return;
+    // No input or locomotion while the system UI covers the session.
+    const visible = !session.visibilityState || session.visibilityState === 'visible';
+    if (!visible) {
+      if (this.sessionVisible) { this.sessionVisible = false; this.resetInteractionState(); this.callbacks.onSessionBlur?.(); }
+      return;
+    }
+    this.sessionVisible = true;
 
     const dt = clampDeltaSeconds(deltaSeconds);
     this.activePointerRay = null;

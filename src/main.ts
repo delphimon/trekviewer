@@ -313,6 +313,11 @@ export class TrekViewerApp {
     this.xrManager.setCallbacks({
       onToggleViewMode: () => this.toggleViewMode(),
       onViewModeHoldProgress: (progress) => { this.viewHoldProgress = progress; },
+      onSessionBlur: () => {
+        this.flyoverController?.pause();
+        this.session.setPlayback(false);
+        this.overlay.setPlaying(false);
+      },
       onTogglePlay: () => this.togglePlay(),
       onReset: () => this.resetPosition(),
       onExitMR: () => this.exitMR(),
