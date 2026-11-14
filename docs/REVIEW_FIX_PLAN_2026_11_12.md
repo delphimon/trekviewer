@@ -242,7 +242,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
     surface; it should fire once, and a quick double poke (under 150 ms) should fire once.
     The 150 ms guard is per hand (any HUD control), not per control.
 
-- [ ] **B11 Hold-A/X dim can stick** — *Reported (verify first).*
+- [x] **B11 Hold-A/X dim can stick** — *Reported (verify first).*
   - Where: `src/core/XRManager.ts` (controller disconnect / tracking-lost paths,
     `prevButtons.fill(false)`, `resetInteractionState`), `src/main.ts`
     `viewHoldProgress`.

@@ -282,8 +282,22 @@ export class XRManager {
       ctrl.reticle.visible = false;
       ctrl.snapTurnLatched = ctrl.walkStepLatched = false;
       ctrl.needsButtonRelease = true;
+      ctrl.viewHoldStart = null;
     }
+    this.callbacks.onViewModeHoldProgress?.(null);
     this.spatialHUD?.onPointerRelease();
+  }
+
+  /** Ends a running A/X hold without switching view, and clears its dim. */
+  private cancelViewHold(state: ControllerState): void {
+    if (state.viewHoldStart == null) return;
+    state.viewHoldStart = null;
+    this.callbacks.onViewModeHoldProgress?.(null);
+  }
+
+  private viewHoldRunningElsewhere(state: ControllerState): boolean {
+    for (const other of this.controllers) if (other !== state && other.viewHoldStart != null && !other.viewHoldFired) return true;
+    return false;
   }
 
   public getActiveCamera(): THREE.Camera {
@@ -456,6 +470,7 @@ export class XRManager {
         state.rayLine.visible = false;
         state.reticle.visible = false;
         state.prevButtons.fill(false);
+        this.cancelViewHold(state);
         state.needsButtonRelease = true;
         state.snapTurnLatched = state.walkStepLatched = false;
         const handedness = event?.data?.handedness as XRHandedness | undefined;
@@ -677,6 +692,7 @@ export class XRManager {
         state.isHoveringHUD = state.isInteractingWithHUD = false;
         state.needsButtonRelease = true;
         state.snapTurnLatched = false;
+        this.cancelViewHold(state);
         this.spatialHUD?.onPointerRelease(`controller_${i}`);
         continue;
       }
@@ -684,6 +700,7 @@ export class XRManager {
         if (source.gamepad?.buttons.some((b: GamepadButton) => b.pressed || b.value > 0.35)) continue;
         state.needsButtonRelease = false;
         state.prevButtons.fill(false);
+        this.cancelViewHold(state);
       }
       state.rayLine.visible = true;
 
@@ -812,7 +829,10 @@ export class XRManager {
       // hides the real floor.
       if (b4_primary) {
         const now = performance.now();
-        if (!state.prevButtons[4]) { state.viewHoldStart = now; state.viewHoldFired = false; this.playFeedback('arm'); }
+        // A second controller's face button is ignored while another hold is running.
+        if (!state.prevButtons[4] && !this.viewHoldRunningElsewhere(state)) {
+          state.viewHoldStart = now; state.viewHoldFired = false; this.playFeedback('arm');
+        }
         if (!state.viewHoldFired && state.viewHoldStart != null) {
           const progress = Math.min(1, (now - state.viewHoldStart) / XRManager.VIEW_HOLD_MS);
           this.callbacks.onViewModeHoldProgress?.(progress);
@@ -824,7 +844,7 @@ export class XRManager {
           }
         }
       } else if (state.prevButtons[4]) {
-        if (!state.viewHoldFired) this.callbacks.onViewModeHoldProgress?.(null);
+        if (!state.viewHoldFired && state.viewHoldStart != null) this.callbacks.onViewModeHoldProgress?.(null);
         state.viewHoldStart = null;
       }
 
