@@ -44,6 +44,14 @@ export class PersistentResourceCache {
   private static writeFailed = false;
   private static storageReady: boolean | null = null;
   private static counters = { hits: 0, misses: 0, writes: 0, bytes: 0, entries: 0 };
+  /** Reads are read-only; their access-time updates and stale-entry deletions wait for the next flush. */
+  private static pendingAccess = new Map<string, number>();
+  private static pendingDeletes = new Set<string>();
+  /** counters.bytes/entries match the database (set by a full scan), so a flush can skip getAll(). */
+  private static totalsKnown = false;
+  private static scheduleFlush(): void {
+    if (!this.writeTimer) this.writeTimer = setTimeout(() => { this.writeTimer = undefined; void this.flush(); }, 250);
+  }
 
   public static getGeneration(): number { return this.generation; }
   public static isEnabled(): boolean {
@@ -104,19 +112,20 @@ export class PersistentResourceCache {
       const finish = (value: Blob | null) => { if (!done) { done = true; clearTimeout(timer); resolve(value); } };
       const timer = setTimeout(() => { try { tx?.abort(); } catch { /* Completed already. */ } finish(null); }, 150);
       try {
-        tx = db.transaction(['bodies', 'metadata'], 'readwrite');
+        // Read-only: never serialize tile reads behind cache writes.
+        tx = db.transaction(['bodies', 'metadata'], 'readonly');
         const metadata = tx.objectStore('metadata'), bodies = tx.objectStore('bodies');
         const request = metadata.get(url);
         let value: Blob | null = null;
         request.onsuccess = () => {
           const entry = request.result as Metadata | undefined;
           if (!entry) return;
-          if (entry.expires <= Date.now()) { metadata.delete(url); bodies.delete(url); return; }
+          if (entry.expires <= Date.now()) { this.pendingDeletes.add(url); return; }
           const body = bodies.get(url);
           body.onsuccess = () => {
             if (body.result instanceof Blob && body.result.size === entry.bytes) {
-              value = body.result; metadata.put({ ...entry, accessed: Date.now() });
-            } else { metadata.delete(url); bodies.delete(url); }
+              value = body.result; this.pendingAccess.set(url, Date.now());
+            } else this.pendingDeletes.add(url);
           };
         };
         tx.oncomplete = () => finish(value);
@@ -125,6 +134,7 @@ export class PersistentResourceCache {
     });
     if (generation !== this.generation) return null;
     if (blob) this.counters.hits++; else this.counters.misses++;
+    if (this.pendingAccess.size || this.pendingDeletes.size) this.scheduleFlush();
     return blob;
   }
 
@@ -143,20 +153,30 @@ export class PersistentResourceCache {
       this.pendingBytes -= this.pending.get(key)!.blob.size; this.pending.delete(key);
     }
     this.pending.set(url, { blob, generation }); this.pendingBytes += blob.size;
-    if (!this.writeTimer) this.writeTimer = setTimeout(() => { this.writeTimer = undefined; void this.flush(); }, 250);
+    this.scheduleFlush();
   }
 
   public static async flush(): Promise<void> {
     if (this.writeTimer) { clearTimeout(this.writeTimer); this.writeTimer = undefined; }
     // Only one batch may wait for an existing transaction. Further arrivals stay
     // in the bounded pending map, rather than retaining unbounded blob snapshots.
-    if (!this.pending.size) { await this.writes; return; }
+    if (!this.pending.size && !this.pendingAccess.size && !this.pendingDeletes.size) { await this.writes; return; }
     const generation = this.generation;
     this.writes = this.writes.then(async () => {
       if (generation !== this.generation || !this.isEnabled() || this.writeFailed) return;
       const batch = new Map(this.pending); this.pending.clear(); this.pendingBytes = 0;
-      if (!batch.size) return;
+      const access = new Map(this.pendingAccess); this.pendingAccess.clear();
+      const deletes = new Set(this.pendingDeletes); this.pendingDeletes.clear();
+      if (!batch.size && !access.size && !deletes.size) return;
       const db = await this.open(); if (!db || generation !== this.generation) return;
+      let incoming = 0; for (const item of batch.values()) incoming += item.blob.size;
+      // A full scan is needed only before the first totals are known or when the batch may
+      // push the cache over its limits (LRU eviction); otherwise update the running totals.
+      if (this.totalsKnown && this.counters.bytes + incoming <= LIMIT_BYTES && this.counters.entries + batch.size < LIMIT_ENTRIES) {
+        await this.flushIncremental(db, generation, batch, access, deletes);
+        return;
+      }
+      for (const key of deletes) access.delete(key);
       await new Promise<void>(resolve => {
         let tx: IDBTransaction | undefined;
         const timer = setTimeout(() => { try { tx?.abort(); } catch { /* Finished. */ } resolve(); }, 2000);
@@ -170,7 +190,9 @@ export class PersistentResourceCache {
             if (generation !== this.generation) { tx?.abort(); return; }
             const now = Date.now();
             const retained = (request.result as Metadata[]).filter(entry => {
-              if (entry.expires <= now || batch.has(entry.key)) { metadata.delete(entry.key); bodies.delete(entry.key); return false; }
+              if (entry.expires <= now || batch.has(entry.key) || deletes.has(entry.key)) { metadata.delete(entry.key); bodies.delete(entry.key); return false; }
+              const accessed = access.get(entry.key);
+              if (accessed !== undefined) { entry.accessed = accessed; metadata.put(entry); }
               return true;
             }).sort((a, b) => a.accessed - b.accessed);
             bytes = retained.reduce((total, entry) => total + entry.bytes, 0); entries = retained.length;
@@ -184,12 +206,52 @@ export class PersistentResourceCache {
               bytes += item.blob.size; entries++; written++;
             }
           };
-          tx.oncomplete = () => { this.counters.bytes = bytes; this.counters.entries = entries; this.counters.writes += written; finish(); };
+          tx.oncomplete = () => { this.counters.bytes = bytes; this.counters.entries = entries; this.totalsKnown = true; this.counters.writes += written; finish(); };
           tx.onerror = tx.onabort = () => { if (generation === this.generation) this.writeFailed = true; finish(); };
         } catch { this.writeFailed = true; finish(); }
       });
     }).catch(() => { this.writeFailed = true; });
     await this.writes;
+  }
+
+  /** Writes, access times and deletions applied with per-key requests, keeping the totals current. */
+  private static flushIncremental(db: IDBDatabase, generation: number, batch: Map<string, Pending>,
+    access: Map<string, number>, deletes: Set<string>): Promise<void> {
+    return new Promise<void>(resolve => {
+      let tx: IDBTransaction | undefined;
+      const timer = setTimeout(() => { try { tx?.abort(); } catch { /* Finished. */ } resolve(); }, 2000);
+      const finish = () => { clearTimeout(timer); resolve(); };
+      let bytes = this.counters.bytes, entries = this.counters.entries, written = 0;
+      try {
+        tx = db.transaction(['bodies', 'metadata'], 'readwrite');
+        const metadata = tx.objectStore('metadata'), bodies = tx.objectStore('bodies');
+        const now = Date.now();
+        const forget = (key: string, after?: () => void) => {
+          const request = metadata.get(key);
+          request.onsuccess = () => {
+            const entry = request.result as Metadata | undefined;
+            if (entry) { metadata.delete(key); bodies.delete(key); bytes -= entry.bytes; entries--; }
+            after?.();
+          };
+        };
+        for (const key of deletes) if (!batch.has(key)) forget(key);
+        for (const [key, accessed] of access) {
+          if (deletes.has(key) || batch.has(key)) continue;
+          const request = metadata.get(key);
+          request.onsuccess = () => { const entry = request.result as Metadata | undefined; if (entry) metadata.put({ ...entry, accessed }); };
+        }
+        for (const [url, item] of batch) {
+          if (item.generation !== this.generation) continue;
+          forget(url, () => {
+            bodies.put(item.blob, url);
+            metadata.put({ key: url, bytes: item.blob.size, created: now, accessed: now, expires: now + TTL_MS } satisfies Metadata);
+            bytes += item.blob.size; entries++; written++;
+          });
+        }
+        tx.oncomplete = () => { this.counters.bytes = bytes; this.counters.entries = entries; this.counters.writes += written; finish(); };
+        tx.onerror = tx.onabort = () => { if (generation === this.generation) this.writeFailed = true; this.totalsKnown = false; finish(); };
+      } catch { this.writeFailed = true; finish(); }
+    });
   }
 
   /** Drops a temporary-cache entry whose bytes failed to decode. Pinned offline packs are never
@@ -203,11 +265,13 @@ export class PersistentResourceCache {
     this.pendingBytes -= this.pending.get(url)?.blob.size ?? 0; this.pending.delete(url);
     await this.writes;
     const db = await this.open(); if (!db) return;
+    this.totalsKnown = false; // the next flush rescans rather than guess this entry's size
     try { const tx = db.transaction(['bodies', 'metadata'], 'readwrite'); tx.objectStore('bodies').delete(url); tx.objectStore('metadata').delete(url); } catch { /* Best effort. */ }
   }
 
   public static async clear(): Promise<boolean> {
     this.generation++; this.pending.clear(); this.pendingBytes = 0;
+    this.pendingAccess.clear(); this.pendingDeletes.clear();
     await this.writes;
     const db = await this.open(); if (!db) return false;
     return new Promise(resolve => {
@@ -216,7 +280,7 @@ export class PersistentResourceCache {
       try {
         const tx = db.transaction(['bodies', 'metadata'], 'readwrite');
         tx.objectStore('bodies').clear(); tx.objectStore('metadata').clear();
-        tx.oncomplete = () => { this.writeFailed = false; this.counters.bytes = 0; this.counters.entries = 0; finish(true); };
+        tx.oncomplete = () => { this.writeFailed = false; this.counters.bytes = 0; this.counters.entries = 0; this.totalsKnown = true; finish(true); };
         tx.onerror = tx.onabort = () => finish(false);
       } catch { finish(false); }
     });

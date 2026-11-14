@@ -575,7 +575,7 @@ Write the numbers in the commit message.
     upload with raw `texSubImage3D` calls on its internal texture handle and state, which
     nothing here can exercise (no WebGL in unit tests, browser pane hidden). Do it with a
     visible browser or on a headset, together with freeing the P6 CPU mirror.
-- [ ] **P8 IndexedDB read path** — *Reported (verify first).*
+- [x] **P8 IndexedDB read path** — *Reported (verify first).*
   `src/terrain/PersistentResourceCache.ts`: reads use a `readonly` transaction; batch
   the last-access timestamp writes into the existing flush; replace `metadata.getAll()`
   on every flush with a running total.
