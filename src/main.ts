@@ -387,7 +387,8 @@ export class TrekViewerApp {
       getCurrentTrailColorMode: () => this.currentTrailColorMode,
       session: this.session,
       onProgress: (msg, progress) => {
-        this.overlay.showStatus(msg, false, 'loading');
+        // Progress 1 marks a finished step (e.g. 'Aerial view active.'): no spinner.
+        this.overlay.showStatus(msg, false, progress === 1 ? 'ready' : 'loading');
         this.spatialHUD?.showStatus(msg, progress ?? undefined);
       },
       onError: (err, routeName) => {
