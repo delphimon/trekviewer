@@ -24,7 +24,7 @@ it('applies High before XR entry, on session setup/re-entry, and after live qual
   vi.spyOn(SceneManager.prototype as any, 'createSkyDome').mockImplementation(() => new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
   const scene = new SceneManager({ appendChild: vi.fn() } as any, 'quest-high'), xr = scene.renderer.xr as any;
   try {
-    expect(xr.setFramebufferScaleFactor).toHaveBeenCalledExactlyOnceWith(1);
+    expect(xr.setFramebufferScaleFactor).toHaveBeenCalledExactlyOnceWith(1.2); // Quest High renders at 1.2x (X8)
     expect(xr.setFoveation).toHaveBeenLastCalledWith(0);
     expect(scene.getXRRenderQuality()).toMatchObject({ xrRequestedFoveation: 0, xrLayerFoveation: null, xrLayerType: 'none' });
     const pose = scene.camera.position.clone(), root = scene.dioramaRoot.matrix.clone();

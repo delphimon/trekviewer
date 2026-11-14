@@ -6,6 +6,11 @@ import { updateInspectionClipping } from './InspectionView.ts';
 import { requestedXRFoveation, readXRRenderQuality } from './XRRenderQuality.ts';
 import type { QualityProfileName } from '../terrain/QualityProfile.ts';
 
+/** XR render resolution: 1.2x on Quest High (sharper text and terrain), 1x otherwise. */
+export function framebufferScaleForProfile(profile: QualityProfileName): number {
+  return profile === 'quest-high' ? 1.2 : 1;
+}
+
 /** Texture anisotropy: 4 on Quest profiles (bandwidth), 8 on desktop, never above the device. */
 /** Comfort vignette: darkens from 26 deg to 54 deg off the eye's view direction. */
 export const VIGNETTE_VERTEX_SHADER = 'varying vec3 viewDir; void main(){vec4 v=inverse(projectionMatrix)*vec4(position.xy,1.0,1.0);viewDir=v.xyz/v.w;gl_Position=vec4(position.xy,0.0,1.0);}';
@@ -71,7 +76,6 @@ export class SceneManager {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.xr.enabled = true;
-    this.renderer.xr.setFramebufferScaleFactor(1);
     this.setQualityProfile(qualityProfile);
     this.renderer.xr.addEventListener('sessionstart', this.onXRSessionStartBound);
     container.appendChild(this.renderer.domElement);
@@ -157,6 +161,8 @@ export class SceneManager {
 
   public setQualityProfile(profile: QualityProfileName): void {
     this.qualityProfile = profile;
+    // The XR framebuffer size is fixed when a session starts; apply it beforehand.
+    if (!this.renderer.xr.isPresenting) this.renderer.xr.setFramebufferScaleFactor(framebufferScaleForProfile(profile));
     TextureProvider.setMaxAnisotropy(anisotropyForProfile(profile, this.renderer.capabilities.getMaxAnisotropy()));
     try { this.renderer.xr.setFoveation(requestedXRFoveation(profile)); }
     catch (error) { console.warn('XR foveation request was not accepted; layer diagnostics report the runtime state.', error); }
