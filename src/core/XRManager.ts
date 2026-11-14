@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { terrainFootprint } from '../terrain/TerrainFootprint.ts';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
 import { InteractionFeedback, type FeedbackCue } from '../xr/InteractionFeedback.ts';
@@ -245,9 +246,9 @@ export class XRManager {
     verticalExaggeration: number = 1.0
   ): void {
     this.dioramaBounds = bounds;
-    const margin = 0.25;
-    this.dioramaWidthMeters = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
-    this.dioramaDepthMeters = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
+    const footprint = terrainFootprint(bounds);
+    this.dioramaWidthMeters = footprint.widthMeters;
+    this.dioramaDepthMeters = footprint.depthMeters;
     this.dioramaElevationSampler = elevationSampler || null;
     this.dioramaBaseElevation = baseElevation;
     this.dioramaVerticalExaggeration = verticalExaggeration;

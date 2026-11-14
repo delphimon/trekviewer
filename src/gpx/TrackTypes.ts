@@ -50,6 +50,8 @@ export interface GeoBounds {
   widthMeters: number;
   depthMeters: number;
   elevationSpan: number;
+  /** Location of the highest recorded point, used to keep it away from the terrain edge. */
+  highPoint?: { lat: number; lon: number };
 }
 
 export interface ElevationProvenanceStats {

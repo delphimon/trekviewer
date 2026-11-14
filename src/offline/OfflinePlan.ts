@@ -1,3 +1,4 @@
+import { terrainFootprint } from '../terrain/TerrainFootprint.ts';
 import type { TrackStats } from '../gpx/TrackTypes.ts';
 import { geoToLocalMeters, localMetersToGeo, latLonToTile, tileToLatLon } from '../gpx/Coordinates.ts';
 import { TextureBudget } from '../terrain/TextureBudget.ts';
@@ -64,7 +65,7 @@ export function planOfflineRoute(
   const corridorMeters = options?.corridorMeters ?? 1500;
   const maxZoom: 18 | 19 = options?.maxImageryZoom ?? (isCorridor ? 18 : 19);
 
-  const b = track.bounds, width = Math.max(1500, b.widthMeters * 1.5), depth = Math.max(1500, b.depthMeters * 1.5);
+  const b = track.bounds, { widthMeters: width, depthMeters: depth } = terrainFootprint(b);
   const nw = localMetersToGeo(-width / 2, -depth / 2, b.centerLat, b.centerLon), se = localMetersToGeo(width / 2, depth / 2, b.centerLat, b.centerLon);
   const footprint = { minLat: se.lat, maxLat: nw.lat, minLon: nw.lon, maxLon: se.lon };
   const resources = new Map<string, OfflineResource>(), provider = new PublicImageryProvider();

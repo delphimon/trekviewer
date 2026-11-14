@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { terrainFootprint } from '../terrain/TerrainFootprint.ts';
 import { GeoBounds, GPXWaypoint } from '../gpx/TrackTypes';
 import { geoToLocalMeters } from '../gpx/Coordinates';
 import type { TerrainSurfaceBounds } from '../terrain/TerrainGenerator';
@@ -45,9 +46,7 @@ export class DioramaBase {
     const group = new THREE.Group();
     group.name = 'DioramaBaseGroup';
 
-    const margin = 0.25;
-    const widthM = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
-    const depthM = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
+    const { widthMeters: widthM, depthMeters: depthM } = terrainFootprint(bounds);
     const plinthHeight = PLINTH_HEIGHT_M; // meters in 1:1 scale
 
     // Main plinth slab

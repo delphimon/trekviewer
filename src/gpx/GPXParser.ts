@@ -72,6 +72,7 @@ export class GPXParser {
     let maxLon = -Infinity;
     let minEle = Infinity;
     let maxEle = -Infinity;
+    let highPoint: { lat: number; lon: number } | undefined;
 
     for (const seg of raw.rawSegments) {
       for (const p of seg) {
@@ -81,7 +82,7 @@ export class GPXParser {
         maxLon = Math.max(maxLon, p.lon);
         if (p.ele !== undefined) {
           minEle = Math.min(minEle, p.ele);
-          maxEle = Math.max(maxEle, p.ele);
+          if (p.ele > maxEle) { maxEle = p.ele; highPoint = { lat: p.lat, lon: p.lon }; }
         }
       }
     }
@@ -117,6 +118,7 @@ export class GPXParser {
       widthMeters,
       depthMeters,
       elevationSpan,
+      highPoint,
     };
   }
 
@@ -156,6 +158,7 @@ export class GPXParser {
     let maxLon = -Infinity;
     let minEle = Infinity;
     let maxEle = -Infinity;
+    let highPoint: { lat: number; lon: number } | undefined;
 
     let globalPointIdx = 0;
 
@@ -174,7 +177,7 @@ export class GPXParser {
         minLon = Math.min(minLon, cur.lon);
         maxLon = Math.max(maxLon, cur.lon);
         minEle = Math.min(minEle, ele);
-        maxEle = Math.max(maxEle, ele);
+        if (ele > maxEle) { maxEle = ele; highPoint = { lat: cur.lat, lon: cur.lon }; }
 
         let distDelta = 0;
         let timeDelta = 0;
@@ -301,6 +304,7 @@ export class GPXParser {
       widthMeters,
       depthMeters,
       elevationSpan,
+      highPoint,
     };
 
     // Snap waypoints with missing elevations to DEM

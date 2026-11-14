@@ -324,7 +324,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
 Every item here needs a Browser check with a before and after screenshot of the default
 Rainier route.
 
-- [ ] **V1 Terrain is cropped too tightly around the route** — *Confirmed.*
+- [x] **V1 Terrain is cropped too tightly around the route** — *Confirmed.*
   - Where: `src/terrain/TerrainGenerator.ts` `const margin = 0.25;` and the two
     `Math.max(bounds.*Meters * (1 + margin * 2), 1500)` lines.
   - Problem: on Rainier the summit sits at the edge of the block.
@@ -341,6 +341,11 @@ Rainier route.
     terrain shader, or darken the skirt to match the plinth.
   - Done when: the Rainier summit is clearly inside the block with terrain visible on all
     sides.
+  - Note: one rule (`src/terrain/TerrainFootprint.ts`) now drives terrain, plinth, XR grab
+    footprint and offline plans, which each had their own copy of the old margin. Sizes are
+    rounded up to 250 m; the high point is recorded in `GeoBounds.highPoint`. The edge is
+    softened by darkening the skirt. First Rainier load in the preview took about 30–40 s
+    (was about 18 s) because the DEM and imagery cover a larger area.
 
 - [ ] **V2 Snow is blown out and imagery colours are shifted** — *Confirmed.*
   - Where: `src/core/SceneManager.ts` `toneMapping = THREE.ACESFilmicToneMapping`,

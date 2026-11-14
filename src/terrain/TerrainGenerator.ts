@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { terrainFootprint } from './TerrainFootprint.ts';
 import type { GeoBounds, TrackStats, TextureStyle } from '../gpx/TrackTypes.ts';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import { type ElevationGrid, ElevationTileService } from './ElevationTiles.ts';
@@ -85,10 +86,8 @@ export class TerrainGenerator {
     const centerLat = bounds.centerLat;
     const centerLon = bounds.centerLon;
 
-    // Geometry dimensions (with 25% margin around the trek)
-    const margin = 0.25;
-    const widthM = Math.max(bounds.widthMeters * (1 + margin * 2), 1500);
-    const depthM = Math.max(bounds.depthMeters * (1 + margin * 2), 1500);
+    // Geometry dimensions: room around the route and its high point (see terrainFootprint)
+    const { widthMeters: widthM, depthMeters: depthM } = terrainFootprint(bounds);
 
     // Compute geographic bounds of the entire 3D plane mesh
     const nwGeo = localMetersToGeo(-widthM / 2, -depthM / 2, centerLat, centerLon);
@@ -371,11 +370,13 @@ export class TerrainGenerator {
     // Diorama Skirts dropping down to pedestal
     const skirtBaseY = -80;
     let skirtGeo = this.createDioramaSkirts(planeGeo, segX, segZ, skirtBaseY);
+    // Darkened toward the plinth so the cut edge reads as the model's base, not a bright wall.
     const skirtMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
+      color: 0x59616a,
       roughness: 1.0,
       metalness: 0.0,
-      emissive: 0x252b2d,
+      emissive: 0x14181c,
       emissiveIntensity: 0.35,
       side: THREE.FrontSide,
     });
