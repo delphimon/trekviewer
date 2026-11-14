@@ -1,3 +1,4 @@
+import { ImageryLODManager } from './terrain/ImageryLODManager.ts';
 import * as THREE from 'three';
 import { formatDistance, formatElevation } from './utils/Units.ts';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -181,6 +182,7 @@ export class TrekViewerApp {
   };
 
   constructor() {
+    ImageryLODManager.collectViewDiagnostics = this.isDebugMode || this.isProfilingMode;
     // Diagnostic instance count (Section 46)
     if (typeof window !== 'undefined') {
       (window as any).__trekViewerInstances = ((window as any).__trekViewerInstances || 0) + 1;

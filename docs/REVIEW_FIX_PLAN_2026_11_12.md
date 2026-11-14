@@ -548,7 +548,7 @@ Write the numbers in the commit message.
   existing hysteresis. Test: hits at 100 m, 600 m, 2400 m, 9600 m select zooms
   19, 18, 16, 14 (when the provider maximum is 19).
   This reduces tile count, which also helps B1.
-- [ ] **P5 Diagnostic work runs when not profiling** — *Reported (verify first).*
+- [x] **P5 Diagnostic work runs when not profiling** — *Reported (verify first).*
   `ImageryLODManager.ts`: the 12 extra rays used only for diagnostics and the unused
   `corridorPoints` build in the broad path run only when `?debug=1` or `?profile=1`.
 - [ ] **P6 Imagery memory** — *Reported estimate, about 430 MB on Quest High.*

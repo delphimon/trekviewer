@@ -907,6 +907,9 @@ export class ImageryLODManager {
   private directRefreshDepth = 0;
   private directReprojectionsAvoided = 0;
   private batchSupport: boolean | null = null;
+  /** View-sample diagnostics (extra rays per evaluation) run only with ?debug=1 or ?profile=1. */
+  public static collectViewDiagnostics = false;
+
   public readonly group: THREE.Group;
   /** Bumped whenever patches, their visibility or their geometry change, so syncRenderer
    * can skip frames where nothing it reads has changed. */
@@ -2140,6 +2143,7 @@ export class ImageryLODManager {
 
     const innerZoom = Math.min(this.providerMaxZoom, 19);
     const midZoom = Math.max(13, innerZoom - 1);
+    const broadHigh = this.qualityProfile.name !== 'quest-balanced' && this.maxPatches >= 293;
     this.currentTargetZoom = innerZoom;
     this.calculatedDesiredZoom = innerZoom;
 
@@ -2179,12 +2183,13 @@ export class ImageryLODManager {
       const parentTileWidthMeters = metersPerPixelAtZoom(hikerLat, innerZoom - 1) * 256;
       const sampleStepM = Math.max(25, parentTileWidthMeters * 0.4);
 
-      corridorPoints = [];
-      for (let d = behindDist; d <= forwardDist; d += sampleStepM) {
+      // Only the coherent (non-broad) selection reads the corridor.
+      if (!broadHigh) corridorPoints = [];
+      if (!broadHigh) for (let d = behindDist; d <= forwardDist; d += sampleStepM) {
         const pt = this.routeGeometry.getTelemetryAtDistance(d).currentPoint;
-        corridorPoints.push({ lat: pt.lat, lon: pt.lon });
+        corridorPoints!.push({ lat: pt.lat, lon: pt.lon });
       }
-      corridorPoints.push({ lat: forwardLat, lon: forwardLon });
+      corridorPoints?.push({ lat: forwardLat, lon: forwardLon });
     } else {
       const metrics = getViewMetrics(camera, renderer);
       const ray = new THREE.Ray(metrics.worldPosition, metrics.forward);
@@ -2222,7 +2227,7 @@ export class ImageryLODManager {
     this.firstPersonBaseSurfaceRays = 0;
     const viewRaycastStart = profileTiming ? performance.now() : 0;
     const terrainMesh = this.options.terrainMesh;
-    if (terrainMesh) {
+    if (terrainMesh && ImageryLODManager.collectViewDiagnostics) {
       terrainMesh.parent?.updateWorldMatrix(true, true);
       const surfaces = terrainMesh.parent?.children.filter((obj): obj is THREE.Mesh =>
         (obj as THREE.Mesh).isMesh && obj.visible &&
@@ -2249,7 +2254,6 @@ export class ImageryLODManager {
     }))];
 
     // Coherent quadtree candidate generation for 1:1 first-person view (Stage V6, Stage W4)
-    const broadHigh = this.qualityProfile.name !== 'quest-balanced' && this.maxPatches >= 293;
     const detailPoints = broadHigh ? this.retainDetailFocus([
       { lat: hikerLat, lon: hikerLon }, ...this.sampleDetailFocus(camera, dioramaRoot, renderer, innerZoom),
     ], innerZoom) : [];

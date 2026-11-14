@@ -33,12 +33,19 @@ it('samples terrain in the first-person view for off-route imagery selection', (
   camera.updateWorldMatrix(true, false);
 
   try {
+    // View samples are diagnostics: collected only with ?debug=1 or ?profile=1 (P5).
+    ImageryLODManager.collectViewDiagnostics = false;
+    (manager as any).evaluateFirstPersonLOD(camera, root);
+    expect(manager.getDiagnostics().firstPersonViewSamples).toBe(0);
+    reconcile.mockClear();
+    ImageryLODManager.collectViewDiagnostics = true;
     (manager as any).evaluateFirstPersonLOD(camera, root);
     expect(manager.getDiagnostics().firstPersonViewSamples).toBeGreaterThan(0);
     expect(reconcile).toHaveBeenCalledOnce();
     const candidates = reconcile.mock.calls[0][0] as unknown[];
     expect(candidates.length).toBeGreaterThan(0);
   } finally {
+    ImageryLODManager.collectViewDiagnostics = false;
     manager.dispose();
     geometry.dispose();
     (terrain.material as THREE.Material).dispose();
