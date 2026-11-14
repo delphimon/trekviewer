@@ -760,9 +760,13 @@ code, and list them in the commit message.
   agree (CI uses 22; `@types/node` is 26).
   - Note: aligned on Node 26 (local Node and `@types/node` are 26): CI uses 26,
     `engines.node` is `>=26`, and `.nvmrc` says 26.
-- [ ] **T6 Rename history-named tests** (`stage_*`, `review_*`,
+- [~] **T6 Rename history-named tests** (`stage_*`, `review_*`,
   `architecture_review_fixes`) to the unit they cover, splitting files that cover several
   units. Pure moves; no assertion changes. Do this last to avoid merge pain.
+  - Note: 18 single-unit files renamed with `git mv` (no content change), e.g.
+    `stage_v1_pinch` → `xr_pinch_gestures`, `stage_u5_provider` → `imagery_providers`. The
+    remaining 24 cover several units and need splitting; 7 of them test
+    `LocalTerrainStreamer`, so they wait for the C1 decision.
 - [x] **T7 Docs.** Update `README.md` for every user-visible change in this plan.
   `docs/OFFLINE_ROUTE_PACKS.md` says browser export and geographic indexing "remain
   open" (both exist). `docs/ARCHITECTURE_REVIEW_AND_HANDOFF.md` documents removed URL
@@ -842,7 +846,7 @@ and anything the owner must check.
   the desktop trail view, browser z-fighting check outstanding. No before/after frame
   numbers were taken: the browser pane was hidden and the owner chose to skip
   measurements. Tests changed: `hud_ui_performance` (2 Hz playback refresh),
-  `first_person_view_sampling` (diagnostics now opt-in), `stage_w1_quality_profile` and
+  `first_person_view_sampling` (diagnostics now opt-in), `quality_profile` (was `stage_w1_quality_profile`) and
   `terrain_cache_robustness` (64 MB Quest cache).
 - 2026-11-14, Phase X: X1, X2, X4–X9 implemented with unit tests and marked `[~]` for a
   headset check (see each note). **OWNER X3** (near-field transport strip): not started,
@@ -856,4 +860,8 @@ and anything the owner must check.
   deletion (573 lines + `LoadedTrek` test rework) exceeds the size rule — confirm.
   **OWNER C3** and **C7**: not started (decision items). Deleted tests listed in the C2
   commit.
+- 2026-11-14, Phase T: T1, T2, T5, T7 done; T3 partial (three dead scripts deleted, four kept);
+  T4 blocked (typescript-eslint does not support TypeScript 7; owner decision); T6 partial
+  (18 renames; multi-unit splits outstanding). Suite: 182 files / 969 tests; `npm run
+  test:e2e` passes locally with `PW_CHANNEL=chrome`.
 
