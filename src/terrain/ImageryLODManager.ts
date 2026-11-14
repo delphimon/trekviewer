@@ -1179,6 +1179,7 @@ export class ImageryLODManager {
     if (direct && !this.terrainImagery) {
       try { this.terrainImagery = new TerrainImageryMaterial(this.options.terrainGeoBounds, this.options.terrainTileGrid!, renderer.capabilities.maxTextureSize); }
       catch { this.batchSupport = false; return; }
+      this.terrainImagery.setSlopeShading(this.slopeShading, this.verticalExaggeration);
     }
     this.batchRenderer ??= new ImageryBatchRenderer(undefined, direct, direct ? patch => {
       if (this.directRefreshDepth || !this.staleDirectPatches.delete(patch.key) || this.patches.get(patch.key) !== patch) return;
@@ -1407,9 +1408,17 @@ export class ImageryLODManager {
     return this.qualityProfile;
   }
 
+  private slopeShading = false;
+  /** Slope-angle tint (terrain-shader imagery only). */
+  public setSlopeShading(enabled: boolean): void {
+    this.slopeShading = enabled;
+    this.terrainImagery?.setSlopeShading(enabled, this.verticalExaggeration);
+  }
+
   public setVerticalExaggeration(factor: number): void {
     if (this.isDisposed || Math.abs(this.verticalExaggeration - factor) < 0.01) return;
     this.verticalExaggeration = factor;
+    this.terrainImagery?.setSlopeShading(this.slopeShading, factor);
     this.invalidateStreamedSurface();
     // Rendered-source patches are rebuilt by the terrain surface revision with its
     // actual scaled positions and smooth normals; do not independently resample them.

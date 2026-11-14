@@ -657,11 +657,15 @@ Do these only after phases B–U. Each needs a Browser check and a unit test for
   - Note: desktop click and XR controller-trigger selection done and unit-tested (hand pinch
     on the trail is not wired: pinch near the model already grabs it). Browser check not
     done: with the pane hidden the page does not finish loading.
-- [ ] **N2 Slope-angle shading.** A fourth visual style "Slope" that tints terrain by
+- [~] **N2 Slope-angle shading.** A fourth visual style "Slope" that tints terrain by
   slope angle from the surface normal in `src/terrain/TerrainImageryMaterial.ts`:
   transparent below 27°, yellow 27–30°, orange 30–35°, red 35–45°, purple above 45°,
   blended at 50% over the imagery. Add a legend. Normals must be in model space and
   must account for vertical exaggeration (divide the vertical component back out).
+  - Note: "Slope" is a fourth Visual Style button = Aerial imagery plus the tint (the texture
+    style stays `satellite`, so providers and offline packs are untouched). Works with
+    terrain-shader imagery (the default); not with `?terrainImagery=0`. Browser check not
+    done (pane hidden).
 - [ ] **N3 Day splits.** `src/gpx/RouteLandmarks.ts` already produces `day_boundary`
   landmarks. Show per-day distance, gain, loss and time in the Route tab, and shade
   alternate days in the elevation chart.

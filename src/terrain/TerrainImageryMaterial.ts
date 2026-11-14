@@ -24,6 +24,32 @@ export function terrainLookupLayout(bounds: GeoBounds) {
 }
 
 /** Sample streamed imagery on the authoritative terrain, without overlay geometry. */
+/** Avalanche-style slope bands (degrees, lower bound inclusive) and their linear-RGB tints. */
+export const SLOPE_BANDS: readonly { min: number; label: string; css: string; linear: readonly [number, number, number] }[] = [
+  { min: 27, label: '27-30°', css: '#facc15', linear: [0.955, 0.604, 0.008] },
+  { min: 30, label: '30-35°', css: '#f97316', linear: [0.939, 0.216, 0.008] },
+  { min: 35, label: '35-45°', css: '#ef4444', linear: [0.871, 0.054, 0.054] },
+  { min: 45, label: '45°+', css: '#a855f7', linear: [0.392, 0.074, 0.913] },
+];
+
+/** True slope (degrees) from a model-space normal of a surface exaggerated vertically by `exaggeration`. */
+export function trueSlopeDegrees(normal: { x: number; y: number; z: number }, exaggeration: number): number {
+  return Math.atan2(Math.hypot(normal.x, normal.z), Math.max(normal.y, 1e-4) * exaggeration) * 180 / Math.PI;
+}
+
+/** Band for a slope angle, or null below 27 degrees (no tint). */
+export function slopeBand(angleDegrees: number) {
+  let band: (typeof SLOPE_BANDS)[number] | null = null;
+  for (const b of SLOPE_BANDS) if (angleDegrees >= b.min) band = b;
+  return band;
+}
+
+function slopeTintGlsl(): string {
+  const f = (n: number) => n.toFixed(3);
+  return [...SLOPE_BANDS].reverse().reduce((rest, b) =>
+    `(terrainAngle >= ${f(b.min)} ? vec4(${b.linear.map(f).join(', ')}, 1.0) : ${rest})`, 'vec4(0.0)');
+}
+
 export class TerrainImageryMaterial {
   private readonly layout;
   private readonly lookup: THREE.DataTexture;
@@ -49,6 +75,8 @@ export class TerrainImageryMaterial {
     this.placeholder = new THREE.DataArrayTexture(new Uint8Array(4), 1, 1, 1); this.placeholder.needsUpdate = true;
     const scale = 2 ** (13 - grid.zoom);
     this.uniforms = {
+      terrainSlope: { value: 0 },
+      terrainExaggeration: { value: 1 },
       terrainLookup: { value: this.lookup },
       terrainLevels: { value: levels.map((l, i) => new THREE.Vector4(l.minX - origin.x * 2 ** i, l.minY - origin.y * 2 ** i, l.width, l.height)) },
       terrainRows: { value: levels.map(l => l.row) },
@@ -93,12 +121,12 @@ export class TerrainImageryMaterial {
       // rather than reusing a legacy uniform list with the terrain program.
       material.dispose();
       this.materials.set(material, previous);
-      material.customProgramCacheKey = () => previous.cache.call(material) + '/terrain-imagery-v1';
+      material.customProgramCacheKey = () => previous.cache.call(material) + '/terrain-imagery-v2';
       material.onBeforeCompile = (shader, renderer) => {
         previous.compile.call(material, shader, renderer);
         Object.assign(shader.uniforms, this.uniforms);
-        shader.vertexShader = 'varying vec2 vTerrainTileCoord; uniform vec4 terrainGrid;\n' + shader.vertexShader;
-        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\nvTerrainTileCoord = vec2(uv.x, 1.0 - uv.y) * terrainGrid.xy + terrainGrid.zw;');
+        shader.vertexShader = 'varying vec2 vTerrainTileCoord; varying vec3 vTerrainObjectNormal; uniform vec4 terrainGrid;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\nvTerrainTileCoord = vec2(uv.x, 1.0 - uv.y) * terrainGrid.xy + terrainGrid.zw;\nvTerrainObjectNormal = normal;');
         shader.fragmentShader = this.fragmentPrefix() + shader.fragmentShader;
         shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
           vec4 terrainTexel = vec4(1.0);
@@ -119,6 +147,13 @@ export class TerrainImageryMaterial {
             terrainTilePresent = true; break;
           }
           diffuseColor *= terrainTexel;
+          if (terrainSlope > 0.5) {
+            // Model-space normal of the exaggerated surface; divide the exaggeration back out.
+            vec3 terrainN = normalize(vTerrainObjectNormal);
+            float terrainAngle = degrees(atan(length(terrainN.xz), max(terrainN.y, 1e-4) * terrainExaggeration));
+            vec4 terrainTint = ${slopeTintGlsl()};
+            diffuseColor.rgb = mix(diffuseColor.rgb, terrainTint.rgb, terrainTint.a * 0.5);
+          }
         `);
         shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nif (terrainTilePresent) roughnessFactor = 0.9;');
       };
@@ -127,7 +162,8 @@ export class TerrainImageryMaterial {
   }
 
   private fragmentPrefix(): string {
-    return `varying vec2 vTerrainTileCoord;
+    return `varying vec2 vTerrainTileCoord; varying vec3 vTerrainObjectNormal;
+      uniform float terrainSlope, terrainExaggeration;
       uniform sampler2D terrainLookup;
       uniform vec4 terrainLevels[${LEVELS}]; uniform float terrainRows[${LEVELS}], terrainEnabled[${LEVELS}];
       bool terrainTilePresent = false;
@@ -144,6 +180,12 @@ export class TerrainImageryMaterial {
     material.dispose();
     material.onBeforeCompile = previous.compile; material.customProgramCacheKey = previous.cache;
     material.needsUpdate = true; this.materials.delete(material);
+  }
+
+  /** Slope-angle tint over the imagery; `exaggeration` is the current vertical exaggeration. */
+  public setSlopeShading(enabled: boolean, exaggeration: number): void {
+    this.uniforms.terrainSlope.value = enabled ? 1 : 0;
+    this.uniforms.terrainExaggeration.value = Math.max(exaggeration, 1e-3);
   }
 
   public dispose(): void {

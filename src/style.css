@@ -783,3 +783,8 @@ body, html {
 .trail-point-popover { position: fixed; z-index: 70; transform: translate(-50%, calc(-100% - 12px)); padding: 6px 10px; font: 600 13px system-ui, sans-serif; color: #f1f5f9; pointer-events: none; white-space: nowrap; }
 .trail-point-popover[hidden] { display: none; }
 
+/* Slope shading legend */
+.slope-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 4px; font: 600 12px system-ui, sans-serif; color: #cbd5e1; }
+.slope-legend[hidden] { display: none; }
+.slope-legend i { display: inline-block; width: 12px; height: 12px; margin-right: 4px; border-radius: 3px; vertical-align: -2px; opacity: 0.8; }
+

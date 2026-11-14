@@ -152,6 +152,11 @@ export class LoadedTrek {
     ]);
   }
 
+  public setSlopeShading(enabled: boolean): void {
+    if (this._isDisposed) return;
+    this.imageryLOD.setSlopeShading(enabled);
+  }
+
   public setTrailColorMode(mode: TrailColorMode): void {
     if (this._isDisposed) return;
     this.trailResult.setColorMode(mode);

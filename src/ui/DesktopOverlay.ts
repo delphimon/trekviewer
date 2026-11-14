@@ -1,4 +1,5 @@
 import { RouteManifestItem, TrackStats, ViewMode, TextureStyle, TrailColorMode, ElevationProvenanceStats } from '../gpx/TrackTypes';
+import { SLOPE_BANDS } from '../terrain/TerrainImageryMaterial.ts';
 import { formatElapsed, type TrailPointInfo } from '../visualization/TrailPick.ts';
 import { distanceInUnits, distanceUnitLabel, formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits, setUnits } from '../utils/Units.ts';
 import { chartBackingSize, chartReadout, distanceTicks } from './ElevationChart.ts';
@@ -25,6 +26,8 @@ export interface OverlayCallbacks {
   onSetTextureStyle: (style: TextureStyle) => void;
   onSetSatelliteProvider?: (provider: 'auto' | 'esri' | 'cesium-bing', token?: string) => void;
   onSetTrailColorMode: (mode: TrailColorMode) => void;
+  /** Slope-angle shading over Aerial imagery (the fourth visual style). */
+  onSetSlopeShading?: (enabled: boolean) => void;
   onSetVerticalExaggeration?: (val: number) => void;
   onSelectWaypoint?: (name: string, lat: number, lon: number, progress?: number) => void;
   onSetQualityMode?: (mode: 'high' | 'balanced') => void;
@@ -615,6 +618,10 @@ export class DesktopOverlay {
               <button id="btnSatTex" class="btn btn-sm btn-active">Aerial</button>
               <button id="btnHybridTex" class="btn btn-sm">Hybrid</button>
               <button id="btnTopoTex" class="btn btn-sm">Topo</button>
+              <button id="btnSlopeTex" class="btn btn-sm" title="Aerial imagery tinted by slope angle (avalanche terrain)">Slope</button>
+            </div>
+            <div id="slopeLegend" class="slope-legend" hidden>
+              ${SLOPE_BANDS.map(b => `<span><i style="background:${b.css}"></i>${b.label}</span>`).join('')}
             </div>
 
             <h3>Satellite &amp; Aerial Source</h3>
@@ -999,16 +1006,24 @@ export class DesktopOverlay {
     const btnHybrid = document.getElementById('btnHybridTex')!;
     const btnTopo = document.getElementById('btnTopoTex')!;
     btnSat.addEventListener('click', () => {
+      this.setSlopeShading(false);
       this.setTextureStyle('satellite');
       this.callbacks.onSetTextureStyle('satellite');
     });
     btnHybrid.addEventListener('click', () => {
+      this.setSlopeShading(false);
       this.setTextureStyle('hybrid');
       this.callbacks.onSetTextureStyle('hybrid');
     });
     btnTopo.addEventListener('click', () => {
+      this.setSlopeShading(false);
       this.setTextureStyle('topo');
       this.callbacks.onSetTextureStyle('topo');
+    });
+    document.getElementById('btnSlopeTex')?.addEventListener('click', () => {
+      this.setTextureStyle('satellite');
+      this.callbacks.onSetTextureStyle('satellite');
+      this.setSlopeShading(true);
     });
 
     // Trail Color Mode Buttons (Sections 14-19)
@@ -1184,12 +1199,22 @@ export class DesktopOverlay {
     }
   }
 
+  private slopeShading = false;
+  /** Slope is Aerial imagery plus the slope tint; it shows as its own style button. */
+  public setSlopeShading(enabled: boolean): void {
+    if (this.slopeShading !== enabled) { this.slopeShading = enabled; this.callbacks.onSetSlopeShading?.(enabled); }
+    DesktopOverlay.setButtonPressed(document.getElementById('btnSlopeTex'), enabled);
+    DesktopOverlay.setButtonPressed(document.getElementById('btnSatTex'), this.textureStyle === 'satellite' && !enabled);
+    const legend = document.getElementById('slopeLegend');
+    if (legend) legend.hidden = !enabled;
+  }
+
   public setTextureStyle(style: TextureStyle): void {
     this.textureStyle = style;
     const btnSat = document.getElementById('btnSatTex');
     const btnHybrid = document.getElementById('btnHybridTex');
     const btnTopo = document.getElementById('btnTopoTex');
-    DesktopOverlay.setButtonPressed(btnSat, style === 'satellite');
+    DesktopOverlay.setButtonPressed(btnSat, style === 'satellite' && !this.slopeShading);
     DesktopOverlay.setButtonPressed(btnHybrid, style === 'hybrid');
     DesktopOverlay.setButtonPressed(btnTopo, style === 'topo');
   }

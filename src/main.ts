@@ -405,6 +405,7 @@ export class TrekViewerApp {
         void this.setSatelliteProvider(provider, token);
       },
       onSetTrailColorMode: (mode) => this.setTrailColorMode(mode),
+      onSetSlopeShading: (enabled) => { this.slopeShading = enabled; this.activeTrek?.setSlopeShading(enabled); },
       onSetVerticalExaggeration: (val) => this.session.setVerticalExaggeration(val),
       onSelectWaypoint: (name, lat, lon, progress) => this.jumpToWaypoint(name, lat, lon, progress),
       onSetQualityMode: (mode) => {
@@ -665,6 +666,7 @@ export class TrekViewerApp {
     this.xrManager.setViewMode(state.viewMode);
     newTrek.setTextureStyle(state.textureStyle);
     newTrek.setTrailColorMode(state.trailColorMode);
+    newTrek.setSlopeShading?.(this.slopeShading);
     newTrek.setVerticalExaggeration(effectiveExaggeration);
     this.xrManager.setVerticalExaggeration(effectiveExaggeration);
 
@@ -1294,6 +1296,7 @@ export class TrekViewerApp {
   }
 
   private stepFade: { elapsedMs: number; meters: number; moved: boolean } | null = null;
+  private slopeShading = false;
 
   private updateViewTransition(delta: number): void {
     const t = this.viewTransition;
