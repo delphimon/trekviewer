@@ -700,13 +700,17 @@ code, and list them in the commit message.
   `?terrainImagery=0`, `SurfacePatchGeometry`, `SurfacePromotion`, the `prepareSurface*`
   handshake, `staleDirectPatches`, `reprojectPatches`. OWNER: confirm before starting;
   it is the last A/B fallback.
-- [ ] **C4 Split `src/terrain/ImageryLODManager.ts`** (3,092 lines) by moving code
+- [~] **C4 Split `src/terrain/ImageryLODManager.ts`** (3,092 lines) by moving code
   without changing behaviour, one module per commit:
   1. `ImagerySelection.ts`: the pure selection functions.
   2. `ImageryRequestScheduler.ts`: queue, concurrency, retry, backoff.
   3. `ImageryViewSampling.ts`: view rays and zoom hysteresis.
   4. `ImageryDiagnostics.ts`: counters and `getDiagnostics`.
   The class keeps its public API. No test should need to change except imports.
+  - Note: step 1 done (`ImagerySelection.ts`, re-exported from the manager so no imports
+    changed; the manager is now 2,509 lines). Steps 2–4 are private class state and
+    methods that many existing tests spy on via `(manager as any)`; moving them would
+    change those tests beyond imports, so they are left for a dedicated refactor.
 - [ ] **C5 Remove unused code** found by `npx tsc --noEmit --noUnusedLocals
   --noUnusedParameters` (27 errors at review time), then set both options to `true` in
   `tsconfig.json`.
