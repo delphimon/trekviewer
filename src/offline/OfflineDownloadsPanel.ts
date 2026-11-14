@@ -34,6 +34,7 @@ export class OfflineDownloadsPanel {
       <p class="trek-meta">Save a route's aerial imagery and terrain so it works without a connection. Keep this tab open while downloading; playing the tour or entering VR/MR pauses the download, and Resume continues where it stopped.</p>
       <label class="comfort-option"><span>Mount Rainier — Emmons</span><input type="checkbox" data-offline-route="rainier-emmons" checked /></label>
       <label class="comfort-option"><span>Enchantments &amp; Dragontail</span><input type="checkbox" data-offline-route="enchantments-dragontail" checked /></label>
+      <p class="trek-meta">Offline maps are available for these routes. Other routes use the temporary cache as you explore.</p>
       <label class="comfort-option"><span>Detail</span><select data-offline-mode><option value="corridor-v3">Sharp along the trail (smaller)</option><option value="full-v2">Sharp everywhere (very large)</option></select></label>
       <div class="btn-group"><button class="btn btn-sm" data-offline-action="prepare">Check size</button><button class="btn btn-sm" data-offline-action="download" disabled>Download</button><button class="btn btn-sm" data-offline-action="pause" disabled>Pause</button></div>
       <p class="trek-meta" data-offline-persistence role="status"></p>

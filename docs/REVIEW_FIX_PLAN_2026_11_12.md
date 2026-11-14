@@ -443,7 +443,7 @@ Files: `src/ui/DesktopOverlay.ts`, `src/style.css`.
   `F`: fit terrain. `1`/`2`/`3`: Aerial/Hybrid/Topo. Ignore keys when focus is in an
   `input`, `select` or `textarea`. List them in the Help tab. Remove the listener in
   `dispose()`.
-- [ ] **U6 Offline tab explains itself.** Only two routes are listed because
+- [x] **U6 Offline tab explains itself.** Only two routes are listed because
   `vite.config.ts` hashes only `rainier-emmons` and `enchantments-dragontail`. Add one
   sentence under the list: "Offline maps are available for these routes. Other routes
   use the temporary cache as you explore." Do not change which routes are offered.
