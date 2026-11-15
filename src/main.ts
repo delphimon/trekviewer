@@ -19,6 +19,7 @@ import { DioramaModelFollow } from './visualization/DioramaModelFollow.ts';
 import { DioramaBase, plinthBottomDepth } from './visualization/DioramaBase';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { metresPerPixelAt } from './ui/ScaleBar.ts';
+import { NearFieldStrip } from './ui/NearFieldStrip.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
@@ -97,6 +98,8 @@ export class TrekViewerApp {
   }
 
   private spatialHUD: SpatialHUD | null = null;
+  /** X3: poke-sized transport on the plinth's near edge, in XR tabletop mode. */
+  private nearFieldStrip: NearFieldStrip | null = null;
   private manifest: RouteManifestItem[] = [];
   private routeLandmarks: readonly RouteLandmark[] = [];
 
@@ -768,6 +771,16 @@ export class TrekViewerApp {
 
     // Register SpatialHUD with XRManager for laser raycasting and clicks
     this.xrManager.setSpatialHUD(this.spatialHUD);
+    if (!this.nearFieldStrip) {
+      this.nearFieldStrip = new NearFieldStrip({
+        togglePlay: () => this.togglePlay(),
+        previousLandmark: () => this.spatialHUD?.jumpToPreviousLandmark(),
+        nextLandmark: () => this.spatialHUD?.jumpToNextLandmark(),
+        scrub: (progress) => { this.flyoverController?.setProgress(progress); this.session.setProgress(progress); },
+      });
+      this.sceneManager.scene.add(this.nearFieldStrip.group);
+      this.xrManager.setNearFieldStrip(this.nearFieldStrip);
+    }
 
     // 3. Reconcile active session state into newly committed trek
     this.applySessionStateToTrek(newTrek);
@@ -1587,6 +1600,14 @@ export class TrekViewerApp {
         isPresenting ? undefined : window.innerHeight);
       phaseStart = this.endProfilePhase(recorder, 'waypoints', phaseStart);
     }
+    if (this.nearFieldStrip) {
+      const stripVisible = !!this.activeTrek && !this.activeTrek.isDisposed && isPresenting && this.currentViewMode === 'diorama';
+      this.nearFieldStrip.updatePlacement(activeCamera, stripVisible ? this.activeTrek!.dioramaBase.getObjectByName('DioramaPlinth') as THREE.Mesh | undefined : null, stripVisible);
+      if (stripVisible) {
+        this.nearFieldStrip.setPlaying(this.flyoverController?.getIsPlaying() ?? false);
+        this.nearFieldStrip.setProgress(this.flyoverController?.getProgress() ?? this.session.getState().progress);
+      }
+    }
     // Screen-relative scale bar for the ground at the orbit target (desktop tabletop only).
     this.overlay?.setScaleBar(this.activeTrek && !isPresenting && this.currentViewMode === 'diorama'
       ? metresPerPixelAt(this.sceneManager.camera.position.distanceTo(this.controls.target), this.sceneManager.camera.fov,
@@ -1708,6 +1729,7 @@ export class TrekViewerApp {
     disposeTerrainJobs();
     this.tablePlacement.dispose();
     this.xrManager.dispose();
+    this.nearFieldStrip?.dispose(); this.nearFieldStrip = null;
     this.controls.removeEventListener('start', this.onOrbitStart);
     const chaseCanvas = this.sceneManager.renderer.domElement;
     chaseCanvas.removeEventListener('pointerdown', this.onChasePointerDown);

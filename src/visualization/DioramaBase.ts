@@ -106,6 +106,7 @@ export class DioramaBase {
       roughness: 0.85,
     });
     const plinth = new THREE.Mesh(plinthGeo, plinthMat);
+    plinth.name = 'DioramaPlinth'; // anchor for the XR near-field strip (X3)
     plinth.position.y = baseY - plinthHeight / 2;
     plinth.receiveShadow = true;
     group.add(plinth);

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { terrainFootprint } from '../terrain/TerrainFootprint.ts';
 import { SceneManager } from './SceneManager.ts';
 import { SpatialHUD } from '../ui/SpatialHUD.ts';
+import type { NearFieldStrip } from '../ui/NearFieldStrip.ts';
 import { InteractionFeedback, type FeedbackCue } from '../xr/InteractionFeedback.ts';
 import { DioramaBase, plinthBottomDepth } from '../visualization/DioramaBase.ts';
 import type { GeoBounds, ViewMode } from '../gpx/TrackTypes.ts';
@@ -153,6 +154,10 @@ export interface HandState {
   hudPrevLocalZ?: number | null;
   /** performance.now() of the last HUD release by this hand, for poke re-press suppression. */
   hudReleasedAt?: number;
+  /** Near-field strip poke state (X3), mirroring the HUD poke fields. */
+  stripPrevLocalZ?: number | null;
+  isClickingStrip?: boolean;
+  stripReleasedAt?: number;
   /** True only for a pinch that began while the hand was over the HUD. */
   hudPinchArmed?: boolean;
   /** Handedness cached at connect time so a disconnect can release its HUD pointer. */
@@ -231,6 +236,10 @@ export class XRManager {
   public setSpatialHUD(hud: SpatialHUD | null): void {
     this.spatialHUD = hud;
   }
+
+  private nearFieldStrip: NearFieldStrip | null = null;
+  private stripRayHover = -1;
+  public setNearFieldStrip(strip: NearFieldStrip | null): void { this.nearFieldStrip = strip; }
 
   // Tabletop Diorama Proximity Context
   private dioramaWidthMeters: number = 2000;
@@ -1170,7 +1179,8 @@ export class XRManager {
       const ownsTerrain = state.isPinching && state.activeInteraction === 'diorama';
       const ownsWaypoint = state.isPinching && state.activeInteraction === 'waypoint';
       const ownsHUD = state.isPinching && state.activeInteraction === 'hud';
-      const isDirectTouchHUD = !ownsTerrain && !ownsWaypoint && this.checkHandHUDInteraction(state, indexTipPos, state.isPinching);
+      const isStripTouch = !ownsTerrain && !ownsWaypoint && !ownsHUD && this.checkHandStripInteraction(state, indexTipPos);
+      const isDirectTouchHUD = isStripTouch || (!ownsTerrain && !ownsWaypoint && this.checkHandHUDInteraction(state, indexTipPos, state.isPinching));
       state.directHUDThisFrame = isDirectTouchHUD;
 
       // 2. Check if this hand's laser pointer is hovering or interacting with the HUD
@@ -1307,6 +1317,37 @@ export class XRManager {
     }
   }
 
+
+  /** Index-fingertip poke on the near-field strip (X3); same press rule as the HUD. */
+  private checkHandStripInteraction(state: HandState, fingerPos: THREE.Vector3): boolean {
+    const strip = this.nearFieldStrip;
+    const pointerId = handPokePointerId(state.inputSource?.handedness);
+    const local = strip?.group.visible ? strip.group.worldToLocal(_scratchV1.copy(fingerPos)) : null;
+    const uv = local && Math.abs(local.z) < 0.04 ? strip!.localToUV(local, _scratchV2D1) : null;
+    if (!strip || !local || !uv) {
+      if (state.stripPrevLocalZ !== null && state.stripPrevLocalZ !== undefined) strip?.onPointerLeave();
+      if (state.isClickingStrip) strip?.onPointerRelease(pointerId);
+      state.stripPrevLocalZ = null;
+      state.isClickingStrip = false;
+      return false;
+    }
+    const prevZ = state.stripPrevLocalZ ?? null;
+    state.stripPrevLocalZ = local.z;
+    strip.onPointerHover(uv);
+    const now = performance.now();
+    const pressing = isHUDPokePressing(local.z, prevZ, !!state.isClickingStrip, now - (state.stripReleasedAt ?? -Infinity));
+    if (pressing && !state.isClickingStrip) {
+      state.isClickingStrip = true;
+      if (strip.onPointerClick(uv, pointerId)) this.playFeedback('press');
+    } else if (pressing) {
+      strip.onPointerDrag(uv, pointerId);
+    } else if (state.isClickingStrip) {
+      state.isClickingStrip = false;
+      state.stripReleasedAt = now;
+      strip.onPointerRelease(pointerId);
+    }
+    return true;
+  }
 
   private checkHandHUDInteraction(state: HandState, fingerPos: THREE.Vector3, isPinching: boolean): boolean {
     const pointerId = handPokePointerId(state.inputSource?.handedness);
@@ -1625,6 +1666,27 @@ export class XRManager {
     let hudHit: THREE.Intersection | null = null;
     let isHitGrabMesh = false;
 
+    // Near-field strip (X3) sits in front of the plinth; trigger presses its controls.
+    const strip = this.nearFieldStrip;
+    const stripHit = strip?.group.visible ? this.raycaster.intersectObject(strip.mesh, false)[0] : undefined;
+    if (strip && stripHit?.uv) {
+      state.isHoveringHUD = true;
+      state.isInteractingWithHUD = isTriggerDown;
+      state.rayLine.scale.z = stripHit.distance;
+      state.rayLine.visible = true;
+      state.reticle.visible = true;
+      state.reticle.position.copy(stripHit.point);
+      strip.onPointerHover(stripHit.uv);
+      this.stripRayHover = controllerIdx;
+      if (isTriggerDown && !state.prevButtons[0]) {
+        if (strip.onPointerClick(stripHit.uv, pointerId)) { this.triggerHaptic(controllerIdx, 0.9, 60); this.playFeedback('press'); }
+      } else if (isTriggerDown) strip.onPointerDrag(stripHit.uv, pointerId);
+      else if (state.prevButtons[0]) strip.onPointerRelease(pointerId);
+      return;
+    }
+    if (strip && !isTriggerDown) strip.onPointerRelease(pointerId);
+    if (strip && this.stripRayHover === controllerIdx) { strip.onPointerLeave(); this.stripRayHover = -1; }
+
     if (this.spatialHUD && this.spatialHUD.group.visible) {
       const grabIntersects = this.raycaster.intersectObject(this.spatialHUD.grabMesh, false);
       if (grabIntersects.length > 0) {
@@ -1899,6 +1961,7 @@ export class XRManager {
 
     this.callbacks = {};
     this.spatialHUD = null;
+    this.nearFieldStrip = null;
     this.dioramaElevationSampler = null;
   }
 }

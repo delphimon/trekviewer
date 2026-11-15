@@ -612,10 +612,13 @@ Implement and unit-test; mark each `[~] needs headset check`.
     (no hand-edited coordinates). Needs headset check — text is sharper; look for labels
     that now overflow their buttons or the footer lines (fonts below 18 px were raised to
     18 px), and confirm the docked panel is pitched to face you.
-- [ ] **X3 Near-field transport strip.** Add a small strip on the plinth's near edge with
+- [~] **X3 Near-field transport strip.** Add a small strip on the plinth's near edge with
   Play/Pause, previous/next landmark and a short scrub bar, sized for index-finger poke
   (targets ≥ 3 cm). It reuses `SpatialHUD` callbacks. The far panel stays as it is.
   OWNER: confirm before starting; this is new UI.
+  - Owner approved 2026-11-15. `src/ui/NearFieldStrip.ts`: 33 × 4.6 cm strip (4.6 cm buttons)
+    just outside the plinth edge nearest the viewer, tilted toward the eyes, fixed room size;
+    index-finger poke (HUD press rule) and controller trigger. Needs headset check.
 - [~] **X4 Marker scale.** Hiker marker and start/finish pins must keep a constant
   angular size like waypoints do (they currently grow with zoom); in life-size mode
   waypoint markers become signpost height (about 1.5 m).
