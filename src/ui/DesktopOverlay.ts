@@ -4,6 +4,7 @@ import { daySplits } from '../gpx/DaySplits.ts';
 import { SLOPE_BANDS } from '../terrain/TerrainImageryMaterial.ts';
 import { formatElapsed, type TrailPointInfo } from '../visualization/TrailPick.ts';
 import { distanceInUnits, distanceUnitLabel, formatDistance, formatElevation, formatSpeed, getUnits, onUnitsChange, otherUnits, setUnits } from '../utils/Units.ts';
+import { screenScaleBar } from './ScaleBar.ts';
 import { chartBackingSize, chartReadout, distanceTicks } from './ElevationChart.ts';
 import { GPXParser } from '../gpx/GPXParser';
 import type { QualityProfileName } from '../terrain/QualityProfile';
@@ -1437,6 +1438,35 @@ export class DesktopOverlay {
       : `${stats.enabled ? 'Enabled' : 'Paused'} · ${(stats.bytes / 1048576).toFixed(1)} MiB saved · ${stats.entries} resources${stats.writeFailed ? ' · Saving paused; clear storage to retry.' : ''}`);
   }
 
+  private scaleBarEl: HTMLElement | null = null;
+  private scaleBarMpp = NaN;
+  private scaleBarUnits = '';
+
+  /** Screen-relative scale bar for the ground at the view centre (V8); null hides it.
+   * Called every frame; touches the DOM only when the resolution changes by over 0.5%. */
+  public setScaleBar(metresPerPixel: number | null): void {
+    const units = getUnits();
+    if (metresPerPixel === null || !(metresPerPixel > 0)) {
+      if (this.scaleBarEl && !this.scaleBarEl.hidden) this.scaleBarEl.hidden = true;
+      this.scaleBarMpp = NaN;
+      return;
+    }
+    if (units === this.scaleBarUnits && Math.abs(metresPerPixel / this.scaleBarMpp - 1) < 0.005) return;
+    const spec = screenScaleBar(metresPerPixel, 120, units);
+    if (!spec) return;
+    if (!this.scaleBarEl) {
+      this.scaleBarEl = document.createElement('div');
+      this.scaleBarEl.className = 'screen-scale-bar';
+      this.scaleBarEl.setAttribute('aria-hidden', 'true');
+      this.scaleBarEl.innerHTML = '<span class="screen-scale-bar-label"></span><span class="screen-scale-bar-rule"></span>';
+      (document.querySelector('.player-bar') ?? document.body).appendChild(this.scaleBarEl);
+    }
+    this.scaleBarMpp = metresPerPixel; this.scaleBarUnits = units;
+    this.scaleBarEl.hidden = false;
+    (this.scaleBarEl.lastElementChild as HTMLElement).style.width = `${spec.px.toFixed(1)}px`;
+    this.scaleBarEl.firstElementChild!.textContent = spec.label;
+  }
+
   public setMetaInfo(attribution?: string, terrainQuality?: string, provenance?: ElevationProvenanceStats, elevationSource?: string): void {
     let metaEl = document.getElementById('desktopAttribution');
     if (!metaEl) {
@@ -1470,6 +1500,7 @@ export class DesktopOverlay {
       window.clearTimeout(this.statusTimeout);
       this.statusTimeout = null;
     }
+    this.scaleBarEl?.remove(); this.scaleBarEl = null;
     const metaEl = document.getElementById('desktopAttribution');
     if (metaEl && metaEl.parentNode) {
       metaEl.parentNode.removeChild(metaEl);

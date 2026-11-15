@@ -396,7 +396,7 @@ Rainier route.
   `src/core/SceneManager.ts` `TextureProvider.setMaxAnisotropy(...)`: clamp to 4 for
   quest profiles and 8 for desktop.
 
-- [~] **V8 Scale bar is useless once zoomed** — *Reported (verify first).*
+- [x] **V8 Scale bar is useless once zoomed** — *Reported (verify first).*
   `src/visualization/DioramaBase.ts` `ScaleBar`: pick the bar length from the current
   model scale so it stays between 8% and 25% of the plinth width, choosing from
   1-2-5 × 10ⁿ metres, and update its label.
@@ -404,6 +404,9 @@ Rainier route.
     (2 km on Rainier). The ratio to the plinth cannot change with model scale (both scale
     together), so zooming still leaves the bar in the plinth corner. OWNER: say whether a
     screen-relative scale bar (sized to the visible ground) is wanted instead.
+  - Owner approved 2026-11-15: desktop tabletop now shows a screen-relative bar above the
+    player bar (round length ≤120 px at the orbit target, units follow the setting; `src/ui/ScaleBar.ts`).
+    Browser check pending (pane hidden, no frames).
 
 ---
 

@@ -18,6 +18,7 @@ import { DioramaCameraFollow } from './visualization/DioramaCameraFollow.ts';
 import { DioramaModelFollow } from './visualization/DioramaModelFollow.ts';
 import { DioramaBase, plinthBottomDepth } from './visualization/DioramaBase';
 import { SpatialHUD } from './ui/SpatialHUD';
+import { metresPerPixelAt } from './ui/ScaleBar.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
@@ -1586,6 +1587,10 @@ export class TrekViewerApp {
         isPresenting ? undefined : window.innerHeight);
       phaseStart = this.endProfilePhase(recorder, 'waypoints', phaseStart);
     }
+    // Screen-relative scale bar for the ground at the orbit target (desktop tabletop only).
+    this.overlay?.setScaleBar(this.activeTrek && !isPresenting && this.currentViewMode === 'diorama'
+      ? metresPerPixelAt(this.sceneManager.camera.position.distanceTo(this.controls.target), this.sceneManager.camera.fov,
+        window.innerHeight, this.sceneManager.dioramaRoot.scale.x) : null);
 
     // 6. Render Scene
     this.activeTrek?.imageryLOD.syncRenderer?.(this.sceneManager.renderer);

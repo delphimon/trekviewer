@@ -789,3 +789,9 @@ body, html {
 .slope-legend i { display: inline-block; width: 12px; height: 12px; margin-right: 4px; border-radius: 3px; vertical-align: -2px; opacity: 0.8; }
 
 .current-stat .c-sub { display: block; font: 600 11px system-ui, sans-serif; color: var(--text-muted); white-space: nowrap; }
+
+/* V8: screen-relative scale bar, just above the player bar's right edge. */
+.player-bar { position: relative; }
+.screen-scale-bar { position: absolute; right: 20px; bottom: calc(100% + 10px); display: flex; flex-direction: column; align-items: flex-end; gap: 3px; pointer-events: none; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: #f8fafc; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
+.screen-scale-bar[hidden] { display: none; }
+.screen-scale-bar-rule { display: block; height: 6px; border: 2px solid #f8fafc; border-top: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
