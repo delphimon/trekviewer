@@ -916,3 +916,19 @@ and anything the owner must check.
 - 2026-11-15, C3: shader fade added first, then the overlay-patch renderer removed (owner
   approved dropping the unsupported-GPU fallback). About 1,000 source lines deleted; tests
   that covered the removed modules deleted, budget tests now expect the array-capacity cap.
+- 2026-11-15, Quest 3 check of C3 (local build 653e24a over `adb reverse`, profiled with
+  `scripts/run-quest-profile.mjs`). The terrain shader compiles and draws on the Quest:
+  WebGL2, 2048 array layers, batch status `active`, 0 upload failures. Paused tabletop
+  (45 s): about 70 Hz steady, 0 tile failures, full coverage, the same as the old deployed
+  build 7dbe38b. Earlier "tour" profiles never moved the hiker: the script called
+  `TrekSession.setPlayback(true)`, which only mirrors UI state; it now uses the app's
+  `togglePlay()`, so all earlier first-person numbers are of a stationary view. The one
+  moving first-person run (120 s) was rough: 4-20 Hz for the first 8 s while about 40
+  terrain chunks and 300 tiles arrived, and 32-58 Hz with 50-86 ms gaps when the hiker
+  crossed into a new terrain area, both with low CPU submit time, so the stalls are likely
+  on the GPU side. Not yet compared with the pre-C3 build: the A/B batch stopped when the
+  headset battery ran out (18% falling to 3% while charging). Suspects to check: the
+  imagery texture arrays use `generateMipmaps = true`, so each tile upload may rebuild the
+  mips of the whole 32-layer array; and fading tiles add per-frame range uploads to the
+  lookup texture. Owner: charge the headset, then rerun the A/B (C3 against af21c3b,
+  moving first-person and playing tabletop, alternated).
