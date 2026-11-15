@@ -55,3 +55,13 @@ it('keeps a "Needs update" pack ready and readable when its update fails', async
   expect((await OfflineStore.state('update-pack'))?.updating).toBeUndefined();
   expect(await OfflineStore.read(url(2))).not.toBeNull();
 });
+
+it('keeps a pack ready after a GPX revision and reads legacy and current ids by mode', async () => {
+  const { offlinePackId, offlinePackMode } = await import('../src/offline/OfflinePlan.ts');
+  expect(offlinePackId('rainier-emmons', 'corridor-v3')).toBe('rainier-emmons-high-public-v3');
+  expect(offlinePackMode('rainier-emmons-high-public-v3')).toBe('corridor-v3');
+  expect(offlinePackMode('rainier-emmons-high-public-v3-96d2a48d60544022')).toBe('corridor-v3'); // legacy id
+  expect(offlinePackMode('rainier-emmons-high-public-v2')).toBe('full-v2');
+  await OfflineDownloads.start({ ...plan(2), id: 'gpx-revision-pack', routeHash: 'b'.repeat(64) });
+  expect(await OfflineStore.read(url(0))).not.toBeNull(); // still served despite a different GPX hash
+});

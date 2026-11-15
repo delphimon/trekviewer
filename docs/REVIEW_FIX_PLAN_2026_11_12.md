@@ -511,8 +511,10 @@ is locked to walking pace on an 18-hour route.
   several-fold but changes pack format and hashes. Do not start this; record it in the
   progress log with the size numbers from `scripts/estimate-offline-route-packs.mjs` if
   that script runs without network.
-- [ ] **O6 OWNER decision: tie pack validity to the inventory, not the GPX bytes**
-  (`OfflineStore.compatible`). Record only.
+- [x] **O6 OWNER decision: tie pack validity to the inventory, not the GPX bytes**
+  (`OfflineStore.compatible`). Record only. (Owner approved 2026-11-15; pack ids are now
+  `<route>-high-public-v2|v3`, `compatible` only needs a bundled route, and a legacy
+  GPX-hash pack id is reused in place so existing downloads are kept.)
 
 ---
 

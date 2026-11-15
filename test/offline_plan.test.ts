@@ -17,9 +17,11 @@ it.each(DEFAULT_OFFLINE_ROUTES)('covers actual overview request identity and fin
   const track = GPXParser.parse(fs.readFileSync('public' + route.file, 'utf8'));
   const actualHash = createHash('sha256').update(fs.readFileSync('public' + route.file, 'utf8').replace(/\r\n?/g, '\n')).digest('hex');
   expect(OfflineStore.compatible({ routeId: id, routeHash: actualHash } as never)).toBe(true);
-  expect(OfflineStore.compatible({ routeId: id, routeHash: 'a'.repeat(64) } as never)).toBe(false);
+  // O6: a GPX revision no longer invalidates a pack; its sources are checked by inventory.
+  expect(OfflineStore.compatible({ routeId: id, routeHash: 'a'.repeat(64) } as never)).toBe(true);
+  expect(OfflineStore.compatible({ routeId: 'not-a-bundled-route', routeHash: actualHash } as never)).toBe(false);
   const plan = planOfflineRoute(track, id, 'a'.repeat(64));
-  expect(plan.version).toBe(2); expect(plan.id).toContain('-high-public-v2-');
+  expect(plan.version).toBe(2); expect(plan.id).toBe(`${id}-high-public-v2`); // stable id (O6)
   const overview = vi.spyOn(ElevationTileService, 'fetchElevationGrid').mockResolvedValue(null);
   await TerrainGenerator.prepareElevation(track.bounds);
   const [b, margin = 0.25] = overview.mock.calls[0];
@@ -45,7 +47,7 @@ it.each(DEFAULT_OFFLINE_ROUTES)('covers actual overview request identity and fin
   expect(new Set(plan.resources.map(r => r.urls[0])).size).toBe(plan.resources.length);
   expect(plan.resources.filter(r => r.kind === 'elevation' && r.requiredWindow).length).toBeGreaterThan(500);
   expect(plan.estimatedBytes).toBeGreaterThan(1e9);
-  expect(plan.id).not.toBe(planOfflineRoute(track, id, 'b'.repeat(64)).id);
+  expect(plan.id).toBe(planOfflineRoute(track, id, 'b'.repeat(64)).id); // O6: id no longer follows the GPX hash
   expect(plan.coverage).toBe('full-model'); expect(plan.maxZoom).toBe(19);
 });
 

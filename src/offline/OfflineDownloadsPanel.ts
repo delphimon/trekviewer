@@ -1,7 +1,7 @@
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { resolveAssetUrl } from '../utils/AssetUrl.ts';
 import { readBoundedBlob } from '../terrain/PersistentResourceCache.ts';
-import { DEFAULT_OFFLINE_ROUTES, planOfflineRoute, sha256, type OfflinePlan, type OfflinePlanOptions } from './OfflinePlan.ts';
+import { DEFAULT_OFFLINE_ROUTES, offlinePackMode, planOfflineRoute, sha256, type OfflinePlan, type OfflinePlanOptions } from './OfflinePlan.ts';
 import { OfflineDownloads } from './OfflineDownloads.ts';
 import { OfflineStore, type OfflinePackState } from './OfflineStore.ts';
 import { registerOfflineShell } from './OfflineShell.ts';
@@ -89,7 +89,11 @@ export class OfflineDownloadsPanel {
     if (expected && hash !== expected) throw Error('Route files changed. Close TrekViewer tabs and reopen before downloading.');
     if (signal?.aborted || this.disposed) throw new DOMException('Preparation paused', 'AbortError');
     const mode = modeOverride ?? this.getSelectedMode();
-    return planOfflineRoute(GPXParser.parse(xml), id, hash, { mode });
+    const plan = planOfflineRoute(GPXParser.parse(xml), id, hash, { mode });
+    // A pack downloaded under the older GPX-hash id keeps updating in place.
+    const legacy = (await OfflineStore.list().catch(() => [])).find(state => state.id.startsWith(plan.id + '-'));
+    if (legacy) plan.id = legacy.id;
+    return plan;
   }
   private async preparePlans(): Promise<void> {
     if (this.preparing || OfflineDownloads.busy()) return;
@@ -140,7 +144,7 @@ export class OfflineDownloadsPanel {
     try {
       await OfflineDownloads.prepare(async signal => {
         const index = await inspectOfflineArchive(file, signal);
-        const mode = index.manifest.planId.includes('-v3-') ? 'corridor-v3' : 'full-v2';
+        const mode = offlinePackMode(index.manifest.planId);
         const plan = await this.loadPlan(index.manifest.routeId, signal, mode);
         importedId = plan.id;
         return { plan, source: await offlineArchiveSource(file, index, plan, signal) };
@@ -197,7 +201,7 @@ export class OfflineDownloadsPanel {
     const key = `${row.id}:${row.updated}`;
     let pending = this.missing.get(key);
     if (!pending) {
-      pending = this.loadPlan(row.routeId, undefined, row.id.includes('-v3-') ? 'corridor-v3' : 'full-v2')
+      pending = this.loadPlan(row.routeId, undefined, offlinePackMode(row.id))
         .then(plan => plan.id === row.id ? OfflineStore.missingCount(plan) : 0).catch(() => 0);
       this.missing.set(key, pending);
     }
@@ -210,7 +214,7 @@ export class OfflineDownloadsPanel {
     if (this.running || this.preparing || OfflineDownloads.busy()) return;
     this.running = true; this.controls(); this.message.textContent = 'Preparing route pack export…';
     try {
-      const mode = packId.includes('-v3-') ? 'corridor-v3' : 'full-v2';
+      const mode = offlinePackMode(packId);
       const plan = await this.loadPlan(routeId, undefined, mode);
       const blob = await exportOfflineArchive(plan);
       const url = URL.createObjectURL(blob);

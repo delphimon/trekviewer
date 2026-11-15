@@ -47,8 +47,10 @@ export class OfflineStore {
   public static bundledHash(routeId: string): string | undefined {
     return typeof __OFFLINE_ROUTE_HASHES__ === 'undefined' ? undefined : __OFFLINE_ROUTE_HASHES__[routeId];
   }
+  /** Assets are addressed by source URL, so a ready pack stays valid when its route's GPX
+   * changes; sources a newer inventory needs show as Needs update (missingCount). */
   public static compatible(state: OfflinePackState): boolean {
-    return typeof __OFFLINE_ROUTE_HASHES__ === 'undefined' || this.bundledHash(state.routeId) === state.routeHash;
+    return typeof __OFFLINE_ROUTE_HASHES__ === 'undefined' || this.bundledHash(state.routeId) !== undefined;
   }
   private static notify(broadcast = true): void {
     this.readyIds = undefined; this.events.dispatchEvent(new Event('change'));

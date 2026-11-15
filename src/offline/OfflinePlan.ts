@@ -26,6 +26,16 @@ export interface OfflinePlan {
   /** Uncompressed planning budget, not measured encoded size or minimum quota. */
   estimatedBytes: number; resources: OfflineResource[];
 }
+/** Pack id for a route and detail level. Packs made before 2026-11-15 add a GPX-hash suffix. */
+export function offlinePackId(routeId: string, mode: NonNullable<OfflinePlanOptions['mode']>): string {
+  return `${routeId}-high-public-${mode === 'corridor-v3' ? 'v3' : 'v2'}`;
+}
+
+/** Detail level encoded in a pack id (current or legacy form). */
+export function offlinePackMode(packId: string): NonNullable<OfflinePlanOptions['mode']> {
+  return /-high-public-v3(?:-|$)/.test(packId) ? 'corridor-v3' : 'full-v2';
+}
+
 export async function sha256(bytes: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(n => n.toString(16).padStart(2, '0')).join('');
 }
@@ -156,7 +166,9 @@ export function planOfflineRoute(
   // URL-keyed staging remains compatible with the earlier acquisition order.
   const ordered = [...resources.values()].sort((a, c) => Number(c.kind === 'elevation') - Number(a.kind === 'elevation'));
   return {
-    id: `${routeId}-high-public-${isCorridor ? 'v3' : 'v2'}-${routeHash.slice(0, 16)}`,
+    // Stable per route and detail level: validity follows the inventory (missing sources show
+    // as Needs update), not the GPX bytes, so a route edit does not orphan a downloaded pack.
+    id: offlinePackId(routeId, isCorridor ? 'corridor-v3' : 'full-v2'),
     routeId,
     routeHash,
     name: track.name,
