@@ -295,7 +295,7 @@ Phase T item T1 (`fake-indexeddb`) is needed by B2; do T1 first when you reach B
 
 ## Phase S — Security and secrets
 
-- [ ] **S1 OWNER: revoke the token that is in git history.** A Cesium-style token was
+- [x] **S1 OWNER: revoke the token that is in git history.** (Closed by the owner 2026-11-15.) A Cesium-style token was
   committed in `src/terrain/TextureProvider.ts` at commit `33a0f92` and later removed.
   The agent must not print it. Add this to the progress log as an owner action: revoke it
   in the Cesium ion dashboard, and restrict the current token by allowed URL.
