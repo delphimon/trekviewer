@@ -747,11 +747,14 @@ code, and list them in the commit message.
     turns both flags off for test files (138 unused test imports), so they apply to `src`.
 - [x] **C6 Remove debug leftovers in `main.ts`**: the `__trekViewerInstances` counter and
   the unconditional build `console.log` (keep it under `?debug=1`).
-- [ ] **C7 OWNER decision, record only:** replace the static singletons
+- [x] **C7 OWNER decision, record only:** replace the static singletons
   (`TextureProvider`, `TileImageCache`, `ElevationTileService`,
   `QualityProfileManager`) with injected instances, and replace the whole-route mesh plus
   5 m chunks with one quadtree using per-node screen-space error and morphing. Both are
   large; do not start.
+  - Owner asked for the plan 2026-11-15: written as `docs/REFACTOR_PLAN_C7.md` (services
+    object with static facades, 6 commits; quadtree behind `?quadtree=1` in 7 steps with
+    a headset gate). Not started.
 
 ---
 
@@ -893,4 +896,9 @@ and anything the owner must check.
   T4 blocked (typescript-eslint does not support TypeScript 7; owner decision); T6 partial
   (18 renames; multi-unit splits outstanding). Suite: 182 files / 969 tests; `npm run
   test:e2e` passes locally with `PW_CHANNEL=chrome`.
-
+- 2026-11-15, owner decisions: S1 closed; C1 deleted (`LocalTerrainStreamer`); O6 stable
+  pack ids (validity follows inventory); V8 screen-relative scale bar; X3 near-field strip
+  (needs headset check); N5 sun slider; O5 offline imagery stored as JPEG; C7 plan written
+  (`docs/REFACTOR_PLAN_C7.md`). C3 stopped before starting: no shader fade yet, overlay
+  patches are still the fallback for unsupported GPUs, and it is well over 300 lines; owner
+  questions in its note. Browser checks for V8 and N5 pending (pane hidden, no frames).
