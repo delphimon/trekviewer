@@ -540,6 +540,7 @@ export class ImageryLODManager {
       this.markRendererDirty();
     });
     if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
+    this.terrainImagery?.tickFade(performance.now());
     const surfaceKey = this.surfaceSignature();
     if (renderer === this.syncedRenderer && this.rendererRevision === this.syncedRevision && surfaceKey === this.syncedSurfaceKey) return;
     const complete = this.batchRenderer.sync(this.patches);

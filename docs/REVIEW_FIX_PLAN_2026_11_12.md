@@ -406,7 +406,7 @@ Rainier route.
     screen-relative scale bar (sized to the visible ground) is wanted instead.
   - Owner approved 2026-11-15: desktop tabletop now shows a screen-relative bar above the
     player bar (round length ≤120 px at the orbit target, units follow the setting; `src/ui/ScaleBar.ts`).
-    Browser check pending (pane hidden, no frames).
+    Checked in headless Chrome at 1440×900: "1 mi" bar above the player bar's right edge.
 
 ---
 
@@ -729,6 +729,10 @@ code, and list them in the commit message.
     `SurfacePatchGeometry.ts`: well over 300 lines, and the browser pane is hidden so the
     render cannot be checked. OWNER: confirm dropping the fallback for unsupported GPUs,
     and whether to add the shader fade first.
+  - 2026-11-15: shader fade added (owner chose it first). A newly uploaded tile fades in over
+    250 ms over the coarser level (or the base texture), weight in the lookup's B channel;
+    a tile that only moves array layer keeps its weight. Checked in headless Chrome: shader
+    compiles, imagery draws. Remaining C3 blockers: the unsupported-GPU fallback and size.
 - [~] **C4 Split `src/terrain/ImageryLODManager.ts`** (3,092 lines) by moving code
   without changing behaviour, one module per commit:
   1. `ImagerySelection.ts`: the pure selection functions.

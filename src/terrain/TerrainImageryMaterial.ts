@@ -6,6 +6,8 @@ import type { ImageryBatchRenderer } from './ImageryBatchRenderer.ts';
 
 const LEVELS = 7, PAGES = 11;
 export const MAX_TERRAIN_LOOKUP_BYTES = 16 * 1024 * 1024;
+/** A newly uploaded tile fades in over the coarser imagery beneath it instead of popping. */
+export const TERRAIN_TILE_FADE_MS = 250;
 interface Level { minX: number; minY: number; width: number; height: number; row: number }
 
 /** A dense, bounded page table; source XYZ coordinates remain independent of mesh subdivision. */
@@ -55,6 +57,8 @@ export class TerrainImageryMaterial {
   private readonly lookup: THREE.DataTexture;
   private readonly placeholder: THREE.DataArrayTexture;
   private readonly cells = new Map<number, number>();
+  /** Lookup offset -> fade start (ms) for tiles still fading in; alpha lives in the B channel. */
+  private readonly fading = new Map<number, number>();
   private readonly materials = new Map<THREE.MeshStandardMaterial, {
     compile: THREE.Material['onBeforeCompile']; cache: THREE.Material['customProgramCacheKey'];
   }>();
@@ -89,7 +93,7 @@ export class TerrainImageryMaterial {
 
   public get lookupBytes(): number { return this.layout.width * this.layout.height * 4; }
 
-  public sync(bindings: ReturnType<ImageryBatchRenderer['getTextureBindings']>, surfaces: readonly THREE.Mesh[]): void {
+  public sync(bindings: ReturnType<ImageryBatchRenderer['getTextureBindings']>, surfaces: readonly THREE.Mesh[], now = performance.now()): void {
     for (let i = 0; i < PAGES; i++) this.uniforms['terrainPage' + i].value = bindings.pages[i] ?? this.placeholder;
     const wanted = new Map<number, number>();
     const enabled = this.uniforms.terrainEnabled.value as number[]; enabled.fill(0);
@@ -102,12 +106,19 @@ export class TerrainImageryMaterial {
     }
     const pixels = this.lookup.image.data as Uint8Array;
     let changed = false;
-    const write = (offset: number, value: number) => {
-      pixels[offset] = value & 255; pixels[offset + 1] = value >> 8;
+    const write = (offset: number, value: number, alpha: number) => {
+      pixels[offset] = value & 255; pixels[offset + 1] = value >> 8; pixels[offset + 2] = alpha;
       this.lookup.addUpdateRange(offset, 4); changed = true;
     };
-    for (const [offset] of this.cells) if (!wanted.has(offset)) write(offset, 0);
-    for (const [offset, value] of wanted) if (this.cells.get(offset) !== value) write(offset, value);
+    for (const [offset] of this.cells) if (!wanted.has(offset)) { write(offset, 0, 0); this.fading.delete(offset); }
+    for (const [offset, value] of wanted) {
+      const previous = this.cells.get(offset);
+      if (previous === value) continue;
+      // An offset is one source tile (zoom/x/y), so a changed value is the same imagery moved
+      // to another array layer: keep its current weight. Only a new tile fades in.
+      if (previous === undefined) { write(offset, value, 0); this.fading.set(offset, now); }
+      else write(offset, value, pixels[offset + 2]);
+    }
     this.cells.clear(); for (const [offset, value] of wanted) this.cells.set(offset, value);
     if (changed) this.lookup.needsUpdate = true;
     const present = new Set(surfaces.map(mesh => mesh.material));
@@ -121,7 +132,7 @@ export class TerrainImageryMaterial {
       // rather than reusing a legacy uniform list with the terrain program.
       material.dispose();
       this.materials.set(material, previous);
-      material.customProgramCacheKey = () => previous.cache.call(material) + '/terrain-imagery-v2';
+      material.customProgramCacheKey = () => previous.cache.call(material) + '/terrain-imagery-v3';
       material.onBeforeCompile = (shader, renderer) => {
         previous.compile.call(material, shader, renderer);
         Object.assign(shader.uniforms, this.uniforms);
@@ -134,6 +145,9 @@ export class TerrainImageryMaterial {
             terrainTexel = texture2D(map, vMapUv);
           #endif
           vec2 terrainDx = dFdx(vTerrainTileCoord), terrainDy = dFdy(vTerrainTileCoord);
+          // Finest first; a tile still fading in (weight < 1) lets coarser levels, and finally
+          // the base texture, show through in proportion.
+          vec4 terrainAccum = vec4(0.0); float terrainRemaining = 1.0;
           for (int i = ${LEVELS - 1}; i >= 0; i--) {
             if (terrainEnabled[i] < 0.5) continue;
             vec2 p = vTerrainTileCoord * exp2(float(i)) - terrainLevels[i].xy;
@@ -141,11 +155,14 @@ export class TerrainImageryMaterial {
             if (any(lessThan(cell, vec2(0.0))) || any(greaterThanEqual(cell, terrainLevels[i].zw))) continue;
             vec4 entry = texelFetch(terrainLookup, ivec2(cell.x, terrainRows[i] + cell.y), 0);
             float id = floor(entry.r * 255.0 + 0.5) + floor(entry.g * 255.0 + 0.5) * 256.0 - 1.0;
-            if (id < 0.0) continue;
+            if (id < 0.0 || entry.b <= 0.0) continue;
             vec2 uvTile = vec2(fract(p.x), 1.0 - fract(p.y));
-            terrainTexel = terrainRead(id, uvTile, terrainDx * exp2(float(i)), terrainDy * exp2(float(i)));
-            terrainTilePresent = true; break;
+            terrainAccum += terrainRead(id, uvTile, terrainDx * exp2(float(i)), terrainDy * exp2(float(i))) * (terrainRemaining * entry.b);
+            terrainRemaining *= 1.0 - entry.b;
+            terrainTilePresent = true;
+            if (terrainRemaining < 0.004) break;
           }
+          terrainTexel = terrainAccum + terrainTexel * terrainRemaining;
           diffuseColor *= terrainTexel;
           if (terrainSlope > 0.5) {
             // Model-space normal of the exaggerated surface; divide the exaggeration back out.
@@ -159,6 +176,27 @@ export class TerrainImageryMaterial {
       };
       material.needsUpdate = true;
     }
+  }
+
+  /** Advance tile fade-ins; call once per frame. Allocation-free and a no-op when idle. */
+  public tickFade(now: number): void {
+    if (this.fading.size === 0) return;
+    const pixels = this.lookup.image.data as Uint8Array;
+    for (const [offset, start] of this.fading) {
+      const t = Math.min(1, Math.max(0, (now - start) / TERRAIN_TILE_FADE_MS));
+      const alpha = Math.round(t * t * (3 - 2 * t) * 255);
+      if (pixels[offset + 2] !== alpha) { pixels[offset + 2] = alpha; this.lookup.addUpdateRange(offset, 4); }
+      if (t >= 1) this.fading.delete(offset);
+    }
+    this.lookup.needsUpdate = true;
+  }
+
+  /** Fade weight (0-1) of a source tile in the lookup, or null when it is not drawn. */
+  public tileWeight(zoom: number, x: number, y: number): number | null {
+    const l = this.layout.levels[zoom - 13];
+    if (!l || x < l.minX || y < l.minY || x >= l.minX + l.width || y >= l.minY + l.height) return null;
+    const offset = ((l.row + y - l.minY) * this.layout.width + x - l.minX) * 4;
+    return this.cells.has(offset) ? (this.lookup.image.data as Uint8Array)[offset + 2] / 255 : null;
   }
 
   private fragmentPrefix(): string {
@@ -190,6 +228,6 @@ export class TerrainImageryMaterial {
 
   public dispose(): void {
     for (const [material, previous] of this.materials) this.restore(material, previous);
-    this.lookup.dispose(); this.placeholder.dispose(); this.cells.clear();
+    this.lookup.dispose(); this.placeholder.dispose(); this.cells.clear(); this.fading.clear();
   }
 }
