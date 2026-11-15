@@ -20,6 +20,7 @@ import { DioramaBase, plinthBottomDepth } from './visualization/DioramaBase';
 import { SpatialHUD } from './ui/SpatialHUD';
 import { metresPerPixelAt } from './ui/ScaleBar.ts';
 import { NearFieldStrip } from './ui/NearFieldStrip.ts';
+import { solarPosition, solarTimeToDate, sunDirection, sunIntensityScale } from './visualization/SolarPosition.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay';
 import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
@@ -100,6 +101,15 @@ export class TrekViewerApp {
   private spatialHUD: SpatialHUD | null = null;
   /** X3: poke-sized transport on the plinth's near edge, in XR tabletop mode. */
   private nearFieldStrip: NearFieldStrip | null = null;
+  /** N5: chosen local solar time (minutes), or null for studio lighting. */
+  private sunMinutes: number | null = null;
+
+  private applySun(track: TrackStats | undefined = this.activeTrek?.track): void {
+    if (this.sunMinutes === null || !track) { this.sceneManager.setSunDirection(null); return; }
+    const { centerLat: lat, centerLon: lon } = track.bounds;
+    const angles = solarPosition(solarTimeToDate(track.startTime ?? new Date(), this.sunMinutes, lon), lat, lon);
+    this.sceneManager.setSunDirection(sunDirection(angles, { x: 0, y: 0, z: 0 }), sunIntensityScale(angles.elevationDeg));
+  }
   private manifest: RouteManifestItem[] = [];
   private routeLandmarks: readonly RouteLandmark[] = [];
 
@@ -376,6 +386,7 @@ export class TrekViewerApp {
       canPrepareOffline: () => !this.xrEntryPending && !this.sceneManager.renderer.xr.isPresenting && !this.graphicsRecovery?.isSuspended,
       onRetryGraphics: () => { void this.graphicsRecovery?.recover(); },
       onSetHorizonLocked: (locked) => this.setHorizonLocked(locked),
+      onSetSunTime: (minutes) => { this.sunMinutes = minutes; this.applySun(); },
       onResetHorizon: () => this.resetHorizon(),
       onFitTerrain: () => this.frameDesktopDiorama(),
       onSetComfort: (preferences) => {
@@ -784,6 +795,7 @@ export class TrekViewerApp {
 
     // 3. Reconcile active session state into newly committed trek
     this.applySessionStateToTrek(newTrek);
+    this.applySun(newTrek.track);
 
     // 4. Reset diorama interaction state
     this.xrManager.resetInteractionState();

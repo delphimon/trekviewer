@@ -36,6 +36,8 @@ export interface OverlayCallbacks {
   onSetQualityMode?: (mode: 'high' | 'balanced') => void;
   onSetComfort?: (preferences: Partial<ComfortPreferences>) => void;
   onSetHorizonLocked?: (locked: boolean) => void;
+  /** N5: local solar time in minutes after midnight, or null for studio lighting. */
+  onSetSunTime?: (minutes: number | null) => void;
   onResetHorizon?: () => void;
   onFitTerrain?: () => void;
   onRetryGraphics?: () => void;
@@ -705,6 +707,10 @@ export class DesktopOverlay {
               <button id="btnFitTerrain" class="btn btn-sm" title="Show the whole terrain without changing trail progress" disabled>Fit terrain</button>
             </div>
             <p class="trek-meta">Keep the model upright while moving, zooming and turning. Level horizon preserves your position and zoom.</p>
+            <h3>Sun</h3>
+            <label class="comfort-option"><span>Sun for time of day</span><input id="sunEnabled" type="checkbox" /></label>
+            <label class="comfort-option"><span id="sunTimeLabel">12:00</span><input id="sunTime" type="range" min="240" max="1260" step="15" value="720" disabled aria-label="Time of day (local solar time)" /></label>
+            <p class="trek-meta">Solar time on the track's date (today if it has none). Shadows stay off in VR.</p>
             <h3>Quality</h3>
             <div class="btn-group" id="groupQuality">
               <button id="btnQualityHigh" class="btn btn-sm btn-quality btn-active" data-quality="high" aria-pressed="true">High</button>
@@ -843,6 +849,18 @@ export class DesktopOverlay {
       this.callbacks.onSetHorizonLocked?.((event.target as HTMLInputElement).checked);
     });
     document.getElementById('btnResetHorizon')?.addEventListener('click', () => this.callbacks.onResetHorizon?.());
+    const sunEnabled = document.getElementById('sunEnabled') as HTMLInputElement | null;
+    const sunTime = document.getElementById('sunTime') as HTMLInputElement | null;
+    const applySun = () => {
+      if (!sunEnabled || !sunTime) return;
+      const minutes = Number(sunTime.value);
+      sunTime.disabled = !sunEnabled.checked;
+      const label = document.getElementById('sunTimeLabel');
+      if (label) label.textContent = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+      this.callbacks.onSetSunTime?.(sunEnabled.checked ? minutes : null);
+    };
+    sunEnabled?.addEventListener('change', applySun);
+    sunTime?.addEventListener('input', applySun);
     document.getElementById('comfortMovement')?.addEventListener('change', (event) => {
       this.callbacks.onSetComfort?.({ movement: (event.target as HTMLSelectElement).value as ComfortPreferences['movement'] });
     });

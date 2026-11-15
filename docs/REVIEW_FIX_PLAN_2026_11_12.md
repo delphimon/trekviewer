@@ -681,9 +681,13 @@ Do these only after phases B–U. Each needs a Browser check and a unit test for
 - [~] **N4 Remaining distance and time** next to the progress readout (desktop and HUD).
   - Note: desktop shows distance and time left under PROGRESS; the HUD scrub tooltip adds
     distance left. Browser and headset checks outstanding.
-- [ ] **N5 Sun position.** OWNER: confirm. A time-of-day slider that moves the
+- [x] **N5 Sun position.** OWNER: confirm. A time-of-day slider that moves the
   directional light using solar position for the route's latitude/longitude and the
   track's date. Shadows stay off in XR.
+  - Owner approved 2026-11-15. View tab "Sun" checkbox + solar-time slider (04:00–21:00);
+    `src/visualization/SolarPosition.ts` (NOAA formulas); the sun follows the model's
+    rotation and dims near the horizon; studio light when off. XR shadows were already off.
+    Browser check pending (pane hidden).
 
 ---
 

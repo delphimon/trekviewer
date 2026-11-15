@@ -198,7 +198,24 @@ export class SceneManager {
     }
   }
 
+  private readonly studioSunPosition = new THREE.Vector3(300, 600, 400);
+  private readonly sunModelDirection = new THREE.Vector3();
+  private sunFromModel = false;
+
+  /** N5: aim the sun along a model-space direction (+X east, -Z north), or null for the
+   * fixed studio light. The direction follows the model's rotation at render time. */
+  public setSunDirection(direction: { x: number; y: number; z: number } | null, intensityScale = 1): void {
+    this.sunFromModel = !!direction;
+    if (direction) this.sunModelDirection.set(direction.x, direction.y, direction.z).normalize();
+    else this.sunLight.position.copy(this.studioSunPosition);
+    this.sunLight.intensity = 2.0 * (direction ? intensityScale : 1);
+  }
+
   public render(): void {
+    if (this.sunFromModel) {
+      this.sunLight.position.copy(this.sunModelDirection).applyQuaternion(this.dioramaRoot.quaternion)
+        .multiplyScalar(this.studioSunPosition.length());
+    }
     this.renderer.render(this.scene, this.camera);
   }
 
