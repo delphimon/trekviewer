@@ -5,7 +5,6 @@ import type { TrailResult } from '../visualization/TrailMesh.ts';
 import { DioramaBase } from '../visualization/DioramaBase.ts';
 import { FlyoverController } from '../visualization/FlyoverController.ts';
 import { ImageryLODManager } from '../terrain/ImageryLODManager.ts';
-import { LocalTerrainStreamer } from '../terrain/LocalTerrainStreamer.ts';
 import { TiledTerrainStreamer } from '../terrain/TiledTerrainStreamer.ts';
 import { disposeObject3D } from './ResourceLifecycle.ts';
 import { type QualityProfile, QualityProfileManager } from '../terrain/QualityProfile.ts';
@@ -20,9 +19,8 @@ export interface LoadedTrekParams {
   dioramaBase: THREE.Group;
   flyoverController: FlyoverController;
   imageryLOD?: ImageryLODManager;
-  localTerrainStreamer?: LocalTerrainStreamer;
+  localTerrainStreamer?: TiledTerrainStreamer;
   qualityProfile?: QualityProfile;
-  tiledTerrain?: boolean;
 }
 
 /**
@@ -36,7 +34,7 @@ export class LoadedTrek {
   public readonly dioramaBase: THREE.Group;
   public readonly flyoverController: FlyoverController;
   public readonly imageryLOD: ImageryLODManager;
-  public readonly localTerrainStreamer?: LocalTerrainStreamer | TiledTerrainStreamer;
+  public readonly localTerrainStreamer?: TiledTerrainStreamer;
   public readonly group: THREE.Group;
   private _isDisposed: boolean = false;
   private currentVerticalExaggeration: number = 1.0;
@@ -76,9 +74,8 @@ export class LoadedTrek {
 
     if (params.localTerrainStreamer) {
       this.localTerrainStreamer = params.localTerrainStreamer;
-    } else if (this.terrainResult.demGrid && this.trailResult.routeGeometry) {
-      const Streamer = params.tiledTerrain && this.terrainResult.baseMeshGrid ? TiledTerrainStreamer : LocalTerrainStreamer;
-      this.localTerrainStreamer = new Streamer({
+    } else if (this.terrainResult.demGrid && this.trailResult.routeGeometry && this.terrainResult.baseMeshGrid) {
+      this.localTerrainStreamer = new TiledTerrainStreamer({
         terrainResult: this.terrainResult,
         routeGeometry: this.trailResult.routeGeometry,
         demGrid: this.terrainResult.demGrid,
@@ -196,8 +193,7 @@ export class LoadedTrek {
     prefetchProgress?: number
   ): void {
     if (this._isDisposed) return;
-    if (this.localTerrainStreamer instanceof TiledTerrainStreamer) this.localTerrainStreamer.update(progress, tabletopFocusGeo, detailFocus, prefetchProgress);
-    else this.localTerrainStreamer?.update(progress, tabletopFocusGeo);
+    this.localTerrainStreamer?.update(progress, tabletopFocusGeo, detailFocus, prefetchProgress);
   }
 
   public dispose(): void {

@@ -5,7 +5,6 @@ import {
   type ElevationGrid,
 } from '../src/terrain/ElevationTiles.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
-import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
 import { TerrainGenerator, type TerrainResult } from '../src/terrain/TerrainGenerator.ts';
 import { TextureProvider, type TileGridBounds } from '../src/terrain/TextureProvider.ts';
 import { QualityProfileManager } from '../src/terrain/QualityProfile.ts';
@@ -226,89 +225,4 @@ describe('Stage X3: Deterministic Local Terrain Ownership & Map Imagery Material
     });
   });
 
-  describe('LocalTerrainStreamer Single Visible Chunk Ownership', () => {
-    it('enforces that only Station 0 is visible while background chunks are invisible', () => {
-      const terrainGroup = new THREE.Group();
-      const terrainMat = new THREE.MeshStandardMaterial({ map: new THREE.Texture() });
-      const terrainMesh = new THREE.Mesh(new THREE.BufferGeometry(), terrainMat);
-      terrainGroup.add(terrainMesh);
-
-      const activeChunks: LocalTerrainChunk[] = [];
-      const dummyTerrainResult: TerrainResult = {
-        group: terrainGroup,
-        terrainMesh,
-        skirtMesh: new THREE.Mesh(),
-        demGrid: createMockGrid(),
-        bounds: testBounds,
-        terrainGeoBounds: testBounds,
-        terrainBaseElevation: 1500,
-        terrainQuality: 'dem',
-        tileGrid: testTileGrid,
-        elevationSampler: () => 2000,
-        sampleDEMY: () => 2000,
-        sampleRenderedSurfaceY: () => 500,
-        setTextureStyle: async () => {},
-        setVerticalExaggeration: () => {},
-        attachLocalChunk: (c?: LocalTerrainChunk) => {
-          if (c) activeChunks.push(c);
-        },
-        detachLocalChunk: (c?: LocalTerrainChunk) => {
-          if (!c) return;
-          const idx = activeChunks.indexOf(c);
-          if (idx !== -1) activeChunks.splice(idx, 1);
-          c.dispose();
-        },
-        get localChunk() {
-          return activeChunks.find((c) => c.mesh.visible) || null;
-        },
-        get localChunks() {
-          return activeChunks;
-        },
-        dispose: () => {},
-      };
-
-      const streamer = new LocalTerrainStreamer({
-        terrainResult: dummyTerrainResult,
-        routeGeometry: dummyRouteGeometry,
-        demGrid: dummyTerrainResult.demGrid!,
-        qualityProfile: QualityProfileManager.getProfile('quest-high'),
-        chunkRadiusM: 800,
-        maxChunks: 3,
-        evalThresholdM: 10,
-        initialViewMode: 'first-person',
-      });
-
-      vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue(null);
-
-      // 1. Initial position at progress 0.0
-      streamer.update(0.0);
-
-      expect(streamer.activeChunks.length).toBeGreaterThanOrEqual(1);
-      // Exactly one chunk must be visible: the active station chunk
-      const visibleChunks = streamer.activeChunks.filter((c) => c.mesh.visible);
-      expect(visibleChunks.length).toBe(1);
-      expect(streamer.activeVisibleChunk).toBe(visibleChunks[0]);
-      expect(streamer.activeChunks[0].mesh.visible).toBe(true);
-
-      // Remaining managed chunks must be invisible (warm in memory)
-      for (let i = 1; i < streamer.activeChunks.length; i++) {
-        expect(streamer.activeChunks[i].mesh.visible).toBe(false);
-      }
-
-      // Check map texture inheritance
-      expect(streamer.activeChunks[0].material.map).toBe(terrainMat.map);
-
-      // 2. Move hiker along route (progress = 0.5)
-      streamer.update(0.5);
-
-      const visibleAfterMove = streamer.activeChunks.filter((c) => c.mesh.visible);
-      expect(visibleAfterMove.length).toBe(1);
-      expect(streamer.activeVisibleChunk).toBe(visibleAfterMove[0]);
-      expect(streamer.activeChunks[0].mesh.visible).toBe(true);
-
-      streamer.dispose();
-      expect(streamer.activeChunks.length).toBe(0);
-      expect(streamer.activeVisibleChunk).toBeNull();
-    });
-  });
 });

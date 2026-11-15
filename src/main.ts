@@ -452,7 +452,6 @@ export class TrekViewerApp {
       },
       // Tiled local terrain and terrain-shader imagery are the only shipped paths; the legacy
       // single-chunk streamer remains solely as the fallback when no base mesh grid exists.
-      tiledTerrain: true,
       experimentalTerrainImagery: demParams.get('terrainImagery') !== '0',
       markerBatching: demParams.get('markerBatch') !== '0',
       baseTerrainCellSizeM: [60, 75, 120].includes(Number(demParams.get('terrainGrid'))) ? Number(demParams.get('terrainGrid')) : undefined,

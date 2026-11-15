@@ -20,7 +20,6 @@ export interface RouteLoaderOptions {
   baseTerrainCellSizeM?: number;
   getBaseTerrainCellSizeM?: () => number | undefined;
   regionalBase?: boolean;
-  tiledTerrain?: boolean;
   getCurrentTrailColorMode?: () => TrailColorMode;
   session?: TrekSession;
   onProgress?: (message: string, progress?: number | null) => void;
@@ -280,7 +279,6 @@ export class RouteLoader {
       trek = new LoadedTrek({
         experimentalTerrainImagery: this.options.experimentalTerrainImagery,
         markerBatching: this.options.markerBatching,
-        tiledTerrain: this.options.tiledTerrain,
         track,
         terrainResult: terrain,
         trailResult: trail,

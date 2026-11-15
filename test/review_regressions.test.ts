@@ -1,7 +1,6 @@
 import { it, expect, vi, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { buildSurfacePatchGeometry } from '../src/terrain/SurfacePatchGeometry.ts';
-import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
 import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
 import { TerrainGenerator } from '../src/terrain/TerrainGenerator.ts';
@@ -15,22 +14,6 @@ import { FlyoverController } from '../src/visualization/FlyoverController.ts';
 const bounds = {minLat:46.84,maxLat:46.86,minLon:-121.76,maxLon:-121.74,centerLat:46.85,centerLon:-121.75,widthMeters:1500,depthMeters:1500,minEle:0,maxEle:200,elevationSpan:200};
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-it('promotes a delayed focus once despite 72 waiting frames', async () => {
-  vi.spyOn(ElevationTileService,'sampleElevation').mockReturnValue({isValid:true,elevation:100});
-  let resolve!: (grid:any)=>void;
-  const pending = new Promise<any>(r=>resolve=r);
-  const attached: LocalTerrainChunk[] = [];
-  const terrain:any = {terrainGeoBounds:bounds,terrainBaseElevation:0,elevationSampler:()=>100,
-    attachLocalChunk:(c:any)=>attached.push(c),detachLocalChunk:(c:any)=>c.dispose(),notifySurfaceChange:vi.fn()};
-  const streamer:any = new LocalTerrainStreamer({terrainResult:terrain,routeGeometry:{totalDistance:0} as any,demGrid:{} as any,qualityProfile:{...QUALITY_PROFILES['quest-high'],localDemSegments:8}});
-  vi.spyOn(streamer,'fetchStationDEM').mockReturnValue(pending);
-  for(let frame=0;frame<72;frame++) streamer.update(0,{lat:46.85,lon:-121.75});
-  resolve({zoom:15,isRealDEM:true});
-  await Promise.resolve(); await Promise.resolve();
-  expect(attached.length).toBe(1);
-  expect(terrain.notifySurfaceChange).toHaveBeenCalledTimes(1);
-  streamer.dispose();
-});
 
 it.each([100, 300])('renders and samples the same refined surface at DEM height %s', async (localHeight) => {
   vi.spyOn(TextureProvider,'generateTopoTextureAsync').mockResolvedValue(new THREE.CanvasTexture({width:1,height:1} as any));
@@ -164,24 +147,6 @@ it('preserves user turning across paused updates and sharp route bends', () => {
   expect(root.rotation.y).toBe(1);
 });
 
-it.each(['mode', 'dispose', 'new-focus'])('rejects stale focus work after %s', async (change) => {
-  vi.spyOn(ElevationTileService,'sampleElevation').mockReturnValue({isValid:true,elevation:100});
-  let resolve!: (grid:any)=>void;
-  const pending=new Promise<any>(r=>resolve=r);
-  const terrain:any={terrainGeoBounds:bounds,terrainBaseElevation:0,elevationSampler:()=>100,
-    attachLocalChunk:vi.fn(),detachLocalChunk:vi.fn(),notifySurfaceChange:vi.fn()};
-  const streamer=new LocalTerrainStreamer({terrainResult:terrain,routeGeometry:{totalDistance:0} as any,
-    demGrid:{} as any,qualityProfile:{...QUALITY_PROFILES['quest-high'],localDemSegments:8}});
-  vi.spyOn(streamer,'fetchStationDEM').mockReturnValueOnce(pending).mockReturnValue(new Promise(()=>{}));
-  streamer.update(0,{lat:46.85,lon:-121.75});
-  if(change==='mode') streamer.setViewMode('first-person');
-  if(change==='dispose') streamer.dispose();
-  if(change==='new-focus') streamer.update(0,{lat:46.86,lon:-121.75});
-  resolve({zoom:15,isRealDEM:true});
-  await Promise.resolve(); await Promise.resolve();
-  expect(terrain.attachLocalChunk).not.toHaveBeenCalled();
-  streamer.dispose();
-});
 
 it('imagery retains a terrain triangle ridge between patch vertices and matching normals', () => {
   const geo=new THREE.PlaneGeometry(10,10,2,2); geo.rotateX(-Math.PI/2);

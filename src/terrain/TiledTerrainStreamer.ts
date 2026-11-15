@@ -1,12 +1,26 @@
 import * as THREE from 'three';
 import { geoToLocalMeters, localMetersToGeo } from '../gpx/Coordinates.ts';
 import type { ViewMode } from '../gpx/TrackTypes.ts';
+import type { TerrainResult } from './TerrainGenerator.ts';
+import type { RouteGeometry } from '../visualization/RouteGeometry.ts';
 import { ElevationTileService, type ElevationGrid } from './ElevationTiles.ts';
 import { LocalTerrainChunk, type TerrainChunkEdgeFlags } from './LocalTerrainChunk.ts';
-import type { LocalTerrainStreamerOptions } from './LocalTerrainStreamer.ts';
 import type { QualityProfile } from './QualityProfile.ts';
 import { QualityProfileManager, terrainDetailPolicy } from './QualityProfile.ts';
 import { planTerrainTiles, selectTerrainFocus, type TerrainTileLayout } from './TerrainTileLayout.ts';
+
+export interface TerrainStreamerOptions {
+  terrainResult: TerrainResult;
+  routeGeometry: RouteGeometry;
+  demGrid: ElevationGrid;
+  qualityProfile?: QualityProfile;
+  chunkRadiusM?: number;
+  maxChunks?: number;
+  evalThresholdM?: number;
+  initialViewMode?: ViewMode;
+  prepareSurfacePromotion?: (chunk: LocalTerrainChunk, replacing?: LocalTerrainChunk) => Promise<() => boolean>;
+  prepareSurfaceRemoval?: (chunks: LocalTerrainChunk[]) => Promise<() => boolean>;
+}
 
 interface ElevationAcquisition {
   controller: AbortController;
@@ -49,7 +63,7 @@ export class TiledTerrainStreamer {
   private prefetchPlanKey = '';
   private readonly prefetchPosition = new THREE.Vector3();
 
-  constructor(private readonly options: LocalTerrainStreamerOptions) {
+  constructor(private readonly options: TerrainStreamerOptions) {
     this.mode = options.initialViewMode ?? 'diorama';
     this.profile = options.qualityProfile ?? QualityProfileManager.getActiveProfile();
   }

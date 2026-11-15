@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
-import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
 import { TerrainGenerator, type TerrainResult } from '../src/terrain/TerrainGenerator.ts';
 import { RouteGeometry } from '../src/visualization/RouteGeometry.ts';
 import { ElevationTileService, type ElevationGrid } from '../src/terrain/ElevationTiles.ts';
@@ -308,55 +307,5 @@ describe('Stage W6: Local High-Resolution Terrain 1000-1500m & Seamless Multi-Ch
       spySample.mockRestore();
     });
 
-    it('streams rolling multi-chunks along route via LocalTerrainStreamer', () => {
-      const grid = createMockGrid(15, 2050);
-      const spySample = vi.spyOn(ElevationTileService, 'sampleElevation').mockReturnValue({
-        elevation: 2050,
-        isValid: true,
-      });
-      const questProfile = QualityProfileManager.getProfile('quest-high');
-
-      const streamer = new LocalTerrainStreamer({
-        terrainResult: terrain,
-        routeGeometry: mockRoute,
-        demGrid: grid,
-        qualityProfile: questProfile,
-        chunkRadiusM: 1250,
-        maxChunks: 3,
-        evalThresholdM: 20,
-      });
-
-      // 1. Initial update at start of route (progress = 0)
-      streamer.update(0.0);
-
-      expect(streamer.activeChunks.length).toBeGreaterThanOrEqual(1);
-      expect(streamer.activeChunks.length).toBeLessThanOrEqual(3);
-      expect(terrain.localChunks?.length).toBe(streamer.activeChunks.length);
-
-      const initialFirstChunk = streamer.activeChunks[0];
-
-      // 2. Advance hiker halfway along 20,000m route (progress = 0.5, 10,000m)
-      streamer.update(0.5);
-
-      // Chunks should have updated to surround progress 0.5
-      expect(streamer.activeChunks.length).toBeGreaterThanOrEqual(2);
-      expect(streamer.activeChunks.length).toBeLessThanOrEqual(3);
-
-      // Initial chunk at progress 0 should have been evicted due to distance (10,000m > 2500m envelope)
-      const hasInitial = streamer.activeChunks.includes(initialFirstChunk);
-      expect(hasInitial).toBe(false);
-
-      // 3. Complete route (progress = 1.0)
-      streamer.update(1.0);
-      expect(streamer.activeChunks.length).toBeGreaterThanOrEqual(1);
-      expect(streamer.activeChunks.length).toBeLessThanOrEqual(3);
-
-      // Dispose cleans up all chunks cleanly
-      streamer.dispose();
-      expect(streamer.activeChunks.length).toBe(0);
-      expect(terrain.localChunks?.length).toBe(0);
-
-      spySample.mockRestore();
-    });
   });
 });

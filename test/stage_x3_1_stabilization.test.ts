@@ -5,7 +5,6 @@ import {
   type ElevationGrid,
 } from '../src/terrain/ElevationTiles.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
-import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
 import { TextureProvider, type TileGridBounds } from '../src/terrain/TextureProvider.ts';
 import { QualityProfileManager } from '../src/terrain/QualityProfile.ts';
 import { RouteGeometry } from '../src/visualization/RouteGeometry.ts';
@@ -435,109 +434,6 @@ describe('Stage X3.1: Visual Corruption Emergency Stabilization', () => {
     });
   });
 
-  describe('Test F & G: Tabletop vs. First-Person ViewMode Policy', () => {
-    function setupStreamer(initialMode: 'diorama' | 'first-person') {
-      const terrainGroup = new THREE.Group();
-      const terrainMat = new THREE.MeshStandardMaterial({ map: new THREE.Texture() });
-      const terrainMesh = new THREE.Mesh(new THREE.BufferGeometry(), terrainMat);
-      terrainGroup.add(terrainMesh);
-
-      const activeChunks: LocalTerrainChunk[] = [];
-      const dummyTerrainResult = {
-        group: terrainGroup,
-        terrainMesh,
-        skirtMesh: new THREE.Mesh(),
-        demGrid: createMockGridWithInvalidTile(0),
-        bounds: testBounds,
-        terrainGeoBounds: testBounds,
-        terrainBaseElevation: 1500,
-        terrainQuality: 'dem' as const,
-        tileGrid: testTileGrid,
-        elevationSampler: () => 2000,
-        sampleDEMY: () => 2000,
-        sampleRenderedSurfaceY: () => 500,
-        setTextureStyle: async () => {},
-        setVerticalExaggeration: () => {},
-        attachLocalChunk: (c: LocalTerrainChunk) => {
-          activeChunks.push(c);
-        },
-        detachLocalChunk: (c?: LocalTerrainChunk) => {
-          if (!c) return;
-          const idx = activeChunks.indexOf(c);
-          if (idx !== -1) activeChunks.splice(idx, 1);
-          c.dispose();
-        },
-        get localChunk() {
-          return activeChunks.find((c) => c.mesh.visible) || null;
-        },
-        get localChunks() {
-          return activeChunks;
-        },
-        dispose: () => {},
-      };
-
-      vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue(null);
-
-      const streamer = new LocalTerrainStreamer({
-        terrainResult: dummyTerrainResult,
-        routeGeometry: dummyRouteGeometry,
-        demGrid: dummyTerrainResult.demGrid!,
-        qualityProfile: QualityProfileManager.getProfile('quest-high'),
-        chunkRadiusM: 800,
-        maxChunks: 3,
-        evalThresholdM: 10,
-        initialViewMode: initialMode,
-      });
-
-      return { streamer, activeChunks };
-    }
-
-    it('in tabletop diorama mode, all local chunks remain invisible and base terrain is authoritative', () => {
-      const { streamer } = setupStreamer('diorama');
-
-      // Update across different route progress stations
-      streamer.update(0.0);
-      expect(streamer.activeChunks.length).toBeGreaterThanOrEqual(1);
-      // In diorama mode, NO local chunk may be visible (no gray-blue square following hiker!)
-      const visibleChunks = streamer.activeChunks.filter((c) => c.mesh.visible);
-      expect(visibleChunks.length).toBe(0);
-      expect(streamer.activeVisibleChunk).toBeNull();
-
-      streamer.update(0.5);
-      const visibleAfterMove = streamer.activeChunks.filter((c) => c.mesh.visible);
-      expect(visibleAfterMove.length).toBe(0);
-      expect(streamer.activeVisibleChunk).toBeNull();
-
-      streamer.dispose();
-    });
-
-    it('switching to first-person mode activates validated station 0; switching back hides it', () => {
-      const { streamer } = setupStreamer('diorama');
-
-      streamer.update(0.0);
-      expect(streamer.activeVisibleChunk).toBeNull();
-
-      // Enter first-person mode
-      streamer.setViewMode('first-person');
-      expect(streamer.activeVisibleChunk).not.toBeNull();
-      expect(streamer.activeVisibleChunk!.mesh.visible).toBe(true);
-
-      // Remaining background chunks must be invisible
-      const otherChunks = streamer.activeChunks.filter((c) => c !== streamer.activeVisibleChunk);
-      for (const other of otherChunks) {
-        expect(other.mesh.visible).toBe(false);
-      }
-
-      // Return to diorama mode
-      streamer.setViewMode('diorama');
-      expect(streamer.activeVisibleChunk).toBeNull();
-      for (const chunk of streamer.activeChunks) {
-        expect(chunk.mesh.visible).toBe(false);
-      }
-
-      streamer.dispose();
-    });
-  });
 
   describe('Test H: DEM Quality Rejection Threshold (< 70%)', () => {
     it('fetchLocalElevationGrid rejects grid if valid tile ratio is below 70%', async () => {

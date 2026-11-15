@@ -5,7 +5,6 @@ import {
   type ElevationGrid,
 } from '../src/terrain/ElevationTiles.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
-import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
 import { QualityProfileManager } from '../src/terrain/QualityProfile.ts';
 import { RouteGeometry } from '../src/visualization/RouteGeometry.ts';
 import type { GeoBounds, TrackStats, GPXPoint } from '../src/gpx/TrackTypes.ts';
@@ -232,41 +231,4 @@ describe('Stage X2: Real High-Resolution Local DEM Acquisition & Caching', () =>
     });
   });
 
-  describe('LocalTerrainStreamer High-Res DEM Acquisition & Prefetching', () => {
-    it('asynchronously acquires real station DEM and pre-populates upcoming corridor stations', async () => {
-      const mockZ15 = createMockGrid(15, 2200);
-      const spyFetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue(mockZ15);
-
-      const terrain = createDummyTerrainResult();
-      const streamer = new LocalTerrainStreamer({
-        terrainResult: terrain,
-        routeGeometry: dummyRouteGeometry,
-        demGrid: terrain.demGrid!,
-        qualityProfile: QualityProfileManager.getProfile('quest-high'),
-      });
-
-      // Streamer update at progress 0
-      streamer.update(0.0);
-
-      expect(streamer.activeChunks.length).toBeGreaterThanOrEqual(1);
-
-      // Verify streamer triggered fetchStationDEM for stations
-      expect(spyFetch).toHaveBeenCalled();
-
-      // Await fetchStationDEM for the active station
-      const activeChunk = streamer.activeChunks[0];
-      const activeGrid = await streamer.fetchStationDEM(activeChunk.centerLat, activeChunk.centerLon);
-
-      expect(activeGrid).toBe(mockZ15);
-
-      // Deduplication: calling fetchStationDEM for the same coordinates returns cached grid immediately
-      const callCountBefore = spyFetch.mock.calls.length;
-      const cachedGrid = await streamer.fetchStationDEM(activeChunk.centerLat, activeChunk.centerLon);
-      expect(cachedGrid).toBe(mockZ15);
-      expect(spyFetch.mock.calls.length).toBe(callCountBefore);
-
-      streamer.dispose();
-      spyFetch.mockRestore();
-    });
-  });
 });

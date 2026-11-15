@@ -684,15 +684,15 @@ Do these only after phases B–U. Each needs a Browser check and a unit test for
 Run the full test suite after each deletion. Delete the tests that only cover deleted
 code, and list them in the commit message.
 
-- [ ] **C1 Delete `LocalTerrainStreamer`** — *Reported (verify first).* Prove it is
+- [x] **C1 Delete `LocalTerrainStreamer`** — *Reported (verify first).* Prove it is
   unreachable: `src/core/LoadedTrek.ts` picks it only when `baseMeshGrid` is missing, and
   `src/terrain/TerrainGenerator.ts` should always set `baseMeshGrid`. If any code path
   returns a result without `baseMeshGrid`, stop and mark `[-]`.
   - Note: verified unreachable in the app (`TerrainGenerator.generate` has one return and it
     sets `baseMeshGrid`; `main.ts` always passes `tiledTerrain: true`). Not deleted: it is 573
     lines plus the `LoadedTrek` tests that use it as their default streamer, over the
-    ~300-line stop rule. **OWNER:** confirm deletion (and making the tiled streamer the
-    only default).
+    ~300-line stop rule. Owner approved 2026-11-15; deleted, `TiledTerrainStreamer` is the
+    only streamer.
 - [x] **C2 Delete the BatchedMesh imagery branches** in
   `src/terrain/ImageryBatchRenderer.ts` and the `experimentalImageryBatching` option
   (always `false` in `main.ts`).

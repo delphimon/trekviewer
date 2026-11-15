@@ -8,7 +8,6 @@ import {
 import { TrekSession } from '../src/core/TrekSession.ts';
 import { LoadedTrek } from '../src/core/LoadedTrek.ts';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
-import { LocalTerrainStreamer } from '../src/terrain/LocalTerrainStreamer.ts';
 import type { TrackStats, GeoBounds } from '../src/gpx/TrackTypes.ts';
 import type { TerrainResult } from '../src/terrain/TerrainGenerator.ts';
 import type { TrailResult } from '../src/visualization/TrailMesh.ts';
@@ -73,6 +72,7 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
       isRealDEM: true,
     },
     terrainGeoBounds: testBounds,
+    baseMeshGrid: { width: 2000, depth: 2000, segmentsX: 32, segmentsZ: 32 },
     terrainBaseElevation: 1500,
     terrainQuality: 'dem',
     elevationSampler: () => 1800,
@@ -164,7 +164,7 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
       expect((trek.imageryLOD as any).maxPatches).toBe(QUALITY_PROFILES['quest-high'].tabletopPatches);
       expect(trek.imageryLOD.getQualityProfile().name).toBe('quest-high');
 
-      // LocalTerrainStreamer receives the active profile radius
+      // The terrain streamer receives the active profile radius
       expect(trek.localTerrainStreamer?.chunkRadiusM).toBe(1250);
 
       trek.dispose();
@@ -200,24 +200,6 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
     });
   });
 
-  describe('LocalTerrainStreamer setQualityProfile', () => {
-    it('updates qualityProfile and chunkRadiusM cleanly', () => {
-      const terrain = createDummyTerrainResult();
-      const streamer = new LocalTerrainStreamer({
-        terrainResult: terrain,
-        routeGeometry: dummyRouteGeometry,
-        demGrid: terrain.demGrid!,
-        qualityProfile: QUALITY_PROFILES['desktop-high'],
-      });
-
-      expect(streamer.qualityProfile.name).toBe('desktop-high');
-      expect(streamer.chunkRadiusM).toBe(1500);
-
-      streamer.setQualityProfile(QUALITY_PROFILES['quest-balanced']);
-      expect(streamer.qualityProfile.name).toBe('quest-balanced');
-      expect(streamer.chunkRadiusM).toBe(750);
-    });
-  });
 
   describe('ImageryLODManager XR Update Loop Profile Stability', () => {
     it('does not overwrite configured quality profile during XR frame updates', () => {
