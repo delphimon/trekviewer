@@ -509,11 +509,18 @@ is locked to walking pace on an 18-hour route.
 - [x] **O4 Service worker update check.** `src/offline/OfflineShell.ts`: call
   `registration.update()` when the page becomes visible, at most once an hour. `canReload`
   must be false while `OfflineDownloads.busy()`.
-- [ ] **O5 OWNER decision: store imagery as WebP/JPEG instead of PNG32.** Packs are
+- [x] **O5 OWNER decision: store imagery as WebP/JPEG instead of PNG32.** Packs are
   5–10 GB mainly because of lossless PNG. Transcoding on download would cut size
   several-fold but changes pack format and hashes. Do not start this; record it in the
   progress log with the size numbers from `scripts/estimate-offline-route-packs.mjs` if
   that script runs without network.
+  - Owner: "yes if you think it is better" (2026-11-15). Done as JPEG q0.9, not WebP
+    (Safari cannot encode WebP from a canvas). `validateOfflineResource` already rejects any
+    non-opaque pixel, so PNG32 alpha held nothing; it now returns a JPEG re-encode when that
+    is smaller, and passes JPEG through, so resume/import stay idempotent. Archive `sha256`
+    is now of the stored file; `sourceRequestSha256` still proves which request it came from.
+    Existing PNG assets stay valid. The estimate script only counts inventory offline, so
+    measured savings need its network probe (`TREK_PACK_SAMPLE=1`); not run.
 - [x] **O6 OWNER decision: tie pack validity to the inventory, not the GPX bytes**
   (`OfflineStore.compatible`). Record only. (Owner approved 2026-11-15; pack ids are now
   `<route>-high-public-v2|v3`, `compatible` only needs a bundled route, and a legacy
@@ -712,6 +719,16 @@ code, and list them in the commit message.
   `?terrainImagery=0`, `SurfacePatchGeometry`, `SurfacePromotion`, the `prepareSurface*`
   handshake, `staleDirectPatches`, `reprojectPatches`. OWNER: confirm before starting;
   it is the last A/B fallback.
+  - Owner approved 2026-11-15, but stopped before starting: (1) no shader fade exists yet
+    (`TerrainImageryMaterial` swaps tiles without blending), the stated precondition;
+    (2) overlay patches are still the runtime fallback when `TerrainImageryMaterial.supported()`
+    is false, the material throws, or a terrain has no `tileGrid`; removing them leaves
+    those devices with only the base texture; (3) the change spans `ImageryLODManager`
+    (patch geometry, `prepareSurfaceChange`, `reprojectPatches`, stale-direct refresh),
+    `TiledTerrainStreamer` (promotion handshake), `SurfacePromotion.ts` and
+    `SurfacePatchGeometry.ts`: well over 300 lines, and the browser pane is hidden so the
+    render cannot be checked. OWNER: confirm dropping the fallback for unsupported GPUs,
+    and whether to add the shader fade first.
 - [~] **C4 Split `src/terrain/ImageryLODManager.ts`** (3,092 lines) by moving code
   without changing behaviour, one module per commit:
   1. `ImagerySelection.ts`: the pure selection functions.

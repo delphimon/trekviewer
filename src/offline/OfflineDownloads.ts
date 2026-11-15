@@ -12,7 +12,12 @@ export interface OfflineAcquisition {
   load(position: number, signal: AbortSignal, retained?: OfflineAsset): Promise<{ blob: Blob; sourceUrl: string; reused?: boolean }>;
 }
 
-export async function validateOfflineResource(resource: OfflineResource, blob: Blob, signal?: AbortSignal): Promise<void> {
+/** Validates a source and returns the blob to store: the original, or for a PNG image a
+ * JPEG re-encode (O5). Stored imagery must be fully opaque (checked here), so PNG32 alpha
+ * carries nothing; JPEG at quality 0.9 makes packs several times smaller. JPEG input is
+ * returned unchanged, so re-validating a stored or imported asset is idempotent. */
+export async function validateOfflineResource(resource: OfflineResource, blob: Blob, signal?: AbortSignal): Promise<Blob> {
+  let stored = blob;
   if (signal?.aborted) throw new DOMException('Download paused', 'AbortError');
   if (resource.kind === 'elevation') {
     const buffer = await blob.arrayBuffer();
@@ -40,11 +45,18 @@ export async function validateOfflineResource(resource: OfflineResource, blob: B
         ctx.drawImage(image, 0, 0);
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         for (let i = 3; i < pixels.length; i += 4) if (pixels[i] !== 255) throw Error('Imagery source has missing coverage.');
+        if (isPng && typeof canvas.toBlob === 'function') {
+          const jpeg = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', OFFLINE_JPEG_QUALITY));
+          if (jpeg && jpeg.size > 0 && jpeg.size < blob.size) stored = jpeg;
+        }
       } finally { canvas.width = canvas.height = 1; }
     } finally { image.close(); }
   }
   if (signal?.aborted) throw new DOMException('Download paused', 'AbortError');
+  return stored;
 }
+
+export const OFFLINE_JPEG_QUALITY = 0.9;
 
 /** User-started foreground preparation. One bounded acquisition/decoder lane;
  * browser-wide lock prevents competing tabs from corrupting counts or removal.
@@ -67,8 +79,7 @@ export class OfflineDownloads {
         const timer = setTimeout(abort, 35000);
         try {
           const blob = await readBoundedBlob(await fetch(url, { signal: request.signal, credentials: 'omit' }), resource.kind === 'image' ? 8 * 1024 * 1024 : 32 * 1024 * 1024);
-          await validateOfflineResource(resource, blob, signal);
-          return { blob, sourceUrl: url };
+          return { blob: await validateOfflineResource(resource, blob, signal), sourceUrl: url };
         } catch (error) {
           if (signal.aborted) throw new DOMException('Download paused', 'AbortError');
           if (error instanceof DOMException && error.name === 'QuotaExceededError') throw error;
@@ -139,7 +150,7 @@ export class OfflineDownloads {
               blob = loaded.blob; sourceUrl = loaded.sourceUrl;
               if (!offlineSourceAllowed(sourceUrl) || !sameOfflineSource(sourceUrl, resource.urls) || !blob.size || blob.size > (resource.kind === 'image' ? 8 : 32) * 1024 * 1024) throw Error('Invalid imported source');
               if (!(loaded.reused && asset && blob === asset.blob)) {
-                await validateOfflineResource(resource, blob, controller.signal);
+                blob = await validateOfflineResource(resource, blob, controller.signal);
                 if (asset && asset.sha256 !== await hashOfflineBlob(blob)) asset = undefined;
               }
             } else if (!blob) {
