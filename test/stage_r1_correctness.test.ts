@@ -159,26 +159,25 @@ describe('Stage R1 Correctness Suite', () => {
         verticalExaggeration: 1.0,
       });
 
-      // Build patch geometry using private method via prototype reflection
-      const geo1x: THREE.BufferGeometry = (lodManager as any).buildPatchGeometry(14, 2646, 5768);
-      const pos1x = geo1x.getAttribute('position') as THREE.BufferAttribute;
+      // C3: patches are bounds-only records; their corners keep the same vertical contract.
+      const corner = () => {
+        const geo: THREE.BufferGeometry = (lodManager as any).buildLightweightBoundsGeometry(14, 2646, 5768);
+        const y = (geo.getAttribute('position') as THREE.BufferAttribute).getY(0); geo.dispose(); return y;
+      };
+      const geo1x = new THREE.BufferGeometry();
 
       // Verify at 1x exaggeration: Y = 800 * 1.0 + 0.04 = 800.04
-      const y1x = pos1x.getY(0);
+      const y1x = corner();
       expect(y1x).toBeCloseTo(800.04, 2);
       expect(y1x).not.toBeCloseTo(-599.96, 1); // Must NOT double-subtract baseElevation!
 
-      // Update to 2x exaggeration: Y = 800 * 2.0 + 0.04 = 1600.04
+      // 2x exaggeration: Y = 800 * 2.0 + 0.04 = 1600.04
       lodManager.setVerticalExaggeration(2.0);
-      (lodManager as any).updatePatchGeometryHeights(geo1x);
-      const y2x = pos1x.getY(0);
-      expect(y2x).toBeCloseTo(1600.04, 2);
+      expect(corner()).toBeCloseTo(1600.04, 2);
 
       // Natural 1x scale (first-person)
       lodManager.setVerticalExaggeration(1.0);
-      (lodManager as any).updatePatchGeometryHeights(geo1x);
-      const yNatural = pos1x.getY(0);
-      expect(yNatural).toBeCloseTo(800.04, 2);
+      expect(corner()).toBeCloseTo(800.04, 2);
 
       geo1x.dispose();
       lodManager.dispose();

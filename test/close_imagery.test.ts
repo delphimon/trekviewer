@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
+import { imageryArrayCapacity } from '../src/terrain/ImageryBatchRenderer.ts';
 import { QUALITY_PROFILES } from '../src/terrain/QualityProfile.ts';
 
 afterEach(() => vi.restoreAllMocks());
@@ -27,7 +28,7 @@ it('uses actual close desktop distance and reaches the provider ceiling within t
     pose(0.025); manager.update(camera, root, false);
     expect(calculate.mock.lastCall![0]).toBeCloseTo(0.025, 7);
     expect(manager.getDiagnostics().targetZoom).toBe(19);
-    expect((manager as any).maxPatches).toBe(QUALITY_PROFILES['desktop-high'].tabletopPatches);
+    expect((manager as any).maxPatches).toBe(Math.min(QUALITY_PROFILES['desktop-high'].tabletopPatches, imageryArrayCapacity() - 32)); // C3: shader array budget
   } finally { dispose(); }
 });
 
@@ -75,7 +76,7 @@ it('keeps the close view sharp when the XR pointer inspects a distant slope', ()
     expect(manager.getDiagnostics().targetZoom).toBe(19);
     expect(Math.abs(manager.getInspectedGeo()!.lat - 46.85)).toBeGreaterThan(.001);
     const finest = (manager as any).reconcileDesiredTiles.mock.calls[0][0].filter((tile: any) => tile.zoom === 19);
-    expect(finest.length).toBeGreaterThanOrEqual(144);
+    expect(finest.length).toBeGreaterThanOrEqual(128); // within the 320-tile shader array budget (C3)
   } finally { dispose(); }
 });
 

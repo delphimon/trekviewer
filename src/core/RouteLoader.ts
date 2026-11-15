@@ -13,7 +13,6 @@ import { QualityProfileManager } from '../terrain/QualityProfile.ts';
 import { runTerrainJob } from '../terrain/TerrainJobs.ts';
 
 export interface RouteLoaderOptions {
-  experimentalTerrainImagery?: boolean;
   markerBatching?: boolean;
   dioramaRoot: THREE.Group;
   getIsXR: () => boolean;
@@ -277,7 +276,6 @@ export class RouteLoader {
 
       // 5. Assemble LoadedTrek off-scene
       trek = new LoadedTrek({
-        experimentalTerrainImagery: this.options.experimentalTerrainImagery,
         markerBatching: this.options.markerBatching,
         track,
         terrainResult: terrain,

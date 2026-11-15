@@ -197,7 +197,6 @@ describe('Architecture Review Fixes (Phases 1-10)', () => {
       new THREE.MeshStandardMaterial()
     );
     const manager: any = new ImageryLODManager({
-      experimentalTerrainImagery: true,
       terrainMesh,
       terrainGeoBounds: bounds,
       terrainBaseElevation: 1000,

@@ -50,7 +50,7 @@ function manager(terrainShader: boolean) {
   const root = new THREE.Group(); root.scale.setScalar(0.0001); root.add(mesh); root.updateMatrixWorld(true);
   const lod = new ImageryLODManager({ terrainMesh: mesh, terrainBaseElevation: 0, elevationSampler: () => 0,
     terrainGeoBounds: bounds, qualityProfile: QUALITY_PROFILES['quest-high'], enableFadeIn: false,
-    experimentalTerrainImagery: terrainShader, terrainTileGrid: terrainShader ? terrainGrid() : undefined });
+    terrainTileGrid: terrainShader ? terrainGrid() : undefined });
   root.add(lod.group);
   return { lod, root, dispose: () => { lod.dispose(); geometry.dispose(); mesh.material.dispose(); } };
 }
@@ -60,7 +60,7 @@ it('reports texture-array capacity as layers times pages', () => {
   expect(imageryArrayCapacity()).toBeLessThan(QUALITY_PROFILES['quest-high'].tabletopPatches);
 });
 
-it('clamps the quest-high tile budget to the texture-array capacity only in terrain-shader mode', () => {
+it('clamps the quest-high tile budget to the texture-array capacity (shader imagery is the only renderer)', () => {
   const shader = manager(true), patches = manager(false);
   try {
     const capacity = imageryArrayCapacity();
@@ -69,7 +69,7 @@ it('clamps the quest-high tile budget to the texture-array capacity only in terr
     expect(shader.lod.getDiagnostics().patchBudget).toBe(capacity - 32);
     shader.lod.setQualityProfile(QUALITY_PROFILES['quest-balanced']);
     expect(shader.lod.getDiagnostics().patchBudget).toBe(QUALITY_PROFILES['quest-balanced'].firstPersonPatches);
-    expect(patches.lod.getDiagnostics().patchBudget).toBe(QUALITY_PROFILES['quest-high'].tabletopPatches);
+    expect(patches.lod.getDiagnostics().patchBudget).toBe(capacity - 32); // C3: no overlay mode without the clamp
   } finally { shader.dispose(); patches.dispose(); }
 });
 
@@ -91,7 +91,7 @@ it('selects no more tiles than the arrays hold and never draws a proxy patch in 
         && child.visible && child.layers.mask !== 0 && (child as THREE.Mesh<any, THREE.Material>).material.visible);
       expect(drawn).toHaveLength(0);
     }
-    expect(lod.getBatchDiagnostics().mode).toBe('terrain');
+    expect(lod.getBatchDiagnostics().status).toBe('active');
     const diagnostics = lod.getDiagnostics();
     expect(diagnostics.activePatchesCount).toBeGreaterThan(0);
     expect(diagnostics.requestedCount).toBeLessThanOrEqual(imageryArrayCapacity());

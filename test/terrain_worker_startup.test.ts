@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { runTerrainJob, disposeTerrainJobs } from '../src/terrain/TerrainJobs.ts';
-import { snapshotSurfaceMesh } from '../src/terrain/SurfacePromotion.ts';
-import * as THREE from 'three';
 
 class StartupWorker {
   static instances: StartupWorker[] = [];
@@ -20,25 +18,6 @@ const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve()
 const job = () => ({ kind: 'decode' as const, input: { width: 1, height: 1, pixels: new Uint8ClampedArray([128, 0, 0, 255]), validity: new Uint8Array([1]) } });
 beforeEach(() => { StartupWorker.instances = []; vi.stubGlobal('Worker', StartupWorker); });
 afterEach(() => { disposeTerrainJobs(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
-
-it('reuses source arrays across metadata revisions and resends them after a worker failure', async () => {
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry());
-  const input = () => ({ sources: [snapshotSurfaceMesh(mesh)], tiles: [], centerLat: 46, centerLon: -120 });
-  const first = runTerrainJob({ kind: 'surface', input: input() }, () => 0);
-  await flush(); const worker = StartupWorker.instances[0]; worker.ready(); await flush();
-  expect((worker.messages[0] as any).input.sources[0].positions).toBeInstanceOf(Float32Array);
-  worker.onmessage?.({ data: { result: 1 } }); await first;
-  const second = runTerrainJob({ kind: 'surface', input: input() }, () => 0);
-  const rejected = expect(second).rejects.toThrow('execution error'); await flush();
-  expect((worker.messages[1] as any).input.sources[0]).toHaveProperty('reuseSource', 0);
-  expect((worker.messages[1] as any).input.sources[0]).not.toHaveProperty('positions');
-  worker.fail(); await rejected;
-  const third = runTerrainJob({ kind: 'surface', input: input() }, () => 0);
-  await flush(); const replacement = StartupWorker.instances[1]; replacement.ready(); await flush();
-  expect((replacement.messages[0] as any).input.sources[0].positions).toBeInstanceOf(Float32Array);
-  replacement.onmessage?.({ data: { result: 3 } }); expect(await third).toBe(3);
-  mesh.geometry.dispose();
-});
 
 it('retains only the current immutable chunk base and resends it on replacement and worker restart', async () => {
   const base = { width: 100, depth: 100, segmentsX: 1, segmentsZ: 1, heights: new Float32Array([0, 10, 20, 30]) };
@@ -61,20 +40,18 @@ it('retains only the current immutable chunk base and resends it on replacement 
   expect(base.heights.byteLength).toBe(16);
 });
 
-it('restores full surface inputs after a handler error without restarting a healthy worker', async () => {
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry());
-  const input = { sources: [snapshotSurfaceMesh(mesh)], tiles: [], centerLat: 46, centerLon: -120 };
-  const first = runTerrainJob({ kind: 'surface', input }, () => 0);
-  const rejected = expect(first).rejects.toThrow('missing source');
+it('restores the full chunk base after a handler error without restarting a healthy worker', async () => {
+  const base = { width: 100, depth: 100, segmentsX: 1, segmentsZ: 1, heights: new Float32Array([0, 10, 20, 30]) };
+  const first = runTerrainJob({ kind: 'chunk', options: {} as any, base }, () => 0);
+  const rejected = expect(first).rejects.toThrow('missing base');
   await flush(); const worker = StartupWorker.instances[0]; worker.ready(); await flush();
-  worker.onmessage?.({ data: { error: { name: 'Error', message: 'missing source' } } }); await rejected;
-  const next = runTerrainJob({ kind: 'surface', input }, () => 0); await flush();
+  worker.onmessage?.({ data: { error: { name: 'Error', message: 'missing base' } } }); await rejected;
+  const next = runTerrainJob({ kind: 'chunk', options: {} as any, base }, () => 0); await flush();
   const message: any = worker.messages[1];
-  expect(message.reuseSources).toBe(false);
-  expect(message.input.sources[0].positions).toBeInstanceOf(Float32Array);
+  expect(message.reuseBase).toBeUndefined();
+  expect(message.base.heights).toEqual(base.heights);
   expect(worker.terminated).toBe(false);
   worker.onmessage?.({ data: { result: 2 } }); expect(await next).toBe(2);
-  mesh.geometry.dispose();
 });
 
 it('does not transfer a buffer until ready and retries a failed startup with the original input intact', async () => {
@@ -142,12 +119,12 @@ it('rejects an aborted active caller immediately, drains its response, then reus
 });
 
 it('decodes elevation while geometry is busy, with at most one active job on each of two workers', async () => {
-  const first = runTerrainJob({ kind: 'surface', input: { sources: [], tiles: [], centerLat: 46, centerLon: -120 } }, () => 'geometry');
+  const first = runTerrainJob({ kind: 'chunk' as const, options: {} as any, base: { width: 1, depth: 1, segmentsX: 1, segmentsZ: 1, heights: new Float32Array(4) } }, () => 'geometry');
   const second = runTerrainJob(job(), () => 'decode');
   const third = runTerrainJob(job(), () => 'next-decode');
   await flush(); expect(StartupWorker.instances).toHaveLength(2);
   StartupWorker.instances.forEach(worker => worker.ready()); await flush();
-  const geometry = StartupWorker.instances.find(worker => (worker.messages[0] as any).kind === 'surface')!;
+  const geometry = StartupWorker.instances.find(worker => (worker.messages[0] as any).kind === 'chunk')!;
   const elevation = StartupWorker.instances.find(worker => (worker.messages[0] as any).kind === 'decode')!;
   expect(geometry.messages).toHaveLength(1); expect(elevation.messages).toHaveLength(1);
   elevation.onmessage?.({ data: { result: 'decoded' } }); expect(await second).toBe('decoded'); await flush();
@@ -162,7 +139,7 @@ it('cancels a queued caller before its buffers transfer and disposes both active
   const queued = runTerrainJob(input, () => 2, controller.signal, [input.input.pixels.buffer]);
   const queuedRejection = expect(queued).rejects.toMatchObject({ name: 'AbortError' });
   controller.abort(); await queuedRejection; expect(input.input.pixels.byteLength).toBe(4);
-  const geometry = runTerrainJob({ kind: 'surface', input: { sources: [], tiles: [], centerLat: 46, centerLon: -120 } }, () => 3);
+  const geometry = runTerrainJob({ kind: 'chunk' as const, options: {} as any, base: { width: 1, depth: 1, segmentsX: 1, segmentsZ: 1, heights: new Float32Array(4) } }, () => 3);
   const rejections = [expect(active).rejects.toMatchObject({ name: 'AbortError' }), expect(geometry).rejects.toMatchObject({ name: 'AbortError' })];
   await flush(); StartupWorker.instances.forEach(worker => worker.ready()); await flush();
   disposeTerrainJobs(); await Promise.all(rejections);

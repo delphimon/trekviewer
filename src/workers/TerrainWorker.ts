@@ -4,11 +4,8 @@ import { ElevationTileService } from '../terrain/ElevationTiles.ts';
 import { GPXParser } from '../gpx/GPXParser.ts';
 import { LocalTerrainChunk } from '../terrain/LocalTerrainChunk.ts';
 import { sampleTerrainSurface, type TerrainSurfaceData } from '../terrain/TerrainGrid.ts';
-import { buildPromotedSurfacePatches, type SurfaceMeshSnapshot } from '../terrain/SurfacePromotion.ts';
 import { decodeLercElevation } from '../terrain/LercElevation.ts';
-import { resolveSurfaceSources } from '../terrain/SurfaceSourceTransport.ts';
 
-let surfaceSources: SurfaceMeshSnapshot[] | undefined;
 let chunkBase: TerrainSurfaceData | undefined;
 
 self.onmessage = async (event: MessageEvent<TerrainWorkerJob>) => {
@@ -20,11 +17,6 @@ self.onmessage = async (event: MessageEvent<TerrainWorkerJob>) => {
     } else if (job.kind === 'decode') {
       const result = decodeTerrarium(job.input);
       self.postMessage({ result }, { transfer: [result.data.buffer] });
-    } else if (job.kind === 'surface') {
-      if (!job.reuseSources) surfaceSources = resolveSurfaceSources(job.input.sources, surfaceSources);
-      if (!surfaceSources) throw new Error('Terrain worker has no source surface');
-      const result = buildPromotedSurfacePatches({ ...job.input, sources: surfaceSources });
-      self.postMessage({ result }, { transfer: result.flatMap(patch => [patch.positions.buffer, patch.normals.buffer, patch.uvs.buffer, patch.indices.buffer]) });
     } else if (job.kind === 'chunk') {
       if (!job.reuseBase) chunkBase = job.base;
       const base = chunkBase;

@@ -394,64 +394,6 @@ describe('Stage X4: Terrain SurfaceRevision and Dependent Reprojection', () => {
     trail.dispose();
   });
 
-  it('6. ImageryLODManager reprojectPatches updates active patch heights in affected bounds', () => {
-    const track = createMockTrack();
-    let currentGroundY = 120;
-    const elevationSampler = (x: number, z: number) => currentGroundY;
-
-    const lodManager = new ImageryLODManager({
-      terrainGeoBounds: track.bounds,
-      terrainBaseElevation: track.bounds.minEle,
-      elevationSampler,
-      verticalExaggeration: 1.0,
-      qualityProfile: QualityProfileManager.getActiveProfile(),
-    });
-
-    // Create a mock patch
-    const patchGeo = new THREE.PlaneGeometry(100, 100, 2, 2);
-    patchGeo.rotateX(-Math.PI / 2);
-    const patchMesh = new THREE.Mesh(patchGeo, new THREE.MeshBasicMaterial());
-    const mockPatch = {
-      key: 'sat_16_100_100',
-      zoom: 16,
-      x: 100,
-      y: 100,
-      mesh: patchMesh,
-      texture: new THREE.Texture(),
-      lastUsed: Date.now(),
-      centerDist: 50,
-      creationTime: Date.now(),
-      isFading: false,
-      fadeDurationMs: 0,
-      dispose: vi.fn(),
-    };
-
-    (lodManager as any).patches.set(mockPatch.key, mockPatch);
-
-    // Verify initial patch heights
-    const pos = patchGeo.getAttribute('position') as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i++) {
-      pos.setY(i, currentGroundY + 0.04);
-    }
-
-    expect(pos.getY(0)).toBeCloseTo(120.04, 0.01);
-
-    // Reproject with new surface sampler (+80m)
-    currentGroundY = 200;
-    const bounds: TerrainSurfaceBounds = {
-      minX: -100,
-      maxX: 100,
-      minZ: -100,
-      maxZ: 100,
-    };
-
-    lodManager.reprojectPatches((x, z) => currentGroundY, bounds);
-
-    expect(pos.getY(0)).toBeCloseTo(200.04, 0.01);
-
-    lodManager.dispose();
-  });
-
   it('7. LoadedTrek coordinates surface change events to trail, waypoints, imagery LOD, and flyover controller', async () => {
     const track = createMockTrack();
     const terrain = await createTestTerrain();
@@ -471,13 +413,13 @@ describe('Stage X4: Terrain SurfaceRevision and Dependent Reprojection', () => {
       flyoverController: flyover,
     });
 
-    const reprojectPatchesSpy = vi.spyOn(loadedTrek.imageryLOD, 'reprojectPatches');
+    const imagerySurfaceSpy = vi.spyOn(loadedTrek.imageryLOD, 'onSurfaceChange');
 
     // Reset spy call history from initial trek construction
     reprojectTrailSpy.mockClear();
     reprojectWaypointsSpy.mockClear();
     setElevationSamplerSpy.mockClear();
-    reprojectPatchesSpy.mockClear();
+    imagerySurfaceSpy.mockClear();
 
     // Trigger surface change notification
     const testBoundsChange: TerrainSurfaceBounds = {
@@ -499,8 +441,8 @@ describe('Stage X4: Terrain SurfaceRevision and Dependent Reprojection', () => {
       testBoundsChange
     );
 
-    expect(reprojectPatchesSpy).toHaveBeenCalledTimes(1);
-    expect(reprojectPatchesSpy).toHaveBeenCalledWith(expect.any(Function), testBoundsChange);
+    expect(imagerySurfaceSpy).toHaveBeenCalledTimes(1); // C3: imagery resamples; no patch geometry to reproject
+    expect(imagerySurfaceSpy).toHaveBeenCalledWith(expect.any(Function));
 
     expect(setElevationSamplerSpy).toHaveBeenCalledWith(expect.any(Function));
 

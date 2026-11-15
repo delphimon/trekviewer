@@ -11,7 +11,6 @@ import { type QualityProfile, QualityProfileManager } from '../terrain/QualityPr
 import type { GraphicsResource } from './GraphicsResources.ts';
 
 export interface LoadedTrekParams {
-  experimentalTerrainImagery?: boolean;
   markerBatching?: boolean;
   track: TrackStats;
   terrainResult: TerrainResult;
@@ -58,7 +57,6 @@ export class LoadedTrek {
     this.imageryLOD =
       params.imageryLOD ||
       new ImageryLODManager({
-        experimentalTerrainImagery: params.experimentalTerrainImagery,
         terrainTileGrid: params.terrainResult.tileGrid,
         terrainGeoBounds: params.terrainResult.terrainGeoBounds || params.track.bounds,
         terrainBaseElevation: params.terrainResult.terrainBaseElevation,
@@ -81,8 +79,6 @@ export class LoadedTrek {
         demGrid: this.terrainResult.demGrid,
         qualityProfile,
         initialViewMode: 'diorama',
-        prepareSurfacePromotion: (chunk, replacing) => this.imageryLOD.prepareSurfacePromotion(chunk, replacing),
-        prepareSurfaceRemoval: (chunks) => this.imageryLOD.prepareSurfaceRemoval(chunks),
       });
       this.localTerrainStreamer.update(0);
     }
@@ -132,8 +128,8 @@ export class LoadedTrek {
     // Reproject waypoints
     DioramaBase.reprojectWaypoints(this.dioramaBase, sampler, exaggeration, change.bounds);
 
-    // Reproject imagery LOD patches
-    this.imageryLOD.reprojectPatches?.(sampler, change.bounds);
+    // Imagery selection resamples the new surface (the shader draws on it directly)
+    this.imageryLOD.onSurfaceChange(sampler);
 
     // Update flyover controller sampler
     this.flyoverController.setElevationSampler?.(sampler);

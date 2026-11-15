@@ -467,7 +467,6 @@ export class TrekViewerApp {
       },
       // Tiled local terrain and terrain-shader imagery are the only shipped paths; the legacy
       // single-chunk streamer remains solely as the fallback when no base mesh grid exists.
-      experimentalTerrainImagery: demParams.get('terrainImagery') !== '0',
       markerBatching: demParams.get('markerBatch') !== '0',
       baseTerrainCellSizeM: [60, 75, 120].includes(Number(demParams.get('terrainGrid'))) ? Number(demParams.get('terrainGrid')) : undefined,
       getBaseTerrainCellSizeM: () => QualityProfileManager.getActiveProfile().name === 'quest-balanced' ? undefined : 60,
@@ -1038,9 +1037,9 @@ export class TrekViewerApp {
       resourceCacheWriteFailed: resourceCache.writeFailed,
       imageryPatches: lod?.activePatchesCount ?? 0,
       imageryBatchStatus: batch?.status ?? 'off',
-      imageryBatchMode: batch?.mode ?? 'patches',
+      imageryBatchMode: 'terrain', // overlay patches were removed (C3); kept for telemetry schema
       imageryLookupMB: (batch?.lookupBytes ?? 0) / (1024 * 1024),
-      imageryReclippingAvoidedTotal: batch?.reprojectionsAvoided ?? 0,
+      imageryReclippingAvoidedTotal: 0, // reprojection was removed (C3); kept for telemetry schema
       imageryBatchedPatches: batch?.patches ?? 0,
       imageryBatchPreparationMs: batch?.lastPreparationMs ?? 0,
       imageryBatchArrayMB: (batch?.arrayBytes ?? 0) / (1024 * 1024),

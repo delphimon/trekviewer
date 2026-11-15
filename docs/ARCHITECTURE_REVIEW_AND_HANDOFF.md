@@ -27,7 +27,7 @@ All findings from the first-principles architecture review have been implemented
 - **Restored Terrain Shadow Receiving & Removed 4 cm Vertex Shift ([`TerrainImageryMaterial.ts`](../src/terrain/TerrainImageryMaterial.ts))**: Removed `.replaceAll('&& receiveShadow', '&& receiveShadow && !terrainTilePresent')` so directional sunlight shadows remain visible on high-res imagery tiles, and removed the unconditional `transformed.y += 0.04` vertex displacement.
 - **Eliminated Unused `THREE.BatchedMesh` Allocations in Direct-Surface Mode ([`ImageryBatchRenderer.ts`](../src/terrain/ImageryBatchRenderer.ts))**: Skipped `new THREE.BatchedMesh(...)` creation when `this.directSurface === true` (saving ~33 MB of GPU vertex/index buffers per page) and enabled cross-zoom tile packing on shared `directSurface` texture-array pages.
 - **Worker Clipping Bypass & Raycaster Pooling ([`ImageryLODManager.ts`](../src/terrain/ImageryLODManager.ts), [`TerrainRaycast.ts`](../src/terrain/TerrainRaycast.ts))**:
-  - When `this.terrainImagery` is active (`?terrainImagery=1`, default), `ImageryLODManager.drainQueue` bypasses worker triangle-clipping (`prepareStreamedPatch`) and builds a lightweight 4-corner terrain-sampled bounding box geometry (`buildLightweightBoundsGeometry`).
+  - `ImageryLODManager` gives every patch a lightweight 4-corner terrain-sampled bounds geometry (`buildLightweightBoundsGeometry`); the terrain shader draws the imagery. (Worker triangle clipping and the overlay-patch renderer were removed in C3, 2026-11-15.)
   - Pooled `THREE.Raycaster` instances across `getTerrainViewRays` (`detailRayPool` and `firstPersonRayPool`) and cached inverse world matrices per `THREE.Mesh` in a `WeakMap` inside `TerrainRaycast.ts`.
   - Removed unreachable `quest-high` dead code in `evaluateFirstPersonLOD`.
 
@@ -110,7 +110,6 @@ node scripts/verify-landmark-navigation.mjs
 ### URL Query Flags for Diagnostics & Controlled Comparisons
 - `?debug=1`: Displays the real-time diagnostic overlay and `#buildBadge` (frame pacing, CPU submission p95, active imagery/DEM provider, LOD patch counts by zoom, cache stats) and exposes `window.__trekViewerApp`.
 - `?profile=1`: Enables the bounded 1-second Quest/desktop performance profiler and **Download JSON** report button.
-- `?terrainImagery=0`: Disables direct terrain shader imagery draping and falls back to overlay patch meshes for A/B comparison.
 - `?markerBatch=0`: Disables `WaypointInstanceRenderer` instanced waypoint markers.
 - `?terrainGrid=60|75|120`: Overrides base terrain mesh cell spacing in meters.
 - Removed: `?imageryBatch` (BatchedMesh batching deleted in C2) and `?terrainTiles` (the tiled streamer is always used).

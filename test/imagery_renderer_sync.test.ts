@@ -50,7 +50,7 @@ function manager(terrainShader: boolean) {
   const root = new THREE.Group(); root.scale.setScalar(0.0001); root.add(mesh); root.updateMatrixWorld(true);
   const lod = new ImageryLODManager({ terrainMesh: mesh, terrainBaseElevation: 0, elevationSampler: () => 0,
     terrainGeoBounds: bounds, qualityProfile: QUALITY_PROFILES['quest-high'], enableFadeIn: false,
-    experimentalTerrainImagery: terrainShader, terrainTileGrid: terrainShader ? terrainGrid() : undefined });
+    terrainTileGrid: terrainShader ? terrainGrid() : undefined });
   root.add(lod.group);
   return { lod, root, dispose: () => { lod.dispose(); geometry.dispose(); mesh.material.dispose(); } };
 }

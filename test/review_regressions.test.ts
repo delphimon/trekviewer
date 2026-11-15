@@ -1,6 +1,5 @@
 import { it, expect, vi, afterEach } from 'vitest';
 import * as THREE from 'three';
-import { buildSurfacePatchGeometry } from '../src/terrain/SurfacePatchGeometry.ts';
 import { LocalTerrainChunk } from '../src/terrain/LocalTerrainChunk.ts';
 import { ElevationTileService } from '../src/terrain/ElevationTiles.ts';
 import { TerrainGenerator } from '../src/terrain/TerrainGenerator.ts';
@@ -51,10 +50,6 @@ it.each([100, 300])('renders and samples the same refined surface at DEM height 
     expect(chunk.sampleLocalSurfaceY(x,b.minZ)).toBeCloseTo(terrain.sampleBaseSurfaceY!(x,b.minZ),3);
   }
   const index = terrain.terrainMesh.geometry.index;
-  const patch = buildSurfacePatchGeometry(terrain.terrainMesh,b,(x,z)=>({u:x,v:z}))!;
-  const patchMesh = new THREE.Mesh(patch, new THREE.MeshBasicMaterial());
-  const patchHits = new THREE.Raycaster(new THREE.Vector3(0,1000,0),new THREE.Vector3(0,-1,0)).intersectObject(patchMesh);
-  expect(patchHits[0].point.y).toBeCloseTo(hits[0].point.y + .04, 3);
   terrain.setVerticalExaggeration(2);
   expect(coveredGeometry.index).toBe(index);
   expect(coveredGeometry.index!.updateRanges).toEqual([]);
@@ -74,7 +69,6 @@ it.each([100, 300])('renders and samples the same refined surface at DEM height 
   const indexVersion = index!.version;
   terrain.notifySurfaceChange!();
   expect(index!.version).toBe(indexVersion); // unchanged coverage does no extra GPU work
-  patch.dispose(); patchMesh.material.dispose();
   terrain.dispose();
 });
 
@@ -148,34 +142,3 @@ it('preserves user turning across paused updates and sharp route bends', () => {
 });
 
 
-it('imagery retains a terrain triangle ridge between patch vertices and matching normals', () => {
-  const geo=new THREE.PlaneGeometry(10,10,2,2); geo.rotateX(-Math.PI/2);
-  const pos=geo.attributes.position; pos.setY(4,7); geo.computeVertexNormals();
-  const base=new THREE.Mesh(geo,new THREE.MeshBasicMaterial());
-  const patch=buildSurfacePatchGeometry(base,{minX:-4,maxX:4,minZ:-4,maxZ:4},(x,z)=>({u:(x+4)/8,v:(z+4)/8}))!;
-  const mesh=new THREE.Mesh(patch,new THREE.MeshBasicMaterial());
-  for(const [x,z] of [[0,0],[1,2],[-2,1],[3,-2]]) {
-    const ray=new THREE.Raycaster(new THREE.Vector3(x,100,z),new THREE.Vector3(0,-1,0));
-    const terrainHit=ray.intersectObject(base)[0], overlayHit=ray.intersectObject(mesh)[0];
-    expect(overlayHit.point.y).toBeCloseTo(terrainHit.point.y+.04,5);
-    expect(overlayHit.normal!.distanceTo(terrainHit.normal!)).toBeLessThan(.0001);
-  }
-  const p=patch.attributes.position, uv=patch.attributes.uv;
-  for(let i=0;i<p.count;i++) {
-    expect(p.getX(i)).toBeGreaterThanOrEqual(-4); expect(p.getX(i)).toBeLessThanOrEqual(4);
-    expect(uv.getX(i)).toBeGreaterThanOrEqual(0); expect(uv.getX(i)).toBeLessThanOrEqual(1);
-  }
-  patch.dispose(); geo.dispose(); mesh.material.dispose(); base.material.dispose();
-});
-
-it('shares interior imagery vertices at the full Quest refinement resolution', () => {
-  const geo=new THREE.PlaneGeometry(2500,2500,128,128);geo.rotateX(-Math.PI/2);
-  const base=new THREE.Mesh(geo,new THREE.MeshBasicMaterial());
-  const start=performance.now();
-  const patch=buildSurfacePatchGeometry(base,{minX:-1250,maxX:1250,minZ:-1250,maxZ:1250},(x,z)=>({u:x/2500+.5,v:z/2500+.5}))!;
-  const elapsed=performance.now()-start;
-  expect(patch.attributes.position.count).toBe(129*129);
-  expect(patch.index!.count).toBe(128*128*6);
-  if(process.env.TREK_PERF) console.log(`Full 128x128 source: ${patch.attributes.position.count} vertices, ${elapsed.toFixed(2)} ms CPU construction on this host (not Quest timing)`);
-  patch.dispose();geo.dispose();base.material.dispose();
-});

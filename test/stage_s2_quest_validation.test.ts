@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
+import { imageryArrayCapacity } from '../src/terrain/ImageryBatchRenderer.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
 import { LoadedTrek } from '../src/core/LoadedTrek.ts';
 import { GPXParser } from '../src/gpx/GPXParser.ts';
@@ -122,7 +123,7 @@ describe('Stage S2: Quest Mixed Reality Validation & Invariance Suite', () => {
       await new Promise((r) => setTimeout(r, 150));
 
       const diag = lod.getDiagnostics();
-      expect((lod as any).maxPatches).toBe(lod.getQualityProfile().tabletopPatches);
+      expect((lod as any).maxPatches).toBe(Math.min(lod.getQualityProfile().tabletopPatches, imageryArrayCapacity() - 32)); // C3
       expect(diag.activePatchesCount).toBeLessThanOrEqual(lod.getQualityProfile().tabletopPatches);
 
       lod.dispose();

@@ -35,7 +35,7 @@ export class ImageryBatchRenderer {
   private totalPreparationMs = 0;
   private maxPreparationMs = 0;
 
-  constructor(private readonly maxPages = DEFAULT_MAX_PAGES, private readonly beforeRelease?: (patch: ImageryPatch) => void) {
+  constructor(private readonly maxPages = DEFAULT_MAX_PAGES) {
     if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > DEFAULT_MAX_PAGES) throw new RangeError('Invalid imagery page limit');
     this.group.name = 'TerrainImageryCache';
   }
@@ -165,7 +165,6 @@ export class ImageryBatchRenderer {
   }
 
   private remove(key: string, entry: Entry): void {
-    this.beforeRelease?.(entry.patch);
     entry.page.slots.delete(entry.instanceId);
     entry.material.visible = true; entry.material.needsUpdate = true;
     entry.patch.mesh.layers.mask = entry.layersMask;

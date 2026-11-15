@@ -92,7 +92,6 @@ npm run preview    # serve the production build
   shell), `src/xr` (gestures, comfort, table placement, audio feedback).
 - URL flags: `?debug=1` (diagnostics badge + console telemetry), `?profile=1` (local
   performance recorder with JSON download; see [docs/QUEST_PROFILE.md](docs/QUEST_PROFILE.md)),
-  `?terrainImagery=0` (overlay imagery patches instead of terrain-shader imagery),
   `?bestDem=0`, `?regionalDem=0`, `?regionalBase=0`, `?terrainGrid=60|75|120`.
 - Deploy: `npm run deploy:surge` (runs `verify` first). `npm run package:apk` wraps the
   hosted site as a Quest PWA with Bubblewrap (see Meta's PWA packaging guide).

@@ -6,6 +6,7 @@ import {
 } from '../src/terrain/QualityProfile.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
+import { imageryArrayCapacity } from '../src/terrain/ImageryBatchRenderer.ts';
 import type { GeoBounds } from '../src/gpx/TrackTypes.ts';
 
 describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architecture', () => {
@@ -131,15 +132,15 @@ describe('Stage W1: Centralized Quality Profiles & Decoded Image Cache Architect
       const profile = lod.getQualityProfile();
       expect(profile.name).toBe('quest-high');
 
-      expect((lod as any).maxPatches).toBe(448);
+      expect((lod as any).maxPatches).toBe(Math.min(448, imageryArrayCapacity() - 32)); // C3
       expect((lod as any).maxConcurrency).toBe(6);
       expect((lod as any).warmRetentionMs).toBe(60000);
 
       lod.setViewMode('first-person');
-      expect((lod as any).maxPatches).toBe(512);
+      expect((lod as any).maxPatches).toBe(Math.min(512, imageryArrayCapacity() - 32)); // C3
 
       lod.setViewMode('diorama');
-      expect((lod as any).maxPatches).toBe(448);
+      expect((lod as any).maxPatches).toBe(Math.min(448, imageryArrayCapacity() - 32)); // C3
 
       lod.dispose();
     });

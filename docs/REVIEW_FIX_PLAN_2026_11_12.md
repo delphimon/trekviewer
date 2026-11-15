@@ -715,7 +715,7 @@ code, and list them in the commit message.
 - [x] **C2 Delete the BatchedMesh imagery branches** in
   `src/terrain/ImageryBatchRenderer.ts` and the `experimentalImageryBatching` option
   (always `false` in `main.ts`).
-- [ ] **C3 Remove the overlay-patch renderer** once B1 is done and a shader fade exists:
+- [x] **C3 Remove the overlay-patch renderer** once B1 is done and a shader fade exists:
   `?terrainImagery=0`, `SurfacePatchGeometry`, `SurfacePromotion`, the `prepareSurface*`
   handshake, `staleDirectPatches`, `reprojectPatches`. OWNER: confirm before starting;
   it is the last A/B fallback.
@@ -733,6 +733,13 @@ code, and list them in the commit message.
     250 ms over the coarser level (or the base texture), weight in the lookup's B channel;
     a tile that only moves array layer keeps its weight. Checked in headless Chrome: shader
     compiles, imagery draws. Remaining C3 blockers: the unsupported-GPU fallback and size.
+  - Owner approved dropping the fallback 2026-11-15; done. Imagery is drawn only by the
+    terrain shader; patches are bounds-only records. Removed `?terrainImagery=0`,
+    `SurfacePatchGeometry`, `SurfacePromotion`, `SurfaceSourceTransport`, `TileUV`, the
+    worker `surface` job, the `prepareSurface*` handshake, worker clipping,
+    `staleDirectPatches`/`refreshDirectSources` and `reprojectPatches` (now
+    `onSurfaceChange`). GPUs without texture arrays (or a terrain without a tile grid) show
+    the base texture only. The tile budget is now always capped by array capacity (320).
 - [~] **C4 Split `src/terrain/ImageryLODManager.ts`** (3,092 lines) by moving code
   without changing behaviour, one module per commit:
   1. `ImagerySelection.ts`: the pure selection functions.
@@ -906,3 +913,6 @@ and anything the owner must check.
   (`docs/REFACTOR_PLAN_C7.md`). C3 stopped before starting: no shader fade yet, overlay
   patches are still the fallback for unsupported GPUs, and it is well over 300 lines; owner
   questions in its note. Browser checks for V8 and N5 pending (pane hidden, no frames).
+- 2026-11-15, C3: shader fade added first, then the overlay-patch renderer removed (owner
+  approved dropping the unsupported-GPU fallback). About 1,000 source lines deleted; tests
+  that covered the removed modules deleted, budget tests now expect the array-capacity cap.

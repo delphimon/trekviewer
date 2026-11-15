@@ -9,6 +9,7 @@ import {
   WEB_MERCATOR_MAX_LAT,
 } from '../src/gpx/Coordinates.ts';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
+import { imageryArrayCapacity } from '../src/terrain/ImageryBatchRenderer.ts';
 import { TileImageCache } from '../src/terrain/TileImageCache.ts';
 import type { ImageryProvider } from '../src/terrain/providers/ImageryProvider.ts';
 import type { GeoBounds } from '../src/gpx/TrackTypes.ts';
@@ -267,11 +268,11 @@ describe('Stage R2: Adaptive Imagery LOD Lifecycle Suite', () => {
       expect(diag.requestQueueLength).toBe(0);
 
       manager.setDeviceProfile(true);
-      expect((manager as any).maxPatches).toBe(448);
+      expect((manager as any).maxPatches).toBe(Math.min(448, imageryArrayCapacity() - 32)); // C3
       expect((manager as any).maxConcurrency).toBe(6);
 
       manager.setDeviceProfile(false);
-      expect((manager as any).maxPatches).toBe(640);
+      expect((manager as any).maxPatches).toBe(Math.min(640, imageryArrayCapacity() - 32)); // C3
       expect((manager as any).maxConcurrency).toBe(6);
 
       manager.dispose();

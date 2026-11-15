@@ -8,6 +8,7 @@ import {
 import { TrekSession } from '../src/core/TrekSession.ts';
 import { LoadedTrek } from '../src/core/LoadedTrek.ts';
 import { ImageryLODManager } from '../src/terrain/ImageryLODManager.ts';
+import { imageryArrayCapacity } from '../src/terrain/ImageryBatchRenderer.ts';
 import type { TrackStats, GeoBounds } from '../src/gpx/TrackTypes.ts';
 import type { TerrainResult } from '../src/terrain/TerrainGenerator.ts';
 import type { TrailResult } from '../src/visualization/TrailMesh.ts';
@@ -161,7 +162,7 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
         flyoverController: flyover,
       });
 
-      expect((trek.imageryLOD as any).maxPatches).toBe(QUALITY_PROFILES['quest-high'].tabletopPatches);
+      expect((trek.imageryLOD as any).maxPatches).toBe(Math.min(QUALITY_PROFILES['quest-high'].tabletopPatches, imageryArrayCapacity() - 32)); // C3
       expect(trek.imageryLOD.getQualityProfile().name).toBe('quest-high');
 
       // The terrain streamer receives the active profile radius
@@ -185,7 +186,7 @@ describe('Stage X1: Single-Source Quality Profile Architecture', () => {
         flyoverController: flyover,
       });
 
-      expect((trek.imageryLOD as any).maxPatches).toBe(QUALITY_PROFILES['quest-high'].tabletopPatches);
+      expect((trek.imageryLOD as any).maxPatches).toBe(Math.min(QUALITY_PROFILES['quest-high'].tabletopPatches, imageryArrayCapacity() - 32)); // C3
       expect(trek.localTerrainStreamer?.chunkRadiusM).toBe(1250);
 
       // Change profile to quest-balanced

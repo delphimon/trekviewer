@@ -91,8 +91,7 @@ it('retires unused warm terrain before an older tile that was just wanted again'
       pending.push({ signal: signal!, resolve });
       signal!.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true });
     }));
-  const retire = vi.fn(async (_chunks: LocalTerrainChunk[]) => () => true);
-  (streamer as any).options.prepareSurfaceRemoval = retire;
+  const retire = vi.spyOn(streamer as any, 'prepareRetirement');
   streamer.update(0, localMetersToGeo(-3500, -3500, 46, -120));
   expect((streamer as any).wanted.has(layout.id)).toBe(true);
   streamer.update(0, localMetersToGeo(3500, 3500, 46, -120));
@@ -100,7 +99,7 @@ it('retires unused warm terrain before an older tile that was just wanted again'
   pending.filter(entry => !entry.signal.aborted).forEach(entry => entry.resolve({ zoom: 15, isRealDEM: true }));
   await flushBuild();
   expect(retire).toHaveBeenCalledTimes(1);
-  expect(retire.mock.calls[0][0]).toEqual([stale[0]]);
+  expect((retire.mock.calls[0][0] as [string, unknown][]).map(([, chunk]) => chunk)).toEqual([stale[0]]);
   expect(recent.mesh.visible).toBe(true);
   streamer.dispose(); await flushBuild();
 });
@@ -158,14 +157,12 @@ it('retains completed DEM acquisitions when the hiker moves to another tile in t
   const { streamer } = fixture();
   const pending: ((grid: any) => void)[] = [];
   const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(resolve => pending.push(resolve)));
-  let promote!: (publish: () => boolean) => void;
-  (streamer as any).options.prepareSurfacePromotion = vi.fn().mockReturnValueOnce(new Promise(resolve => { promote = resolve; })).mockResolvedValue(() => true);
   streamer.update(0, localMetersToGeo(-1300, -1300, 46, -120));
   pending.forEach(resolve => resolve({ zoom: 15, isRealDEM: true })); await flushBuild();
   const signals = fetch.mock.calls.map(call => call[5] as AbortSignal);
   streamer.update(0, localMetersToGeo(1300, 1300, 46, -120));
   expect(signals.every(signal => !signal.aborted)).toBe(true);
-  promote(() => true); await flushBuild();
+  await flushBuild();
   streamer.update(0, localMetersToGeo(1300, 1300, 46, -120));
   expect((streamer as any).acquisitions.has('3:3')).toBe(true);
   streamer.dispose(); await flushBuild();
@@ -187,38 +184,6 @@ it('publishes completed DEM sections while the first request remains slow, then 
   streamer.dispose();
 });
 
-it('reuses validated terrain when new imagery invalidates a prepared publication', async () => {
-  const { streamer, attached } = singleTileFixture();
-  const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
-  const build = vi.spyOn(LocalTerrainChunk, 'createAsync');
-  const publish = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
-  const prepare = vi.fn(async (_chunk: LocalTerrainChunk) => publish);
-  (streamer as any).options.prepareSurfacePromotion = prepare;
-  streamer.update(0); await flushBuild(); streamer.update(0); await flushBuild();
-  expect(attached.size).toBe(0);
-  streamer.update(0);
-  expect(attached.size).toBe(1);
-  expect(fetch).toHaveBeenCalledTimes(1); expect(build).toHaveBeenCalledTimes(1);
-  expect(prepare).toHaveBeenCalledTimes(2);
-  expect(prepare.mock.calls[0][0]).toBe(prepare.mock.calls[1][0]);
-  streamer.dispose();
-});
-
-it('disposes retained terrain after route replacement while imagery preparation is pending', async () => {
-  const { streamer, attached } = singleTileFixture();
-  vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
-  let finish!: (publish: () => boolean) => void;
-  const prepare = vi.fn().mockResolvedValueOnce(() => false)
-    .mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
-  (streamer as any).options.prepareSurfacePromotion = prepare;
-  streamer.update(0); await flushBuild();
-  const candidate = (streamer as any).ready.chunk as LocalTerrainChunk;
-  const dispose = vi.spyOn(candidate, 'dispose');
-  streamer.update(0); streamer.dispose();
-  finish(() => true); await flushBuild(); streamer.update(0);
-  expect(dispose).toHaveBeenCalledTimes(1); expect(attached.size).toBe(0);
-});
-
 it.each([true, false])('reserves capacity for the completed large tile only when DEM is available (%s)', async available => {
   const { streamer, terrain } = fixture();
   const plan = planTerrainTiles({ parent: { width: 3960, depth: 960, segmentsX: 33, segmentsZ: 8 },
@@ -237,8 +202,7 @@ it.each([true, false])('reserves capacity for the completed large tile only when
     totalVertices: 198000, mesh: new THREE.Mesh(), dispose: vi.fn(), setOuterEdges: () => false,
     getSurfaceBounds: () => ({ minX: 20000 + i * 1000, maxX: 21000 + i * 1000, minZ: 0, maxZ: 1000 }),
   });
-  const retire = vi.fn(async (_chunks: LocalTerrainChunk[]) => () => true);
-  (streamer as any).options.prepareSurfaceRemoval = retire;
+  const retire = vi.spyOn(streamer as any, 'prepareRetirement');
   streamer.update(0); await flushBuild();
   if (!available) {
     expect(retire).not.toHaveBeenCalled(); expect(streamer.activeChunks).toHaveLength(4);
@@ -246,7 +210,7 @@ it.each([true, false])('reserves capacity for the completed large tile only when
     streamer.dispose(); return;
   }
   expect(retire).toHaveBeenCalledTimes(1); expect(retire.mock.calls[0][0]).toHaveLength(1);
-  expect(streamer.activeChunks).toHaveLength(4); // Old coverage awaits prepared retirement.
+  expect(streamer.activeChunks).toHaveLength(4); // Old coverage stays until the next update applies the retirement.
   streamer.update(0); await flushBuild(); streamer.update(0);
   expect(streamer.activeChunks.reduce((sum, chunk) => sum + chunk.totalVertices, 0)).toBeLessThanOrEqual(800000);
   expect((streamer as any).chunks.has(large.id)).toBe(true);
@@ -254,19 +218,20 @@ it.each([true, false])('reserves capacity for the completed large tile only when
   streamer.dispose();
 });
 
-it('acquires three detailed DEM sections while a slow promotion holds the single publication lane', async () => {
+it('acquires three detailed DEM sections while a slow build holds the single publication lane', async () => {
   const { streamer, attached } = fixture();
   const pending: ((grid: any) => void)[] = [];
   const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockImplementation(() => new Promise(resolve => pending.push(resolve)));
-  let promote!: (publish: () => boolean) => void;
-  (streamer as any).options.prepareSurfacePromotion = vi.fn().mockReturnValueOnce(new Promise(resolve => { promote = resolve; }))
-    .mockResolvedValue(() => true);
+  const createAsync = LocalTerrainChunk.createAsync.bind(LocalTerrainChunk);
+  let promote!: () => void;
+  const gate = new Promise<void>(resolve => { promote = resolve; });
+  vi.spyOn(LocalTerrainChunk, 'createAsync').mockImplementationOnce(async (...args) => { await gate; return createAsync(...args); });
   streamer.update(0);
   expect(fetch).toHaveBeenCalledTimes(3);
   pending.forEach(resolve => resolve({ zoom: 15, isRealDEM: true })); await flushBuild();
   for (let i = 0; i < 72; i++) streamer.update(0);
   expect(fetch).toHaveBeenCalledTimes(3); expect(attached.size).toBe(0);
-  promote(() => true); await flushBuild(); streamer.update(0);
+  promote(); await flushBuild(); streamer.update(0);
   expect(attached.size).toBe(1);
   await flushBuild(); // The second grid was acquired before the first promotion.
   expect((streamer as any).ready).not.toBeNull();
@@ -306,7 +271,7 @@ it('retains fallback terrain while retrying the preferred source, then replaces 
   const fallback = { zoom: 15, isRealDEM: true, preferredSourceRetry: true } as any;
   const native = { zoom: 0, isRealDEM: true, source: 'USGS 3DEP' } as any;
   const fetch = vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValueOnce(fallback).mockResolvedValueOnce(fallback).mockResolvedValue(native);
-  const prepare = vi.fn(async () => () => true); (streamer as any).options.prepareSurfacePromotion = prepare;
+  const prepare = vi.spyOn(LocalTerrainChunk, 'createAsync');
   streamer.update(0); await flushBuild(); streamer.update(0);
   expect(attached.size).toBe(1); const previous = [...attached][0];
   expect(previous.currentGrid.preferredSourceRetry).toBe(true);
@@ -316,7 +281,7 @@ it('retains fallback terrain while retrying the preferred source, then replaces 
   expect(prepare).toHaveBeenCalledTimes(1); // Repeated fallback does not rebuild geometry.
   now = 180_000; streamer.update(0); await flushBuild();
   expect(attached.has(previous) && previous.mesh.visible).toBe(true);
-  expect(prepare).toHaveBeenLastCalledWith(expect.any(LocalTerrainChunk), previous);
+  expect(prepare).toHaveBeenCalledTimes(2); // the preferred source builds once more
   streamer.update(0);
   expect(attached.size).toBe(1); expect(attached.has(previous)).toBe(false);
   expect([...attached][0].currentGrid).toBe(native);
@@ -481,25 +446,20 @@ it('matches heights and normals across adjacent independently built terrain tile
   chunks.forEach(chunk => chunk.dispose());
 });
 
-it('retains old coverage until a quality change prepares removal imagery, then replaces it atomically', async () => {
+it('retains old coverage after a quality change until the next update replaces it atomically', async () => {
   const { streamer, terrain, attached } = fixture();
   vi.spyOn(ElevationTileService, 'fetchLocalElevationGrid').mockResolvedValue({ zoom: 15, isRealDEM: true } as any);
   for (let i = 0; i < 15; i++) { streamer.update(0); await flushBuild(); }
   const before = [...attached]; expect(before.length).toBeGreaterThan(0);
-  let complete!: (publish: () => boolean) => void;
-  const prepared = new Promise<() => boolean>(resolve => { complete = resolve; });
-  const prepare = vi.fn().mockReturnValue(prepared);
-  (streamer as any).options.prepareSurfaceRemoval = prepare;
+  const prepare = vi.spyOn(streamer as any, 'prepareRetirement');
   terrain.notifySurfaceChange.mockClear();
   streamer.setQualityProfile(QUALITY_PROFILES['quest-balanced']);
   streamer.update(0, { lat: 46.01, lon: -119.99 }); await flushBuild();
   expect(prepare).toHaveBeenCalledTimes(1);
-  const retiring: LocalTerrainChunk[] = prepare.mock.calls[0][0]; expect(retiring.length).toBeGreaterThan(0);
+  const retiring = (prepare.mock.calls[0][0] as [string, LocalTerrainChunk][]).map(([, chunk]) => chunk); expect(retiring.length).toBeGreaterThan(0);
   expect(retiring.every(chunk => chunk.mesh.visible && attached.has(chunk))).toBe(true);
   expect(terrain.notifySurfaceChange).not.toHaveBeenCalled();
-  const publish = vi.fn(() => { expect(retiring.every(chunk => chunk.mesh.visible)).toBe(true); return true; });
-  complete(publish); await flushBuild(); streamer.update(0, { lat: 46.01, lon: -119.99 });
-  expect(publish).toHaveBeenCalledTimes(1);
+  streamer.update(0, { lat: 46.01, lon: -119.99 });
   expect(retiring.every(chunk => !attached.has(chunk))).toBe(true);
   expect(terrain.notifySurfaceChange).toHaveBeenCalledTimes(1);
   expect(terrain.notifySurfaceChange.mock.calls[0][0]).toHaveProperty('minX');
@@ -527,7 +487,7 @@ it('keeps previously loaded detail visible until replacement needs its bounded r
   }) as any);
   for (let i = 0; i < 110; i++) { streamer.update(0); await flushBuild(); }
   const old = [...attached]; expect(old.length).toBe(48);
-  const remove = vi.fn(async () => () => true); (streamer as any).options.prepareSurfaceRemoval = remove;
+  const remove = vi.spyOn(streamer as any, 'prepareRetirement');
   const focus = { lat: 46.03, lon: -119.96 };
   streamer.update(0, focus); await flushBuild();
   expect(old.every(chunk => attached.has(chunk) && chunk.mesh.visible)).toBe(true);

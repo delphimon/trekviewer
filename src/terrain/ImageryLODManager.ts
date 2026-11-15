@@ -1,10 +1,5 @@
 import * as THREE from 'three';
 import { copyImagerySource, getImagerySource } from './ImagerySource.ts';
-import { buildSurfacePatchGeometry } from './SurfacePatchGeometry.ts';
-import { createTileUVMapper } from './TileUV.ts';
-import { snapshotSurfaceMesh, buildPromotedSurfacePatches, createPromotedPatchGeometry, type SurfacePatchData, type SurfaceMeshSnapshot } from './SurfacePromotion.ts';
-import { runTerrainJob } from './TerrainJobs.ts';
-import type { LocalTerrainChunk } from './LocalTerrainChunk.ts';
 import { TerrainRaycast } from './TerrainRaycast.ts';
 import { ImageryBatchRenderer, imageryArrayCapacity } from './ImageryBatchRenderer.ts';
 import { TerrainImageryMaterial } from './TerrainImageryMaterial.ts';
@@ -17,7 +12,6 @@ import {
   localMetersToGeo,
   latLonToTile,
   degToRad,
-  radToDeg,
   clampLatitude,
   metersPerPixelAtZoom,
   tileBounds,
@@ -27,8 +21,7 @@ import { TextureProvider } from './TextureProvider.ts';
 import { TileImageCache, TilePriority } from './TileImageCache.ts';
 import { disposeObject3D } from '../core/ResourceLifecycle.ts';
 import { type QualityProfile, QualityProfileManager } from './QualityProfile.ts';
-import type { TerrainSurfaceBounds } from './TerrainGenerator.ts';
-import { tileIntersectsBounds, getPatchSubdivisionSegments, getTileKey, parseTileKey, getParentTileKey, getChildTileKeys, computeCoherentLODTiles, computeFirstPersonCoherentLODTiles } from './ImagerySelection.ts';
+import { tileIntersectsBounds, getTileKey, parseTileKey, getParentTileKey, getChildTileKeys, computeCoherentLODTiles, computeFirstPersonCoherentLODTiles } from './ImagerySelection.ts';
 export { tileIntersectsBounds, getPatchSubdivisionSegments, getTileKey, parseTileKey, getParentTileKey, getChildTileKeys, computeCoherentLODTiles, computeFirstPersonCoherentLODTiles, computeFirstPersonStableLODTiles } from './ImagerySelection.ts';
 export type { CoherentTileCandidate } from './ImagerySelection.ts';
 
@@ -70,7 +63,6 @@ export interface ImageryPatch {
 }
 
 export interface ImageryLODManagerOptions {
-  experimentalTerrainImagery?: boolean;
   terrainTileGrid?: TileGridBounds;
   terrainGeoBounds: GeoBounds;
   terrainBaseElevation: number;
@@ -255,9 +247,6 @@ export function getTerrainViewRays(camera: THREE.Camera, offsets: readonly (read
 export class ImageryLODManager {
   private batchRenderer?: ImageryBatchRenderer;
   private terrainImagery?: TerrainImageryMaterial;
-  private readonly staleDirectPatches = new Set<string>();
-  private directRefreshDepth = 0;
-  private directReprojectionsAvoided = 0;
   private batchSupport: boolean | null = null;
   /** View-sample diagnostics (extra rays per evaluation) run only with ?debug=1 or ?profile=1. */
   public static collectViewDiagnostics = false;
@@ -277,10 +266,6 @@ export class ImageryLODManager {
 
   private isDisposed: boolean = false;
   private currentGeneration: number = 0;
-  private readonly surfaceLifetime = new AbortController();
-  private surfaceRevision = 0;
-  private streamedSurfaceSources?: SurfaceMeshSnapshot[];
-  private readonly preparedSurfaceKeys = new Set<string>();
 
   private currentTextureStyle: TextureStyle;
   private verticalExaggeration: number;
@@ -515,30 +500,24 @@ export class ImageryLODManager {
   }
 
   public getBatchDiagnostics() {
-    return { requested: !!(this.options.experimentalTerrainImagery),
-      mode: this.terrainImagery ? 'terrain' : 'patches', lookupBytes: this.terrainImagery?.lookupBytes ?? 0,
-      reprojectionsAvoided: this.directReprojectionsAvoided,
-      status: !(this.options.experimentalTerrainImagery) ? 'off' : this.batchSupport === false ? 'unsupported' : this.batchRenderer ? 'active' : 'pending',
+    return { lookupBytes: this.terrainImagery?.lookupBytes ?? 0,
+      status: this.batchSupport === false ? 'unsupported' : this.terrainImagery ? 'active' : 'pending',
       ...this.batchRenderer?.getDiagnostics() };
   }
 
   /** Run after terrain publication, immediately before rendering this frame. */
   public syncRenderer(renderer: THREE.WebGLRenderer): void {
-    if (!(this.options.experimentalTerrainImagery) || this.isDisposed) return;
-    const direct = !!(this.options.experimentalTerrainImagery && this.options.terrainTileGrid);
-    this.batchSupport ??= direct && TerrainImageryMaterial.supported(renderer);
+    if (this.isDisposed) return;
+    // Imagery is drawn only by the terrain shader. Without texture-array support (or a tile
+    // grid) the base terrain texture is all that is shown; there is no overlay fallback.
+    this.batchSupport ??= !!this.options.terrainTileGrid && TerrainImageryMaterial.supported(renderer);
     if (!this.batchSupport) return;
-    if (direct && !this.terrainImagery) {
+    if (!this.terrainImagery) {
       try { this.terrainImagery = new TerrainImageryMaterial(this.options.terrainGeoBounds, this.options.terrainTileGrid!, renderer.capabilities.maxTextureSize); }
       catch { this.batchSupport = false; return; }
       this.terrainImagery.setSlopeShading(this.slopeShading, this.verticalExaggeration);
     }
-    this.batchRenderer ??= new ImageryBatchRenderer(undefined, patch => {
-      if (this.directRefreshDepth || !this.staleDirectPatches.delete(patch.key) || this.patches.get(patch.key) !== patch) return;
-      const previous = patch.mesh.geometry;
-      patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y); previous.dispose();
-      this.markRendererDirty();
-    });
+    this.batchRenderer ??= new ImageryBatchRenderer();
     if (this.batchRenderer.group.parent !== this.group) this.group.add(this.batchRenderer.group);
     this.terrainImagery?.tickFade(performance.now());
     const surfaceKey = this.surfaceSignature();
@@ -546,11 +525,9 @@ export class ImageryLODManager {
     const complete = this.batchRenderer.sync(this.patches);
     this.syncedRenderer = renderer; this.syncedSurfaceKey = surfaceKey;
     this.syncedRevision = complete ? this.rendererRevision : -1;
-    if (this.terrainImagery) {
+    {
       // The terrain shader draws uploaded tiles; until a tile is uploaded the
-      // parent tile or route composite stays on screen. Never draw the patch
-      // mesh itself (often a flat 4-corner proxy that cuts through ridges).
-      for (const patch of this.patches.values()) patch.mesh.layers.mask = 0;
+      // parent tile or route composite stays on screen.
       const base = this.options.terrainMesh;
       const surfaces = base?.parent?.children.filter((object): object is THREE.Mesh =>
         object instanceof THREE.Mesh && (object === base || object.name === 'LocalHighResTerrainMesh')) ?? (base ? [base] : []);
@@ -576,40 +553,11 @@ export class ImageryLODManager {
   private markRendererDirty(): void { this.rendererRevision++; }
 
   public async releaseBatches(): Promise<void> {
+    // Graphics recovery: the next syncRenderer rebuilds the shader imagery from the patches.
     this.markRendererDirty();
-    this.directRefreshDepth++;
     this.terrainImagery?.dispose(); this.terrainImagery = undefined;
     this.batchRenderer?.clear();
     this.batchSupport = null;
-    // Fallback rendering draws patch meshes again once they hold real geometry.
-    for (const [key, patch] of this.patches) if (!this.staleDirectPatches.has(key)) patch.mesh.layers.mask = 1;
-    try { await this.refreshDirectSources(); }
-    finally { this.directRefreshDepth--; }
-  }
-
-  /** Rare fallback/context restoration rebuilds sources in the worker, never
-   * on every terrain publication. The authoritative meshes retain all detail. */
-  private async refreshDirectSources(): Promise<void> {
-    const base = this.options.terrainMesh;
-    if (this.isDisposed || !(base?.geometry instanceof THREE.PlaneGeometry)) return;
-    const patches = [...this.staleDirectPatches].map(key => this.patches.get(key)).filter((p): p is ImageryPatch => !!p);
-    if (!patches.length) { this.staleDirectPatches.clear(); return; }
-    const generation = this.currentGeneration, revision = this.surfaceRevision;
-    const sources = [snapshotSurfaceMesh(base), ...(base.parent?.children.filter((object): object is THREE.Mesh =>
-      object instanceof THREE.Mesh && object.visible && object.name === 'LocalHighResTerrainMesh').map(snapshotSurfaceMesh) ?? [])];
-    const input = { sources, centerLat: this.options.terrainGeoBounds.centerLat, centerLon: this.options.terrainGeoBounds.centerLon,
-      tiles: patches.map(p => ({ key: p.key, zoom: p.zoom, x: p.x, y: p.y })) };
-    const result = await runTerrainJob<SurfacePatchData[]>({ kind: 'surface', input }, () => buildPromotedSurfacePatches(input), this.surfaceLifetime.signal);
-    if (this.isDisposed) return;
-    if (generation !== this.currentGeneration || revision !== this.surfaceRevision) return this.refreshDirectSources();
-    for (const data of result) {
-      const patch = this.patches.get(data.key);
-      if (!patch || !patches.includes(patch)) continue;
-      const previous = patch.mesh.geometry; patch.mesh.geometry = createPromotedPatchGeometry(data); previous.dispose();
-      this.staleDirectPatches.delete(data.key);
-      this.markRendererDirty();
-      if (!this.terrainImagery) patch.mesh.layers.mask = 1;
-    }
   }
 
   public getInspectedGeo(): { lat: number; lon: number } | null {
@@ -680,8 +628,7 @@ export class ImageryLODManager {
    * also fit a texture-array slot (32 kept free for turnover). */
   private patchBudget(profile: QualityProfile, mode: ViewMode): number {
     const budget = mode === 'first-person' ? profile.firstPersonPatches : profile.tabletopPatches;
-    return this.options.experimentalTerrainImagery && this.options.terrainTileGrid
-      ? Math.min(budget, imageryArrayCapacity() - 32) : budget;
+    return Math.min(budget, imageryArrayCapacity() - 32);
   }
 
   public setViewMode(mode: ViewMode): void {
@@ -772,139 +719,16 @@ export class ImageryLODManager {
     if (this.isDisposed || Math.abs(this.verticalExaggeration - factor) < 0.01) return;
     this.verticalExaggeration = factor;
     this.terrainImagery?.setSlopeShading(this.slopeShading, factor);
-    this.invalidateStreamedSurface();
-    // Rendered-source patches are rebuilt by the terrain surface revision with its
-    // actual scaled positions and smooth normals; do not independently resample them.
-    if (this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) return;
-
-    // Update heights on all active patches
-    for (const patch of this.patches.values()) {
-      this.updatePatchGeometryHeights(patch.mesh.geometry as THREE.BufferGeometry, patch);
-    }
-  }
-
-  /** Prepare imagery for a hidden child; its publisher swaps arrays in the same frame as terrain. */
-  public async prepareSurfacePromotion(candidate: LocalTerrainChunk, replacing?: LocalTerrainChunk): Promise<() => boolean> {
-    return this.prepareSurfaceChange(candidate.getSurfaceBounds(), candidate, replacing ? [replacing] : []);
-  }
-
-  /** Keep the old children visible until parent imagery is ready to replace them. */
-  public async prepareSurfaceRemoval(retiring: LocalTerrainChunk[]): Promise<() => boolean> {
-    const footprints = retiring.map(chunk => chunk.getSurfaceBounds());
-    const bounds = {
-      minX: Math.min(...footprints.map(b => b.minX)), maxX: Math.max(...footprints.map(b => b.maxX)),
-      minZ: Math.min(...footprints.map(b => b.minZ)), maxZ: Math.max(...footprints.map(b => b.maxZ)),
-    };
-    return this.prepareSurfaceChange(bounds, undefined, retiring);
-  }
-
-  private async prepareSurfaceChange(bounds: TerrainSurfaceBounds, candidate?: LocalTerrainChunk, retiring: LocalTerrainChunk[] = []): Promise<() => boolean> {
-    const base = this.options.terrainMesh;
-    if (!(base?.geometry instanceof THREE.PlaneGeometry)) return () => true;
-    const signature = () => JSON.stringify(base.geometry.userData.surfaceHoles ?? []);
-    const originalSignature = signature();
-    const factor = this.verticalExaggeration;
-    const generation = this.currentGeneration;
-    const intersectingPatches = () => [...this.patches.values()].filter(patch => {
-      if (this.terrainImagery && this.batchRenderer?.owns(patch.key)) return false;
-      const geometry = patch.mesh.geometry;
-      if (!geometry.boundingBox) geometry.computeBoundingBox();
-      const b = geometry.boundingBox;
-      return b && b.max.x >= bounds.minX && b.min.x <= bounds.maxX && b.max.z >= bounds.minZ && b.min.z <= bounds.maxZ;
-    });
-    const patches = intersectingPatches();
-    const canPublish = () => !this.isDisposed && generation === this.currentGeneration
-      && factor === this.verticalExaggeration && originalSignature === signature()
-      // New imagery can arrive during worker preparation. Retry instead of synchronously rebuilding it.
-      && intersectingPatches().every(patch => patches.includes(patch));
-    if (!patches.length) return canPublish;
-    const retiringMeshes = new Set(retiring.map(chunk => chunk.mesh));
-    const sources = [snapshotSurfaceMesh(base), ...(base.parent?.children.filter(
-      (child): child is THREE.Mesh => {
-        if (!(child instanceof THREE.Mesh) || !child.visible || retiringMeshes.has(child) || child.name !== 'LocalHighResTerrainMesh') return false;
-        const grid = (child.geometry as THREE.PlaneGeometry).parameters;
-        return patches.some(patch => {
-          const b = patch.mesh.geometry.boundingBox!;
-          return child.position.x + grid.width / 2 >= b.min.x && child.position.x - grid.width / 2 <= b.max.x
-            && child.position.z + grid.height / 2 >= b.min.z && child.position.z - grid.height / 2 <= b.max.z;
-        });
-      }
-    ).map(snapshotSurfaceMesh) ?? []), ...(candidate ? [snapshotSurfaceMesh(candidate.mesh)] : [])];
-    const retiredBounds = retiring.map(chunk => chunk.getSurfaceBounds());
-    const remainingHoles = sources[0].holes.filter(hole => !retiredBounds.some(b =>
-      b.minX === hole.minX && b.maxX === hole.maxX && b.minZ === hole.minZ && b.maxZ === hole.maxZ));
-    sources[0] = { ...sources[0], holes: candidate ? [...remainingHoles, bounds] : remainingHoles };
-    const input = { sources, centerLat: this.options.terrainGeoBounds.centerLat, centerLon: this.options.terrainGeoBounds.centerLon,
-      tiles: patches.map(patch => ({ key: patch.key, zoom: patch.zoom, x: patch.x, y: patch.y })) };
-    const result = await runTerrainJob<SurfacePatchData[]>({ kind: 'surface', input }, () => buildPromotedSurfacePatches(input), this.surfaceLifetime.signal);
-    return () => {
-      if (!canPublish()) return false;
-      for (const data of result) {
-        const patch = this.patches.get(data.key);
-        if (!patch || !patches.includes(patch)) continue;
-        const geometry = createPromotedPatchGeometry(data);
-        patch.mesh.geometry.dispose(); patch.mesh.geometry = geometry;
-        this.preparedSurfaceKeys.add(data.key);
-        if (patch.outlineMesh) {
-          patch.mesh.remove(patch.outlineMesh); patch.outlineMesh.geometry.dispose();
-          (patch.outlineMesh.material as THREE.Material).dispose();
-          patch.outlineMesh = this.buildPatchOutline(geometry, patch.zoom); patch.mesh.add(patch.outlineMesh);
-        }
-      }
-      return true;
-    };
-  }
-
-  public reprojectPatches(sampler?: (x: number, z: number) => number, bounds?: TerrainSurfaceBounds): void {
-    if (this.isDisposed) return;
+    // Patch meshes are bounds-only records; the shader samples the exaggerated terrain itself.
     this.markRendererDirty();
-    this.invalidateStreamedSurface();
-    this.evaluationDirty = true;
-    if (sampler) {
-      this.options.elevationSampler = sampler;
-    }
+  }
 
-    for (const patch of this.patches.values()) {
-      if (this.preparedSurfaceKeys.delete(patch.key)) continue;
-      const geo = patch.mesh.geometry as THREE.BufferGeometry;
-      if (bounds) {
-        if (!geo.boundingBox) {
-          geo.computeBoundingBox();
-        }
-        const bbox = geo.boundingBox;
-        if (bbox) {
-          const intersects = !(
-            bbox.max.x < bounds.minX ||
-            bbox.min.x > bounds.maxX ||
-            bbox.max.z < bounds.minZ ||
-            bbox.min.z > bounds.maxZ
-          );
-          if (!intersects) {
-            continue;
-          }
-        }
-      }
-      if (this.terrainImagery && this.batchRenderer?.owns(patch.key)) {
-        this.staleDirectPatches.add(patch.key); this.directReprojectionsAvoided++;
-        if (patch.outlineMesh) {
-          patch.mesh.remove(patch.outlineMesh); patch.outlineMesh.geometry.dispose();
-          (patch.outlineMesh.material as THREE.Material).dispose();
-          patch.outlineMesh = this.buildPatchOutline(geo, patch.zoom); patch.mesh.add(patch.outlineMesh);
-        }
-        continue;
-      }
-      if (this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
-        patch.mesh.geometry = this.buildPatchGeometry(patch.zoom, patch.x, patch.y);
-        geo.dispose();
-        if (patch.outlineMesh) {
-          patch.mesh.remove(patch.outlineMesh);
-          patch.outlineMesh.geometry.dispose();
-          (patch.outlineMesh.material as THREE.Material).dispose();
-          patch.outlineMesh = this.buildPatchOutline(patch.mesh.geometry, patch.zoom);
-          patch.mesh.add(patch.outlineMesh);
-        }
-      } else this.updatePatchGeometryHeights(geo, patch);
-    }
+  /** Terrain surface changed (promotion, exaggeration): resample with the new surface. */
+  public onSurfaceChange(sampler?: (x: number, z: number) => number): void {
+    if (this.isDisposed) return;
+    if (sampler) this.options.elevationSampler = sampler;
+    this.markRendererDirty();
+    this.evaluationDirty = true;
   }
 
   public getOrCreateRefinementGroup(parentKey: string): RefinementGroup {
@@ -1957,31 +1781,15 @@ export class ImageryLODManager {
           const canMount = () => !this.isDisposed && !abortController.signal.aborted
             && (this.desiredTileKeys.has(next.key) || this.patches.size < this.maxPatches)
             && this.currentTextureStyle === requestStyle;
-          // Keep the scheduler slot through preparation: at most maxConcurrency
-          // decoded images/jobs can wait on the single terrain worker.
-          let prepared: { data: SurfacePatchData; revision: number } | undefined;
-          let geometry: THREE.BufferGeometry | undefined;
-          if (canMount() && this.terrainImagery) {
-            geometry = this.buildLightweightBoundsGeometry(next.zoom, next.x, next.y);
-            this.staleDirectPatches.add(next.key);
-            this.directReprojectionsAvoided++;
-          } else if (canMount() && this.options.terrainMesh?.geometry instanceof THREE.PlaneGeometry) {
-            do { prepared = await this.prepareStreamedPatch(next, pending); }
-            while (prepared && prepared.revision !== this.surfaceRevision);
-            if (prepared) geometry = createPromotedPatchGeometry(prepared.data);
-          }
-          if (this.pendingRequests.get(next.key) !== pending) {
-            geometry?.dispose();
-            return;
-          }
+          if (this.pendingRequests.get(next.key) !== pending) return;
           this.activeRequestCount = Math.max(0, this.activeRequestCount - 1);
           this.pendingRequests.delete(next.key);
           this.failedRequests.delete(next.key);
 
           if (canMount()) {
             const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            this.createAndMountPatch(next.key, next.zoom, next.x, next.y, imageSource, next.dist, now, geometry);
-          } else geometry?.dispose();
+            this.createAndMountPatch(next.key, next.zoom, next.x, next.y, imageSource, next.dist, now);
+          }
 
           this.drainQueue(provider);
         })
@@ -2030,32 +1838,6 @@ export class ImageryLODManager {
     this.nextRetryTime = Infinity;
   }
 
-  private invalidateStreamedSurface(): void {
-    this.surfaceRevision++;
-    this.streamedSurfaceSources = undefined;
-  }
-
-  /** Prepare the exact rendered triangles off the animation thread. A terrain
-   * promotion/exaggeration can finish while this job waits; retry against that
-   * revision before publishing instead of mounting stale elevations or holes.
-   */
-  private async prepareStreamedPatch(tile: QueuedTile, pending: PendingTileRequest): Promise<{ data: SurfacePatchData; revision: number } | undefined> {
-    while (!this.isDisposed && !pending.abortController.signal.aborted && this.pendingRequests.get(tile.key) === pending) {
-      const revision = this.surfaceRevision;
-      const base = this.options.terrainMesh!;
-      this.streamedSurfaceSources ??= [snapshotSurfaceMesh(base), ...(base.parent?.children.filter(
-        (child): child is THREE.Mesh => child instanceof THREE.Mesh && child.visible && child.name === 'LocalHighResTerrainMesh'
-      ).map(snapshotSurfaceMesh) ?? [])];
-      const input = { sources: this.streamedSurfaceSources,
-        centerLat: this.options.terrainGeoBounds.centerLat, centerLon: this.options.terrainGeoBounds.centerLon,
-        tiles: [{ key: tile.key, zoom: tile.zoom, x: tile.x, y: tile.y }] };
-      const [data] = await runTerrainJob<SurfacePatchData[]>({ kind: 'surface', input },
-        () => buildPromotedSurfacePatches(input), pending.abortController.signal);
-      if (this.isDisposed || pending.abortController.signal.aborted || this.pendingRequests.get(tile.key) !== pending) return;
-      if (revision === this.surfaceRevision) return { data, revision };
-    }
-  }
-
   private createAndMountPatch(
     key: string,
     zoom: number,
@@ -2063,10 +1845,9 @@ export class ImageryLODManager {
     y: number,
     img: HTMLImageElement | HTMLCanvasElement,
     dist: number,
-    now: number,
-    preparedGeometry?: THREE.BufferGeometry
+    now: number
   ): void {
-    if (this.patches.has(key)) { preparedGeometry?.dispose(); return; }
+    if (this.patches.has(key)) return;
 
     // Create GPU Texture
     const texture = new THREE.CanvasTexture(img);
@@ -2077,8 +1858,8 @@ export class ImageryLODManager {
     texture.generateMipmaps = true;
     texture.needsUpdate = true;
 
-    // Build conforming terrain geometry with true local Y datum
-    const geo = preparedGeometry ?? this.buildPatchGeometry(zoom, x, y);
+    // Bounds-only record: the terrain shader draws the texture, never this mesh.
+    const geo = this.buildLightweightBoundsGeometry(zoom, x, y);
 
     const isXRActive = this.lastIsXR;
     const fadeDurationMs = isXRActive ? 150 : 250;
@@ -2105,8 +1886,7 @@ export class ImageryLODManager {
     mesh.name = `ImageryPatch_${key}`;
     // Keep imagery below the trail (renderOrder 5, stronger depth offset).
     mesh.renderOrder = 1 + (zoom - 13) / 8;
-    // Terrain-shader mode draws the tile from the texture array, never this mesh.
-    if (this.terrainImagery) mesh.layers.mask = 0;
+    mesh.layers.mask = 0;
 
     let outlineMesh: THREE.LineSegments | undefined;
     if (this.debugPatchBounds) {
@@ -2190,105 +1970,6 @@ export class ImageryLODManager {
     geo.boundingSphere = new THREE.Sphere();
     geo.boundingBox.getBoundingSphere(geo.boundingSphere);
     return geo;
-  }
-
-  private buildPatchGeometry(zoom: number, x: number, y: number): THREE.BufferGeometry {
-    const tb = tileBounds(x, y, zoom);
-    const nw = tb.nw;
-    const se = tb.se;
-
-    if (this.options.terrainMesh) {
-      const { centerLat, centerLon } = this.options.terrainGeoBounds;
-      const p0 = geoToLocalMeters(nw.lat, nw.lon, 0, centerLat, centerLon, 0);
-      const p1 = geoToLocalMeters(se.lat, se.lon, 0, centerLat, centerLon, 0);
-      const geometry = buildSurfacePatchGeometry(this.options.terrainMesh,
-        { minX: p0.x, maxX: p1.x, minZ: p0.z, maxZ: p1.z },
-        createTileUVMapper(zoom, x, y, centerLat, centerLon));
-      if (geometry) return geometry;
-    }
-
-    // Sampler-only fallback for callers without a rendered mesh.
-    const segments = getPatchSubdivisionSegments(zoom);
-    const numVerts = (segments + 1) * (segments + 1);
-
-    const positions = new Float32Array(numVerts * 3);
-    const uvs = new Float32Array(numVerts * 2);
-    const indices: number[] = [];
-
-    const centerLat = this.options.terrainGeoBounds.centerLat;
-    const centerLon = this.options.terrainGeoBounds.centerLon;
-    const baseElevation = this.options.terrainBaseElevation;
-
-    let vIdx = 0;
-    for (let j = 0; j <= segments; j++) {
-      const v = j / segments;
-      const yVal = y + v;
-      // Exact Web Mercator inverse projection for latitude
-      const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * yVal) / 2 ** zoom)));
-      const lat = radToDeg(latRad);
-
-      for (let i = 0; i <= segments; i++) {
-        const u = i / segments;
-        const lon = nw.lon + u * (se.lon - nw.lon);
-
-        const loc = geoToLocalMeters(lat, lon, 0, centerLat, centerLon, baseElevation);
-        const groundLocalY = this.options.elevationSampler(loc.x, loc.z);
-        const yPos = groundLocalY * this.verticalExaggeration + 0.04;
-
-        positions[vIdx * 3] = loc.x;
-        positions[vIdx * 3 + 1] = yPos;
-        positions[vIdx * 3 + 2] = loc.z;
-
-        uvs[vIdx * 2] = u;
-        uvs[vIdx * 2 + 1] = 1 - v;
-
-        vIdx++;
-      }
-    }
-
-    for (let j = 0; j < segments; j++) {
-      for (let i = 0; i < segments; i++) {
-        const a = j * (segments + 1) + i;
-        const b = a + 1;
-        const c = a + (segments + 1);
-        const d = c + 1;
-
-        indices.push(a, c, b);
-        indices.push(b, c, d);
-      }
-    }
-
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geo.setIndex(indices);
-    geo.computeVertexNormals();
-
-    return geo;
-  }
-
-  private updatePatchGeometryHeights(geo: THREE.BufferGeometry, patch?: ImageryPatch): void {
-    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
-
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const groundLocalY = this.options.elevationSampler(x, z);
-      const y = groundLocalY * this.verticalExaggeration + 0.04;
-      pos.setY(i, y);
-    }
-    pos.needsUpdate = true;
-    geo.computeVertexNormals();
-    geo.computeBoundingBox();
-    geo.computeBoundingSphere();
-
-    if (patch && patch.outlineMesh) {
-      patch.mesh.remove(patch.outlineMesh);
-      patch.outlineMesh.geometry.dispose();
-      (patch.outlineMesh.material as THREE.Material)?.dispose();
-      patch.outlineMesh = this.buildPatchOutline(geo, patch.zoom);
-      patch.mesh.add(patch.outlineMesh);
-    }
   }
 
   private buildPatchOutline(geo: THREE.BufferGeometry, zoom: number): THREE.LineSegments {
@@ -2467,7 +2148,6 @@ export class ImageryLODManager {
   }
 
   private clearAllPatches(): void {
-    this.staleDirectPatches.clear();
     this.terrainImagery?.dispose(); this.terrainImagery = undefined;
     this.batchRenderer?.clear();
     this.publishedTileKeys.clear();
@@ -2484,8 +2164,6 @@ export class ImageryLODManager {
   }
 
   public dispose(): void {
-    this.surfaceLifetime.abort();
-    this.streamedSurfaceSources = undefined;
     if (this.isDisposed) return;
     this.isDisposed = true;
 

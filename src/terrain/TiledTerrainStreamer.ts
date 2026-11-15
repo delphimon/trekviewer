@@ -18,8 +18,6 @@ export interface TerrainStreamerOptions {
   maxChunks?: number;
   evalThresholdM?: number;
   initialViewMode?: ViewMode;
-  prepareSurfacePromotion?: (chunk: LocalTerrainChunk, replacing?: LocalTerrainChunk) => Promise<() => boolean>;
-  prepareSurfaceRemoval?: (chunks: LocalTerrainChunk[]) => Promise<() => boolean>;
 }
 
 interface ElevationAcquisition {
@@ -32,8 +30,8 @@ interface ElevationAcquisition {
 export class TiledTerrainStreamer {
   private readonly chunks = new Map<string, LocalTerrainChunk>();
   private wanted = new Map<string, TerrainTileLayout>();
-  private ready: { id: string; chunk: LocalTerrainChunk; generation: number; publish?: () => boolean } | null = null;
-  private readyRemoval: { entries: [string, LocalTerrainChunk][]; generation: number; publish?: () => boolean } | null = null;
+  private ready: { id: string; chunk: LocalTerrainChunk; generation: number } | null = null;
+  private readyRemoval: { entries: [string, LocalTerrainChunk][]; generation: number } | null = null;
   private retireAll = false;
   private readonly lifetime = new AbortController();
   private busy = false;
@@ -249,11 +247,11 @@ export class TiledTerrainStreamer {
     }
     if (ahead !== this.prefetchTileId) { this.prefetchTileId = ahead; this.nextWorkAt = 0; }
     if (this.readyRemoval) {
-      const { entries, generation, publish } = this.readyRemoval;
+      const { entries, generation } = this.readyRemoval;
       this.readyRemoval = null;
       this.nextWorkAt = 0;
       if (generation === this.generation && entries.every(([id, chunk]) => this.chunks.get(id) === chunk
-        && (this.retireAll || !this.wanted.has(id))) && publish?.() !== false) {
+        && (this.retireAll || !this.wanted.has(id)))) {
         const bounds = entries.map(([, chunk]) => chunk.getSurfaceBounds());
         for (const [id, chunk] of entries) {
           chunk.mesh.visible = false;
@@ -272,16 +270,11 @@ export class TiledTerrainStreamer {
     const reblended = this.applyPendingSeam(terrain);
     // Publish at most one prepared child per frame. The parent fills every other cell.
     if (!reblended && this.ready) {
-      const { id, chunk, generation, publish } = this.ready;
+      const { id, chunk, generation } = this.ready;
       this.ready = null;
       this.nextWorkAt = 0;
+      // Imagery is drawn by the terrain shader, so a child publishes as soon as it is built.
       if (generation !== this.generation || !this.wanted.has(id)) chunk.dispose();
-      else if (publish?.() === false) {
-        // Imagery may arrive while its replacement geometry is being prepared.
-        // Keep the validated DEM geometry and refresh only that preparation.
-        this.busy = true; this.acquiringTile = id;
-        void this.retrySurfacePromotion(id, chunk, generation);
-      }
       else {
         const previous = this.chunks.get(id);
         chunk.setVerticalExaggeration(this.exaggeration);
@@ -351,30 +344,13 @@ export class TiledTerrainStreamer {
     this.acquisitions.clear();
   }
 
-  private async retrySurfacePromotion(id: string, chunk: LocalTerrainChunk, generation: number): Promise<void> {
-    try {
-      const publish = await this.options.prepareSurfacePromotion?.(chunk, this.chunks.get(id));
-      if (this.disposed || generation !== this.generation || !this.wanted.has(id)) chunk.dispose();
-      else this.ready = { id, chunk, generation, publish };
-    } catch (error) {
-      chunk.dispose();
-      if (!this.disposed && generation === this.generation) {
-        this.recordFailure(id);
-        console.warn('Terrain imagery preparation unavailable; retaining current coverage:', error);
-      }
-    } finally {
-      this.acquiringTile = null;
-      this.busy = false; this.nextWorkAt = 0;
-    }
-  }
-
   private async prepareNext(): Promise<void> {
     this.nextWorkAt = Infinity;
     const policy = terrainDetailPolicy(this.profile);
     if (this.retireAll && this.chunks.size) {
       this.busy = true;
       try {
-        await this.prepareRetirement([...this.chunks.entries()], this.generation);
+        this.prepareRetirement([...this.chunks.entries()], this.generation);
       } finally { this.busy = false; this.nextWorkAt = 0; }
       return;
     }
@@ -424,7 +400,7 @@ export class TiledTerrainStreamer {
       });
       if (retiring.length) {
         consumedAcquisition = false;
-        await this.prepareRetirement(retiring, generation);
+        this.prepareRetirement(retiring, generation);
         return;
       }
       const terrain = this.options.terrainResult;
@@ -447,11 +423,7 @@ export class TiledTerrainStreamer {
       if (!chunk.validate().isValid) {
         chunk.dispose(); this.failed.set(tile.id, { attempts: 0, retryAt: Infinity }); return;
       }
-      let publish: (() => boolean) | undefined;
-      try { publish = await this.options.prepareSurfacePromotion?.(chunk, previous); }
-      catch (error) { chunk.dispose(); throw error; }
-      if (this.disposed || generation !== this.generation) { chunk.dispose(); return; }
-      this.ready = { id: tile.id, chunk, generation, publish };
+      this.ready = { id: tile.id, chunk, generation };
     } catch (error) {
       if (!this.disposed && generation === this.generation && tile) {
         this.recordFailure(tile.id);
@@ -464,16 +436,8 @@ export class TiledTerrainStreamer {
     }
   }
 
-  private async prepareRetirement(entries: [string, LocalTerrainChunk][], generation: number): Promise<void> {
-    try {
-      const publish = await this.options.prepareSurfaceRemoval?.(entries.map(([, chunk]) => chunk));
-      if (!this.disposed && generation === this.generation) this.readyRemoval = { entries, generation, publish };
-    } catch (error) {
-      if (!this.disposed && generation === this.generation) {
-        console.warn('Async terrain retirement unavailable; restoring parent coverage:', error);
-        this.readyRemoval = { entries, generation };
-      }
-    }
+  private prepareRetirement(entries: [string, LocalTerrainChunk][], generation: number): void {
+    if (!this.disposed && generation === this.generation) this.readyRemoval = { entries, generation };
   }
 
   private recordFailure(id: string): void {
