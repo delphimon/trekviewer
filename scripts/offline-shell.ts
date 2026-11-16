@@ -13,7 +13,10 @@ export function offlineShell(buildId: string): Plugin {
     configResolved(config) { output = path.resolve(config.root, config.build.outDir); },
     closeBundle() {
       const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]);
-      const assets = walk(output).filter(file => !/\.(?:map)$/.test(file) && !['sw.js', 'CNAME'].includes(path.basename(file)))
+      // Dotfiles (e.g. a Finder .DS_Store in dist/) are not published by static hosts; one
+      // missing file makes the whole shell install fail.
+      const assets = walk(output).filter(file => !/\.(?:map)$/.test(file) && !path.basename(file).startsWith('.')
+        && !['sw.js', 'CNAME'].includes(path.basename(file)))
         .map(file => ({ path: path.relative(output, file).replaceAll('\\', '/'), sha256: createHash('sha256').update(fs.readFileSync(file)).digest('hex') }));
       const source = fs.readFileSync(new URL('./offline-worker.js', import.meta.url), 'utf8');
       fs.writeFileSync(path.join(output, 'sw.js'), source.replace('__TREK_SHELL_MANIFEST__', JSON.stringify({ id: buildId, assets })));
