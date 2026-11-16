@@ -932,3 +932,18 @@ and anything the owner must check.
   mips of the whole 32-layer array; and fading tiles add per-frame range uploads to the
   lookup texture. Owner: charge the headset, then rerun the A/B (C3 against af21c3b,
   moving first-person and playing tabletop, alternated).
+- 2026-11-15, C3 A/B on the Quest 3 (charged, on the charger, 98% throughout). C3
+  (653e24a) and the build before it (af21c3b), alternated, two runs each of moving
+  first-person (120 s) and playing tabletop (100 s); every report's build id was checked.
+  Results (median Hz after the first 10 s / windows under 60 Hz / missed callbacks):
+  first-person C3 69.4/7/808 and 68.0/16/1104, pre-C3 67.7/9/1117 and 67.9/11/1138;
+  tabletop C3 68.9/0/313 and 68.0/0/353, pre-C3 66.9/0/420 and 66.1/0/395. CPU submit p95
+  is about 7.5 ms with C3 and 9.5 ms without. Both builds stall the same way for the first
+  9 s of first-person (about 15 Hz, 200-450 ms gaps), so that stall predates C3; C3 also
+  avoided the tabletop start-up dip the pre-C3 build showed (15-30 Hz). C3 causes no
+  regression. The first-person load stall remains a separate item (suspects: whole-array
+  mip rebuild per tile upload, per-frame fade uploads, local terrain chunk builds).
+  Note for future A/Bs: swap `dist` with `rsync -c` (the two builds' `index.html` had the
+  same size and mtime, so plain `rsync -a` kept the old one), and clear the service worker
+  shell cache and the browser HTTP cache between builds. An earlier batch the same day
+  compared C3 with itself for both reasons and was discarded.
