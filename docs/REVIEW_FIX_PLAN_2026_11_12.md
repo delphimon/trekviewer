@@ -973,3 +973,8 @@ and anything the owner must check.
   over the Loaded status; auto-entry now requires the standalone display mode (installed
   app) and a failed attempt stays quiet. Items that need a wearer (B4, B10, X1, X2 pitch,
   X3, X5, X6, X7, X9) are in `docs/HEADSET_CHECKLIST.md`.
+- 2026-11-15, deployed 038558f, then found on the headset that the live site said "Saving
+  the app for offline use failed": a Finder `.DS_Store` in `dist/` was in the offline shell
+  manifest and Surge does not publish dotfiles, so the service worker install got a 404.
+  Dotfiles are now excluded (94a3a93, deployed); every manifest file matches the live site
+  and the headset reports "The app is saved for offline startup".
