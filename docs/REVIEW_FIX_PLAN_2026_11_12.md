@@ -978,3 +978,11 @@ and anything the owner must check.
   manifest and Surge does not publish dotfiles, so the service worker install got a 404.
   Dotfiles are now excluded (94a3a93, deployed); every manifest file matches the live site
   and the headset reports "The app is saved for offline startup".
+- 2026-11-15, imagery season. USGS's NAIP Plus mosaic and its imagery basemap still serve 2017
+  flights in Washington (Enchantments 9 Oct 2017, with fresh snow; Rainier, Olympus, Baker,
+  Adams, Glacier Peak all 2017). GeoPlatform's NAIP Plus has 2021-2023 flights at the same
+  points (Enchantments 30 Jun 2023, 0.6 m). GeoPlatform is now first at every zoom, with the USGS
+  services as fallbacks. It renders every tile on request: overview tiles took a median 3 s
+  (1 in 10 over 13 s) against 0.25 s from the cached USGS basemap, so the imagery timeout is now
+  30 s; owner chose correct season over first-visit loading speed (repeat visits use the
+  persistent cache; offline packs are unaffected). Close-up tiles are as fast or faster.

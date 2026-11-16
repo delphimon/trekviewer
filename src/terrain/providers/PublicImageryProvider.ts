@@ -49,7 +49,10 @@ export class PublicImageryProvider implements ImageryProvider {
   readonly displayName = 'USGS NAIP / high-resolution orthoimagery';
   readonly attribution = `USGS / USDA NAIP + HRO (public domain); NAIP: USDA FPAC / USFS GTAC / DOI GeoPlatform; USGS overview. ${SWISS_IMAGE_CREDITS}. Global: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0`;
   readonly maxZoom = 19;
-  readonly requestTimeoutMs = 12_000;
+  /** GeoPlatform renders every tile on request: overview tiles take ~3 s (1 in 10 over 13 s,
+   * measured 2026-11-15). Let them finish rather than fall back to the 2017 USGS imagery;
+   * the persistent cache and offline packs make repeat visits fast. */
+  readonly requestTimeoutMs = 30_000;
 
   getMaxZoomForLocation(lat: number, lon: number): number { return isCONUS(lat, lon) || inSwissImageryEnvelope(lat, lon) ? 19 : 15; }
   getMaxOverviewZoomForLocation(lat: number, lon: number): number { return isCONUS(lat, lon) ? 19 : 15; }
@@ -78,11 +81,12 @@ export class PublicImageryProvider implements ImageryProvider {
     params.delete('renderingRule');
     params.delete('noData'); params.delete('noDataInterpretation');
     const fallback = `${USGS_IMAGERY_SERVICE}/export?${params}`;
-    // Cached overview is adequate below its own native sampling; sharp inspection
-    // always requests the dynamic NAIP mosaic, with lossless natural-colour output.
-    // Do not publish an upscaled overview under a fine-detail key. A failed fine
-    // request retains the existing parent imagery and uses the normal retry path.
-    return zoom >= 17 ? [sharpPlus, geo, sharp] : [fallback, geo, sharpPlus, sharp];
+    // GeoPlatform's NAIP Plus carries the newest flights (2021-2023 in the checked areas). The
+    // USGS NAIP Plus mosaic and the USGS imagery basemap still serve 2017 in Washington, which
+    // shows the Enchantments, Rainier and Olympus under October snow; they remain fallbacks.
+    // Fine levels never fall back to the cached overview: do not publish an upscaled overview
+    // under a fine-detail key. A failed fine request keeps the parent imagery and retries.
+    return zoom >= 17 ? [geo, sharpPlus, sharp] : [geo, fallback, sharpPlus, sharp];
   }
 
   getTileImageRegion(zoom: number, x: number, y: number) {

@@ -47,8 +47,9 @@ describe('no-paid-license source policy', () => {
     const tile = latLonToTile(46.852, -121.76, 19);
     const urls = provider.getTileUrls(19, tile.x, tile.y);
     expect(urls).toHaveLength(3);
-    const url = new URL(urls[0]); expect(urls[0]).toContain(NAIP_PLUS_SERVICE);
-    expect(urls[1]).toContain('imagery.geoplatform.gov');
+    // GeoPlatform first: it has the newest NAIP flights; the USGS mosaics follow as fallbacks.
+    expect(urls[0]).toContain('imagery.geoplatform.gov');
+    const url = new URL(urls[1]); expect(urls[1]).toContain(NAIP_PLUS_SERVICE);
     expect(urls[2]).toContain(NAIP_SERVICE);
     expect(url.searchParams.get('format')).toBe('png32');
     expect(JSON.parse(url.searchParams.get('renderingRule')!)).toEqual({ rasterFunction: 'NaturalColor' });
@@ -56,7 +57,8 @@ describe('no-paid-license source policy', () => {
     expect(url.searchParams.get('size')).toBe('1024,1024');
     expect(provider.getTileImageRegion(19, tile.x, tile.y)).toEqual({ x: tile.x % 4 * 256, y: tile.y % 4 * 256, width: 256, height: 256 });
     const overview = latLonToTile(46.852, -121.76, 15);
-    expect(provider.getTileUrls(15, overview.x, overview.y)[0]).toContain(USGS_IMAGERY_SERVICE);
+    expect(provider.getTileUrls(15, overview.x, overview.y)[0]).toContain('imagery.geoplatform.gov');
+    expect(provider.getTileUrls(15, overview.x, overview.y)[1]).toContain(USGS_IMAGERY_SERVICE);
   });
 
   it('uses 10 m global Sentinel imagery with row/column ordering and an appropriate zoom cap outside CONUS', () => {
@@ -279,4 +281,8 @@ describe('best available public-domain elevation', () => {
     expect(sample.isValid).toBe(true); expect(sample.elevation).toBeCloseTo(11, 6);
     expect(ElevationTileService.sampleElevation(grid, 0, 0).isValid).toBe(false);
   });
+});
+
+it('gives GeoPlatform renders long enough to finish instead of falling back to older imagery', () => {
+  expect(new PublicImageryProvider().requestTimeoutMs).toBeGreaterThanOrEqual(30_000);
 });
