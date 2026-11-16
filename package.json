@@ -16,6 +16,7 @@
     "test": "vitest run --maxWorkers=2",
     "test:watch": "vitest --maxWorkers=2",
     "profile:summary": "node scripts/summarize-profile.mjs",
+    "profile:quest": "node scripts/run-quest-profile.mjs",
     "preview": "vite preview",
     "verify": "npm run typecheck && npm test && npm run build",
     "deploy:surge": "npm run verify && npx surge dist --domain trekviewer.surge.sh",
