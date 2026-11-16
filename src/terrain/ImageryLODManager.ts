@@ -1072,7 +1072,8 @@ export class ImageryLODManager {
           const canvas = document.createElement('canvas');
           canvas.width = 256;
           canvas.height = 256;
-          const ctx = canvas.getContext('2d');
+          // CPU-backed, like the cropped tiles: the imagery texture array reads these pixels back.
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
           if (ctx) {
             ctx.drawImage(satImg, 0, 0, 256, 256);
             if (labelImg) {

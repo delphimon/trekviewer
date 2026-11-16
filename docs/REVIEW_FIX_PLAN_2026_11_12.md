@@ -947,3 +947,15 @@ and anything the owner must check.
   same size and mtime, so plain `rsync -a` kept the old one), and clear the service worker
   shell cache and the browser HTTP cache between builds. An earlier batch the same day
   compared C3 with itself for both reasons and was discarded.
+- 2026-11-15, first-person load stall on the Quest 3. Perfetto showed low GPU use (23-28%)
+  during the stall and the renderer main thread busy outside the frame callback; a CDP CPU
+  profile put about 40% of main-thread time in `drawImage`/`getImageData` on imagery tiles.
+  Two causes: NAIP export rasters (1024 px PNG, 16 tiles each) were decoded again on the main
+  thread for every crop, and the crops lived in GPU-backed canvases, so the usability check
+  and the texture-array copy each forced a synchronous GPU readback. Fix: decode each shared
+  raster Blob once with `createImageBitmap` (off the main thread) and crop into CPU-backed
+  (`willReadFrequently`) canvases; the hybrid label composite canvas too. Skipping the array
+  mip rebuilds was tried first and made little difference. Quest A/B, 60 s moving
+  first-person, three runs each, alternated: missed callbacks in the first 14 s fell from
+  474-506 to 221-230, steady 72 Hz came at 6-7 s instead of 12-14 s, loading ran at 30-40 Hz
+  instead of 12-15 Hz; after loading, coverage (100%), tile counts and frame rate unchanged.

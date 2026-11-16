@@ -14,6 +14,8 @@ export enum TilePriority {
 }
 
 export type TileImageSource = HTMLImageElement | HTMLCanvasElement;
+/** A shared export raster, decoded once (ImageBitmap) where the browser supports it. */
+type RasterSource = HTMLImageElement | ImageBitmap;
 
 export interface ActiveRequestsByClass {
   critical: number;
@@ -50,8 +52,8 @@ export class TileImageCache {
   private static cache: Map<string, TileImageSource> = new Map();
   private static entryBytes: Map<string, number> = new Map();
   private static inFlight = new Map<string, SharedRequest<TileImageSource>>();
-  private static rasterSources = new Map<string, HTMLImageElement>();
-  private static rasterLoads = new Map<string, SharedRequest<HTMLImageElement>>();
+  private static rasterSources = new Map<string, RasterSource>();
+  private static rasterLoads = new Map<string, SharedRequest<RasterSource>>();
   private static rasterFailures = new Map<string, number>();
   private static rasterServiceFailures = new Map<string, number>();
   private static rasterSourceBytes = 0;
@@ -163,7 +165,7 @@ export class TileImageCache {
     return false;
   }
 
-  private static calculateImageBytes(img: TileImageSource): number {
+  private static calculateImageBytes(img: TileImageSource | ImageBitmap): number {
     const width = ('naturalWidth' in img ? img.naturalWidth : 0) || img.width || 256;
     const height = ('naturalHeight' in img ? img.naturalHeight : 0) || img.height || 256;
     // 4 bytes per RGBA pixel
@@ -395,16 +397,20 @@ export class TileImageCache {
         for (const url of urls) {
           try {
             // The tile and shared raster each retain their live consumers.
-            let img: TileImageSource = region
+            const source: RasterSource = region
               ? await this.loadRasterSource(`${provider.id}:${url}`, url, provider.requestTimeoutMs ?? timeoutMs, generation, provider.id, requestSignal)
               : await this.loadImageWithTimeout(url, provider.requestTimeoutMs ?? timeoutMs, requestSignal);
             if (requestSignal.aborted || generation !== this.generation) throw new DOMException('Tile load aborted', 'AbortError');
-            const suppliedSource = getImagerySource(img);
-            if (region) {
-              if (region.x + region.width > img.width || region.y + region.height > img.height) throw new Error('Incomplete source raster dimensions');
+            const suppliedSource = getImagerySource(source);
+            let img: TileImageSource;
+            if (!region) img = source as HTMLImageElement;
+            else {
+              if (region.x + region.width > source.width || region.y + region.height > source.height) throw new Error('Incomplete source raster dimensions');
               const canvas = document.createElement('canvas'); canvas.width = region.width; canvas.height = region.height;
-              const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Cannot crop imagery raster');
-              ctx.drawImage(img, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
+              // CPU-backed: the usability check and the imagery texture array both read these pixels
+              // back. A GPU-backed canvas makes every read a synchronous GPU readback on the main thread.
+              const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) throw new Error('Cannot crop imagery raster');
+              ctx.drawImage(source, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
               if (canvas.dataset) canvas.dataset.sourceUrl = url;
               img = canvas;
             }
@@ -452,12 +458,12 @@ export class TileImageCache {
 
   /** Sixteen fine tiles share one 1024px export; source rasters count toward the
    * same decoded-byte limit and retain at most four entries (16 MiB). */
-  private static loadRasterSource(key: string, url: string, timeout: number, generation: number, providerId: string, signal: AbortSignal): Promise<HTMLImageElement> {
+  private static loadRasterSource(key: string, url: string, timeout: number, generation: number, providerId: string, signal: AbortSignal): Promise<RasterSource> {
     const cached = this.rasterSources.get(key);
     if (cached) { this.rasterSources.delete(key); this.rasterSources.set(key, cached); return Promise.resolve(cached); }
     if ((this.rasterFailures.get(key) ?? 0) > Date.now()) return Promise.reject(new Error('Source raster temporarily unavailable'));
     const serviceKey = this.rasterServiceKey(providerId, url);
-    return consumeSharedRequest(this.rasterLoads, key, requestSignal => this.loadImageWithTimeout(url, timeout, requestSignal).then(image => {
+    return consumeSharedRequest(this.rasterLoads, key, requestSignal => this.loadRasterImage(url, timeout, requestSignal).then(image => {
       if (requestSignal.aborted || generation !== this.generation) throw new DOMException('Raster load aborted', 'AbortError');
       const bytes = this.calculateImageBytes(image);
       if (generation === this.generation) this.rasterServiceFailures.delete(serviceKey);
@@ -489,7 +495,7 @@ export class TileImageCache {
       return Promise.reject(new Error('Image is not defined in this environment'));
     }
 
-    if ((OfflineStore.available() && offlineSourceAllowed(url)) || (PersistentResourceCache.isAvailable() && PersistentResourceCache.isEnabled() && persistentResourceAllowed(url))) {
+    if (this.persistedSourceAllowed(url)) {
       return this.loadPersistedImage(url, timeoutMs, signal);
     }
 
@@ -547,7 +553,33 @@ export class TileImageCache {
     });
   }
 
-  private static async loadPersistedImage(url: string, timeoutMs: number, signal?: AbortSignal): Promise<HTMLImageElement> {
+  private static persistedSourceAllowed(url: string): boolean {
+    return (OfflineStore.available() && offlineSourceAllowed(url))
+      || (PersistentResourceCache.isAvailable() && PersistentResourceCache.isEnabled() && persistentResourceAllowed(url));
+  }
+
+  /** Shared export rasters: sixteen tiles are cropped from each. Decoding the Blob with
+   * createImageBitmap runs off the main thread and keeps the pixels; an <img> is decoded again on
+   * the main thread (about 100 ms for a 1024 px PNG on Quest) whenever a crop reads it. */
+  private static loadRasterImage(url: string, timeoutMs: number, signal?: AbortSignal): Promise<RasterSource> {
+    if (typeof createImageBitmap !== 'function' || !this.persistedSourceAllowed(url)) return this.loadImageWithTimeout(url, timeoutMs, signal);
+    return this.loadPersisted(url, timeoutMs, signal, (blob, decodeSignal) => abortable(createImageBitmap(blob), decodeSignal));
+  }
+
+  private static loadPersistedImage(url: string, timeoutMs: number, signal?: AbortSignal): Promise<HTMLImageElement> {
+    return this.loadPersisted(url, timeoutMs, signal, async (blob, decodeSignal, remainingMs) => {
+      const objectURL = URL.createObjectURL(blob);
+      try {
+        const image = await this.loadImageWithTimeout(objectURL, remainingMs, decodeSignal);
+        if (isSwissImageryURL(url) && !isCompleteSwissImage(image)) throw new Error('Incomplete Swiss imagery coverage');
+        return image;
+      }
+      finally { URL.revokeObjectURL(objectURL); }
+    });
+  }
+
+  private static async loadPersisted<T extends object>(url: string, timeoutMs: number, signal: AbortSignal | undefined,
+    decodeBlob: (blob: Blob, signal: AbortSignal, remainingMs: number) => Promise<T>): Promise<T> {
     const generation = PersistentResourceCache.getGeneration();
     const controller = new AbortController();
     const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true });
@@ -557,15 +589,7 @@ export class TileImageCache {
     // a caller abort stays an abort.
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; abort(); }, timeoutMs);
-    const decode = async (blob: Blob) => {
-      const objectURL = URL.createObjectURL(blob);
-      try {
-        const image = await this.loadImageWithTimeout(objectURL, Math.max(1, timeoutMs - (performance.now() - started)), controller.signal);
-        if (isSwissImageryURL(url) && !isCompleteSwissImage(image)) throw new Error('Incomplete Swiss imagery coverage');
-        return image;
-      }
-      finally { URL.revokeObjectURL(objectURL); }
-    };
+    const decode = (blob: Blob) => decodeBlob(blob, controller.signal, Math.max(1, timeoutMs - (performance.now() - started)));
     try {
       const cached = await PersistentResourceCache.read(url);
       if (controller.signal.aborted) throw new Error('Image load aborted');
@@ -587,4 +611,14 @@ export class TileImageCache {
       throw error;
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   }
+}
+
+/** Rejects as soon as the signal aborts; createImageBitmap itself cannot be cancelled. */
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new DOMException('Image decode aborted', 'AbortError'));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Image decode aborted', 'AbortError'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
