@@ -164,7 +164,7 @@ export class SceneManager {
   }
 
   public getXRRenderQuality() {
-    return readXRRenderQuality(this.renderer.xr, requestedXRFoveation(this.qualityProfile));
+    return readXRRenderQuality(this.renderer.xr, requestedXRFoveation(this.qualityProfile), framebufferScaleForProfile(this.qualityProfile));
   }
 
   public setViewMode(mode: ViewMode, extentMeters: number): void {

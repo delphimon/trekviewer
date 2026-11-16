@@ -959,3 +959,17 @@ and anything the owner must check.
   first-person, three runs each, alternated: missed callbacks in the first 14 s fell from
   474-506 to 221-230, steady 72 Hz came at 6-7 s instead of 12-14 s, loading ran at 30-40 Hz
   instead of 12-15 Hz; after loading, coverage (100%), tile counts and frame rate unchanged.
+- 2026-11-15, headset checks driven over USB (local build of main + fixes). X8 confirmed: on
+  quest-high each eye renders 2016×2112 (1.2× the Quest 3 default 1680×1760) and moving
+  first-person holds about 69-70 Hz; the profile counter `xrFramebufferScaleRequested` was
+  hard-coded to 1 and now reports the requested scale. X4 confirmed: the hiker and the
+  Start/Finish pins keep the same room size at 1×, 2× and 4× tabletop zoom. X2 partly
+  confirmed: HUD text is sharp and no label overflows in screenshots; panel pitch is left
+  for the wearer. P6 measured in tabletop on quest-high: JS heap 228 MB, renderer process
+  576 MB, GPU process 748 MB, tile cache 64 MB, imagery arrays 96 MB; no change needed. P9
+  is desktop-only, which no longer matters (owner: the app is headset-only). Bug found and
+  fixed: Quest Browser exposes `getDigitalGoodsService` in ordinary tabs, so every page load
+  tried to auto-enter XR without a user gesture and showed "Could not start WebXR session"
+  over the Loaded status; auto-entry now requires the standalone display mode (installed
+  app) and a failed attempt stays quiet. Items that need a wearer (B4, B10, X1, X2 pitch,
+  X3, X5, X6, X7, X9) are in `docs/HEADSET_CHECKLIST.md`.

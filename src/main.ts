@@ -22,6 +22,7 @@ import { metresPerPixelAt } from './ui/ScaleBar.ts';
 import { NearFieldStrip } from './ui/NearFieldStrip.ts';
 import { solarPosition, solarTimeToDate, sunDirection, sunIntensityScale } from './visualization/SolarPosition.ts';
 import { DesktopOverlay } from './ui/DesktopOverlay';
+import { isInstalledApp } from './core/InstalledApp.ts';
 import { LoadedTrek } from './core/LoadedTrek';
 import { RouteLoader } from './core/RouteLoader';
 import { TrekSession } from './core/TrekSession';
@@ -1414,19 +1415,21 @@ export class TrekViewerApp {
   private autoEnterAttempted = false;
 
   /** Meta's WebXR PWA guidance: an installed PWA should open straight into immersive mode
-   * (the app-icon tap counts as user activation). `getDigitalGoodsService` only exists inside
-   * the packaged PWA, so a normal browser tab keeps the 2D landing page. Passthrough is
-   * preferred because the tabletop is designed for mixed reality. Runs once per page load. */
+   * (the app-icon tap counts as user activation). Quest Browser also exposes
+   * `getDigitalGoodsService` in ordinary tabs, so the standalone display mode (set by the
+   * manifest, only true when installed) decides; a normal tab keeps the 2D landing page. A failed
+   * attempt stays quiet: nobody asked for it. Passthrough is preferred because the tabletop is
+   * designed for mixed reality. Runs once per page load. */
   private async autoEnterInstalledPWA(): Promise<void> {
     if (this.autoEnterAttempted || typeof window === 'undefined') return;
     this.autoEnterAttempted = true;
-    if ((window as Window & { getDigitalGoodsService?: unknown }).getDigitalGoodsService === undefined) return;
+    if (!isInstalledApp(window)) return;
     if (!navigator.xr || this.sceneManager.renderer.xr.isPresenting) return;
     const ar = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
-    await this.enterXR(ar ? 'immersive-ar' : 'immersive-vr');
+    await this.enterXR(ar ? 'immersive-ar' : 'immersive-vr', { quiet: true });
   }
 
-  private async enterXR(mode: 'immersive-vr' | 'immersive-ar'): Promise<void> {
+  private async enterXR(mode: 'immersive-vr' | 'immersive-ar', { quiet = false } = {}): Promise<void> {
     if (this.isDisposed || this.graphicsRecovery?.isSuspended || this.xrEntryPending || this.sceneManager.renderer.xr.isPresenting) return;
     if (!navigator.xr) {
       this.overlay.showStatus('WebXR is not supported by this browser. Open this URL in the Meta Quest Browser on your Quest 3!', true, 'error');
@@ -1471,8 +1474,11 @@ export class TrekViewerApp {
       }
     } catch (e: any) {
       if (requestedSession) await requestedSession.end().catch(() => {});
-      console.error('Failed to start WebXR session:', e);
-      this.overlay.showStatus(`Could not start WebXR session: ${e.message}`, true, 'error');
+      if (quiet) console.info('Automatic immersive entry was not possible:', e?.message);
+      else {
+        console.error('Failed to start WebXR session:', e);
+        this.overlay.showStatus(`Could not start WebXR session: ${e.message}`, true, 'error');
+      }
     } finally {
       this.xrEntryPending = false;
     }

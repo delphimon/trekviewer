@@ -31,9 +31,9 @@ const dimension = (value: unknown): number | null =>
  * the library's cached request, even when a runtime ignores or clamps it.
  * Dimensions are diagnostics, not GPU timing or a guarantee of pixel clarity.
  */
-export function readXRRenderQuality(xr: XRQualityReader, requested: number): XRRenderQualityCounters {
+export function readXRRenderQuality(xr: XRQualityReader, requested: number, framebufferScale = 1): XRRenderQualityCounters {
   const counters: XRRenderQualityCounters = { xrRequestedFoveation: requested,
-    xrLayerFoveation: null, xrLayerFoveationSupported: null, xrFramebufferScaleRequested: 1,
+    xrLayerFoveation: null, xrLayerFoveationSupported: null, xrFramebufferScaleRequested: framebufferScale,
     xrLayerType: xr.isPresenting ? 'unknown' : 'none', xrLayerWidth: null, xrLayerHeight: null,
     xrLayerArrayLength: null, xrEyeViewports: [] };
   if (!xr.isPresenting) return counters;

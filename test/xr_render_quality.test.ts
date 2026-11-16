@@ -77,3 +77,8 @@ it('rejects malformed numeric metadata and bounds recorded eye data to stereo di
   expect(requestedXRFoveation('quest-high')).toBe(0); expect(requestedXRFoveation('desktop-high')).toBe(0);
   expect(requestedXRFoveation('quest-balanced')).toBe(1);
 });
+
+it('reports the framebuffer scale that was requested for the profile', () => {
+  expect(readXRRenderQuality({ isPresenting: false }, 0, 1.2).xrFramebufferScaleRequested).toBe(1.2);
+  expect(readXRRenderQuality({ isPresenting: false }, 0).xrFramebufferScaleRequested).toBe(1);
+});
